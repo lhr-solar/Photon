@@ -1,2 +1,16 @@
+/build/
+*.suo
+*.user
+*.userosscache
+*.userprefs
+*.vcxproj.*
+*.class
+*.log
+*.obj
+*.o
+*.exe
+*.dll
+*.so
+*.dylib
 notes.md
 temp
