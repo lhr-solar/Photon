@@ -15,7 +15,7 @@ int main() {
 
   // Create a window
   GLFWwindow *window =
-      glfwCreateWindow(800, 600, "Photon Dashboard", nullptr, nullptr);
+      glfwCreateWindow(800, 600, "Photon", nullptr, nullptr);
   if (!window) {
     std::cerr << "Failed to create GLFW window\n";
     glfwTerminate();
