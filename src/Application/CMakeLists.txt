@@ -9,8 +9,8 @@ target_include_directories(Application
 
 target_link_libraries(Application
   PRIVATE
-    GLFW
+    glfw
     Vulkan::Vulkan
-    ImGui
+    imgui
 )
 

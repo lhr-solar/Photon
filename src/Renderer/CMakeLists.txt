@@ -1,3 +1,4 @@
+# Renderer/CMakeLists.txt
 add_library(Renderer STATIC
   VulkanRenderer.cpp
 )
@@ -8,7 +9,7 @@ target_include_directories(Renderer
 )
 
 target_link_libraries(Renderer
-  PRIVATE
+  PUBLIC
     Vulkan::Vulkan
-    GLFW
+    glfw
 )

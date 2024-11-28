@@ -9,5 +9,5 @@ target_include_directories(GUI
 
 target_link_libraries(GUI
   PRIVATE
-    ImGui
+    imgui
 )
