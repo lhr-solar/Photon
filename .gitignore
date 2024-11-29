@@ -1,4 +1,5 @@
 /build/
+/notes/
 *.suo
 *.user
 *.userosscache
@@ -12,4 +13,3 @@
 *.dll
 *.so
 *.dylib
-notes.md

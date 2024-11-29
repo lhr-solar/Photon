@@ -22,6 +22,7 @@ VulkanRenderer::~VulkanRenderer() {
 bool VulkanRenderer::Init(GLFWwindow *window) {
   this->window = window;
 
+  // initialize Vulkan Instance
   if (!createInstance()) {
     return false;
   }
@@ -33,38 +34,47 @@ bool VulkanRenderer::Init(GLFWwindow *window) {
     return false;
   }
 
+  // select hardware accelerator
   if (!pickPhysicalDevice()) {
     return false;
   }
 
+  // initialize virtual hardware
   if (!createLogicalDevice()) {
     return false;
   }
 
+  // initialize swap chain
   if (!createSwapChain()) {
     return false;
   }
 
+  // initialize image views
   if (!createImageViews()) {
     return false;
   }
 
+  // initialize graphics pipeline
   if (!createGraphicsPipeline()) {
     return false;
   }
 
+  // initialize frame buffers
   if (!createFramebuffers()) {
     return false;
   }
 
+  // set commands
   if (!createCommandPool()) {
     return false;
   }
 
+  // initialize
   if (!createCommandBuffers()) {
     return false;
   }
 
+  // initialize synchronization elements
   if (!createSyncObjects()) {
     return false;
   }
@@ -165,7 +175,7 @@ bool VulkanRenderer::createInstance() {
 
   VkApplicationInfo appInfo{};
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.pApplicationName = "Photon";
+  appInfo.pApplicationName = "Photon Application";
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
   appInfo.pEngineName = "Photon Engine";
   appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -194,6 +204,47 @@ bool VulkanRenderer::createInstance() {
   }
 
   return true;
+}
+
+bool VulkanRenderer::checkValidationLayerSupport() {
+  uint32_t layerCount;
+  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+  std::vector<VkLayerProperties> availableLayers(layerCount);
+  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+  for (const char *layerName : validationLayers) {
+    bool layerFound = false;
+
+    for (const auto &layerProperties : availableLayers) {
+      if (strcmp(layerName, layerProperties.layerName) == 0) {
+        layerFound = true;
+        break;
+      }
+    }
+
+    if (!layerFound) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+std::vector<const char *> VulkanRenderer::getRequiredExtensions() {
+  uint32_t glfwExtensionCount = 0;
+  const char **glfwExtensions;
+
+  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+  std::vector<const char *> extensions(glfwExtensions,
+                                       glfwExtensions + glfwExtensionCount);
+
+  if (enableValidationLayers) {
+    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  }
+
+  return extensions;
 }
 
 bool VulkanRenderer::createSyncObjects() {
@@ -886,46 +937,7 @@ bool VulkanRenderer::createLogicalDevice() {
   return true;
 }
 
-std::vector<const char *> VulkanRenderer::getRequiredExtensions() {
-  uint32_t glfwExtensionCount = 0;
-  const char **glfwExtensions;
 
-  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-  std::vector<const char *> extensions(glfwExtensions,
-                                       glfwExtensions + glfwExtensionCount);
-
-  if (enableValidationLayers) {
-    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-  }
-
-  return extensions;
-}
-
-bool VulkanRenderer::checkValidationLayerSupport() {
-  uint32_t layerCount;
-  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-  std::vector<VkLayerProperties> availableLayers(layerCount);
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-  for (const char *layerName : validationLayers) {
-    bool layerFound = false;
-
-    for (const auto &layerProperties : availableLayers) {
-      if (strcmp(layerName, layerProperties.layerName) == 0) {
-        layerFound = true;
-        break;
-      }
-    }
-
-    if (!layerFound) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 std::vector<char> VulkanRenderer::readFile(const std::string &filename) {
   std::ifstream file(filename, std::ios::ate | std::ios::binary);
