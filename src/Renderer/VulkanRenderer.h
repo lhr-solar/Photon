@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <vulkan/vulkan.h>
+#include "../GUI/ImGuiLayer.h"
 
 class VulkanRenderer {
 public:

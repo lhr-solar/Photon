@@ -833,6 +833,21 @@ bool VulkanRenderer::createCommandBuffers() {
 
     vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 
+    ImGuiLayer.beginFrame();
+
+    // Lock telemetry data mutex
+    {
+      std::lock_guard<std::mutex> lock(telemetryDataMutex);
+
+      // Create ImGui windows and display telemetry data
+      ImGui::Begin("Telemetry Data");
+      ImGui::Text("Speed: %.2f km/h", telemetryData.speed);
+      ImGui::Text("Battery Level: %.2f%%", telemetryData.batteryLevel);
+      ImGui::End();
+    }
+
+    ImGuiLayer.endFrame(commandBuffers[i]);
+
     vkCmdEndRenderPass(commandBuffers[i]);
 
     if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {

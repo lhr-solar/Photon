@@ -1,14 +1,18 @@
 add_library(Network STATIC
-  AsioNetwork.cpp
+    SerialPort.cpp
+    TcpClient.cpp
+    NetworkManager.cpp
 )
 
 target_include_directories(Network
-  PUBLIC
-    ${CMAKE_SOURCE_DIR}/include/Network
-    ${Boost_INCLUDE_DIRS}
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/include/Network
+        ${Boost_INCLUDE_DIRS}
 )
 
 target_link_libraries(Network
-  PRIVATE
-    Boost::system
+    PRIVATE
+        ${Boost_LIBRARIES}
 )
+
+
