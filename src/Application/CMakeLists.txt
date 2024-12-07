@@ -1,16 +1,4 @@
-add_library(Application STATIC
-  Application.cpp
-)
+#src/Application/CMakeLists.txt
 
-target_include_directories(Application
-  PUBLIC
-    ${CMAKE_SOURCE_DIR}/include/Application
-)
-
-target_link_libraries(Application
-  PRIVATE
-    glfw
-    Vulkan::Vulkan
-    imgui
-)
-
+add_library(application_lib Application.cpp)
+target_include_directories(application_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

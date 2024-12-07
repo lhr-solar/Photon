@@ -14,7 +14,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}" -DDEBUG)
 
 #Find Vulkan and Boost
-find_package(Vulkan REQUIRED)
+#find_package(Vulkan REQUIRED)
 #find_package(Boost 1.71.0 REQUIRED COMPONENTS system)
 
 # Add subdirectories

@@ -1,13 +1,5 @@
-add_library(GUI STATIC
-  ImGuiLayer.cpp
-)
+#src/GUI/CMakeLists.txt
 
-target_include_directories(GUI
-  PUBLIC
-    ${CMAKE_SOURCE_DIR}/include/GUI
-)
-
-target_link_libraries(GUI
-  PRIVATE
-    imgui
-)
+add_library(gui_lib ImGuiLayer.cpp)
+target_include_directories(gui_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(gui_lib PUBLIC imgui::imgui)

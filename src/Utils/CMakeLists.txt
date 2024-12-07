@@ -1,10 +1,5 @@
-add_library(Utils STATIC
-  Log.cpp
-)
+add_library(utils_lib TelemetryData.cpp)
 
-target_include_directories(Utils
-  PUBLIC
-    ${CMAKE_SOURCE_DIR}/include/Utils
-)
+target_include_directories(utils_lib PUBLIC ${CMAKE_SOURCE_DIR})
 
 # No external dependencies for now

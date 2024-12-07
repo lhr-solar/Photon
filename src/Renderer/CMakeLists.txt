@@ -1,15 +1,6 @@
 # Renderer/CMakeLists.txt
-add_library(Renderer STATIC
-  VulkanRenderer.cpp
-)
+add_library(renderer_lib VulkanRenderer.cpp)
 
-target_include_directories(Renderer
-  PUBLIC
-    ${CMAKE_SOURCE_DIR}/include/Renderer
-)
+target_include_directories(renderer_lib PUBLIC ${CMAKE_SOURCE_DIR})
 
-target_link_libraries(Renderer
-  PUBLIC
-    Vulkan::Vulkan
-    glfw
-)
+target_link_libraries(renderer_lib PUBLIC Vulkan::Vulkan glfw)
