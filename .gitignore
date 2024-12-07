@@ -11,5 +11,4 @@
 *.o
 *.exe
 *.dll
-*.so
 *.dylib
