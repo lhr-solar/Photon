@@ -18,7 +18,7 @@ add_subdirectory(imgui)
 # On Windows, you'll typically have vulkan-1.lib. On Linux, libvulkan.so.
 add_library(Vulkan::Vulkan SHARED IMPORTED)
 set_target_properties(Vulkan::Vulkan PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/vulkan/lib/vulkan-1.lib"
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/vulkan/lib/libvulkan.so"
     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/vulkan/include"
 )
 
