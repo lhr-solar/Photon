@@ -2,5 +2,4 @@
 build/
 bin/
 temp/
-imgui.ini
 compile_commands.json

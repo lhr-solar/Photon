@@ -225,6 +225,8 @@ int backend(int argc, char* argv[]){
     dbc.load("./dbc/tpee_mppt[B].dbc");
     dbc.load("./dbc/tpee_mppt[A].dbc");
     dbc.load("./dbc/new_controls.dbc");
+    dbc.load("./dbc/bps.dbc");
+
 
     dbc.can_parse_debug();
     
@@ -236,7 +238,7 @@ int backend(int argc, char* argv[]){
     std::thread prod_t;
 
     if(source == local){
-        std::string portName = "/dev/pts/7";//PORT;
+        std::string portName = "/dev/pts/5";//PORT;
         unsigned baud = 115200;
         serial = std::make_unique<SerialPort>(portName, baud);
         prod_t = std::thread(serial_read, std::ref(*serial), std::ref(ringBuffer));

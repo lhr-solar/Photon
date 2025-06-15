@@ -613,7 +613,7 @@ public:
     static float xs1[1001], ys1[1001];
     for (int i = 0; i < 1001; ++i) {
       xs1[i] = i * 0.001f;
-      ys1[i] = 0.5f + 0.5f * sinf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
+      ys1[i] = 0.5f + 0.5f * tanf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
     }
 
     ImGui::Begin(windowName.c_str());
@@ -800,6 +800,7 @@ public:
       CAN_TABLE();
       SurfacePlot();
       Modelwindow();
+      createTSPlot("test");
   }
 
   // Starts a new imGui frame and sets up windows and ui elements
@@ -808,8 +809,8 @@ public:
     ImGui::NewFrame();
     // create main space, needs to know the number of tabs, this is done, maybe
     // create a new type, "tab"
-    setupDocking();
-    drawTabPlots();
+    //setupDocking();
+    //drawTabPlots();
     drawDemoWindows();
     /*
     createMainSpace(tabs);
