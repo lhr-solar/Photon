@@ -13,6 +13,7 @@ if (vks::tools::resourcePath != "") {
 #elif defined(VK_EXAMPLE_ASSETS_DIR)
 	return VK_EXAMPLE_ASSETS_DIR;
 #else
+    return ".";
 	return "./../assets/";
 #endif
 }

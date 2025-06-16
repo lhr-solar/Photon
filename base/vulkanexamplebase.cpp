@@ -586,9 +586,10 @@ VulkanExampleBase::VulkanExampleBase()
 		std::string msg = "Could not locate asset path in \"" + getAssetPath() + "\" !";
 		MessageBox(NULL, msg.c_str(), "Fatal error", MB_OK | MB_ICONERROR);
 #else
-		std::cerr << "Error: Could not find asset path in " << getAssetPath() << "\n";
+        std::cout << "no asset path" << std::endl;
+		//std::cerr << "Error: Could not find asset path in " << getAssetPath() << "\n";
 #endif
-		exit(-1);
+		//exit(-1);
 	}
 #endif
 

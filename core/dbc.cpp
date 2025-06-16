@@ -30,7 +30,8 @@ bool DbcParser::load(const std::string& path){
             DbcMessage msg; msg.id = id; msg.name = name; msg.dlc = static_cast<uint8_t>(dlc);
             _messages[id] = msg;
             current = &_messages[id];
-        } else if(tok == "SG_" && current){
+        } else 
+        if(tok == "SG_" && current){
             std::string name; iss >> name; // may include ":" after name
             if(!iss) continue;
             std::string sep; iss >> sep; // should be ':'
@@ -56,7 +57,8 @@ bool DbcParser::load(const std::string& path){
             DbcSignal sig; sig.name = name; sig.start_bit = start; sig.size = size;
             sig.little_endian = little; sig.is_signed = sign; sig.factor = factor; sig.offset = offset;
             current->signals.push_back(sig);
-        } else if(tok == "VAL_TABLE_"){
+        } else 
+        if(tok == "VAL_TABLE_"){
             std::string table; iss >> table;
             int64_t val; std::string desc;
             while(iss >> val){
@@ -64,7 +66,8 @@ bool DbcParser::load(const std::string& path){
                 _value_tables[table][val] = desc;
                 iss >> std::ws; char end; iss >> end; // consume closing quote char or semicolon
             }
-        } else if(tok == "VAL_"){
+        } else 
+        if(tok == "VAL_"){
             uint32_t id; std::string sig; iss >> id >> sig;
             int64_t val; std::string desc;
             while(iss >> val){
