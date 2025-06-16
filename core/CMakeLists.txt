@@ -47,6 +47,7 @@ function(buildExample EXAMPLE_NAME)
 	endif(WIN32)
 
     target_include_directories(${EXAMPLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_dependencies(${EXAMPLE_NAME} GenerateShaderHeaders)
 
 	file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 	set_target_properties(${EXAMPLE_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)

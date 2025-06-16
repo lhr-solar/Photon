@@ -16,6 +16,9 @@
 #include <thread>
 #include <cstdio>
 #include <glm/gtc/type_ptr.hpp>
+#include <vulkan/vulkan_core.h>
+#include "ui_vert_spv.hpp"
+#include "ui_frag_spv.hpp"
 
 // Options and values to display/toggle from the UI
 struct UISettings {
@@ -553,6 +556,10 @@ public:
                                           VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = example->loadShader(shadersPath + "imgui/ui.frag.spv",
                                           VK_SHADER_STAGE_FRAGMENT_BIT);
+    /*
+    shaderStages[0] = example->loadShader(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[0] = example->loadShader(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
+    */
 
     VK_CHECK_RESULT(
         vkCreateGraphicsPipelines(device->logicalDevice, pipelineCache, 1,

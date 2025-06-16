@@ -445,5 +445,16 @@ namespace vks
 			return (value + alignment - 1) & ~(alignment - 1);
 		}
 
-	}
+    VkShaderModule loadShaderFromMemory(const uint32_t* code, size_t size, VkDevice device){
+           VkShaderModule shaderModule;
+           VkShaderModuleCreateInfo moduleCreateInfo{};
+           moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+           moduleCreateInfo.codeSize = size;
+           moduleCreateInfo.pCode = code;
+
+           VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &shaderModule));
+
+           return shaderModule;
+    }
+}
 }

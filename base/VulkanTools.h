@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <algorithm>
+#include <vulkan/vulkan_core.h>
 #if defined(_WIN32)
 #include <windows.h>
 #include <fcntl.h>
@@ -123,6 +124,7 @@ namespace vks
 #else
 		VkShaderModule loadShader(const char *fileName, VkDevice device);
 #endif
+        VkShaderModule loadShaderFromMemory(const uint32_t* code, size_t size, VkDevice device);
 
 		/** @brief Checks if a file exists */
 		bool fileExists(const std::string &filename);

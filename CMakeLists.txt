@@ -6,6 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(NAME photon)
 
 project(${NAME})
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 include_directories(external)
 include_directories(external/glm)
@@ -14,6 +15,7 @@ include_directories(external/tinygltf)
 include_directories(external/ktx/include)
 include_directories(external/ktx/other_include)
 include_directories(base)
+include_directories(${CMAKE_BINARY_DIR}/generated)
 
 IF(UNIX AND NOT APPLE)
 	set(LINUX TRUE)
@@ -145,5 +147,35 @@ ENDIF(WIN32)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
 
+# Generate shader headers from SPIR-V binaries
+set(SPV_SHADERS
+    shaders/glsl/imgui/scene.vert.spv
+    shaders/glsl/imgui/scene.frag.spv
+    shaders/glsl/imgui/ui.vert.spv
+    shaders/glsl/imgui/ui.frag.spv
+    shaders/glsl/custom/custom_model.vert.spv
+    shaders/glsl/custom/custom_model.frag.spv
+    shaders/glsl/custom/particle_system.vert.spv
+    shaders/glsl/custom/particle_system.frag.spv
+    shaders/glsl/custom/particles.vert.spv
+    shaders/glsl/custom/particles.frag.spv
+)
+
+set(GENERATED_SHADER_HEADERS)
+foreach(SPV ${SPV_SHADERS})
+    get_filename_component(NAME ${SPV} NAME)
+    string(REPLACE "." "_" VAR ${NAME})
+    set(HEADER ${CMAKE_BINARY_DIR}/generated/${VAR}.hpp)
+    add_custom_command(
+        OUTPUT ${HEADER}
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/cmake/spv_to_header.py ${CMAKE_SOURCE_DIR}/${SPV} ${HEADER}
+        DEPENDS ${SPV}
+        COMMENT "Generating ${HEADER} from ${SPV}")
+    list(APPEND GENERATED_SHADER_HEADERS ${HEADER})
+endforeach()
+add_custom_target(GenerateShaderHeaders ALL DEPENDS ${GENERATED_SHADER_HEADERS})
+
 add_subdirectory(base)
+add_dependencies(base GenerateShaderHeaders)
 add_subdirectory(core)
+add_dependencies(core GenerateShaderHeaders)
