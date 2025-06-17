@@ -89,31 +89,76 @@ bool DbcParser::load(const std::string& path){
     return true;
 }
 
-void DbcParser::can_parse_debug(){
-    for(const auto &mp : _messages){
-        const auto &m = mp.second;
-        std::cout << "Message 0x" << std::hex << m.id << " " << m.name
-                  << " DLC " << std::dec << static_cast<int>(m.dlc) << std::endl;
-        for(const auto &sig : m.signals){
-            std::cout << "  Signal " << sig.name
-                      << " start=" << sig.start_bit
-                      << " size=" << static_cast<int>(sig.size)
-                      << (sig.little_endian ? " LE" : " BE")
-                      << (sig.is_signed ? " signed" : " unsigned")
-                      << " factor=" << sig.factor
-                      << " offset=" << sig.offset << std::endl;
-            if(!sig.value_map.empty()){
-                std::cout << "    Values: ";
-                bool first=true;
-                for(const auto &kv : sig.value_map){
-                    if(!first) std::cout << ", ";
-                    first=false;
-                    std::cout << kv.first << "=\"" << kv.second << "\"";
-                }
-                std::cout << std::endl;
+bool DbcParser::loadFromMemory(const char* data, size_t size){
+    std::istringstream file(std::string(data, size));
+    if(!file)
+        return false;
+    std::string line;
+    DbcMessage* current = nullptr;
+    while(std::getline(file, line)){
+        line = trim(line);
+        if(line.empty()) continue;
+        std::istringstream iss(line);
+        std::string tok;
+        iss >> tok;
+        if(tok == "BO_"){
+            uint32_t id; std::string name; char colon; unsigned dlc; std::string transmitter;
+            iss >> id >> name >> colon >> dlc >> transmitter;
+            DbcMessage msg; msg.id = id; msg.name = name; msg.dlc = static_cast<uint8_t>(dlc);
+            _messages[id] = msg;
+            current = &_messages[id];
+        } else if(tok == "SG_" && current){
+            std::string name; iss >> name;
+            if(!iss) continue;
+            std::string sep; iss >> sep;
+            std::string rest; std::getline(iss, rest);
+            rest = trim(rest);
+            std::istringstream iss2(rest);
+            std::string posToken; iss2 >> posToken;
+            size_t pipe = posToken.find('|');
+            size_t at = posToken.find('@', pipe+1);
+            uint16_t start = static_cast<uint16_t>(std::stoi(posToken.substr(0, pipe)));
+            uint8_t sizeb = static_cast<uint8_t>(std::stoi(posToken.substr(pipe+1, at-pipe-1)));
+            bool little = posToken.at(at+1) == '1';
+            bool sign = posToken.at(at+2) == '-';
+            std::string factorToken; iss2 >> factorToken;
+            double factor = 1.0, offset = 0.0;
+            if(factorToken.size() > 2){
+                factorToken = factorToken.substr(1, factorToken.size()-2);
+                size_t comma = factorToken.find(',');
+                factor = std::stod(factorToken.substr(0, comma));
+                offset = std::stod(factorToken.substr(comma+1));
+            }
+            DbcSignal sig; sig.name = name; sig.start_bit = start; sig.size = sizeb;
+            sig.little_endian = little; sig.is_signed = sign; sig.factor = factor; sig.offset = offset;
+            current->signals.push_back(sig);
+        } else if(tok == "VAL_TABLE_"){
+            std::string table; iss >> table;
+            int64_t val; std::string desc;
+            while(iss >> val){
+                iss >> std::ws; char quote; iss >> quote; std::getline(iss, desc, '"');
+                _value_tables[table][val] = desc;
+                iss >> std::ws; char end; iss >> end;
+            }
+        } else if(tok == "VAL_"){
+            uint32_t id; std::string sig; iss >> id >> sig;
+            int64_t val; std::string desc;
+            while(iss >> val){
+                iss >> std::ws; char quote; iss >> quote; std::getline(iss, desc, '"');
+                _value_tables[sig][val] = desc;
+                iss >> std::ws; char end; iss >> end;
             }
         }
     }
+
+    for(auto &mp : _messages){
+        for(auto &sig : mp.second.signals){
+            auto it = _value_tables.find(sig.name);
+            if(it != _value_tables.end()) sig.value_map = it->second;
+        }
+    }
+
+    return true;
 }
 
 uint64_t DbcParser::extract_signal(const uint8_t* data, uint16_t start, uint8_t size, bool little) const{
@@ -161,4 +206,31 @@ bool DbcParser::decode(uint32_t id, const CanFrame& frame, std::string& out) con
     }
     out = oss.str();
     return true;
+}
+
+void DbcParser::can_parse_debug(){
+    for(const auto &mp : _messages){
+        const auto &m = mp.second;
+        std::cout << "Message 0x" << std::hex << m.id << " " << m.name
+                  << " DLC " << std::dec << static_cast<int>(m.dlc) << std::endl;
+        for(const auto &sig : m.signals){
+            std::cout << "  Signal " << sig.name
+                      << " start=" << sig.start_bit
+                      << " size=" << static_cast<int>(sig.size)
+                      << (sig.little_endian ? " LE" : " BE")
+                      << (sig.is_signed ? " signed" : " unsigned")
+                      << " factor=" << sig.factor
+                      << " offset=" << sig.offset << std::endl;
+            if(!sig.value_map.empty()){
+                std::cout << "    Values: ";
+                bool first=true;
+                for(const auto &kv : sig.value_map){
+                    if(!first) std::cout << ", ";
+                    first=false;
+                    std::cout << kv.first << "=\"" << kv.second << "\"";
+                }
+                std::cout << std::endl;
+            }
+        }
+    }
 }

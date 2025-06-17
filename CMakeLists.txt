@@ -193,7 +193,29 @@ foreach(FONT ${FONTS})
 endforeach()
 add_custom_target(GenerateFontHeaders ALL DEPENDS ${GENERATED_FONT_HEADERS})
 
+# Generate dbc headers
+set(DBC_FILES
+    dbc/bps.dbc
+    dbc/controls.dbc
+    dbc/prohelion_wavesculptor22.dbc
+    dbc/tpee_mppt[B].dbc
+    dbc/tpee_mppt[A].dbc
+)
+set(GENERATED_DBC_HEADERS)
+foreach(DBC ${DBC_FILES})
+    get_filename_component(DNAME ${DBC} NAME)
+    string(REGEX REPLACE "[^A-Za-z0-9_]" "_" DVAR ${DNAME})
+    set(DHEADER ${CMAKE_BINARY_DIR}/generated/${DVAR}.hpp)
+    add_custom_command(
+        OUTPUT ${DHEADER}
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/cmake/file_to_header.py ${CMAKE_SOURCE_DIR}/${DBC} ${DHEADER}
+        DEPENDS ${DBC}
+        COMMENT "Generating ${DHEADER} from ${DBC}")
+    list(APPEND GENERATED_DBC_HEADERS ${DHEADER})
+endforeach()
+add_custom_target(GenerateDbcHeaders ALL DEPENDS ${GENERATED_DBC_HEADERS})
+
 add_subdirectory(base)
-add_dependencies(base GenerateShaderHeaders GenerateFontHeaders)
+add_dependencies(base GenerateShaderHeaders GenerateFontHeaders GenerateDbcHeaders)
 add_subdirectory(core)
-add_dependencies(core GenerateShaderHeaders GenerateFontHeaders)
+add_dependencies(core GenerateShaderHeaders GenerateFontHeaders GenerateDbcHeaders)

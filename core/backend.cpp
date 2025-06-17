@@ -15,6 +15,12 @@
 #include <array>
 #include <memory>
 
+#include "bps_dbc.hpp"
+#include "controls_dbc.hpp"
+#include "prohelion_wavesculptor22_dbc.hpp"
+#include "tpee_mppt_A__dbc.hpp"
+#include "tpee_mppt_B__dbc.hpp"
+
 static CanStore can_store;
 static DbcParser dbc;
 
@@ -221,11 +227,19 @@ int backend(int argc, char* argv[]){
         dbc.load(argv[i]);
     }
 
+    /*
     dbc.load("./dbc/prohelion_wavesculptor22.dbc");
     dbc.load("./dbc/tpee_mppt[B].dbc");
     dbc.load("./dbc/tpee_mppt[A].dbc");
     dbc.load("./dbc/controls.dbc");
     dbc.load("./dbc/bps.dbc");
+    */
+    dbc.loadFromMemory((const char*)bps_dbc, bps_dbc_size);
+    dbc.loadFromMemory((const char*)prohelion_wavesculptor22_dbc, prohelion_wavesculptor22_dbc_size);
+    dbc.loadFromMemory((const char*)tpee_mppt_B__dbc, tpee_mppt_B__dbc_size);
+    dbc.loadFromMemory((const char*)tpee_mppt_A__dbc, tpee_mppt_A__dbc_size);
+    dbc.loadFromMemory((const char*)controls_dbc, controls_dbc_size);
+
 
 
     //dbc.can_parse_debug();

@@ -28,6 +28,7 @@ struct DbcMessage {
 class DbcParser {
 public:
     bool load(const std::string& path);
+    bool loadFromMemory(const char* data, size_t size);
     bool decode(uint32_t id, const CanFrame& frame, std::string& out) const;
     void can_parse_debug();
 
