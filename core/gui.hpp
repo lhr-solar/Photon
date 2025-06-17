@@ -104,7 +104,7 @@ public:
     // HiDPI displays
     ImGuiIO &io = ImGui::GetIO();
     // grab font from file
-    io.Fonts->AddFontFromFileTTF("./fonts/Inter.ttf", 16.0f );
+    //io.Fonts->AddFontFromFileTTF("./fonts/Inter.ttf", 16.0f );
     io.FontGlobalScale = example->ui.scale;
     ImGuiStyle &style = ImGui::GetStyle();
     style.ScaleAllSizes(example->ui.scale);
@@ -552,14 +552,15 @@ public:
 
     pipelineCreateInfo.pVertexInputState = &vertexInputState;
 
+    /*
     shaderStages[0] = example->loadShader(shadersPath + "imgui/ui.vert.spv",
                                           VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = example->loadShader(shadersPath + "imgui/ui.frag.spv",
                                           VK_SHADER_STAGE_FRAGMENT_BIT);
-    /*
+                                          */
     shaderStages[0] = example->loadShader(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[0] = example->loadShader(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
-    */
+    shaderStages[1] = example->loadShader(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT);
+    std::cout << "loaded GUI shaders!" << std::endl;
 
     VK_CHECK_RESULT(
         vkCreateGraphicsPipelines(device->logicalDevice, pipelineCache, 1,

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -rf build
+#rm -rf build
 #rm imgui.ini
 mkdir build
 cd build

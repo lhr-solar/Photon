@@ -228,7 +228,7 @@ int backend(int argc, char* argv[]){
     dbc.load("./dbc/bps.dbc");
 
 
-    dbc.can_parse_debug();
+    //dbc.can_parse_debug();
     
     std::unique_ptr<SerialPort> serial;
     std::unique_ptr<TcpSocket> tcp;

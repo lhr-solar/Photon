@@ -449,6 +449,8 @@ namespace vks
            VkShaderModule shaderModule;
            VkShaderModuleCreateInfo moduleCreateInfo{};
            moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+           moduleCreateInfo.pNext = nullptr;
+           moduleCreateInfo.flags = 0;
            moduleCreateInfo.codeSize = size;
            moduleCreateInfo.pCode = code;
 

@@ -11,13 +11,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "scene_vert_spv.hpp"
 #include "scene_frag_spv.hpp"
-#include "particles_vert_spv.hpp"
-#include "particles_frag_spv.hpp"
 
 #define VK_USE_PLATFORM_WAYLAND_KHR
 
 VkSampler sampler;
-
 // ----------------------------------------------------------------------------
 // Photon
 // ----------------------------------------------------------------------------
@@ -300,14 +297,15 @@ public:
          vkglTF::VertexComponent::Color});
     ;
 
+    /*
     shaderStages[0] = loadShader(getShadersPath() + "imgui/scene.vert.spv",
                                  VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = loadShader(getShadersPath() + "imgui/scene.frag.spv",
                                  VK_SHADER_STAGE_FRAGMENT_BIT);
-    /*
-    shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
     */
+    shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT);
+    std::cout << "loaded pipeline shaders!" << std::endl;
 
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1,
                                               &pipelineCI, nullptr, &pipeline));
@@ -549,6 +547,7 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     preparePipelines();
     prepareImGui();
     buildCommandBuffers();
+    std::cout << "PREPARED!" << std::endl;
     prepared = true;
   }
 
