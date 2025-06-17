@@ -19,6 +19,7 @@
 #include <vulkan/vulkan_core.h>
 #include "ui_vert_spv.hpp"
 #include "ui_frag_spv.hpp"
+#include "Inter_ttf.hpp"
 
 // Options and values to display/toggle from the UI
 struct UISettings {
@@ -105,6 +106,7 @@ public:
     ImGuiIO &io = ImGui::GetIO();
     // grab font from file
     //io.Fonts->AddFontFromFileTTF("./fonts/Inter.ttf", 16.0f );
+    io.Fonts->AddFontFromMemoryTTF((void*)Inter_ttf, Inter_ttf_size, 16.0f);
     io.FontGlobalScale = example->ui.scale;
     ImGuiStyle &style = ImGui::GetStyle();
     style.ScaleAllSizes(example->ui.scale);

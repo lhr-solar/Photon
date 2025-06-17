@@ -175,7 +175,25 @@ foreach(SPV ${SPV_SHADERS})
 endforeach()
 add_custom_target(GenerateShaderHeaders ALL DEPENDS ${GENERATED_SHADER_HEADERS})
 
+# Generate font headers from TTF files
+set(FONTS
+    fonts/Inter.ttf
+)
+set(GENERATED_FONT_HEADERS)
+foreach(FONT ${FONTS})
+    get_filename_component(FNAME ${FONT} NAME)
+    string(REPLACE "." "_" FVAR ${FNAME})
+    set(FHEADER ${CMAKE_BINARY_DIR}/generated/${FVAR}.hpp)
+    add_custom_command(
+        OUTPUT ${FHEADER}
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/cmake/file_to_header.py ${CMAKE_SOURCE_DIR}/${FONT} ${FHEADER}
+        DEPENDS ${FONT}
+        COMMENT "Generating ${FHEADER} from ${FONT}")
+    list(APPEND GENERATED_FONT_HEADERS ${FHEADER})
+endforeach()
+add_custom_target(GenerateFontHeaders ALL DEPENDS ${GENERATED_FONT_HEADERS})
+
 add_subdirectory(base)
-add_dependencies(base GenerateShaderHeaders)
+add_dependencies(base GenerateShaderHeaders GenerateFontHeaders)
 add_subdirectory(core)
-add_dependencies(core GenerateShaderHeaders)
+add_dependencies(core GenerateShaderHeaders GenerateFontHeaders)

@@ -224,7 +224,7 @@ int backend(int argc, char* argv[]){
     dbc.load("./dbc/prohelion_wavesculptor22.dbc");
     dbc.load("./dbc/tpee_mppt[B].dbc");
     dbc.load("./dbc/tpee_mppt[A].dbc");
-    dbc.load("./dbc/new_controls.dbc");
+    dbc.load("./dbc/controls.dbc");
     dbc.load("./dbc/bps.dbc");
 
 
