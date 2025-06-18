@@ -638,10 +638,28 @@ public:
   }
 
   void sourceConfigWindow(){
-      std::string inputString(16, '\0');
+      static int input_flag = 0;
+      static std::string serialString(16, '\0');
+      static std::string ipString(16, '\0');
+      static std::string portString(16, '\0');
+
+      const char* protocol_list[] = {"Serial", "TCP"};
+      static int protocol_idx = 0;
+
       ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
-      ImGui::Begin("Source Input");
-      ImGui::InputTextWithHint("input source", "input source here", (char*)inputString.data(), inputString.size());
+      ImGui::Begin("Data Source");
+      ImGui::Combo("", &protocol_idx, protocol_list, ((int)sizeof(protocol_list) / sizeof(*(protocol_list))));
+
+      if(protocol_idx == 0)
+        ImGui::InputTextWithHint(" ", "COM3, /dev/ttyUSB0...", (char*)serialString.data(), serialString.size());
+      if(protocol_idx == 1){
+        ImGui::InputTextWithHint("  ", "Server IP", (char*)ipString.data(), ipString.size());
+        ImGui::InputTextWithHint(" ", "Server Port", (char*)portString.data(), portString.size());
+       }
+
+      ImGui::SameLine();
+      if(ImGui::Button("Submit"))
+          input_flag = 1;
       ImGui::End();
   }
 

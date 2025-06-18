@@ -187,6 +187,7 @@
   #define KEY_F3         0x45  // F3 (scan 0x3D + 8)
   #define KEY_F4         0x46  // F4 (scan 0x3E + 8)
   #define KEY_SLASH      0x3D  // '/' key
+  #define KEY_PERIOD     0x3C  // '.' key
 
 #elif defined(VK_USE_PLATFORM_SCREEN_QNX)
 #include <sys/keycodes.h>

@@ -70,6 +70,7 @@ static ImGuiKey translateKey(uint32_t key)
         case KEY_0:             return ImGuiKey_0;
 
         case KEY_SLASH:         return ImGuiKey_Slash;
+        case KEY_PERIOD:        return ImGuiKey_Period;
 
         default:
             return ImGuiKey_None;
@@ -2540,6 +2541,7 @@ void VulkanExampleBase::handleEvent(const xcb_generic_event_t *event)
                 case KEY_0: c = shift ? ')' : '0'; break;
 
                 case KEY_SLASH:       c = shift ? '?' : '/'; break;
+                case KEY_PERIOD:      c = shift ? '>' : '.'; break;
 
                 // — Whitespace & controls —
                 case KEY_SPACE:       c = ' ';  break;
