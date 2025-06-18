@@ -562,7 +562,6 @@ public:
                                           */
     shaderStages[0] = example->loadShader(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
     shaderStages[1] = example->loadShader(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT);
-    std::cout << "loaded GUI shaders!" << std::endl;
 
     VK_CHECK_RESULT(
         vkCreateGraphicsPipelines(device->logicalDevice, pipelineCache, 1,
@@ -624,16 +623,26 @@ public:
     for (int i = 0; i < 1001; ++i) {
       xs1[i] = i * 0.001f;
       ys1[i] = 0.5f + 0.5f * tanf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
+      //ys1[i] = 0.5f + i / 0.5f;
     }
 
     ImGui::Begin(windowName.c_str());
-    ImGui::Text(("Window Name: " + windowName).c_str());
+    ImGui::Text("Window Name: %s", windowName.c_str());
     if (ImPlot::BeginPlot("Sync")) {
       ImPlot::SetupAxes("x", "y");
-      ImPlot::PlotLine("f(x)", xs1, ys1, 1001);
+      ImPlot::PlotLine("f(x)", xs1, ys1, 500);
+      ImPlot::PlotLine("f(x)", xs1, ys1, 500);
       ImPlot::EndPlot();
     }
     ImGui::End();
+  }
+
+  void sourceConfigWindow(){
+      std::string inputString(16, '\0');
+      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+      ImGui::Begin("Source Input");
+      ImGui::InputTextWithHint("input source", "input source here", (char*)inputString.data(), inputString.size());
+      ImGui::End();
   }
 
   void AnimatedTablePlot() {
@@ -753,6 +762,7 @@ public:
             ImGui::Text("0x%03X", id);
             ImGui::TableSetColumnIndex(1);
             ImGui::Text("%d", frame.len);
+
             ImGui::TableSetColumnIndex(2);
             std::string decoded;
             if (backend_decode(id, frame, decoded))
@@ -791,6 +801,8 @@ public:
 
   }
 
+
+
   void setupDocking(){
       createMainSpace(tabs);
       for(auto&tab : tabs){
@@ -809,8 +821,9 @@ public:
   void drawDemoWindows(){
       CAN_TABLE();
       SurfacePlot();
-      Modelwindow();
+      //Modelwindow();
       createTSPlot("test");
+      sourceConfigWindow();
   }
 
   // Starts a new imGui frame and sets up windows and ui elements

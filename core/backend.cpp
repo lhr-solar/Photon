@@ -39,6 +39,48 @@ enum class ParseState : uint8_t {
     End
 };
 
+void user_prompt(){
+    std::string input;
+    while(true){
+        std::cout << "[!] Request CAN ID data (hex) or q to quit: ";
+        if(!(std::cin >> input))
+            return;
+        if(input == "q" || input == "quit")
+            return;
+        unsigned id = 0;
+        std::stringstream ss;
+        ss << std::hex << input;
+        if(!(ss >> id)){
+            std::cout << "Invalid ID" << std::endl;
+            continue;
+        }
+        CanFrame frame;
+        if(can_store.read(static_cast<CanStore::IdType>(id), frame)){
+            /*
+            std::cout << "LEN: " << std::dec << static_cast<int>(frame.len)
+                      << " DATA: ";
+            for(uint8_t i = 0; i < frame.len; ++i)
+                std::cout << std::uppercase << std::hex << std::setw(2)
+                          << std::setfill('0') << static_cast<int>(frame.data[i]);
+
+            std::cout << std::dec << std::nouppercase << std::setfill(' ') << std::endl;
+            */
+            std::string decoded;
+            if(dbc.decode(id,frame,decoded)){
+                std::cout << decoded << std::endl;
+            } else {
+                std::cout << "Len: " << std::dec << static_cast<int>(frame.len) << " Data: ";
+                for(uint8_t i = 0; i < frame.len; ++i)
+                    std::cout << std::uppercase << std::hex << std::setw(2)
+                              << std::setfill('0') << static_cast<int>(frame.data[i]);
+                std::cout << std::dec << std::nouppercase << std::setfill(' ')<<std::endl;
+            }
+        } else {
+            std::cout << "No data for ID" << std::endl;
+        }
+    }
+}
+
 static inline uint8_t hex_value(uint8_t c){
     static const std::array<int8_t, 256> table = []{
         std::array<int8_t, 256> t{};
@@ -153,67 +195,23 @@ void tcp_read(TcpSocket &socket, RingBuffer &ringBuffer){
         size_t amount_read = socket.read(temp.data(), temp.size());
         if(amount_read > 0) ringBuffer.write(temp.data(), amount_read);
     }
-
 }
 
 void photon_proc(RingBuffer &ringBuffer){
     std::vector<uint8_t> temp(READ_CHUNK);
     while(true){
         size_t amount_read = ringBuffer.read(temp.data(), temp.size());
-        /*
-        std::cout.write((char*)temp.data(), amount_read) << std::endl;
-        std::cout.flush();
-        */
         parse((uint8_t*)temp.data(), amount_read);
     }
 }
 
-void user_prompt(){
-    std::string input;
-    while(true){
-        std::cout << "[!] Request CAN ID data (hex) or q to quit: ";
-        if(!(std::cin >> input))
-            return;
-        if(input == "q" || input == "quit")
-            return;
-        unsigned id = 0;
-        std::stringstream ss;
-        ss << std::hex << input;
-        if(!(ss >> id)){
-            std::cout << "Invalid ID" << std::endl;
-            continue;
-        }
-        CanFrame frame;
-        if(can_store.read(static_cast<CanStore::IdType>(id), frame)){
-            /*
-            std::cout << "LEN: " << std::dec << static_cast<int>(frame.len)
-                      << " DATA: ";
-            for(uint8_t i = 0; i < frame.len; ++i)
-                std::cout << std::uppercase << std::hex << std::setw(2)
-                          << std::setfill('0') << static_cast<int>(frame.data[i]);
 
-            std::cout << std::dec << std::nouppercase << std::setfill(' ') << std::endl;
-            */
-            std::string decoded;
-            if(dbc.decode(id,frame,decoded)){
-                std::cout << decoded << std::endl;
-            } else {
-                std::cout << "Len: " << std::dec << static_cast<int>(frame.len) << " Data: ";
-                for(uint8_t i = 0; i < frame.len; ++i)
-                    std::cout << std::uppercase << std::hex << std::setw(2)
-                              << std::setfill('0') << static_cast<int>(frame.data[i]);
-                std::cout << std::dec << std::nouppercase << std::setfill(' ')<<std::endl;
-            }
-        } else {
-            std::cout << "No data for ID" << std::endl;
-        }
-    }
-}
 
 enum source_t {
     local,
     remote
 };
+
 int backend(int argc, char* argv[]){
     (void)argc;(void)argv;
     int res = 0;
@@ -227,20 +225,11 @@ int backend(int argc, char* argv[]){
         dbc.load(argv[i]);
     }
 
-    /*
-    dbc.load("./dbc/prohelion_wavesculptor22.dbc");
-    dbc.load("./dbc/tpee_mppt[B].dbc");
-    dbc.load("./dbc/tpee_mppt[A].dbc");
-    dbc.load("./dbc/controls.dbc");
-    dbc.load("./dbc/bps.dbc");
-    */
     dbc.loadFromMemory((const char*)bps_dbc, bps_dbc_size);
     dbc.loadFromMemory((const char*)prohelion_wavesculptor22_dbc, prohelion_wavesculptor22_dbc_size);
     dbc.loadFromMemory((const char*)tpee_mppt_B__dbc, tpee_mppt_B__dbc_size);
     dbc.loadFromMemory((const char*)tpee_mppt_A__dbc, tpee_mppt_A__dbc_size);
     dbc.loadFromMemory((const char*)controls_dbc, controls_dbc_size);
-
-
 
     //dbc.can_parse_debug();
     

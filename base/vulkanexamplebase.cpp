@@ -230,9 +230,7 @@ VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(const uint32_t* co
     VkPipelineShaderStageCreateInfo shaderStage = {};
     shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStage.stage = stage;
-    std::cout << "loading from memory!" << std::endl;
     shaderStage.module = vks::tools::loadShaderFromMemory(code, size, device);
-    std::cout << "LOADED from memory!" << std::endl;
     shaderStage.pName = "main";
     assert(shaderStage.module != VK_NULL_HANDLE);
     shaderModules.push_back(shaderStage.module);
@@ -601,7 +599,7 @@ VulkanExampleBase::VulkanExampleBase()
 		std::string msg = "Could not locate asset path in \"" + getAssetPath() + "\" !";
 		MessageBox(NULL, msg.c_str(), "Fatal error", MB_OK | MB_ICONERROR);
 #else
-        std::cout << "no asset path" << std::endl;
+        std::cout << "[!] Warning: no asset path" << std::endl;
 		//std::cerr << "Error: Could not find asset path in " << getAssetPath() << "\n";
 #endif
 		//exit(-1);
