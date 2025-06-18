@@ -241,7 +241,7 @@ int backend(int argc, char* argv[]){
     std::thread prod_t;
 
     if(source == local){
-        std::string portName = "/dev/pts/7";//PORT;
+        std::string portName = "/dev/pts/4";//PORT;
         unsigned baud = 115200;
         serial = std::make_unique<SerialPort>(portName, baud);
         prod_t = std::thread(serial_read, std::ref(*serial), std::ref(ringBuffer));

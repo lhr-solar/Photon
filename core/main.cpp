@@ -68,7 +68,7 @@ public:
         VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
     // Don't use the ImGui overlay of the base framework in this sample
-    settings.overlay = false;
+    settings.overlay = true;
   }
 
   ~Photon() {
