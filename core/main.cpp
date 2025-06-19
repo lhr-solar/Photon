@@ -534,7 +534,7 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
   void prepareImGui() {
     gui = new GUI(this);
     gui->init((float)width, (float)height);
-    gui->initResources(renderPass, queue, getShadersPath(), swapChain.buffers[0].view);
+    gui->initResources(renderPass, queue, getShadersPath());
   }
 
   void prepare() {

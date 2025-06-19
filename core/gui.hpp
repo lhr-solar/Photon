@@ -11,6 +11,7 @@
 #include <imgui.h>
 #include <implot.h>
 #include <implot3d.h>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -55,7 +56,11 @@ private:
   VkDeviceMemory fontMemory = VK_NULL_HANDLE;
   VkImage fontImage = VK_NULL_HANDLE;
   VkImageView fontView = VK_NULL_HANDLE;
+
+  VkImage sceneFallbackImage = VK_NULL_HANDLE;
+  VkDeviceMemory sceneFallbackMemory = VK_NULL_HANDLE;
   VkImageView sceneView = VK_NULL_HANDLE;
+  bool ownsSceneView = false;
 
   VkPipelineCache pipelineCache;
   VkPipelineLayout pipelineLayout;
@@ -95,6 +100,8 @@ public:
     glm::vec2 scale;
     glm::vec2 translate;
     glm::vec2 invScreenSize;
+    glm::vec2 whitePixel;
+    float u_time;
   } pushConstBlock;
 
   GUI(VulkanExampleBase *example) : example(example) {
@@ -126,6 +133,11 @@ public:
     vkDestroyImage(device->logicalDevice, fontImage, nullptr);
     vkDestroyImageView(device->logicalDevice, fontView, nullptr);
     vkFreeMemory(device->logicalDevice, fontMemory, nullptr);
+    if (ownsSceneView) {
+      vkDestroyImage(device->logicalDevice, sceneFallbackImage, nullptr);
+      vkFreeMemory(device->logicalDevice, sceneFallbackMemory, nullptr);
+      vkDestroyImageView(device->logicalDevice, sceneView, nullptr);
+    }
     vkDestroySampler(device->logicalDevice, sampler, nullptr);
     vkDestroyPipelineCache(device->logicalDevice, pipelineCache, nullptr);
     vkDestroyPipeline(device->logicalDevice, pipeline, nullptr);
@@ -296,9 +308,86 @@ public:
                      const std::string &shadersPath, VkImageView sceneImageView = VK_NULL_HANDLE) {
     ImGuiIO &io = ImGui::GetIO();
 
-    // scene texture
-        //sceneView = sceneImageView ? sceneImageView : example->swapChain.buffers[0].view;
+    // --- init scene view ---
+    // If the application supplies a scene texture view, use it directly.
+    // Otherwise create a 1x1 black image so the descriptor set remains valid
+    // without sampling the font atlas.
+    if (sceneImageView != VK_NULL_HANDLE) {
+      sceneView = sceneImageView;
+      ownsSceneView = false;
+    } else {
+      ownsSceneView = true;
+      VkImageCreateInfo sceneInfo = vks::initializers::imageCreateInfo();
+      sceneInfo.imageType = VK_IMAGE_TYPE_2D;
+      sceneInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+      sceneInfo.extent.width = 1;
+      sceneInfo.extent.height = 1;
+      sceneInfo.extent.depth = 1;
+      sceneInfo.mipLevels = 1;
+      sceneInfo.arrayLayers = 1;
+      sceneInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+      sceneInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+      sceneInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+      sceneInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      sceneInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      VK_CHECK_RESULT(
+          vkCreateImage(device->logicalDevice, &sceneInfo, nullptr, &sceneFallbackImage));
+      VkMemoryRequirements sceneReqs;
+      vkGetImageMemoryRequirements(device->logicalDevice, sceneFallbackImage, &sceneReqs);
+      VkMemoryAllocateInfo sceneAlloc = vks::initializers::memoryAllocateInfo();
+      sceneAlloc.allocationSize = sceneReqs.size;
+      sceneAlloc.memoryTypeIndex = device->getMemoryType(
+          sceneReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+      VK_CHECK_RESULT(vkAllocateMemory(device->logicalDevice, &sceneAlloc, nullptr,
+                                       &sceneFallbackMemory));
+      VK_CHECK_RESULT(vkBindImageMemory(device->logicalDevice, sceneFallbackImage,
+                                        sceneFallbackMemory, 0));
 
+      VkImageViewCreateInfo sceneViewInfo = vks::initializers::imageViewCreateInfo();
+      sceneViewInfo.image = sceneFallbackImage;
+      sceneViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+      sceneViewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+      sceneViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      sceneViewInfo.subresourceRange.levelCount = 1;
+      sceneViewInfo.subresourceRange.layerCount = 1;
+      VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &sceneViewInfo, nullptr,
+                                        &sceneView));
+
+      // Upload a black pixel so sampling returns transparent black
+      uint32_t black = 0;
+      vks::Buffer sceneStaging;
+      VK_CHECK_RESULT(device->createBuffer(
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+          &sceneStaging, sizeof(uint32_t)));
+      sceneStaging.map();
+      memcpy(sceneStaging.mapped, &black, sizeof(uint32_t));
+      sceneStaging.unmap();
+      VkCommandBuffer sceneCmd =
+          device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+      vks::tools::setImageLayout(sceneCmd, sceneFallbackImage, VK_IMAGE_ASPECT_COLOR_BIT,
+                                 VK_IMAGE_LAYOUT_UNDEFINED,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_PIPELINE_STAGE_HOST_BIT,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT);
+      VkBufferImageCopy sceneCopyRegion{};
+      sceneCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      sceneCopyRegion.imageSubresource.layerCount = 1;
+      sceneCopyRegion.imageExtent.width = 1;
+      sceneCopyRegion.imageExtent.height = 1;
+      sceneCopyRegion.imageExtent.depth = 1;
+      vkCmdCopyBufferToImage(sceneCmd, sceneStaging.buffer, sceneFallbackImage,
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                             &sceneCopyRegion);
+      vks::tools::setImageLayout(sceneCmd, sceneFallbackImage, VK_IMAGE_ASPECT_COLOR_BIT,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+      device->flushCommandBuffer(sceneCmd, copyQueue, true);
+      sceneStaging.destroy();
+    }
+    // --- end scene view ---
 
     // Create font texture
     unsigned char *fontData;
@@ -345,6 +434,8 @@ public:
                                      nullptr, &fontMemory));
     VK_CHECK_RESULT(
         vkBindImageMemory(device->logicalDevice, fontImage, fontMemory, 0));
+
+    
 
     // Image view
     VkImageViewCreateInfo viewInfo = vks::initializers::imageViewCreateInfo();
@@ -452,8 +543,8 @@ public:
             sampler, fontView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
         vks::initializers::writeDescriptorSet(
-                descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0,
-                &sceneDescriptor),
+            descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0,
+            &sceneDescriptor),
         vks::initializers::writeDescriptorSet(
             descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
             &fontDescriptor)};
@@ -1363,6 +1454,8 @@ void HeatmapPlot() {
         glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
     pushConstBlock.translate = glm::vec2(-1.0f);
     pushConstBlock.invScreenSize = glm::vec2(1.0f / io.DisplaySize.x, 1.0f / io.DisplaySize.y);
+    pushConstBlock.whitePixel = glm::vec2(io.Fonts->TexUvWhitePixel.x, io.Fonts->TexUvWhitePixel.y);
+    pushConstBlock.u_time = (float)ImGui::GetTime();
     vkCmdPushConstants(commandBuffer, pipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock),
                        &pushConstBlock);
