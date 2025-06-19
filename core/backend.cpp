@@ -352,7 +352,6 @@ int backend(int argc, char* argv[]){
     std::thread photon_t(photon_proc, std::ref(ringBuffer));
 
     while(1){
-
           if(new_dbc_flag.load()){ // -- handle dbc operations  --
             new_dbc_flag.store(false, std::memory_order_release);
             std::vector<DbcOp> ops;

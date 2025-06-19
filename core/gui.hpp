@@ -2,6 +2,7 @@
 // GUI
 // ----------------------------------------------------------------------------
 //
+#include "VulkanInitializers.hpp"
 #include "VulkanglTFModel.h"
 #include "imgui_internal.h"
 #include "vulkanexamplebase.h"
@@ -54,6 +55,7 @@ private:
   VkDeviceMemory fontMemory = VK_NULL_HANDLE;
   VkImage fontImage = VK_NULL_HANDLE;
   VkImageView fontView = VK_NULL_HANDLE;
+  VkImageView sceneView = VK_NULL_HANDLE;
 
   VkPipelineCache pipelineCache;
   VkPipelineLayout pipelineLayout;
@@ -92,6 +94,7 @@ public:
   struct PushConstBlock {
     glm::vec2 scale;
     glm::vec2 translate;
+    glm::vec2 invScreenSize;
   } pushConstBlock;
 
   GUI(VulkanExampleBase *example) : example(example) {
@@ -290,8 +293,12 @@ public:
 
   // Initialize all Vulkan resources used by the ui
   void initResources(VkRenderPass renderPass, VkQueue copyQueue,
-                     const std::string &shadersPath) {
+                     const std::string &shadersPath, VkImageView sceneImageView = VK_NULL_HANDLE) {
     ImGuiIO &io = ImGui::GetIO();
+
+    // scene texture
+        //sceneView = sceneImageView ? sceneImageView : example->swapChain.buffers[0].view;
+
 
     // Create font texture
     unsigned char *fontData;
@@ -411,7 +418,7 @@ public:
     // Descriptor pool
     std::vector<VkDescriptorPoolSize> poolSizes = {
         vks::initializers::descriptorPoolSize(
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)};
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)};
     VkDescriptorPoolCreateInfo descriptorPoolInfo =
         vks::initializers::descriptorPoolCreateInfo(poolSizes, 2);
     VK_CHECK_RESULT(vkCreateDescriptorPool(
@@ -422,6 +429,9 @@ public:
         vks::initializers::descriptorSetLayoutBinding(
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             VK_SHADER_STAGE_FRAGMENT_BIT, 0),
+        vks::initializers::descriptorSetLayoutBinding(
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 
+                VK_SHADER_STAGE_FRAGMENT_BIT, 1),
     };
     VkDescriptorSetLayoutCreateInfo descriptorLayout =
         vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
@@ -435,12 +445,17 @@ public:
                                                      &descriptorSetLayout, 1);
     VK_CHECK_RESULT(vkAllocateDescriptorSets(device->logicalDevice, &allocInfo,
                                              &descriptorSet));
+    VkDescriptorImageInfo sceneDescriptor = vks::initializers::descriptorImageInfo(
+            sampler, fontView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     VkDescriptorImageInfo fontDescriptor =
         vks::initializers::descriptorImageInfo(
             sampler, fontView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
         vks::initializers::writeDescriptorSet(
-            descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0,
+                descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0,
+                &sceneDescriptor),
+        vks::initializers::writeDescriptorSet(
+            descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
             &fontDescriptor)};
     vkUpdateDescriptorSets(device->logicalDevice,
                            static_cast<uint32_t>(writeDescriptorSets.size()),
@@ -457,7 +472,7 @@ public:
     // Pipeline layout
     // Push constants for UI rendering parameters
     VkPushConstantRange pushConstantRange =
-        vks::initializers::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT,
+        vks::initializers::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                              sizeof(PushConstBlock), 0);
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
         vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
@@ -619,27 +634,28 @@ public:
     ImGui::End();
   }
 
-  void createTSPlot(std::string windowName) {
-    static float xs1[1001], ys1[1001];
-    for (int i = 0; i < 1001; ++i) {
-      xs1[i] = i * 0.001f;
-      ys1[i] = 0.5f + 0.5f * tanf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
-      //ys1[i] = 0.5f + i / 0.5f;
-    }
+  void tsPlotContents(const char* label){
+      static float xs1[1001], ys1[1001];
+      for (int i = 0; i < 1001; ++i) {
+        xs1[i] = i * 0.001f;
+        ys1[i] = 0.5f + 0.5f * tanf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
+      }
+      if (ImPlot::BeginPlot(label)) {
+        ImPlot::SetupAxes("x", "y");
+        ImPlot::PlotLine("f(x)", xs1, ys1, 500);
+        ImPlot::PlotLine("f(x)", xs1, ys1, 500);
+        ImPlot::EndPlot();
+      }
+  }
 
+  void createTSPlot(std::string windowName) {
     ImGui::Begin(windowName.c_str());
     ImGui::Text("Window Name: %s", windowName.c_str());
-    if (ImPlot::BeginPlot("Sync")) {
-      ImPlot::SetupAxes("x", "y");
-      ImPlot::PlotLine("f(x)", xs1, ys1, 500);
-      ImPlot::PlotLine("f(x)", xs1, ys1, 500);
-      ImPlot::EndPlot();
-    }
+    tsPlotContents("Sync");
     ImGui::End();
   }
 
-  void sourceConfigWindow(){
-
+  void sourceConfigContents(){
       // -- state --
       static int input_flag = 0;
       static int close_flag = 0;
@@ -656,24 +672,20 @@ public:
       static std::string ipHint     = "e.g. 192.168.1.2";
       static std::string portHint   = "e.g. 8080";
 
-      
-      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
-      ImGui::Begin("Data Source");
-
       const char* protocol_list[] = {"Serial", "TCP"};
       static int protocol_idx = 0;
-      ImGui::Combo("", &protocol_idx, protocol_list, ((int)sizeof(protocol_list) / sizeof(*(protocol_list))));
+      ImGui::Combo("##01", &protocol_idx, protocol_list, ((int)sizeof(protocol_list) / sizeof(*(protocol_list))));
       ImGui::SameLine();
       if(ImGui::Button("Close Connection"))
         close_flag = 1;
 
       if(protocol_idx == 0){
-        ImGui::InputTextWithHint("  ", serialHint.c_str(), serialBuf, sizeof(serialBuf));
-        ImGui::InputTextWithHint(" ", baudHint.c_str(), baudBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
+        ImGui::InputTextWithHint("##02", serialHint.c_str(), serialBuf, sizeof(serialBuf));
+        ImGui::InputTextWithHint("##03", baudHint.c_str(), baudBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
       }
       if(protocol_idx == 1){
-        ImGui::InputTextWithHint("  ", ipHint.c_str(), ipBuf, sizeof(ipBuf), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank);
-        ImGui::InputTextWithHint(" ", portHint.c_str(), portBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
+        ImGui::InputTextWithHint("##04", ipHint.c_str(), ipBuf, sizeof(ipBuf), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank);
+        ImGui::InputTextWithHint("##05", portHint.c_str(), portBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
        }
       ImGui::SameLine();
       if(ImGui::Button("Connect"))
@@ -704,6 +716,12 @@ public:
 
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
       }
+  }
+
+  void sourceConfigWindow(){
+      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+      ImGui::Begin("Data Source");
+      sourceConfigContents();
       ImGui::End();
   }
 
@@ -798,17 +816,12 @@ public:
     ImGui::End();
   }
 
-  void CAN_TABLE(){
-          static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
+  void canTableContents(){
+    static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
                                    ImGuiTableFlags_BordersV |
                                    ImGuiTableFlags_RowBg |
                                    ImGuiTableFlags_Resizable |
                                    ImGuiTableFlags_ScrollY;
-
-    ImGui::SetNextWindowSize(ImVec2(480, 480), ImGuiCond_Once);
-
-    if (ImGui::Begin("CAN Data")) {
-        ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
       if (ImGui::BeginTable("cantable", 3, flags)) {
         ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 48.0f);
         ImGui::TableSetupColumn("Len", ImGuiTableColumnFlags_WidthFixed, 24.0f);
@@ -839,8 +852,14 @@ public:
         }
         ImGui::EndTable();
       }
-    }
-    ImGui::End();
+  }
+
+  void CAN_TABLE(){
+    ImGui::SetNextWindowSize(ImVec2(480, 480), ImGuiCond_Once);
+      ImGui::Begin("CAN Data");
+      ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+      canTableContents();
+      ImGui::End();
   }
 
   void Modelwindow(){
@@ -880,11 +899,8 @@ public:
       }
   }
 
-void dbcConfigWindow(){
+void dbcConfigContents(){
       static char pathBuf[256] = "";
-      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
-      ImGui::Begin("DBC Config");
-
       ImGui::InputText("File", pathBuf, sizeof(pathBuf));
       ImGui::SameLine();
       if(ImGui::Button("Load")){
@@ -917,69 +933,98 @@ void dbcConfigWindow(){
               forward_dbc_unload(files[i]);
           }
       }
+  }
 
+void dbcConfigWindow(){
+      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+      ImGui::Begin("DBC Config");
+      dbcConfigContents();
       ImGui::End();
-  }
+    }
 
-  void drawDemoWindows(){
-      CAN_TABLE();
-      SurfacePlot();
-      //Modelwindow();
-      createTSPlot("test");
-      sourceConfigWindow();
-      dbcConfigWindow();
-  }
+void configTabContents(){
+    // -- Top source config --
+    ImGui::BeginChild("src_cfg", ImVec2(0, 120), true,
+                      ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+    sourceConfigContents();
+    ImGui::EndChild();
 
-  // Starts a new imGui frame and sets up windows and ui elements
+    // grab total width before splitting
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+
+    ImGui::BeginChild("mid", ImVec2(avail.x, avail.y), false,
+                      ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+
+    // 2 columns, no border
+    ImGui::Columns(2, "cfgcols", false);
+    // set column 0 to 75% of the total:
+    ImGui::SetColumnWidth(0, avail.x * 0.75f);
+
+    // column 0
+    ImGui::BeginChild("cantab", ImVec2(0,0), true);
+    canTableContents();
+    ImGui::EndChild();
+
+    ImGui::NextColumn();
+
+    // column 1
+    ImGui::BeginChild("dbc", ImVec2(0,0), true);
+    dbcConfigContents();
+    ImGui::EndChild();
+
+    ImGui::Columns(1);
+    ImGui::EndChild();
+}
+
+void drawConfigWindow(){
+      ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_Once);
+      if(ImGui::Begin("Config Window")){
+          configTabContents();
+      }
+      ImGui::End();
+}
+
+void drawMainWindow(){
+      ImGuiViewport* vp = ImGui::GetMainViewport();
+      ImGui::SetNextWindowPos(vp->WorkPos);
+      ImGui::SetNextWindowSize(vp->WorkSize);
+      ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                              ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+      ImGui::Begin("Main", nullptr, flags);
+      if(ImGui::BeginTabBar("maintabs")){
+          if(ImGui::BeginTabItem("Config Window")){
+              configTabContents();
+              ImGui::EndTabItem();
+          }
+
+          auto loaded = get_loaded_dbcs();
+          for(const auto &name : loaded){
+              if(ImGui::BeginTabItem(name.c_str())){
+                  tsPlotContents(name.c_str());
+                  ImGui::EndTabItem();
+              }
+          }
+
+          auto builtins = list_builtin_dbcs();
+          for(const auto &b : builtins){
+              if(!b.second) continue;
+              if(ImGui::BeginTabItem(b.first.c_str())){
+                  tsPlotContents(b.first.c_str());
+                  ImGui::EndTabItem();
+              }
+          }
+          ImGui::EndTabBar();
+      }
+      ImGui::End();
+}
+
+
+
+  /*** Starts a new imGui frame and sets up windows and ui elements ***/
   void newFrame(VulkanExampleBase *example, bool updateFrameGraph) {
-    // move all this to init, make declarations in public class
+    // you gotta clean all this shit lmao
     ImGui::NewFrame();
-    // create main space, needs to know the number of tabs, this is done, maybe
-    // create a new type, "tab"
-    //setupDocking();
-    //drawTabPlots();
-    drawDemoWindows();
-    /*
-    createMainSpace(tabs);
-
-    // create the docking space for each tab, needs to know the # of windows
-    // and it's properties, make placement decisions
-    for (int i = 0; i < tabs.size(); i++) {
-      createTabDock(tabs.at(i));
-    }
-
-    // assigns the different windows to plots
-    for (int i = 0; i < tabs.at(0).windows.size(); i++) {
-      createTSPlot(tabs.at(0).windows.at(i).c_str());
-    }
-
-    for (int i = 0; i < tabs.at(1).windows.size(); i++) {
-      createTSPlot(tabs.at(1).windows.at(i).c_str());
-    }
-
-    // Create the Main Space, need to know how many tabs you want
-    // Create Docking Area for each Tab, need to know how many windows it wants,
-    // and the dimensions of the windows Create Window Plots, need to know the
-    // type of data being placed in the windows Update Window Plots, update
-    // windows based on buffer data
-
-    CAN_TABLE();
-
-    SurfacePlot();
-
-    Modelwindow();
-
-    // TODO
-    //AnimatedTablePlot();
-    //TimeSeriesPlot();
-    //MagnitudePlot();
-    //PhasePlot();
-    //PowerPlot();
-    //SpherePointCloud();
-    //HeatmapPlot();
-   // BlackHolePointCloud();
-    */
-
+    drawMainWindow();
     ImGui::Render();
   }
 
@@ -1317,8 +1362,9 @@ void HeatmapPlot() {
     pushConstBlock.scale =
         glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
     pushConstBlock.translate = glm::vec2(-1.0f);
+    pushConstBlock.invScreenSize = glm::vec2(1.0f / io.DisplaySize.x, 1.0f / io.DisplaySize.y);
     vkCmdPushConstants(commandBuffer, pipelineLayout,
-                       VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstBlock),
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock),
                        &pushConstBlock);
 
     // Render commands

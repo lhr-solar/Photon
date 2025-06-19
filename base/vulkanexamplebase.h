@@ -126,6 +126,8 @@ protected:
 	std::vector<VkCommandBuffer> drawCmdBuffers;
 	// Global render pass for frame buffer writes
 	VkRenderPass renderPass{ VK_NULL_HANDLE };
+    // Wraps the swap chain to present images (framebuffers) to the windowing system
+	VulkanSwapChain swapChain;
 	// List of available frame buffers (same as number of swap chain images)
 	std::vector<VkFramebuffer>frameBuffers;
 	// Active frame buffer index
@@ -136,9 +138,7 @@ protected:
 	std::vector<VkShaderModule> shaderModules;
 	// Pipeline cache object
 	VkPipelineCache pipelineCache{ VK_NULL_HANDLE };
-	// Wraps the swap chain to present images (framebuffers) to the windowing system
-	VulkanSwapChain swapChain;
-	// Synchronization semaphores
+		// Synchronization semaphores
 	struct {
 		// Swap chain image presentation
 		VkSemaphore presentComplete;
@@ -148,6 +148,7 @@ protected:
 	std::vector<VkFence> waitFences;
 	bool requiresStencil{ false };
 public:
+    
 	bool prepared = false;
 	bool resized = false;
 	bool viewUpdated = false;
