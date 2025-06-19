@@ -107,7 +107,7 @@ public:
     ImGuiIO &io = ImGui::GetIO();
     // grab font from file
     //io.Fonts->AddFontFromFileTTF("./fonts/Inter.ttf", 16.0f );
-    io.Fonts->AddFontFromMemoryTTF((void*)Inter_ttf, Inter_ttf_size, 16.0f);
+    io.Fonts->AddFontFromMemoryTTF((void*)Inter_ttf, Inter_ttf_size, 14.0f);
     io.FontGlobalScale = example->ui.scale;
     ImGuiStyle &style = ImGui::GetStyle();
     style.ScaleAllSizes(example->ui.scale);
@@ -880,12 +880,54 @@ public:
       }
   }
 
+void dbcConfigWindow(){
+      static char pathBuf[256] = "";
+      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+      ImGui::Begin("DBC Config");
+
+      ImGui::InputText("File", pathBuf, sizeof(pathBuf));
+      ImGui::SameLine();
+      if(ImGui::Button("Load")){
+          std::string p(pathBuf);
+          forward_dbc_load(p);
+          pathBuf[0] = '\0';
+      }
+
+      ImGui::Separator();
+      ImGui::Text("Embedded Files:");
+      auto builtins = list_builtin_dbcs();
+      for(const auto &b : builtins){
+          bool enabled = b.second;
+          if(ImGui::Checkbox(b.first.c_str(), &enabled)){
+              if(enabled)
+                  forward_builtin_dbc_load(b.first);
+              else
+                  forward_builtin_dbc_unload(b.first);
+          }
+      }
+
+      ImGui::Separator();
+      ImGui::Text("Loaded Files:");
+      auto files = get_loaded_dbcs();
+      for(size_t i = 0; i < files.size(); ++i){
+          ImGui::TextUnformatted(files[i].c_str());
+          ImGui::SameLine();
+          std::string btn = "Unload##" + std::to_string(i);
+          if(ImGui::Button(btn.c_str())){
+              forward_dbc_unload(files[i]);
+          }
+      }
+
+      ImGui::End();
+  }
+
   void drawDemoWindows(){
       CAN_TABLE();
       SurfacePlot();
       //Modelwindow();
       createTSPlot("test");
       sourceConfigWindow();
+      dbcConfigWindow();
   }
 
   // Starts a new imGui frame and sets up windows and ui elements

@@ -15,6 +15,7 @@
 #include <array>
 #include <memory>
 #include <atomic>
+#include <utility>
 
 #include "bps_dbc.hpp"
 #include "controls_dbc.hpp"
@@ -25,11 +26,101 @@
 static CanStore can_store;
 static DbcParser dbc;
 
+static std::mutex dbc_mtx;
+struct BuiltinDbc {
+    const char* name;
+    const unsigned char* data;
+    size_t size;
+    bool enabled;
+};
+
+static BuiltinDbc builtin_dbcs[] = {
+    {"BPS", bps_dbc, bps_dbc_size, true},
+    {"Wavesculptor22", prohelion_wavesculptor22_dbc, prohelion_wavesculptor22_dbc_size, true},
+    {"MPPT A", tpee_mppt_A__dbc, tpee_mppt_A__dbc_size, true},
+    {"MPPT B", tpee_mppt_B__dbc, tpee_mppt_B__dbc_size, true},
+    {"Controls", controls_dbc, controls_dbc_size, true}
+};
+static std::mutex builtin_mtx;
+
+struct DbcOp{
+    enum Type { Load, Unload } type;
+    std::string name;
+    bool builtin = false;
+};
+
+static std::vector<DbcOp> dbc_requests;
+static std::mutex dbc_request_mtx;
+static std::vector<std::string> loaded_dbcs;
+static std::mutex loaded_dbcs_mtx;
+std::atomic<bool> new_dbc_flag(false);
+
+static void rebuild_dbc(){
+    DbcParser tmp;
+    {
+        std::lock_guard<std::mutex> lock(builtin_mtx);
+        for(const auto &b : builtin_dbcs)
+            if(b.enabled)
+                tmp.loadFromMemory((const char*)b.data, b.size);
+    }
+    {
+        std::lock_guard<std::mutex> lock(loaded_dbcs_mtx);
+        for(const auto &p : loaded_dbcs)
+            tmp.load(p);
+    }
+    std::lock_guard<std::mutex> lock(dbc_mtx);
+    dbc = std::move(tmp);
+}
+
 std::atomic<bool> data_source_terminate(false);
 
 const CanStore& get_can_store() { return can_store; }
 
+void forward_dbc_load(const std::string& path){
+    if(path.empty())
+        return;
+    std::lock_guard<std::mutex> lock(dbc_request_mtx);
+    dbc_requests.push_back({DbcOp::Load, path});
+    new_dbc_flag.store(true, std::memory_order_release);
+}
+
+void forward_dbc_unload(const std::string& path){
+    if(path.empty())
+        return;
+    std::lock_guard<std::mutex> lock(dbc_request_mtx);
+    dbc_requests.push_back({DbcOp::Unload, path});
+    new_dbc_flag.store(true, std::memory_order_release);
+}
+
+void forward_builtin_dbc_load(const std::string& name){
+    if(name.empty()) return;
+    std::lock_guard<std::mutex> lock(dbc_request_mtx);
+    dbc_requests.push_back({DbcOp::Load, name, true});
+    new_dbc_flag.store(true, std::memory_order_release);
+}
+
+void forward_builtin_dbc_unload(const std::string& name){
+    if(name.empty()) return;
+    std::lock_guard<std::mutex> lock(dbc_request_mtx);
+    dbc_requests.push_back({DbcOp::Unload, name, true});
+    new_dbc_flag.store(true, std::memory_order_release);
+}
+
+std::vector<std::pair<std::string,bool>> list_builtin_dbcs(){
+    std::lock_guard<std::mutex> lock(builtin_mtx);
+    std::vector<std::pair<std::string,bool>> out;
+    for(const auto &b : builtin_dbcs)
+        out.emplace_back(b.name, b.enabled);
+    return out;
+}
+
+std::vector<std::string> get_loaded_dbcs(){
+    std::lock_guard<std::mutex> lock(loaded_dbcs_mtx);
+    return loaded_dbcs;
+}
+
 bool backend_decode(uint32_t id, const CanFrame &frame, std::string &out){
+    std::lock_guard<std::mutex> lock(dbc_mtx);
     return dbc.decode(id, frame, out);
 }
 
@@ -59,15 +150,6 @@ void user_prompt(){
         }
         CanFrame frame;
         if(can_store.read(static_cast<CanStore::IdType>(id), frame)){
-            /*
-            std::cout << "LEN: " << std::dec << static_cast<int>(frame.len)
-                      << " DATA: ";
-            for(uint8_t i = 0; i < frame.len; ++i)
-                std::cout << std::uppercase << std::hex << std::setw(2)
-                          << std::setfill('0') << static_cast<int>(frame.data[i]);
-
-            std::cout << std::dec << std::nouppercase << std::setfill(' ') << std::endl;
-            */
             std::string decoded;
             if(dbc.decode(id,frame,decoded)){
                 std::cout << decoded << std::endl;
@@ -101,16 +183,6 @@ static inline uint8_t hex_value(uint8_t c){
 
 inline void dispatch(uint32_t id, uint8_t len, const uint8_t* payload){
    can_store.store(static_cast<CanStore::IdType>(id), len, payload);
-   
-   /*
-    std::cout << "ID:" << std::hex << id << " LEN:" << std::dec
-              << static_cast<int>(len) << " DATA:";
-    for(uint8_t i = 0; i < len; ++i)
-        std::cout << std::uppercase << std::hex << std::setw(2)
-                  << std::setfill('0') << static_cast<int>(payload[i]);
-    std::cout << std::dec << std::nouppercase << std::setfill(' ') << std::endl;
-
-    */
 }
 
 void parse(const uint8_t* data, size_t len){
@@ -267,12 +339,7 @@ int backend(int argc, char* argv[]){
         dbc.load(argv[i]);
     }
 
-    dbc.loadFromMemory((const char*)bps_dbc, bps_dbc_size);
-    dbc.loadFromMemory((const char*)prohelion_wavesculptor22_dbc, prohelion_wavesculptor22_dbc_size);
-    dbc.loadFromMemory((const char*)tpee_mppt_B__dbc, tpee_mppt_B__dbc_size);
-    dbc.loadFromMemory((const char*)tpee_mppt_A__dbc, tpee_mppt_A__dbc_size);
-    dbc.loadFromMemory((const char*)controls_dbc, controls_dbc_size);
-
+    rebuild_dbc();
     //dbc.can_parse_debug();
     
     std::unique_ptr<SerialPort> serial;
@@ -285,6 +352,46 @@ int backend(int argc, char* argv[]){
     std::thread photon_t(photon_proc, std::ref(ringBuffer));
 
     while(1){
+
+          if(new_dbc_flag.load()){ // -- handle dbc operations  --
+            new_dbc_flag.store(false, std::memory_order_release);
+            std::vector<DbcOp> ops;
+            {
+                std::lock_guard<std::mutex> lock(dbc_request_mtx);
+                ops.swap(dbc_requests);
+            }
+            bool rebuild = false;
+            for(auto &op : ops){
+                if(op.builtin){
+                    std::lock_guard<std::mutex> lock(builtin_mtx);
+                    for(auto &b : builtin_dbcs){
+                        if(b.name == op.name){
+                            b.enabled = (op.type == DbcOp::Load);
+                            rebuild = true;
+                            break;
+                        }
+                    }
+                } else {
+                    if(op.type == DbcOp::Load){
+                        std::lock_guard<std::mutex> lock(loaded_dbcs_mtx);
+                        if(std::find(loaded_dbcs.begin(), loaded_dbcs.end(), op.name) == loaded_dbcs.end()){
+                            loaded_dbcs.push_back(op.name);
+                            rebuild = true;
+                        }
+                    } else {
+                        std::lock_guard<std::mutex> lock(loaded_dbcs_mtx);
+                        auto it = std::find(loaded_dbcs.begin(), loaded_dbcs.end(), op.name);
+                        if(it != loaded_dbcs.end()){
+                            loaded_dbcs.erase(it);
+                            rebuild = true;
+                        }
+                    }
+                }
+            }
+            if(rebuild)
+                rebuild_dbc();
+        }
+
         if(new_source_flag.load()){ // -- new source --
             new_source_flag.store(false, std::memory_order_release);
 
