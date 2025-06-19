@@ -11,6 +11,7 @@
 #include <implot.h>
 #include <implot3d.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include "backend.hpp"
 #include <thread>
@@ -638,28 +639,71 @@ public:
   }
 
   void sourceConfigWindow(){
+
+      // -- state --
       static int input_flag = 0;
-      static std::string serialString(16, '\0');
-      static std::string ipString(16, '\0');
-      static std::string portString(16, '\0');
+      static int close_flag = 0;
+
+      // -- input buffers --
+      static char serialBuf[64] = "";
+      static char baudBuf[16]   = "";
+      static char ipBuf[64]     = "";
+      static char portBuf[8]    = "";
+
+      // -- hints --
+      static std::string serialHint = "e.g. /dev/ttyUSB0";
+      static std::string baudHint   = "e.g. 115200";
+      static std::string ipHint     = "e.g. 192.168.1.2";
+      static std::string portHint   = "e.g. 8080";
+
+      
+      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+      ImGui::Begin("Data Source");
 
       const char* protocol_list[] = {"Serial", "TCP"};
       static int protocol_idx = 0;
-
-      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
-      ImGui::Begin("Data Source");
       ImGui::Combo("", &protocol_idx, protocol_list, ((int)sizeof(protocol_list) / sizeof(*(protocol_list))));
-
-      if(protocol_idx == 0)
-        ImGui::InputTextWithHint(" ", "COM3, /dev/ttyUSB0...", (char*)serialString.data(), serialString.size());
-      if(protocol_idx == 1){
-        ImGui::InputTextWithHint("  ", "Server IP", (char*)ipString.data(), ipString.size());
-        ImGui::InputTextWithHint(" ", "Server Port", (char*)portString.data(), portString.size());
-       }
-
       ImGui::SameLine();
-      if(ImGui::Button("Submit"))
+      if(ImGui::Button("Close Connection"))
+        close_flag = 1;
+
+      if(protocol_idx == 0){
+        ImGui::InputTextWithHint("  ", serialHint.c_str(), serialBuf, sizeof(serialBuf));
+        ImGui::InputTextWithHint(" ", baudHint.c_str(), baudBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
+      }
+      if(protocol_idx == 1){
+        ImGui::InputTextWithHint("  ", ipHint.c_str(), ipBuf, sizeof(ipBuf), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank);
+        ImGui::InputTextWithHint(" ", portHint.c_str(), portBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
+       }
+      ImGui::SameLine();
+      if(ImGui::Button("Connect"))
           input_flag = 1;
+
+      if(close_flag == 1){
+          kill_data_source();
+          close_flag = 0;
+          serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
+      }
+
+      if(input_flag == 1){
+          input_flag = 0;
+          if(protocol_idx == 0){
+            std::string portStr(serialBuf);
+            std::string baudStr(baudBuf);
+            forward_serial_source(portStr, baudStr);
+            serialHint = (!portStr.empty()) ? portStr : "e.g. /dev/ttyUSB0";
+            baudHint   = (!baudStr.empty()) ? baudStr : "e.g. 115200";
+          }
+          if(protocol_idx == 1){
+            std::string ipStr(ipBuf);
+            std::string prtStr(portBuf);
+            forward_tcp_source(ipStr, prtStr);
+            ipHint   = (!ipStr.empty())  ? ipStr  : "e.g. 192.168.1.2";
+            portHint = (!prtStr.empty()) ? prtStr : "e.g. 8080";
+          }
+
+          serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
+      }
       ImGui::End();
   }
 

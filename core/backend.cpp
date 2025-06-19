@@ -14,6 +14,7 @@
 #include <thread>
 #include <array>
 #include <memory>
+#include <atomic>
 
 #include "bps_dbc.hpp"
 #include "controls_dbc.hpp"
@@ -23,6 +24,8 @@
 
 static CanStore can_store;
 static DbcParser dbc;
+
+std::atomic<bool> data_source_terminate(false);
 
 const CanStore& get_can_store() { return can_store; }
 
@@ -184,14 +187,14 @@ void parse(const uint8_t* data, size_t len){
 
 void serial_read(SerialPort &serial, RingBuffer &ringBuffer){
     std::vector<uint8_t> temp(READ_CHUNK);
-    while(true){
+    while(!data_source_terminate.load()){
         size_t amount_read = serial.read(temp.data(), temp.size());
         if (amount_read > 0) ringBuffer.write(temp.data(), amount_read);
     }
 }
 void tcp_read(TcpSocket &socket, RingBuffer &ringBuffer){
     std::vector<uint8_t> temp(READ_CHUNK);
-    while(true){
+    while(!data_source_terminate.load()){
         size_t amount_read = socket.read(temp.data(), temp.size());
         if(amount_read > 0) ringBuffer.write(temp.data(), amount_read);
     }
@@ -205,7 +208,47 @@ void photon_proc(RingBuffer &ringBuffer){
     }
 }
 
+struct SerialSource {
+    std::string fd;
+    std::string baud;
+    std::mutex mtx;
+}serialSourceBuffer;
 
+struct TcpSource {
+    std::string fd;
+    std::string port;
+    std::mutex mtx;
+}tcpSourceBuffer;
+
+std::atomic<bool> new_source_flag(false);
+std::atomic<int> sourceEnum(-1);
+
+void kill_data_source(){
+    sourceEnum.store(-1);
+    new_source_flag.store(true, std::memory_order_release);
+}
+
+void forward_serial_source(std::string& fd, std::string& baud){
+    if(fd.empty() || baud.empty())
+        return;
+
+    std::unique_lock<std::mutex> lock(serialSourceBuffer.mtx);
+    serialSourceBuffer.fd = fd;
+    serialSourceBuffer.baud = baud;
+    sourceEnum.store(0);
+    new_source_flag.store(true, std::memory_order_release);
+}
+
+void forward_tcp_source(std::string& fd, std::string& port){
+    if(fd.empty() || port.empty())
+        return;
+
+    std::unique_lock<std::mutex> lock(tcpSourceBuffer.mtx);
+    tcpSourceBuffer.fd = fd;
+    tcpSourceBuffer.port = port;
+    sourceEnum.store(1);
+    new_source_flag.store(true, std::memory_order_release);
+}
 
 enum source_t {
     local,
@@ -219,8 +262,7 @@ int backend(int argc, char* argv[]){
         res = std::stoi(argv[1]);
     source_t source = (source_t)res;
 
-    for(int i = 2; i < argc; i++){
-        std::cout << "Decoding ";
+    for(int i = 2; i < argc; i++){ std::cout << "Decoding ";
         std::cout << argv[i] << std::endl;
         dbc.load(argv[i]);
     }
@@ -240,24 +282,59 @@ int backend(int argc, char* argv[]){
 
     std::thread prod_t;
 
-    if(source == local){
-        std::string portName = "/dev/pts/4";//PORT;
-        unsigned baud = 115200;
-        serial = std::make_unique<SerialPort>(portName, baud);
-        prod_t = std::thread(serial_read, std::ref(*serial), std::ref(ringBuffer));
-    }
-
-    if(source == remote){
-        std::string serverIP = IP;
-        unsigned port = 5700;
-        tcp = std::make_unique<TcpSocket>(serverIP, port);
-        prod_t = std::thread(tcp_read, std::ref(*tcp), std::ref(ringBuffer));
-    }
-
     std::thread photon_t(photon_proc, std::ref(ringBuffer));
 
-    //user_prompt();
-    prod_t.join();
+    while(1){
+        if(new_source_flag.load()){ // -- new source --
+            new_source_flag.store(false, std::memory_order_release);
+
+            // -- kill old thread --
+            if(prod_t.joinable()){
+               data_source_terminate.store(true, std::memory_order_release);
+               prod_t.join();
+               data_source_terminate.store(false, std::memory_order_release);
+            }
+
+            // -- grab protocol --
+            int prot = sourceEnum.load();
+
+            // -- false alarm --
+            if(prot == -1){
+                // if we keep prot to -1, we just kill the thread
+                continue;
+            }
+
+            std::string fd;
+            unsigned cfg;
+
+            // -- grab params --
+            if((source_t)prot == local){
+                std::lock_guard<std::mutex> lock(serialSourceBuffer.mtx);
+                fd = serialSourceBuffer.fd;
+                cfg = std::stoi(serialSourceBuffer.baud);
+            }
+            if((source_t)prot == remote){
+                std::lock_guard<std::mutex> lock(tcpSourceBuffer.mtx);
+                fd = tcpSourceBuffer.fd;
+                cfg = std::stoi(tcpSourceBuffer.port);
+            }
+
+            // -- create threads --
+            try{
+                if((source_t)prot == local){
+                    serial = std::make_unique<SerialPort>(fd, cfg);
+                    prod_t = std::thread(serial_read, std::ref(*serial), std::ref(ringBuffer));
+                }
+                if((source_t)prot == remote){
+                    tcp = std::make_unique<TcpSocket>(fd, cfg);
+                    prod_t = std::thread(tcp_read, std::ref(*tcp), std::ref(ringBuffer));
+                }
+            } catch (const std::exception &e){
+            }
+
+        }
+    }
+
     photon_t.join();
     return 0;
 }
