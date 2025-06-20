@@ -247,6 +247,7 @@ public:
     PhotonStyle.ItemSpacing = ImVec2(12.0f, 8.0f);
 
     setStyle(0);
+    //ApplyModernPhotonStyle();
 
     // Dimensions
     ImGuiIO &io = ImGui::GetIO();
@@ -283,6 +284,100 @@ public:
     tabs.at(vis_idx).windows = {"erm1", "erm2", "erm3"};
     tabs.at(2).windows = {"t1", "t2", "t3"};
   }
+
+  void ApplyModernPhotonStyle()
+{
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* C = style.Colors;
+
+    // — Rounded corners everywhere —
+    style.WindowRounding    = 10.0f;
+    style.FrameRounding     = 6.0f;
+    style.PopupRounding     = 6.0f;
+    style.ScrollbarRounding = 8.0f;
+    style.GrabRounding      = 5.0f;
+    style.TabRounding       = 4.0f;
+
+    // — Padding & spacing —
+    style.WindowPadding     = {15, 15};
+    style.FramePadding      = {10, 6};
+    style.ItemSpacing       = {10, 8};
+    style.ItemInnerSpacing  = {6, 6};
+
+    // — Base colors (glass-like) —
+    ImVec4 bg        = {0.03f, 0.03f, 0.05f, 0.85f}; // deep, semi-transparent backdrop
+    ImVec4 childBg   = {0, 0, 0, 0};                 // fully transparent for panels
+    ImVec4 popupBg   = {0.12f, 0.12f, 0.15f, 0.9f};  // dark popup with opacity
+    ImVec4 border    = {0.20f, 0.20f, 0.25f, 1.0f};
+    ImVec4 separator = {0.30f, 0.30f, 0.35f, 1.0f};
+
+    C[ImGuiCol_WindowBg]            = bg;
+    C[ImGuiCol_ChildBg]             = childBg;
+    C[ImGuiCol_PopupBg]             = popupBg;
+    C[ImGuiCol_Border]              = border;
+    C[ImGuiCol_Separator]           = separator;
+
+    // — Text —
+    C[ImGuiCol_Text]                = {0.92f, 0.92f, 0.95f, 1.0f};
+    C[ImGuiCol_TextDisabled]        = {0.55f, 0.55f, 0.60f, 1.0f};
+
+    // — Accent gradient colors —
+    ImVec4 accent       = {0.18f, 0.55f, 0.70f, 0.8f};   // base
+    ImVec4 accentHover  = {0.14f, 0.45f, 0.60f, 0.8f};
+    ImVec4 accentActive = {0.10f, 0.34f, 0.45f, 0.8f};
+
+    // Buttons
+    C[ImGuiCol_Button]             = accent;
+    C[ImGuiCol_ButtonHovered]      = accentHover;
+    C[ImGuiCol_ButtonActive]       = accentActive;
+
+    // Headers (e.g. tree nodes, collapsibles)
+    C[ImGuiCol_Header]             = accent;
+    C[ImGuiCol_HeaderHovered]      = accentHover;
+    C[ImGuiCol_HeaderActive]       = accentActive;
+
+    // Frame (inputs, sliders)
+    C[ImGuiCol_FrameBg]            = {0.10f, 0.10f, 0.12f, 0.8f};
+    C[ImGuiCol_FrameBgHovered]     = accentHover;
+    C[ImGuiCol_FrameBgActive]      = accentActive;
+    C[ImGuiCol_SliderGrab]         = accent;
+    C[ImGuiCol_SliderGrabActive]   = accentActive;
+    C[ImGuiCol_CheckMark]          = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    // Tabs
+    C[ImGuiCol_Tab]                = {0.10f, 0.10f, 0.12f, 0.8f};
+    C[ImGuiCol_TabHovered]         = accentHover;
+    C[ImGuiCol_TabActive]          = accentActive;
+    C[ImGuiCol_TabUnfocused]       = {0.05f, 0.05f, 0.07f, 0.7f};
+    C[ImGuiCol_TabUnfocusedActive] = {0.08f, 0.08f, 0.10f, 0.7f};
+
+    // Scrollbars
+    C[ImGuiCol_ScrollbarBg]        = {0.00f, 0.00f, 0.00f, 0.5f};
+    C[ImGuiCol_ScrollbarGrab]      = accent;
+    C[ImGuiCol_ScrollbarGrabHovered] = accentHover;
+    C[ImGuiCol_ScrollbarGrabActive]  = accentActive;
+
+    // Plot lines & histograms
+    C[ImGuiCol_PlotLines]          = accent;
+    C[ImGuiCol_PlotLinesHovered]   = {1.0f,1.0f,1.0f,1.0f};
+    C[ImGuiCol_PlotHistogram]      = accent;
+    C[ImGuiCol_PlotHistogramHovered] = accentHover;
+
+    // Misc
+    C[ImGuiCol_DragDropTarget]     = {1.0f, 1.0f, 1.0f, 0.9f};
+    C[ImGuiCol_NavHighlight]       = accentHover;
+    C[ImGuiCol_ModalWindowDimBg]   = {0,0,0,0.7f};
+    C[ImGuiCol_DockingEmptyBg]     = {0,0,0,0};
+
+    // If you want a quick “top‐to‐bottom” gradient in your windows:
+    //
+    //   auto dl = ImGui::GetWindowDrawList();
+    //   ImVec2 p = ImGui::GetWindowPos(), sz = ImGui::GetWindowSize();
+    //   dl->AddRectFilledMultiColor(
+    //     p, {p.x+sz.x, p.y+sz.y},
+    //     IM_COL32(30,30,60,200), IM_COL32(10,10,30,200),
+    //     IM_COL32(10,10,30,200), IM_COL32(30,30,60,200));
+}
 
   void setStyle(uint32_t index) {
     switch (index) {
@@ -953,6 +1048,21 @@ public:
       ImGui::End();
   }
 
+void modelWindowContents(){
+    modelWindowPos = ImGui::GetWindowPos();
+    modelWindowSize = ImGui::GetWindowSize();
+    ImGui::SliderFloat3("Position", glm::value_ptr(uiSettings.modelPosition), -5.0f, 5.0f);
+
+    ImGui::SliderFloat3("Rotation", glm::value_ptr(uiSettings.modelRotation), -180.0f, 180.0f);
+    ImGui::SliderFloat3("Scale XYZ", glm::value_ptr(uiSettings.modelScale3D), 0.1f, 5.0f);
+
+    ImGui::SliderFloat("Scale", &uiSettings.modelScale, 0.1f, 5.0f);
+    ImGui::ColorEdit4("Effect", glm::value_ptr(uiSettings.effectColor));
+
+    const char * effects[] = {"None", "Invert", "Grayscale"};
+    ImGui::Combo("Effect Type", &uiSettings.effectType, effects, IM_ARRAYSIZE(effects));
+}
+
   void Modelwindow(){
     ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
     ImGui::Begin("Model Window");
@@ -970,7 +1080,6 @@ public:
     ImGui::Combo("Effect Type", &uiSettings.effectType, effects, IM_ARRAYSIZE(effects));
 
     ImGui::End();
-
   }
 
 
@@ -1075,6 +1184,41 @@ void drawConfigWindow(){
       ImGui::End();
 }
 
+void imguiGrad(){
+      auto dl = ImGui::GetWindowDrawList();
+        ImVec2  p     = ImGui::GetWindowPos();
+        ImVec2  sz    = ImGui::GetWindowSize();
+        ImVec2  p_max = ImVec2(p.x + sz.x, p.y + sz.y);
+
+        // fully opaque black at both top corners, fully opaque white at both bottom corners
+        ImU32 col_top = IM_COL32(0, 0, 0, 255);
+        ImU32 col_bot = IM_COL32(50, 50, 50, 255);
+
+        dl->AddRectFilledMultiColor(
+    p,       // upper‐left
+    p_max,   // lower‐right
+    col_top, // upper‐left corner
+    col_top, // upper‐right corner
+    col_bot, // lower‐right corner
+    col_bot  // lower‐left corner
+);
+        /*
+        for (int i = 0; i < (int)sz.y; ++i)
+{
+    float t = float(i) / sz.y;                   // 0.0 at top → 1.0 at bottom
+    ImU32  c = IM_COL32(
+        (int)(t * 255), (int)(t * 255), (int)(t * 255), 255
+    );
+    dl->AddRectFilled(
+        ImVec2(p.x,      p.y + i),
+        ImVec2(p.x + sz.x, p.y + i + 1),
+        c
+    );
+}
+*/
+
+}
+
 void drawMainWindow(){
       ImGuiViewport* vp = ImGui::GetMainViewport();
       ImGui::SetNextWindowPos(vp->WorkPos);
@@ -1082,10 +1226,18 @@ void drawMainWindow(){
       ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
                               ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
       ImGui::Begin("Main", nullptr, flags);
+
+      //imguiGrad();
       if(ImGui::BeginTabBar("maintabs")){
+
           if(ImGui::BeginTabItem("Config Window")){
               configTabContents();
               ImGui::EndTabItem();
+          }
+
+          if(ImGui::BeginTabItem("model")){
+            modelWindowContents();
+            ImGui::EndTabItem();
           }
 
           auto loaded = get_loaded_dbcs();
@@ -1104,6 +1256,7 @@ void drawMainWindow(){
                   ImGui::EndTabItem();
               }
           }
+
           ImGui::EndTabBar();
       }
       ImGui::End();
@@ -1112,6 +1265,7 @@ void drawMainWindow(){
 
 
   /*** Starts a new imGui frame and sets up windows and ui elements ***/
+    // HERE HERE HERE
   void newFrame(VulkanExampleBase *example, bool updateFrameGraph) {
     // you gotta clean all this shit lmao
     ImGui::NewFrame();

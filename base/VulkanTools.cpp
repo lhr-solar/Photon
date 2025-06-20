@@ -11,6 +11,7 @@ if (vks::tools::resourcePath != "") {
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
 	return "";
 #elif defined(VK_EXAMPLE_ASSETS_DIR)
+    std::cout << "return example asset path" << std::endl;
 	return VK_EXAMPLE_ASSETS_DIR;
 #else
     return ".";

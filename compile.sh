@@ -2,7 +2,7 @@
 
 #rm -rf build
 #rm imgui.ini
-./vert.sh
+#./vert.sh
 mkdir build
 cd build
 mkdir generated 

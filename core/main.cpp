@@ -539,7 +539,7 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
 
   void prepare() {
     VulkanExampleBase::prepare();
-    //loadAssets();
+    loadAssets();
     prepareUniformBuffers();
     // step 8
     // prepareParticles();
