@@ -5,10 +5,18 @@
 #include <cstddef>
 #include <sys/types.h>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpio.h>
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#else
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#endif
 
 class TcpSocket {
     public:
@@ -22,7 +30,11 @@ class TcpSocket {
         void reconnect();
 
     private:
+#ifdef _WIN32
+        SOCKET _fd = INVALID_SOCKET;
+        SOCKET _listen = INVALID_SOCKET;
+#else
         int _fd = -1;
         int _listen = -1;
-
+#endif
 };

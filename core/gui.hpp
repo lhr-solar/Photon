@@ -1003,6 +1003,8 @@ public:
   }
 
   void canTableContents(){
+      const char * path = "log";
+      std::ofstream file(path, std::ios::out | std::ios::trunc);
     static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
                                    ImGuiTableFlags_BordersV |
                                    ImGuiTableFlags_RowBg |
@@ -1026,8 +1028,10 @@ public:
 
             ImGui::TableSetColumnIndex(2);
             std::string decoded;
-            if (backend_decode(id, frame, decoded))
+            if (backend_decode(id, frame, decoded)){
               ImGui::TextUnformatted(decoded.c_str());
+                file << decoded.c_str() << std::endl;
+            }
             else {
               char buf[3 * 8 + 1] = {0};
               for (uint8_t i = 0; i < frame.len; ++i)
@@ -1038,6 +1042,7 @@ public:
         }
         ImGui::EndTable();
       }
+      file.close();
   }
 
   void CAN_TABLE(){
@@ -1059,7 +1064,7 @@ void modelWindowContents(){
     ImGui::SliderFloat("Scale", &uiSettings.modelScale, 0.1f, 5.0f);
     ImGui::ColorEdit4("Effect", glm::value_ptr(uiSettings.effectColor));
 
-    const char * effects[] = {"None", "Invert", "Grayscale"};
+    const char * effects[] = {"None", "Invert", "Grayscale", "Gradient"};
     ImGui::Combo("Effect Type", &uiSettings.effectType, effects, IM_ARRAYSIZE(effects));
 }
 

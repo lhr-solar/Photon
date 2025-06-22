@@ -168,6 +168,8 @@ public:
           glm::mat4 transform;
           glm::vec4 effectColor;
           int effectType;
+          glm::vec2 resolution;
+          float time;
         } pushData;
 
         //pushData.transform = glm::translate(glm::mat4(1.0f), uiSettings.modelPosition) * glm::scale(glm::mat4(1.0f), glm::vec3(uiSettings.modelScale));
@@ -179,7 +181,9 @@ public:
         modelMat = glm::scale(modelMat, uiSettings.modelScale3D * uiSettings.modelScale);//
         pushData.transform = modelMat; //
         pushData.effectColor = uiSettings.effectColor;
-        pushData.effectType = uiSettings.effectType; //
+        pushData.effectType = uiSettings.effectType;
+        pushData.resolution = glm::vec2(gui->modelWindowSize.x, gui->modelWindowSize.y);
+        pushData.time = timer;
         vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT |
                                VK_SHADER_STAGE_FRAGMENT_BIT,

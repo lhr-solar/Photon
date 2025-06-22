@@ -4,8 +4,10 @@
 #include <mutex>
 #include <system_error>
 #include <stdexcept>
+#ifndef _WIN32
 #include <termios.h>
 #include <unistd.h>
+#endif
 #include "ringbuffer.hpp"
 
 #ifdef _WIN32

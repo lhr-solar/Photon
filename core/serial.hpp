@@ -30,7 +30,7 @@ class SerialPort {
 
 private:
 #ifdef _WIN32
-    HANDLE _handle = INVALID_HANDLE_VAlUE;
+    HANDLE _handle = INVALID_HANDLE_VALUE;
 #else
     int _fd = -1;
 #endif
