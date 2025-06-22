@@ -1,26 +1,68 @@
 #pragma once
 
 #if defined(_WIN32)
-#define KEY_ESCAPE VK_ESCAPE 
-#define KEY_F1 VK_F1
-#define KEY_F2 VK_F2
-#define KEY_F3 VK_F3
-#define KEY_F4 VK_F4
-#define KEY_F5 VK_F5
-#define KEY_W 0x57
-#define KEY_A 0x41
-#define KEY_S 0x53
-#define KEY_D 0x44
-#define KEY_P 0x50
-#define KEY_SPACE 0x20
-#define KEY_KPADD 0x6B
-#define KEY_KPSUB 0x6D
-#define KEY_B 0x42
-#define KEY_F 0x46
-#define KEY_L 0x4C
-#define KEY_N 0x4E
-#define KEY_O 0x4F
-#define KEY_T 0x54
+
+// — Control keys —
+#define KEY_ESCAPE     VK_ESCAPE       // 0x1B
+#define KEY_TAB        VK_TAB          // 0x09
+#define KEY_BACKSPACE  VK_BACK          // 0x08
+#define KEY_ENTER      VK_RETURN        // 0x0D
+#define KEY_SPACE      VK_SPACE         // 0x20
+
+// — Number row —
+#define KEY_1          '1'              // 0x31
+#define KEY_2          '2'              // 0x32
+#define KEY_3          '3'              // 0x33
+#define KEY_4          '4'              // 0x34
+#define KEY_5          '5'              // 0x35
+#define KEY_6          '6'              // 0x36
+#define KEY_7          '7'              // 0x37
+#define KEY_8          '8'              // 0x38
+#define KEY_9          '9'              // 0x39
+#define KEY_0          '0'              // 0x30
+
+// — QWERTY top row —
+#define KEY_Q          'Q'              // 0x51
+#define KEY_W          'W'              // 0x57
+#define KEY_E          'E'              // 0x45
+#define KEY_R          'R'              // 0x52
+#define KEY_T          'T'              // 0x54
+#define KEY_Y          'Y'              // 0x59
+#define KEY_U          'U'              // 0x55
+#define KEY_I          'I'              // 0x49
+#define KEY_O          'O'              // 0x4F
+#define KEY_P          'P'              // 0x50
+
+// — QWERTY home row —
+#define KEY_A          'A'              // 0x41
+#define KEY_S          'S'              // 0x53
+#define KEY_D          'D'              // 0x44
+#define KEY_F          'F'              // 0x46
+#define KEY_G          'G'              // 0x47
+#define KEY_H          'H'              // 0x48
+#define KEY_J          'J'              // 0x4A
+#define KEY_K          'K'              // 0x4B
+#define KEY_L          'L'              // 0x4C
+
+// — QWERTY bottom row —
+#define KEY_Z          'Z'              // 0x5A
+#define KEY_X          'X'              // 0x58
+#define KEY_C          'C'              // 0x43
+#define KEY_V          'V'              // 0x56
+#define KEY_B          'B'              // 0x42
+#define KEY_N          'N'              // 0x4E
+#define KEY_M          'M'              // 0x4D
+
+// — Function keys —
+#define KEY_F1         VK_F1            // 0x70
+#define KEY_F2         VK_F2            // 0x71
+#define KEY_F3         VK_F3            // 0x72
+#define KEY_F4         VK_F4            // 0x73
+
+// — Punctuation —
+#define KEY_SLASH      VK_OEM_2         // '/' key on US layout, 0xBF
+#define KEY_PERIOD     VK_OEM_PERIOD    // '.' key, 0xBE
+
 
 #elif defined(VK_USE_PLATFORM_ANDROID_KHR)
 #define GAMEPAD_BUTTON_A 0x1000

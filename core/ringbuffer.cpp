@@ -2,8 +2,10 @@
 #include <cstddef>
 #include <cstring>
 #include <mutex>
+#ifndef _WIN32
 #include <termios.h>
 #include <unistd.h>
+#endif
 
 RingBuffer::RingBuffer() : head(0), tail(0), count(0) {}
 
