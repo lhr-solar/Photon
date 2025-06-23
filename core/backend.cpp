@@ -267,7 +267,7 @@ void serial_read(SerialPort &serial, RingBuffer &ringBuffer){
         size_t amount_read = serial.read(temp.data(), temp.size());
         if (amount_read > 0) ringBuffer.write(temp.data(), amount_read);
     }
-    OutputDebugString("Closing Connection!\n");
+    //OutputDebugString("Closing Connection!\n");
 }
 void tcp_read(TcpSocket &socket, RingBuffer &ringBuffer){
     std::vector<uint8_t> temp(READ_CHUNK);
@@ -413,7 +413,7 @@ int backend(int argc, char* argv[]){
             // -- false alarm --
             if(prot == -1){
                 // if we keep prot to -1, we just kill the thread
-                OutputDebugString("[!] Kill Source\n");
+                //OutputDebugString("[!] Kill Source\n");
                 continue;
             }
 
@@ -425,8 +425,8 @@ int backend(int argc, char* argv[]){
                 serial.reset();
                 std::lock_guard<std::mutex> lock(serialSourceBuffer.mtx);
                 fd = serialSourceBuffer.fd;
-                OutputDebugString(fd.c_str());
-                OutputDebugString("\n");
+                //OutputDebugString(fd.c_str());
+                //OutputDebugString("\n");
                 cfg = std::stoi(serialSourceBuffer.baud);
             }
             if((source_t)prot == remote){
@@ -439,12 +439,12 @@ int backend(int argc, char* argv[]){
             // -- create threads --
             try{
                 if((source_t)prot == local){
-                    OutputDebugString("[+] Attempting Serial\n");
+                    //OutputDebugString("[+] Attempting Serial\n");
                     serial = std::make_unique<SerialPort>(fd, cfg);
                     prod_t = std::thread(serial_read, std::ref(*serial), std::ref(ringBuffer));
                 }
                 if((source_t)prot == remote){
-                    OutputDebugString("[!] Attempting TCP\n");
+                    //OutputDebugString("[!] Attempting TCP\n");
                     tcp = std::make_unique<TcpSocket>(fd, cfg);
                     prod_t = std::thread(tcp_read, std::ref(*tcp), std::ref(ringBuffer));
                 }

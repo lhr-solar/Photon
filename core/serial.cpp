@@ -30,10 +30,10 @@ SerialPort::SerialPort(const std::string& portName, unsigned baudRate) {
   );
   if (_handle == INVALID_HANDLE_VALUE) {
       //OutputDebugString(std::to_string(_handle).c_str()));
-      OutputDebugString("[!] Failed to create serial connection!\n");
+      //OutputDebugString("[!] Failed to create serial connection!\n");
       std::string s = std::to_string((int)_handle);
-      OutputDebugString(s.c_str());
-      OutputDebugString(" \n");
+      //OutputDebugString(s.c_str());
+      //OutputDebugString(" \n");
     //throw std::system_error(GetLastError(), std::system_category(), "CreateFileA failed");
   }
 

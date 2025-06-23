@@ -880,7 +880,7 @@ public:
           input_flag = 1;
 
       if(close_flag == 1){
-          OutputDebugString("CLOSE FLAG\n");
+          //OutputDebugString("CLOSE FLAG\n");
           kill_data_source();
           close_flag = 0;
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
