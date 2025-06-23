@@ -225,6 +225,7 @@ set(DBC_FILES
     dbc/prohelion_wavesculptor22.dbc
     dbc/tpee_mppt[B].dbc
     dbc/tpee_mppt[A].dbc
+    dbc/daq.dbc
 )
 set(GENERATED_DBC_HEADERS)
 foreach(DBC ${DBC_FILES})

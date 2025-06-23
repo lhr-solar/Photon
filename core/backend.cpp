@@ -23,6 +23,7 @@
 #include "prohelion_wavesculptor22_dbc.hpp"
 #include "tpee_mppt_A__dbc.hpp"
 #include "tpee_mppt_B__dbc.hpp"
+#include "daq_dbc.hpp"
 
 static CanStore can_store;
 static DbcParser dbc;
@@ -40,7 +41,9 @@ static BuiltinDbc builtin_dbcs[] = {
     {"Wavesculptor22", prohelion_wavesculptor22_dbc, prohelion_wavesculptor22_dbc_size, true},
     {"MPPT A", tpee_mppt_A__dbc, tpee_mppt_A__dbc_size, true},
     {"MPPT B", tpee_mppt_B__dbc, tpee_mppt_B__dbc_size, true},
-    {"Controls", controls_dbc, controls_dbc_size, true}
+    {"Controls", controls_dbc, controls_dbc_size, true},
+    {"DAQ", daq_dbc, daq_dbc_size, true}
+
 };
 static std::mutex builtin_mtx;
 
