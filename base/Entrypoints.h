@@ -2,28 +2,34 @@
 /*
  * Windows
  */
-#define PHOTON_MAIN()                                                          \
-      Photon *photon;                                                          \
-  LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam,                \
-                           LPARAM lParam) {                                    \
-    if (photon != NULL) {                                               \
-      photon->handleMessages(hWnd, uMsg, wParam, lParam);               \
-    }                                                                          \
-    return (DefWindowProc(hWnd, uMsg, wParam, lParam));                        \
-  }                                                                            \
-  int APIENTRY WinMain(_In_ HINSTANCE hInstance,                               \
-                       _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR,           \
-                       _In_ int) {                                             \
-    for (int32_t i = 0; i < __argc; i++) {                                     \
-      Photon::args.push_back(__argv[i]);                                \
-    };                                                                         \
-    photon = new Photon();                                       \
-    photon->initVulkan();                                               \
-    photon->setupWindow(hInstance, WndProc);                            \
-    photon->prepare();                                                  \
-    photon->renderLoop();                                               \
-    delete (photon);                                                    \
-    return 0;                                                                  \
+#define PHOTON_MAIN()                                                        \
+  /* a single global pointer, initialized to null */                         \
+  static Photon* photon = nullptr;                                           \
+                                                                              \
+  /* your Win32 message pump callback */                                     \
+  LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { \
+    if (photon)                                                               \
+      photon->handleMessages(hWnd, uMsg, wParam, lParam);                     \
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);                         \
+  }                                                                           \
+                                                                              \
+  /* the real entry point */                                                  \
+  int APIENTRY WinMain(                                                       \
+      _In_ HINSTANCE hInstance,                                               \
+      _In_opt_ HINSTANCE hPrevInstance,                                       \
+      _In_ LPSTR     /*lpCmdLine*/,                                           \
+      _In_ int       /*nCmdShow*/) {                                          \
+    /* forward the CRT args into your photon args vector */                   \
+    for (int i = 0; i < __argc; ++i)                                          \
+      Photon::args.push_back(__argv[i]);                                      \
+                                                                              \
+    photon = new Photon();                                                    \
+    photon->initVulkan();                                                     \
+    photon->setupWindow(hInstance, WndProc);                                  \
+    photon->prepare();                                                        \
+    photon->renderLoop();                                                     \
+    delete photon;                                                            \
+    return 0;                                                                 \
   }
 
 #elif defined(VK_USE_PLATFORM_ANDROID_KHR)

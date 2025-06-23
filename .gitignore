@@ -1,6 +1,8 @@
 .cache/
+.vs/
 build/
 bin/
 temp/
+out/
 compile_commands.json
 todo

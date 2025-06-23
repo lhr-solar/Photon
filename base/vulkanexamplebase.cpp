@@ -343,7 +343,7 @@ void VulkanExampleBase::nextFrame()
 	}
 	tPrevEnd = tEnd;
 
-	updateOverlay();
+//	updateOverlay();
 }
 
 // TODO: adjust timing, rn giving ~150
@@ -656,7 +656,7 @@ VulkanExampleBase::VulkanExampleBase()
 	{
 #if defined(_WIN32)
 		std::string msg = "Could not locate asset path in \"" + getAssetPath() + "\" !";
-		MessageBox(NULL, msg.c_str(), "Fatal error", MB_OK | MB_ICONERROR);
+		//MessageBox(NULL, msg.c_str(), "Fatal error", MB_OK | MB_ICONERROR);
 #else
         std::cout << "[!] Warning: no asset path" << std::endl;
 		//std::cerr << "Error: Could not find asset path in " << getAssetPath() << "\n";
@@ -946,6 +946,7 @@ void VulkanExampleBase::setupDPIAwareness()
 	}
 }
 
+#include <dwmapi.h>
 HWND VulkanExampleBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
 {
 	this->windowInstance = hinstance;
@@ -958,7 +959,7 @@ HWND VulkanExampleBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
 	wndClass.cbClsExtra = 0;
 	wndClass.cbWndExtra = 0;
 	wndClass.hInstance = hinstance;
-	wndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wndClass.hIcon = LoadIcon(NULL, IDI_ASTERISK);
 	wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 	wndClass.lpszMenuName = NULL;

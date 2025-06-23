@@ -6,7 +6,32 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(NAME photon)
 
 project(${NAME})
+
+if (MSVC)
+	foreach(_flag_var
+		CMAKE_C_FLAGS_RELEASE
+		CMAKE_C_FLAGS_RELWITHDEBINFO
+		CMAKE_C_FLAGS_MINSIZEREL
+		CMAKE_C_FLAGS_DEBUG
+		CMAKE_CXX_FLAGS_RELEASE
+		CMAKE_CXX_FLAGS_RELWITHDEBINFO
+		CMAKE_CXX_FLAGS_MINSIZEREL
+		CMAKE_CXX_FLAGS_DEBUG)
+		string(REPLACE "/MD"  "/MT"  ${_flag_var} "${${_flag_var}}")
+		string(REPLACE "/MDd" "/MTd" ${_flag_var} "${${_flag_var}}")
+	endforeach()
+endif()
+
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# at the very top, right after project()
+if (WIN32)
+  add_compile_definitions(
+    WIN32_LEAN_AND_MEAN  # strip out winsock.h from windows.h
+    NOMINMAX            # your existing define
+    _USE_MATH_DEFINES   # your existing define
+  )
+endif()
+
 
 include_directories(external)
 include_directories(external/glm)

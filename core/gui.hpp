@@ -29,7 +29,7 @@ struct UISettings {
   bool displayModels = false;
   bool displayLogos = false;
   bool displayBackground = false;
-  bool displayCustomModel = true; // NEW
+  bool displayCustomModel = false; // NEW
   bool animateLight = false;
   float lightSpeed = 0.25f;
   std::array<float, 50> frameTimes{};
@@ -259,6 +259,7 @@ public:
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 #if defined(_WIN32)
+    /*
     // If we directly work with os specific key codes, we need to map special
     // key types like tab
     io.KeyMap[ImGuiKey_Tab] = VK_TAB;
@@ -270,6 +271,7 @@ public:
     io.KeyMap[ImGuiKey_Enter] = VK_RETURN;
     io.KeyMap[ImGuiKey_Space] = VK_SPACE;
     io.KeyMap[ImGuiKey_Delete] = VK_DELETE;
+    */
 #endif
 
     // Window initialization
@@ -878,6 +880,7 @@ public:
           input_flag = 1;
 
       if(close_flag == 1){
+          OutputDebugString("CLOSE FLAG\n");
           kill_data_source();
           close_flag = 0;
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
@@ -1240,10 +1243,11 @@ void drawMainWindow(){
               ImGui::EndTabItem();
           }
 
+          /*
           if(ImGui::BeginTabItem("model")){
             modelWindowContents();
             ImGui::EndTabItem();
-          }
+          } */
 
           auto loaded = get_loaded_dbcs();
           for(const auto &name : loaded){

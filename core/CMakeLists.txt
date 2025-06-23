@@ -1,6 +1,12 @@
 #photon/core/CMakeLists.txt
 
-# Function for building single example
+if (WIN32)
+  set(WINLIBS
+    Ws2_32           # Winsock2
+    User32           # etc., if you need any other Win32 libs
+  )
+endif()
+
 function(buildExample EXAMPLE_NAME)
 	SET(EXAMPLE_FOLDER ${CMAKE_CURRENT_SOURCE_DIR})
 	message(STATUS "Generating project file for example in ${EXAMPLE_FOLDER}")

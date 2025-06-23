@@ -9,6 +9,7 @@
 #include <unistd.h>
 #endif
 #include "ringbuffer.hpp"
+#include <string>
 
 #ifdef _WIN32
 
@@ -21,14 +22,19 @@ SerialPort::SerialPort(const std::string& portName, unsigned baudRate) {
   _handle = CreateFileA(
     name.c_str(),
     GENERIC_READ | GENERIC_WRITE,
-    0,                // no sharing
+    0,//FILE_SHARE_READ | FILE_SHARE_WRITE,
     nullptr,          // default security
     OPEN_EXISTING,
     FILE_ATTRIBUTE_NORMAL,
     nullptr
   );
   if (_handle == INVALID_HANDLE_VALUE) {
-    throw std::system_error(GetLastError(), std::system_category(), "CreateFileA failed");
+      //OutputDebugString(std::to_string(_handle).c_str()));
+      OutputDebugString("[!] Failed to create serial connection!\n");
+      std::string s = std::to_string((int)_handle);
+      OutputDebugString(s.c_str());
+      OutputDebugString(" \n");
+    //throw std::system_error(GetLastError(), std::system_category(), "CreateFileA failed");
   }
 
   // Configure baud, parity, stop bits, data bits
@@ -42,6 +48,22 @@ SerialPort::SerialPort(const std::string& portName, unsigned baudRate) {
   dcb.ByteSize = 8;
   dcb.Parity   = NOPARITY;
   dcb.StopBits = ONESTOPBIT;
+
+  // disable all flow control & special processing
+  dcb.fBinary = TRUE;    // binary mode, no EOF check
+  dcb.fParity = FALSE;   // no parity checking
+  dcb.fOutxCtsFlow = FALSE;   // no CTS output flow control
+  dcb.fOutxDsrFlow = FALSE;   // no DSR output flow control
+  dcb.fDtrControl = DTR_CONTROL_DISABLE;
+  dcb.fDsrSensitivity = FALSE;
+  dcb.fTXContinueOnXoff = FALSE;   // no XOFF holding
+  dcb.fOutX = FALSE;   // no XON/XOFF out
+  dcb.fInX = FALSE;   // no XON/XOFF in
+  dcb.fErrorChar = FALSE;
+  dcb.fNull = FALSE;
+  dcb.fRtsControl = RTS_CONTROL_DISABLE;
+  dcb.fAbortOnError = FALSE;
+
   if (!SetCommState(_handle, &dcb)) {
     CloseHandle(_handle);
     throw std::system_error(GetLastError(), std::system_category(), "SetCommState failed");
@@ -49,9 +71,12 @@ SerialPort::SerialPort(const std::string& portName, unsigned baudRate) {
 
   // Blocking reads that return as soon as 1+ bytes are available
   COMMTIMEOUTS timeouts = {};
-  timeouts.ReadIntervalTimeout         = 0;
-  timeouts.ReadTotalTimeoutMultiplier  = 0;
-  timeouts.ReadTotalTimeoutConstant    = 0;
+  timeouts.ReadIntervalTimeout = MAXDWORD;
+  timeouts.ReadTotalTimeoutMultiplier = 0;
+  timeouts.ReadTotalTimeoutConstant = 0;
+  timeouts.WriteTotalTimeoutMultiplier = 0;
+  timeouts.WriteTotalTimeoutConstant = 0;
+
   if (!SetCommTimeouts(_handle, &timeouts)) {
     CloseHandle(_handle);
     throw std::system_error(GetLastError(), std::system_category(), "SetCommTimeouts failed");
@@ -59,8 +84,11 @@ SerialPort::SerialPort(const std::string& portName, unsigned baudRate) {
 }
 
 SerialPort::~SerialPort() {
-  if (_handle != INVALID_HANDLE_VALUE)
-    CloseHandle(_handle);
+    if (_handle != INVALID_HANDLE_VALUE) {
+        CancelIoEx(_handle, nullptr);
+        PurgeComm(_handle, PURGE_RXCLEAR | PURGE_TXCLEAR);
+        CloseHandle(_handle);
+    }
 }
 
 std::size_t SerialPort::read(uint8_t* buf, std::size_t maxlen) {
@@ -109,7 +137,6 @@ SerialPort::SerialPort(const std::string& portName, unsigned baudRate){
     cfsetispeed(&tty, speed);
     cfsetospeed(&tty, speed);
 
-    // block until >=1 byte available
     tty.c_cc[VMIN]  = 1;
     tty.c_cc[VTIME] = 0;
 

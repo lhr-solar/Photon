@@ -543,7 +543,7 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
 
   void prepare() {
     VulkanExampleBase::prepare();
-    loadAssets();
+    //loadAssfets();
     prepareUniformBuffers();
     // step 8
     // prepareParticles();
@@ -586,6 +586,7 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
 
 // Input handling is platform specific, to show how it's basically done this
 // sample implements it for Windows
+  /*
 #if defined(_WIN32)
   virtual void OnHandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam,
                                LPARAM lParam) {
@@ -608,7 +609,8 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     }
   }
 #endif
-};
+*/
+}; 
 
 // Main Entrypoints
 PHOTON_MAIN()

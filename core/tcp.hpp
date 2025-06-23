@@ -7,8 +7,9 @@
 
 #ifdef _WIN32
 #include <winsock2.h>
-#include <ws2tcpio.h>
+#include <Ws2tcpip.h>
 #include <BaseTsd.h>
+#include <Windows.h>
 typedef SSIZE_T ssize_t;
 #else
 #include <netinet/in.h>
