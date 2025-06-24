@@ -5,6 +5,9 @@
 #pragma comment(linker, "/subsystem:windows")
 #include <windows.h>
 #include <fcntl.h>
+#include "resource.h"
+#include <dwmapi.h>
+#include <uxtheme.h>
 #include <io.h>
 #include <ShellScalingAPI.h>
 #elif defined(VK_USE_PLATFORM_ANDROID_KHR)
@@ -289,6 +292,7 @@ public:
 	void setupDPIAwareness();
 	HWND setupWindow(HINSTANCE hinstance, WNDPROC wndproc);
 	void handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+	void applyWindowTheme(HWND hWnd);
 #elif defined(VK_USE_PLATFORM_ANDROID_KHR)
 	static int32_t handleAppInput(struct android_app* app, AInputEvent* event);
 	static void handleAppCommand(android_app* app, int32_t cmd);

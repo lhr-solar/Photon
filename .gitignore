@@ -6,3 +6,5 @@ temp/
 out/
 compile_commands.json
 todo
+imgui.ini
+log

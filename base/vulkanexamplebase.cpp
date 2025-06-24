@@ -946,7 +946,6 @@ void VulkanExampleBase::setupDPIAwareness()
 	}
 }
 
-#include <dwmapi.h>
 HWND VulkanExampleBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
 {
 	this->windowInstance = hinstance;
@@ -959,12 +958,18 @@ HWND VulkanExampleBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
 	wndClass.cbClsExtra = 0;
 	wndClass.cbWndExtra = 0;
 	wndClass.hInstance = hinstance;
-	wndClass.hIcon = LoadIcon(NULL, IDI_ASTERISK);
+//	wndClass.hIcon = LoadIcon(NULL, IDI_ASTERISK);
+
+	HICON iconLarge = LoadIcon(hinstance, MAKEINTRESOURCE(IDI_APP_ICON));
+	HICON iconSmall = (HICON)LoadImage(hinstance, MAKEINTRESOURCE(IDI_APP_ICON), IMAGE_ICON, 16, 16, 0);
+
+	wndClass.hIcon = iconLarge ? iconLarge : LoadIcon(NULL, IDI_ASTERISK);
+	
 	wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 	wndClass.lpszMenuName = NULL;
 	wndClass.lpszClassName = name.c_str();
-	wndClass.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
+	wndClass.hIconSm = iconSmall;
 
 	if (!RegisterClassEx(&wndClass))
 	{
@@ -1041,6 +1046,8 @@ HWND VulkanExampleBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
 		hinstance,
 		NULL);
 
+	applyWindowTheme(window);
+
 	if (!window)
 	{
 		std::cerr << "Could not create window!\n";
@@ -1061,6 +1068,46 @@ HWND VulkanExampleBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
 	SetFocus(window);
 
 	return window;
+}
+
+void VulkanExampleBase::applyWindowTheme(HWND hwnd) {
+	if (!hwnd)
+		return;
+
+	const DWORD DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+	const DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
+	const DWORD DWMWA_SYSTEMBACKDROP_TYPE = 38; // Mica backdrop
+
+	HMODULE dwm = LoadLibraryA("dwmapi.dll");
+	if (dwm)
+	{
+		using DwmSetWindowAttributeFunc = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+		auto DwmSetWindowAttributePtr = reinterpret_cast<DwmSetWindowAttributeFunc>(
+			GetProcAddress(dwm, "DwmSetWindowAttribute"));
+		if (DwmSetWindowAttributePtr)
+		{
+			BOOL enabled = TRUE;
+			DwmSetWindowAttributePtr(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &enabled, sizeof(enabled));
+			DwmSetWindowAttributePtr(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, &enabled, sizeof(enabled));
+			DWORD backdrop = 2; // Mica
+			DwmSetWindowAttributePtr(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+		}
+
+		FreeLibrary(dwm);
+	}
+
+	HMODULE ux = LoadLibraryA("uxtheme.dll");
+	if (ux)
+	{
+		using SetWindowThemeFunc = HRESULT(WINAPI*)(HWND, LPCWSTR, LPCWSTR);
+		auto SetWindowThemePtr = reinterpret_cast<SetWindowThemeFunc>(
+			GetProcAddress(ux, "SetWindowTheme"));
+		if (SetWindowThemePtr)
+		{
+			SetWindowThemePtr(hwnd, L"DarkMode_Explorer", nullptr);
+		}
+		FreeLibrary(ux);
+	}
 }
 
 void VulkanExampleBase::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
