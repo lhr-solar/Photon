@@ -274,6 +274,8 @@ public:
     */
 #endif
 
+    io.IniFilename = nullptr;
+
     // Window initialization
     visualization.parent_tab = "Visualization Window";
     configuration.parent_tab = "Configuration Window";
@@ -860,18 +862,18 @@ public:
       static std::string ipHint     = "e.g. 192.168.1.2";
       static std::string portHint   = "e.g. 8080";
 
-      const char* protocol_list[] = {"Serial", "TCP"};
+      const char* protocol_list[] = { "Data Acq. Server", "Serial", "TCP" };
       static int protocol_idx = 0;
       ImGui::Combo("##01", &protocol_idx, protocol_list, ((int)sizeof(protocol_list) / sizeof(*(protocol_list))));
       ImGui::SameLine();
       if(ImGui::Button("Close Connection"))
         close_flag = 1;
 
-      if(protocol_idx == 0){
+      if(protocol_idx == 1){
         ImGui::InputTextWithHint("##02", serialHint.c_str(), serialBuf, sizeof(serialBuf));
         ImGui::InputTextWithHint("##03", baudHint.c_str(), baudBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
       }
-      if(protocol_idx == 1){
+      if(protocol_idx == 2){
         ImGui::InputTextWithHint("##04", ipHint.c_str(), ipBuf, sizeof(ipBuf), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank);
         ImGui::InputTextWithHint("##05", portHint.c_str(), portBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
        }
@@ -880,7 +882,6 @@ public:
           input_flag = 1;
 
       if(close_flag == 1){
-          //OutputDebugString("CLOSE FLAG\n");
           kill_data_source();
           close_flag = 0;
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
@@ -889,13 +890,18 @@ public:
       if(input_flag == 1){
           input_flag = 0;
           if(protocol_idx == 0){
+              std::string ip = "3.141.38.115";
+              std::string port = "5700";
+              forward_tcp_source(ip, port);
+          }
+          if(protocol_idx == 1){
             std::string portStr(serialBuf);
             std::string baudStr(baudBuf);
             forward_serial_source(portStr, baudStr);
             serialHint = (!portStr.empty()) ? portStr : "e.g. /dev/ttyUSB0";
             baudHint   = (!baudStr.empty()) ? baudStr : "e.g. 115200";
           }
-          if(protocol_idx == 1){
+          if(protocol_idx == 2){
             std::string ipStr(ipBuf);
             std::string prtStr(portBuf);
             forward_tcp_source(ipStr, prtStr);
@@ -1006,8 +1012,8 @@ public:
   }
 
   void canTableContents(){
-      const char * path = "log";
-      std::ofstream file(path, std::ios::out | std::ios::trunc);
+      const char * path = "log.txt";
+      std::ofstream file(path, std::ios::out | std::ios::app);
     static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
                                    ImGuiTableFlags_BordersV |
                                    ImGuiTableFlags_RowBg |
@@ -1033,7 +1039,7 @@ public:
             std::string decoded;
             if (backend_decode(id, frame, decoded)){
               ImGui::TextUnformatted(decoded.c_str());
-                file << decoded.c_str() << std::endl;
+              file << decoded.c_str() << std::endl;
             }
             else {
               char buf[3 * 8 + 1] = {0};
@@ -1109,7 +1115,8 @@ void modelWindowContents(){
 
 void dbcConfigContents(){
       static char pathBuf[256] = "";
-      ImGui::InputText("File", pathBuf, sizeof(pathBuf));
+      ImGui::InputText("##File", pathBuf, sizeof(pathBuf));
+      ImGui::SetItemTooltip("Relative path from to the executable");
       ImGui::SameLine();
       if(ImGui::Button("Load")){
           std::string p(pathBuf);
@@ -1118,7 +1125,7 @@ void dbcConfigContents(){
       }
 
       ImGui::Separator();
-      ImGui::Text("Embedded Files:");
+      ImGui::Text("Embedded DBC:");
       auto builtins = list_builtin_dbcs();
       for(const auto &b : builtins){
           bool enabled = b.second;
@@ -1131,7 +1138,7 @@ void dbcConfigContents(){
       }
 
       ImGui::Separator();
-      ImGui::Text("Loaded Files:");
+      ImGui::Text("Loaded DBC:");
       auto files = get_loaded_dbcs();
       for(size_t i = 0; i < files.size(); ++i){
           ImGui::TextUnformatted(files[i].c_str());
