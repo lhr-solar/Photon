@@ -44,6 +44,14 @@ struct UISettings {
   int effectType = 0;
 } uiSettings;
 
+static const ImU32 palette[] = {
+    IM_COL32( 80,150,255,255), // light-blue
+    IM_COL32(255,100,200,255), // pink
+    IM_COL32(180, 80,255,255), // purple
+    IM_COL32(100,255,150,255), // light-green
+    IM_COL32(255,255,255,255)  // white
+};
+
 class GUI {
 private:
   // Vulkan resources for rendering the UI
@@ -864,24 +872,51 @@ public:
 
       const char* protocol_list[] = { "Data Acq. Server", "Serial", "TCP" };
       static int protocol_idx = 0;
+
+      static int connected = 0;
+
       ImGui::Combo("##01", &protocol_idx, protocol_list, ((int)sizeof(protocol_list) / sizeof(*(protocol_list))));
       ImGui::SameLine();
-      if(ImGui::Button("Close Connection"))
-        close_flag = 1;
+      if(ImGui::Button("Connect"))
+        input_flag = 1;
 
+      ImGui::SameLine();
+      if(ImGui::Button("Close Connection"))
+          close_flag = 1;
+
+      if(protocol_idx == 0){
+          ImVec2 slot_size(ImGui::CalcItemWidth(), ImGui::GetFrameHeight());
+          ImGui::Dummy(slot_size);
+          ImGui::Dummy(slot_size);
+      }
       if(protocol_idx == 1){
         ImGui::InputTextWithHint("##02", serialHint.c_str(), serialBuf, sizeof(serialBuf));
         ImGui::InputTextWithHint("##03", baudHint.c_str(), baudBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
       }
       if(protocol_idx == 2){
         ImGui::InputTextWithHint("##04", ipHint.c_str(), ipBuf, sizeof(ipBuf), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank);
-        ImGui::InputTextWithHint("##05", portHint.c_str(), portBuf, sizeof(baudBuf), ImGuiInputTextFlags_CharsDecimal);
-       }
-      ImGui::SameLine();
-      if(ImGui::Button("Connect"))
-          input_flag = 1;
+        ImGui::InputTextWithHint("##05", portHint.c_str(), portBuf, sizeof(portBuf), ImGuiInputTextFlags_CharsDecimal);
+      }
+      
+      ImDrawList* draw_list = ImGui::GetWindowDrawList();
+      ImVec2 gradient_size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight());
+      ImVec2 p0 = ImGui::GetCursorScreenPos();
+      ImVec2 p1 = ImVec2(p0.x + gradient_size.x, p0.y + gradient_size.y);
+      ImU32 col_a;
+      ImU32 col_b;
+      if(!connected){
+        col_a = ImGui::GetColorU32(IM_COL32(255, 255, 255, 255)); // white
+        col_b = ImGui::GetColorU32(IM_COL32(  0,   0,   0, 255)); // black
+     } else {
+        col_a = ImGui::GetColorU32(IM_COL32( 80, 150, 255, 255)); // light-blue
+        col_b = ImGui::GetColorU32(IM_COL32(255, 100, 200, 255)); // pink
+      }
+
+      draw_list->AddRectFilledMultiColor(p0, p1, col_a, col_b, col_b, col_a);
+      ImGui::InvisibleButton("##gradient2", gradient_size);
 
       if(close_flag == 1){
+          connected = 0;
           kill_data_source();
           close_flag = 0;
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
@@ -910,14 +945,9 @@ public:
           }
 
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
+          connected = 1;
       }
-  }
 
-  void sourceConfigWindow(){
-      ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
-      ImGui::Begin("Data Source");
-      sourceConfigContents();
-      ImGui::End();
   }
 
   void AnimatedTablePlot() {
@@ -1116,7 +1146,7 @@ void modelWindowContents(){
 void dbcConfigContents(){
       static char pathBuf[256] = "";
       ImGui::InputText("##File", pathBuf, sizeof(pathBuf));
-      ImGui::SetItemTooltip("Relative path from to the executable");
+      ImGui::SetItemTooltip("Relative path from the executable");
       ImGui::SameLine();
       if(ImGui::Button("Load")){
           std::string p(pathBuf);
@@ -1160,7 +1190,7 @@ void dbcConfigWindow(){
 void configTabContents(){
     // -- Top source config --
     ImGui::BeginChild("src_cfg", ImVec2(0, 120), true,
-                      ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+                      ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
     sourceConfigContents();
     ImGui::EndChild();
 
