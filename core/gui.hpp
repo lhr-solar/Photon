@@ -1342,7 +1342,7 @@ void drawMainWindow(){
       ImGui::Begin("Main", nullptr, flags);
 
       //imguiGrad();
-      update_signal_data();
+      update_signal_data(); // this guy is heavy as fuck
       if(ImGui::BeginTabBar("maintabs")){
 
           if(ImGui::BeginTabItem("Config Window")){

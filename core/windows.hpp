@@ -16,7 +16,6 @@ public:
 
 private:
 };
-
 // Window generation Algorithm:
 // we have three different windows
 // XL (50%) - for config windows, such as can dbc configuration,

@@ -3,6 +3,7 @@
 #rm -rf build
 #rm imgui.ini
 #./vert.sh
+rm log.txt
 mkdir build
 cd build
 mkdir generated 
