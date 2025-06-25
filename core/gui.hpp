@@ -872,7 +872,7 @@ void update_signal_data(){
     }
 }
 
-  void tsPlotContents(const char* dbc_name){
+  void sigPlotContents(const char* dbc_name){
       auto messages = backend_get_messages();
       for(const auto &mp : messages){
           const auto &msg = mp.second;
@@ -918,7 +918,7 @@ void update_signal_data(){
   void createTSPlot(std::string windowName) {
     ImGui::Begin(windowName.c_str());
     ImGui::Text("Window Name: %s", windowName.c_str());
-    tsPlotContents("Sync");
+    sigPlotContents("Sync");
     ImGui::End();
   }
 
@@ -1359,7 +1359,7 @@ void drawMainWindow(){
           auto loaded = get_loaded_dbcs();
           for(const auto &name : loaded){
               if(ImGui::BeginTabItem(name.c_str())){
-                  tsPlotContents(name.c_str());
+                  sigPlotContents(name.c_str());
                   ImGui::EndTabItem();
               }
           }
@@ -1368,7 +1368,7 @@ void drawMainWindow(){
           for(const auto &b : builtins){
               if(!b.second) continue;
               if(ImGui::BeginTabItem(b.first.c_str())){
-                  tsPlotContents(b.first.c_str());
+                  sigPlotContents(b.first.c_str());
                   ImGui::EndTabItem();
               }
           }
