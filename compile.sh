@@ -11,5 +11,6 @@ cmake ..
 #cmake -DCMAKE_BUILD_TYPE=Release ..
 bear -- make -j
 cp bin/core ../bin/
+cp bin/core ~/.local/bin/photon
 cd ..
 ./bin/core

@@ -95,7 +95,7 @@ private:
 
   int selectedStyle = 0;
 
-  // gui configuratio
+  // gui configuration
   Windows configuration;
   Windows visualization;
   Windows demo;
@@ -104,6 +104,8 @@ private:
   int vis_idx = 1;
 
   std::thread backend_thread;
+
+  int main_tab_idx = 0;
 
 public:
   // UI params are set via push constants
@@ -170,30 +172,29 @@ public:
     PhotonStyle = ImGui::GetStyle();
     ImVec4 *colors = PhotonStyle.Colors;
 
-    // Background and primary colors
     colors[ImGuiCol_WindowBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.7f); // Transparent soft black for background
+        ImVec4(0.0f, 0.0f, 0.0f, 0.7f); 
     colors[ImGuiCol_ChildBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.0f); // Full transparency for child elements
+        ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     colors[ImGuiCol_PopupBg] =
-        ImVec4(0.1f, 0.1f, 0.1f, 0.9f); // Dark gray popup with slight opacity
+        ImVec4(0.1f, 0.1f, 0.1f, 0.9f);
 
     // Borders and separators
     colors[ImGuiCol_Border] =
-        ImVec4(0.2f, 0.2f, 0.2f, 1.0f); // Dark gray borders
+        ImVec4(0.2f, 0.2f, 0.2f, 1.0f); 
     colors[ImGuiCol_Separator] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
 
     // Text colors
-    colors[ImGuiCol_Text] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); // Soft white text
+    colors[ImGuiCol_Text] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); 
     colors[ImGuiCol_TextDisabled] =
-        ImVec4(0.5f, 0.5f, 0.5f, 1.0f); // Dimmed gray for disabled text
+        ImVec4(0.5f, 0.5f, 0.5f, 1.0f); 
 
     // Headers and title
-    colors[ImGuiCol_Header] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f); // Dark headers
+    colors[ImGuiCol_Header] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f); 
     colors[ImGuiCol_HeaderHovered] =
-        ImVec4(0.25f, 0.25f, 0.25f, 1.0f); // Lighter on hover
+        ImVec4(0.25f, 0.25f, 0.25f, 1.0f); 
     colors[ImGuiCol_HeaderActive] =
-        ImVec4(0.3f, 0.3f, 0.3f, 1.0f); // Slightly lighter when active
+        ImVec4(0.3f, 0.3f, 0.3f, 1.0f); 
 
     colors[ImGuiCol_TitleBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
     colors[ImGuiCol_TitleBgActive] = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -209,7 +210,7 @@ public:
     colors[ImGuiCol_SliderGrabActive] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
 
     colors[ImGuiCol_CheckMark] =
-        ImVec4(1.0f, 1.0f, 1.0f, 1.0f); // Pure white checkmark
+        ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 
     // Frame backgrounds
     colors[ImGuiCol_FrameBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
@@ -249,7 +250,6 @@ public:
 
     colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
 
-    // Adjustments for sleekness
     PhotonStyle.WindowRounding = 6.0f;
     PhotonStyle.FrameRounding = 5.0f;
     PhotonStyle.ScrollbarRounding = 8.0f;
@@ -261,7 +261,6 @@ public:
     PhotonStyle.ItemSpacing = ImVec2(12.0f, 8.0f);
 
     setStyle(0);
-    //ApplyModernPhotonStyle();
 
     // Dimensions
     ImGuiIO &io = ImGui::GetIO();
@@ -323,9 +322,9 @@ public:
     style.ItemInnerSpacing  = {6, 6};
 
     // — Base colors (glass-like) —
-    ImVec4 bg        = {0.03f, 0.03f, 0.05f, 0.85f}; // deep, semi-transparent backdrop
-    ImVec4 childBg   = {0, 0, 0, 0};                 // fully transparent for panels
-    ImVec4 popupBg   = {0.12f, 0.12f, 0.15f, 0.9f};  // dark popup with opacity
+    ImVec4 bg        = {0.03f, 0.03f, 0.05f, 0.85f}; 
+    ImVec4 childBg   = {0, 0, 0, 0};                
+    ImVec4 popupBg   = {0.12f, 0.12f, 0.15f, 0.9f};
     ImVec4 border    = {0.20f, 0.20f, 0.25f, 1.0f};
     ImVec4 separator = {0.30f, 0.30f, 0.35f, 1.0f};
 
@@ -387,14 +386,6 @@ public:
     C[ImGuiCol_ModalWindowDimBg]   = {0,0,0,0.7f};
     C[ImGuiCol_DockingEmptyBg]     = {0,0,0,0};
 
-    // If you want a quick “top‐to‐bottom” gradient in your windows:
-    //
-    //   auto dl = ImGui::GetWindowDrawList();
-    //   ImVec2 p = ImGui::GetWindowPos(), sz = ImGui::GetWindowSize();
-    //   dl->AddRectFilledMultiColor(
-    //     p, {p.x+sz.x, p.y+sz.y},
-    //     IM_COL32(30,30,60,200), IM_COL32(10,10,30,200),
-    //     IM_COL32(10,10,30,200), IM_COL32(30,30,60,200));
 }
 
   void setStyle(uint32_t index) {
@@ -838,7 +829,6 @@ public:
     ImGui::End();
   }
 
-
 void update_signal_data(){
     static double last_time = -1.0;
     double now = ImGui::GetTime();
@@ -872,6 +862,7 @@ void update_signal_data(){
     }
 }
 
+/*
   void sigPlotContents(const char* dbc_name){
       auto messages = backend_get_messages();
       for(const auto &mp : messages){
@@ -895,6 +886,38 @@ void update_signal_data(){
                   ImPlot::EndPlot();
               }
           }
+      }
+  }
+  */
+
+  void sigPlotContents(const char* dbc_name){
+      static float plot_height = 120.0f;
+
+      auto messages = backend_get_messages();
+      float avail = ImGui::GetContentRegionAvail().y;
+      for(const auto &mp : messages){
+          const auto &msg = mp.second;
+          if(msg.dbc_name != dbc_name)
+              continue;
+
+         for(const auto &sig : msg.signals){
+            std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+            auto itx = signal_times.find(key);
+            auto ity = signal_values.find(key);
+            if(itx == signal_times.end() || ity == signal_values.end())
+                continue;
+            const auto &xs = itx->second;
+            const auto &ys = ity->second;
+            if(xs.empty())
+                continue;
+            if(ImPlot::BeginPlot(sig.name.c_str(), ImVec2(-1, plot_height))){
+                ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+                ImPlot::SetupAxisLimits(ImAxis_X1, xs.front(), xs.back(), ImGuiCond_Always);
+                double width = (xs.size() > 1) ? (xs[1]-xs[0]) * 0.8 : 0.1;
+                ImPlot::PlotLine(sig.name.c_str(), xs.data(), ys.data(), ys.size());
+                ImPlot::EndPlot();
+            }
+         }
       }
   }
 
@@ -1111,8 +1134,8 @@ void update_signal_data(){
   }
 
   void canTableContents(){
-      const char * path = "log.txt";
-      std::ofstream file(path, std::ios::out | std::ios::app);
+      //const char * path = "log.txt";
+      //std::ofstream file(path, std::ios::out | std::ios::app);
     static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
                                    ImGuiTableFlags_BordersV |
                                    ImGuiTableFlags_RowBg |
@@ -1138,7 +1161,7 @@ void update_signal_data(){
             std::string decoded;
             if (backend_decode(id, frame, decoded)){
               ImGui::TextUnformatted(decoded.c_str());
-              file << decoded.c_str() << std::endl;
+              //file << decoded.c_str() << std::endl;
             }
             else {
               char buf[3 * 8 + 1] = {0};
@@ -1150,7 +1173,7 @@ void update_signal_data(){
         }
         ImGui::EndTable();
       }
-      file.close();
+      //file.close();
   }
 
   void CAN_TABLE(){

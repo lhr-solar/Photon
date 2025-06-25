@@ -28,11 +28,10 @@ public:
     vkglTF::Model models;
     vkglTF::Model logos;
     vkglTF::Model background;
-    vkglTF::Model customModel; // new
+    vkglTF::Model customModel;
     vkglTF::Model aeroShell;
   } models;
 
-  // step 2
   vks::Buffer particleBuffer;
   struct Particle {
     glm::vec4 position;
@@ -51,7 +50,7 @@ public:
 
   VkPipelineLayout pipelineLayout;
   VkPipeline pipeline;
-  VkPipeline customPipeline; // custom
+  VkPipeline customPipeline;
   VkDescriptorSetLayout descriptorSetLayout;
   VkDescriptorSet descriptorSet;
 
@@ -67,13 +66,13 @@ public:
     enabledInstanceExtensions.push_back(
         VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
-    // Don't use the ImGui overlay of the base framework in this sample
+    // Don't use the ImGui overlay of the base framework in this
     settings.overlay = true;
   }
 
   ~Photon() {
     vkDestroyPipeline(device, pipeline, nullptr);
-    vkDestroyPipeline(device, customPipeline, nullptr); // custom
+    vkDestroyPipeline(device, customPipeline, nullptr);
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
@@ -104,7 +103,6 @@ public:
 
     gui->newFrame(this, (frameCounter == 0));
     gui->updateBuffers();
-    // step 10
     // particleBuffer.flush();
 
     for (int32_t i = 0; i < drawCmdBuffers.size(); ++i) {
@@ -127,11 +125,9 @@ public:
       vkCmdBindDescriptorSets(drawCmdBuffers[i],
                               VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                               0, 1, &descriptorSet, 0, nullptr);
-      // step 13? - not causing seg fault tho
       vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
       VkDeviceSize offsets[1] = {0};
-      // step 7
       /*
       vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                         customPipeline);
@@ -340,7 +336,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     // new blend stuff ^
 
     /*
-    // step 11
     // Particle vertex binding: Each particle has a position and velocity
     std::vector<VkVertexInputBindingDescription> particleVertexBinding = {
         vks::initializers::vertexInputBindingDescription(
@@ -368,7 +363,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     particleVertexInputState.pVertexAttributeDescriptions =
         particleVertexAttributes.data();
 
-    // step 6
     // remember to change ci dots below !
     VkPipelineInputAssemblyStateCreateInfo CustominputAssemblyState =
         vks::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -389,7 +383,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
         static_cast<uint32_t>(customShaderStages.size());
     customPipelineCI.pStages = customShaderStages.data();
 
-    // step 12
     customPipelineCI.pVertexInputState =
         vkglTF::Vertex::getPipelineVertexInputState(
             {vkglTF::VertexComponent::Position, vkglTF::VertexComponent::Normal,
@@ -397,7 +390,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
 
     customPipelineCI.pVertexInputState = &particleVertexInputState;
 
-    // step 5
     customShaderStages[0] =
         //    loadShader(getShadersPath() + "custom/custom_model.vert.spv",
         //               VK_SHADER_STAGE_VERTEX_BIT);
@@ -449,7 +441,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     uniformBufferVS.unmap();
   }
 
-  // step 4
   // can instead be placed at updateUniformBuffers, so should be ran at the same
   // time, or at prepareParticles
   void updateParticles(float deltaTime) {
@@ -476,7 +467,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     // linear time, fix this some other day
   }
 
-  // step 3
   // can instead be placed in prepareUniformBuffers, so should be ran at the
   // same time
   void prepareParticles() {
@@ -528,7 +518,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
                                    vulkanDevice, queue, glTFLoadingFlags);
     models.logos.loadFromFile(getAssetPath() + "models/vulkanscenelogos.gltf",
                               vulkanDevice, queue, glTFLoadingFlags);
-    // step 1
     //models.customModel.loadFromFile(getAssetPath() + "models/custom_model.gltf", vulkanDevice, queue, glTFLoadingFlags);
     models.customModel.loadFromFile(getAssetPath() + "models/aero.gltf" , vulkanDevice, queue, glTFLoadingFlags);
     //models.customModel.loadFromFile(getAssetPath() + "models/DataAcqLeaderBoard.gltf" , vulkanDevice, queue, glTFLoadingFlags);
@@ -545,7 +534,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     VulkanExampleBase::prepare();
     //loadAssfets();
     prepareUniformBuffers();
-    // step 8
     // prepareParticles();
     setupLayoutsAndDescriptors();
     preparePipelines();
@@ -559,7 +547,6 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
       return;
 
     updateUniformBuffers();
-    // step 9
     // need to rework this, try to get it full on the GPU
     // this should be a stretch goal / treat for you
     // work on this later :)
@@ -584,8 +571,7 @@ depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(
     handled = io.WantCaptureMouse && ui.visible;
   }
 
-// Input handling is platform specific, to show how it's basically done this
-// sample implements it for Windows
+// Input handling is platform specific, e.g.
   /*
 #if defined(_WIN32)
   virtual void OnHandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam,
