@@ -65,7 +65,7 @@ static void rebuild_dbc(){
         std::lock_guard<std::mutex> lock(builtin_mtx);
         for(const auto &b : builtin_dbcs)
             if(b.enabled)
-                tmp.loadFromMemory((const char*)b.data, b.size);
+                tmp.loadFromMemory((const char*)b.data, b.size, b.name);
     }
     {
         std::lock_guard<std::mutex> lock(loaded_dbcs_mtx);
@@ -126,6 +126,16 @@ std::vector<std::string> get_loaded_dbcs(){
 bool backend_decode(uint32_t id, const CanFrame &frame, std::string &out){
     std::lock_guard<std::mutex> lock(dbc_mtx);
     return dbc.decode(id, frame, out);
+}
+
+bool backend_decode_signals(uint32_t id, const CanFrame &frame, std::vector<std::pair<std::string,double>> &out){
+    std::lock_guard<std::mutex> lock(dbc_mtx);
+    return dbc.decode_signals(id, frame, out);
+}
+
+std::unordered_map<uint32_t, DbcMessage> backend_get_messages(){
+    std::lock_guard<std::mutex> lock(dbc_mtx);
+    return dbc.messages();
 }
 
 enum class ParseState : uint8_t {

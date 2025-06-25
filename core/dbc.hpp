@@ -23,14 +23,17 @@ struct DbcMessage {
     std::string name;
     uint8_t dlc = 0;
     std::vector<DbcSignal> signals;
+    std::string dbc_name;
 };
 
 class DbcParser {
 public:
     bool load(const std::string& path);
-    bool loadFromMemory(const char* data, size_t size);
+    bool loadFromMemory(const char* data, size_t size, const std::string& name);
     bool decode(uint32_t id, const CanFrame& frame, std::string& out) const;
     void can_parse_debug();
+    bool decode_signals(uint32_t id, const CanFrame& frame, std::vector<std::pair<std::string, double>> &out) const;
+    const std::unordered_map<uint32_t, DbcMessage>& messages() const { return _messages; }
 
 private:
     uint64_t extract_signal(const uint8_t* data, uint16_t start, uint8_t size, bool little_endian) const;

@@ -18,6 +18,7 @@
 #include "backend.hpp"
 #include <thread>
 #include <cstdio>
+#include <deque>
 #include <glm/gtc/type_ptr.hpp>
 #include <vulkan/vulkan_core.h>
 #include "ui_vert_spv.hpp"
@@ -51,6 +52,11 @@ static const ImU32 palette[] = {
     IM_COL32(100,255,150,255), // light-green
     IM_COL32(255,255,255,255)  // white
 };
+
+// store history of decoded signal values for plotting
+static std::unordered_map<std::string, std::vector<double>> signal_times;
+static std::unordered_map<std::string, std::vector<double>> signal_values;
+static constexpr size_t MAX_SIGNAL_HISTORY = 500;
 
 class GUI {
 private:
@@ -832,6 +838,68 @@ public:
     ImGui::End();
   }
 
+
+void update_signal_data(){
+    static double last_time = -1.0;
+    double now = ImGui::GetTime();
+    if (now == last_time)
+        return;
+    last_time = now;
+
+    auto messages = backend_get_messages();
+    const CanStore &store = get_can_store();
+
+    for(const auto &mp : messages){
+        uint32_t id = mp.first;
+        const auto &msg = mp.second;
+        CanFrame frame;
+        if(store.read(id, frame)){
+            std::vector<std::pair<std::string,double>> vals;
+            if(backend_decode_signals(id, frame, vals)){
+                for(const auto &p : vals){
+                    std::string key = msg.dbc_name + ":" + std::to_string(id) + ":" + p.first;
+                    auto &xt = signal_times[key];
+                    auto &yv = signal_values[key];
+                    xt.push_back(now);
+                    yv.push_back(p.second);
+                    if(xt.size() > MAX_SIGNAL_HISTORY){
+                        xt.erase(xt.begin());
+                        yv.erase(yv.begin());
+                    }
+                }
+            }
+        }
+    }
+}
+
+  void tsPlotContents(const char* dbc_name){
+      auto messages = backend_get_messages();
+      for(const auto &mp : messages){
+          const auto &msg = mp.second;
+          if(msg.dbc_name != dbc_name)
+              continue;
+          for(const auto &sig : mp.second.signals){
+              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+              auto itx = signal_times.find(key);
+              auto ity = signal_values.find(key);
+              if(itx == signal_times.end() || ity == signal_values.end())
+                  continue;
+              const auto &xs = itx->second;
+              const auto &ys = ity->second;
+              if(xs.empty())
+                  continue;
+              if(ImPlot::BeginPlot(sig.name.c_str())){
+                  ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+                  ImPlot::SetupAxisLimits(ImAxis_X1, xs.front(), xs.back(), ImGuiCond_Always);
+                  ImPlot::PlotLine(sig.name.c_str(), xs.data(), ys.data(), ys.size());
+                  ImPlot::EndPlot();
+              }
+          }
+      }
+  }
+
+
+/*
   void tsPlotContents(const char* label){
       static float xs1[1001], ys1[1001];
       for (int i = 0; i < 1001; ++i) {
@@ -845,6 +913,7 @@ public:
         ImPlot::EndPlot();
       }
   }
+  */
 
   void createTSPlot(std::string windowName) {
     ImGui::Begin(windowName.c_str());
@@ -1273,6 +1342,7 @@ void drawMainWindow(){
       ImGui::Begin("Main", nullptr, flags);
 
       //imguiGrad();
+      update_signal_data();
       if(ImGui::BeginTabBar("maintabs")){
 
           if(ImGui::BeginTabItem("Config Window")){

@@ -16,6 +16,7 @@ bool DbcParser::load(const std::string& path){
         std::cout << "invalid file" << std::endl;
         return false;
     }
+    std::string src = path;
     std::string line;
     DbcMessage* current = nullptr;
     while(std::getline(file, line)){
@@ -28,6 +29,7 @@ bool DbcParser::load(const std::string& path){
             uint32_t id; std::string name; char colon; unsigned dlc; std::string transmitter;
             iss >> id >> name >> colon >> dlc >> transmitter;
             DbcMessage msg; msg.id = id; msg.name = name; msg.dlc = static_cast<uint8_t>(dlc);
+            msg.dbc_name = src;
             _messages[id] = msg;
             current = &_messages[id];
         } else 
@@ -89,10 +91,11 @@ bool DbcParser::load(const std::string& path){
     return true;
 }
 
-bool DbcParser::loadFromMemory(const char* data, size_t size){
+bool DbcParser::loadFromMemory(const char* data, size_t size, const std::string& name){
     std::istringstream file(std::string(data, size));
     if(!file)
         return false;
+    std::string src = name;
     std::string line;
     DbcMessage* current = nullptr;
     while(std::getline(file, line)){
@@ -105,6 +108,7 @@ bool DbcParser::loadFromMemory(const char* data, size_t size){
             uint32_t id; std::string name; char colon; unsigned dlc; std::string transmitter;
             iss >> id >> name >> colon >> dlc >> transmitter;
             DbcMessage msg; msg.id = id; msg.name = name; msg.dlc = static_cast<uint8_t>(dlc);
+            msg.dbc_name = src;
             _messages[id] = msg;
             current = &_messages[id];
         } else if(tok == "SG_" && current){
@@ -205,6 +209,20 @@ bool DbcParser::decode(uint32_t id, const CanFrame& frame, std::string& out) con
         else oss << value;
     }
     out = oss.str();
+    return true;
+}
+
+bool DbcParser::decode_signals(uint32_t id, const CanFrame& frame, std::vector<std::pair<std::string,double>>& out) const{
+    auto it = _messages.find(id);
+    if(it == _messages.end()) return false;
+    out.clear();
+    const auto& msg = it->second;
+    for(const auto& sig : msg.signals){
+        uint64_t raw = extract_signal(frame.data.data(), sig.start_bit, sig.size, sig.little_endian);
+        int64_t s = sig.is_signed ? sign_extend(raw, sig.size) : (int64_t)raw;
+        double value = s * sig.factor + sig.offset;
+        out.emplace_back(sig.name, value);
+    }
     return true;
 }
 
