@@ -865,10 +865,9 @@ void update_signal_data(){
 std::unordered_map<std::string, int> dbc_idx = {
     {"BPS", 0},
     {"Wavesculptor22", 1},
-    {"MPPT A", 2},
-    {"MPPT B", 3},
-    {"Controls", 4},
-    {"DAQ", 5}
+    {"MPPT", 2},
+    {"Controls", 3},
+    {"DAQ", 4}
 };
 
 void bps_window(){
@@ -905,11 +904,7 @@ void prohelion_window(){
 
 }
 
-void mpptA_window(){
-
-}
-
-void mpptB_window(){
+void mppt_window(){
 
 }
 
@@ -925,10 +920,9 @@ void embededPlotContents(const char * dbc_name){
     switch(case_num){
     case 0: bps_window(); break;
     case 1: prohelion_window(); break;
-    case 2: mpptA_window(); break;
-    case 3: mpptB_window(); break;
-    case 4: controls_window(); break;
-    case 5: daq_window(); break;
+    case 2: mppt_window(); break;
+    case 3: controls_window(); break;
+    case 4: daq_window(); break;
     default: return;
     }
 }
@@ -1371,7 +1365,7 @@ void drawMainWindow(){
       ImGui::SetNextWindowPos(vp->WorkPos);
       ImGui::SetNextWindowSize(vp->WorkSize);
       ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-                              ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+                               ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
       ImGui::Begin("Main", nullptr, flags);
 
       //imguiGrad();

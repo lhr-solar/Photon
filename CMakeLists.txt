@@ -223,8 +223,9 @@ set(DBC_FILES
     dbc/bps.dbc
     dbc/controls.dbc
     dbc/prohelion_wavesculptor22.dbc
-    dbc/tpee_mppt[B].dbc
-    dbc/tpee_mppt[A].dbc
+    #dbc/tpee_mppt[B].dbc
+    #dbc/tpee_mppt[A].dbc
+    dbc/mppt.dbc
     dbc/daq.dbc
 )
 set(GENERATED_DBC_HEADERS)
