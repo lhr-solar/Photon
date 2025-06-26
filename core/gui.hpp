@@ -862,8 +862,78 @@ void update_signal_data(){
     }
 }
 
-/*
-  void sigPlotContents(const char* dbc_name){
+std::unordered_map<std::string, int> dbc_idx = {
+    {"BPS", 0},
+    {"Wavesculptor22", 1},
+    {"MPPT A", 2},
+    {"MPPT B", 3},
+    {"Controls", 4},
+    {"DAQ", 5}
+};
+
+void bps_window(){
+
+}
+
+void controls_window(){
+      auto messages = backend_get_messages();
+      for(const auto &mp : messages){
+          const auto &msg = mp.second;
+          if(msg.dbc_name != "Controls")
+              continue;
+          for(const auto &sig : mp.second.signals){
+              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+              auto itx = signal_times.find(key);
+              auto ity = signal_values.find(key);
+              if(itx == signal_times.end() || ity == signal_values.end())
+                  continue;
+              const auto &xs = itx->second;
+              const auto &ys = ity->second;
+              if(xs.empty())
+                  continue;
+              if(ImPlot::BeginPlot(sig.name.c_str())){
+                  ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+                  ImPlot::SetupAxisLimits(ImAxis_X1, xs.front(), xs.back(), ImGuiCond_Always);
+                  ImPlot::PlotBars(sig.name.c_str(), xs.data(), ys.data(), ys.size(), 0.1);
+                  ImPlot::EndPlot();
+              }
+          }
+      }
+}
+
+void prohelion_window(){
+
+}
+
+void mpptA_window(){
+
+}
+
+void mpptB_window(){
+
+}
+
+void daq_window(){
+}
+
+void embededPlotContents(const char * dbc_name){
+    int case_num = -1;
+    auto it = dbc_idx.find(dbc_name);
+    if(it != dbc_idx.end()){
+        case_num = it->second;
+    }
+    switch(case_num){
+    case 0: bps_window(); break;
+    case 1: prohelion_window(); break;
+    case 2: mpptA_window(); break;
+    case 3: mpptB_window(); break;
+    case 4: controls_window(); break;
+    case 5: daq_window(); break;
+    default: return;
+    }
+}
+
+void sigPlotContents(const char* dbc_name){
       auto messages = backend_get_messages();
       for(const auto &mp : messages){
           const auto &msg = mp.second;
@@ -880,6 +950,7 @@ void update_signal_data(){
               if(xs.empty())
                   continue;
               if(ImPlot::BeginPlot(sig.name.c_str())){
+                  std::cout << dbc_name << std::endl;
                   ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
                   ImPlot::SetupAxisLimits(ImAxis_X1, xs.front(), xs.back(), ImGuiCond_Always);
                   ImPlot::PlotLine(sig.name.c_str(), xs.data(), ys.data(), ys.size());
@@ -887,62 +958,6 @@ void update_signal_data(){
               }
           }
       }
-  }
-  */
-
-  void sigPlotContents(const char* dbc_name){
-      static float plot_height = 120.0f;
-
-      auto messages = backend_get_messages();
-      float avail = ImGui::GetContentRegionAvail().y;
-      for(const auto &mp : messages){
-          const auto &msg = mp.second;
-          if(msg.dbc_name != dbc_name)
-              continue;
-
-         for(const auto &sig : msg.signals){
-            std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
-            auto itx = signal_times.find(key);
-            auto ity = signal_values.find(key);
-            if(itx == signal_times.end() || ity == signal_values.end())
-                continue;
-            const auto &xs = itx->second;
-            const auto &ys = ity->second;
-            if(xs.empty())
-                continue;
-            if(ImPlot::BeginPlot(sig.name.c_str(), ImVec2(-1, plot_height))){
-                ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-                ImPlot::SetupAxisLimits(ImAxis_X1, xs.front(), xs.back(), ImGuiCond_Always);
-                double width = (xs.size() > 1) ? (xs[1]-xs[0]) * 0.8 : 0.1;
-                ImPlot::PlotLine(sig.name.c_str(), xs.data(), ys.data(), ys.size());
-                ImPlot::EndPlot();
-            }
-         }
-      }
-  }
-
-
-/*
-  void tsPlotContents(const char* label){
-      static float xs1[1001], ys1[1001];
-      for (int i = 0; i < 1001; ++i) {
-        xs1[i] = i * 0.001f;
-        ys1[i] = 0.5f + 0.5f * tanf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
-      }
-      if (ImPlot::BeginPlot(label)) {
-        ImPlot::SetupAxes("x", "y");
-        ImPlot::PlotLine("f(x)", xs1, ys1, 500);
-        ImPlot::PlotLine("f(x)", xs1, ys1, 500);
-        ImPlot::EndPlot();
-      }
-  }
-  */
-
-  void createTSPlot(std::string windowName) {
-    ImGui::Begin(windowName.c_str());
-    ImGui::Text("Window Name: %s", windowName.c_str());
-    sigPlotContents("Sync");
-    ImGui::End();
   }
 
   void sourceConfigContents(){
@@ -1228,11 +1243,6 @@ void modelWindowContents(){
   }
 
   void drawTabPlots(){
-      for(auto &tab : tabs){
-          for(auto & window : tab.windows){
-              createTSPlot(window.c_str());
-          }
-      }
   }
 
 void dbcConfigContents(){
@@ -1391,7 +1401,7 @@ void drawMainWindow(){
           for(const auto &b : builtins){
               if(!b.second) continue;
               if(ImGui::BeginTabItem(b.first.c_str())){
-                  sigPlotContents(b.first.c_str());
+                  embededPlotContents(b.first.c_str());
                   ImGui::EndTabItem();
               }
           }
