@@ -24,6 +24,7 @@
 #include "ui_vert_spv.hpp"
 #include "ui_frag_spv.hpp"
 #include "Inter_ttf.hpp"
+#include "signal_routing.hpp"
 
 // Options and values to display/toggle from the UI
 struct UISettings {
@@ -125,6 +126,9 @@ public:
     ImGui::CreateContext();
     ImPlot::CreateContext();
     ImPlot3D::CreateContext();
+
+    init_default_plot_registry();
+    init_default_plot_drawers();
 
     backend_thread = std::thread(backend, 0, nullptr);
 
@@ -876,27 +880,30 @@ void bps_window(){
 
 void controls_window(){
       auto messages = backend_get_messages();
+      std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>> plots;
+
       for(const auto &mp : messages){
           const auto &msg = mp.second;
           if(msg.dbc_name != "Controls")
               continue;
           for(const auto &sig : mp.second.signals){
-              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) +":" + sig.name;
               auto itx = signal_times.find(key);
               auto ity = signal_values.find(key);
               if(itx == signal_times.end() || ity == signal_values.end())
                   continue;
-              const auto &xs = itx->second;
-              const auto &ys = ity->second;
-              if(xs.empty())
+              if(itx->second.empty())
                   continue;
-              if(ImPlot::BeginPlot(sig.name.c_str())){
-                  ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-                  ImPlot::SetupAxisLimits(ImAxis_X1, xs.front(), xs.back(), ImGuiCond_Always);
-                  ImPlot::PlotBars(sig.name.c_str(), xs.data(), ys.data(), ys.size(), 0.1);
-                  ImPlot::EndPlot();
-              }
+              std::string plot = g_plot_registry.get_plot("Controls", mp.first, sig.name);
+              if(plot.empty())
+                  plot = sig.name;
+              plots[plot].push_back({key, sig.name});
           }
+      }
+
+      for(auto &pl : plots){
+          auto drawer = g_plot_drawers.get_drawer(pl.first);
+          drawer(pl.first, pl.second, signal_times, signal_values);
       }
 }
 
