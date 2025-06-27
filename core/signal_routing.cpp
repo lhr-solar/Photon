@@ -38,50 +38,6 @@ PlotDrawFn PlotDrawerRegistry::get_drawer(const std::string& name) const {
     return default_drawer;
 }
 
-void init_default_plot_registry() {
-    /* Controls mappings */
-    g_plot_registry.register_plot("Controls", 0x240, "Device_Serial_Number", "Moco. Info");
-    g_plot_registry.register_plot("Controls", 0x240, "Prohelion_ID", "Moco. Info");
-
-    g_plot_registry.register_plot("Controls", 0x242, "Bus_Current", "Bus");
-    g_plot_registry.register_plot("Controls", 0x242, "Bus_Voltage", "Bus");
-
-    g_plot_registry.register_plot("Controls", 0x243, "Vehicle_Velocity", "Velocity");
-    g_plot_registry.register_plot("Controls", 0x243, "Motor_Angular_Frequency", "Velocity");
-
-    g_plot_registry.register_plot("Controls", 0x244, "Phase_C_Current", "Phase Currents");
-    g_plot_registry.register_plot("Controls", 0x244, "Phase_B_Current", "Phase Currents");
-
-    g_plot_registry.register_plot("Controls", 0x245, "Vd", "Voltage Vector");
-    g_plot_registry.register_plot("Controls", 0x245, "Vq", "Voltage Vector");
-    g_plot_registry.register_plot("Controls", 0x246, "Id", "Current Vector");
-    g_plot_registry.register_plot("Controls", 0x246, "Iq", "Current Vector");
-
-    g_plot_registry.register_plot("Controls", 0x247, "Real_Component", "Back EMF");
-    g_plot_registry.register_plot("Controls", 0x247, "Peak_Phase_To_Neutral_Voltage", "Back EMF");
-
-    g_plot_registry.register_plot("Controls", 0x248, "Actual_Voltage", "Low Voltage Rail");
-    g_plot_registry.register_plot("Controls", 0x248, "Reserved", "Low Voltage Rail");
-
-    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_3_3V", "DSP Voltage Rail");
-    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_1_9V", "DSP Voltage Rail");
-
-    g_plot_registry.register_plot("Controls", 0x580, "State_name", "State");
-
-    g_plot_registry.register_plot("Controls", 0x582, "Motor_Precharge_enable", "Precharge");
-
-    g_plot_registry.register_plot("Controls", 0x583, "Lakshay_Fault", "Faults");
-    g_plot_registry.register_plot("Controls", 0x583, "OS_Fault", "Faults");
-    g_plot_registry.register_plot("Controls", 0x583, "Internal_Controls_Fault", "Faults");
-    g_plot_registry.register_plot("Controls", 0x583, "CarCANFault", "Faults");
-    g_plot_registry.register_plot("Controls", 0x583, "Pedals_Fault", "Faults");
-    g_plot_registry.register_plot("Controls", 0x583, "BPS_Fault", "Faults");
-    g_plot_registry.register_plot("Controls", 0x583, "Motor_Controller_Fault", "Faults");
-    g_plot_registry.register_plot("Controls", 0x583, "Any_Controls_Fault", "Faults");
-    
-    //g_plot_registry.register_plot("Controls", 0x584, "Motor_Safe", "Faults");
-}    
-
 static PlotDrawFn make_line_drawer(const char* y_label) {
     return [y_label](const std::string& name,
                      const std::vector<PlotSignal>& signals,
@@ -310,6 +266,164 @@ static PlotDrawFn make_line3d_drawer(const char* z_label) {
             ImPlot3D::EndPlot();
         }
     };
+}
+
+void init_default_plot_registry() {
+    /* Controls mappings */
+    g_plot_registry.register_plot("Controls", 0x240, "Device_Serial_Number", "Moco. Info");
+    g_plot_registry.register_plot("Controls", 0x240, "Prohelion_ID", "Moco. Info");
+
+    g_plot_registry.register_plot("Controls", 0x241, "Rx_Error_Count", "Moco. Status");
+    g_plot_registry.register_plot("Controls", 0x241, "Tx_Error_Count", "Moco. Status");
+    g_plot_registry.register_plot("Controls", 0x241, "Active_Motor_Index", "Moco. Status");
+    g_plot_registry.register_plot("Controls", 0x241, "Error_Flags", "Moco. Status");
+
+
+    g_plot_registry.register_plot("Controls", 0x242, "Bus_Current", "Bus");
+    g_plot_registry.register_plot("Controls", 0x242, "Bus_Voltage", "Bus");
+
+    g_plot_registry.register_plot("Controls", 0x243, "Vehicle_Velocity", "Velocity");
+    g_plot_registry.register_plot("Controls", 0x243, "Motor_Angular_Frequency", "Velocity");
+
+    g_plot_registry.register_plot("Controls", 0x244, "Phase_C_Current", "Phase Currents");
+    g_plot_registry.register_plot("Controls", 0x244, "Phase_B_Current", "Phase Currents");
+
+    g_plot_registry.register_plot("Controls", 0x245, "Vd", "Voltage Vector");
+    g_plot_registry.register_plot("Controls", 0x245, "Vq", "Voltage Vector");
+
+    g_plot_registry.register_plot("Controls", 0x246, "Id", "Current Vector");
+    g_plot_registry.register_plot("Controls", 0x246, "Iq", "Current Vector");
+
+    g_plot_registry.register_plot("Controls", 0x247, "Real_Component", "Back EMF");
+    g_plot_registry.register_plot("Controls", 0x247, "Peak_Phase_To_Neutral_Voltage", "Back EMF");
+
+    g_plot_registry.register_plot("Controls", 0x248, "Actual_Voltage", "Low Voltage Rail");
+    g_plot_registry.register_plot("Controls", 0x248, "Reserved", "Low Voltage Rail");
+
+    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_3_3V", "DSP Voltage Rail");
+    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_1_9V", "DSP Voltage Rail");
+
+    g_plot_registry.register_plot("Controls", 0x580, "State_name", "State");
+
+    g_plot_registry.register_plot("Controls", 0x582, "Motor_Precharge_enable", "Precharge");
+
+    g_plot_registry.register_plot("Controls", 0x583, "Lakshay_Fault", "Faults");
+    g_plot_registry.register_plot("Controls", 0x583, "OS_Fault", "Faults");
+    g_plot_registry.register_plot("Controls", 0x583, "Internal_Controls_Fault", "Faults");
+    g_plot_registry.register_plot("Controls", 0x583, "CarCANFault", "Faults");
+    g_plot_registry.register_plot("Controls", 0x583, "Pedals_Fault", "Faults");
+    g_plot_registry.register_plot("Controls", 0x583, "BPS_Fault", "Faults");
+    g_plot_registry.register_plot("Controls", 0x583, "Motor_Controller_Fault", "Faults");
+    g_plot_registry.register_plot("Controls", 0x583, "Any_Controls_Fault", "Faults");
+    
+    g_plot_registry.register_plot("Controls", 0x584, "Motor_Safe", "Moco. Safe");
+    g_plot_registry.register_plot("Controls", 0x584, "Debug", "Moco. Safe");
+
+
+    /* BPS mappings */
+    g_plot_registry.register_plot("BPS", 0x2, "BPS_Trip", "Trip");
+    g_plot_registry.register_plot("BPS", 0x101, "BPS_All_Clear", "All Clear");
+    g_plot_registry.register_plot("BPS", 0x102, "Array_Contactor", "Contactors");
+    g_plot_registry.register_plot("BPS", 0x102, "HV_Contactor", "Contactors");
+    g_plot_registry.register_plot("BPS", 0x103, "Current", "Current");
+    g_plot_registry.register_plot("BPS", 0x104, "Voltage_idx", "Voltage Array");
+    g_plot_registry.register_plot("BPS", 0x104, "Voltage_Value", "Voltage Array");
+    g_plot_registry.register_plot("BPS", 0x105, "Temperature_idx", "Temperature Array");
+    g_plot_registry.register_plot("BPS", 0x105, "Temperature_Value", "Temperature Array");
+    g_plot_registry.register_plot("BPS", 0x106, "SoC", "SOC");
+    g_plot_registry.register_plot("BPS", 0x107, "WDog_Trig", "Watchdog");
+    g_plot_registry.register_plot("BPS", 0x108, "BPS_CAN_Error", "CAN Error");
+    g_plot_registry.register_plot("BPS", 0x109, "BPS_Command", "Command");
+    g_plot_registry.register_plot("BPS", 0x10B, "Supplemental_Voltage", "Supplemental Voltage");
+    g_plot_registry.register_plot("BPS", 0x10C, "Charge_Enabled", "Charge");
+    g_plot_registry.register_plot("BPS", 0x10D, "Pack_Voltage", "Voltage Summary");
+    g_plot_registry.register_plot("BPS", 0x10D, "Voltage_Range", "Voltage Summary");
+    g_plot_registry.register_plot("BPS", 0x10D, "Voltage_Timestamp", "Voltage Summary");
+    g_plot_registry.register_plot("BPS", 0x10E, "Average_Temp", "Temperature Summary");
+    g_plot_registry.register_plot("BPS", 0x10E, "Temperature_Range", "Temperature Summary");
+    g_plot_registry.register_plot("BPS", 0x10E, "Temperature_Timestamp", "Temperature Summary");
+    g_plot_registry.register_plot("BPS", 0x10F, "BPS_Fault_State", "Fault State");
+
+    /* Wavesculptor22 mappings */
+    g_plot_registry.register_plot("Wavesculptor22", 0x80, "TritiumID", "Info");
+    g_plot_registry.register_plot("Wavesculptor22", 0x80, "SerialNumber", "Info");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitReserved", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitIpmOrMotorTemp", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitBusVoltageLower", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitBusVoltageUpper", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitBusCurrent", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitVelocity", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitMotorCurrent", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "LimitOutputVoltagePWM", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorReserved", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorMotorOverSpeed", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorDesaturationFault", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "Error15vRailUnderVoltage", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorConfigRead", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorWatchdogCausedLastReset", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorBadMotorPositionHallSeq", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorDcBusOverVoltage", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorSoftwareOverCurrent", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ErrorHardwareOverCurrent", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "ActiveMotor", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "TxErrorCount", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x81, "RxErrorCount", "Status");
+    g_plot_registry.register_plot("Wavesculptor22", 0x82, "BusVoltage", "Bus");
+    g_plot_registry.register_plot("Wavesculptor22", 0x82, "BusCurrent", "Bus");
+    g_plot_registry.register_plot("Wavesculptor22", 0x83, "MotorVelocity", "Velocity");
+    g_plot_registry.register_plot("Wavesculptor22", 0x83, "VehicleVelocity", "Velocity");
+    g_plot_registry.register_plot("Wavesculptor22", 0x84, "PhaseCurrentB", "Phase Currents");
+    g_plot_registry.register_plot("Wavesculptor22", 0x84, "PhaseCurrentC", "Phase Currents");
+    g_plot_registry.register_plot("Wavesculptor22", 0x85, "Vq", "Voltage Vector");
+    g_plot_registry.register_plot("Wavesculptor22", 0x85, "Vd", "Voltage Vector");
+    g_plot_registry.register_plot("Wavesculptor22", 0x86, "Iq", "Current Vector");
+    g_plot_registry.register_plot("Wavesculptor22", 0x86, "Id", "Current Vector");
+    g_plot_registry.register_plot("Wavesculptor22", 0x87, "BEMFq", "Back EMF");
+    g_plot_registry.register_plot("Wavesculptor22", 0x87, "BEMFd", "Back EMF");
+    g_plot_registry.register_plot("Wavesculptor22", 0x88, "Supply15V", "15V Rail");
+    g_plot_registry.register_plot("Wavesculptor22", 0x88, "ReservedSupply15V", "15V Rail");
+    g_plot_registry.register_plot("Wavesculptor22", 0x89, "Supply1V9", "DSP Voltage Rail");
+    g_plot_registry.register_plot("Wavesculptor22", 0x89, "Supply3V3", "DSP Voltage Rail");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8A, "Reserved0A0", "Reserved0A");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8A, "Reserved0A1", "Reserved0A");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8B, "MotorTemp", "Temperatures");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8B, "HeatsinkTemp", "Temperatures");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8C, "DspBoardTemp", "DSP Board Temp");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8C, "ReservedDspBoardTemp", "DSP Board Temp");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8D, "Reserved0D0", "Reserved0D");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8D, "Reserved0D1", "Reserved0D");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8E, "Odometer", "Odometer");
+    g_plot_registry.register_plot("Wavesculptor22", 0x8E, "DCBusAh", "Odometer");
+    g_plot_registry.register_plot("Wavesculptor22", 0x97, "SlipSpeed", "Slip Speed");
+    g_plot_registry.register_plot("Wavesculptor22", 0x97, "ReservedSlipSpeed", "Slip Speed");
+
+    /* MPPT mappings */
+    g_plot_registry.register_plot("MPPT", 0x201, "MPPT_Enabled", "MPPT32 Status");
+    g_plot_registry.register_plot("MPPT", 0x201, "MPPT_HeatsinkTemperature", "MPPT32 Status");
+    g_plot_registry.register_plot("MPPT", 0x201, "MPPT_AmbientTemperature", "MPPT32 Status");
+    g_plot_registry.register_plot("MPPT", 0x201, "MPPT_Fault", "MPPT32 Status");
+    g_plot_registry.register_plot("MPPT", 0x201, "MPPT_Mode", "MPPT32 Status");
+    g_plot_registry.register_plot("MPPT", 0x200, "MPPT_Iout", "MPPT32 Power");
+    g_plot_registry.register_plot("MPPT", 0x200, "MPPT_Vout", "MPPT32 Power");
+    g_plot_registry.register_plot("MPPT", 0x200, "MPPT_Iin", "MPPT32 Power");
+    g_plot_registry.register_plot("MPPT", 0x200, "MPPT_Vin", "MPPT32 Power");
+    g_plot_registry.register_plot("MPPT", 0x211, "MPPT_Enabled", "MPPT33 Status");
+    g_plot_registry.register_plot("MPPT", 0x211, "MPPT_HeatsinkTemperature", "MPPT33 Status");
+    g_plot_registry.register_plot("MPPT", 0x211, "MPPT_AmbientTemperature", "MPPT33 Status");
+    g_plot_registry.register_plot("MPPT", 0x211, "MPPT_Fault", "MPPT33 Status");
+    g_plot_registry.register_plot("MPPT", 0x211, "MPPT_Mode", "MPPT33 Status");
+    g_plot_registry.register_plot("MPPT", 0x210, "MPPT_Iout", "MPPT33 Power");
+    g_plot_registry.register_plot("MPPT", 0x210, "MPPT_Vout", "MPPT33 Power");
+    g_plot_registry.register_plot("MPPT", 0x210, "MPPT_Iin", "MPPT33 Power");
+    g_plot_registry.register_plot("MPPT", 0x210, "MPPT_Vin", "MPPT33 Power");
+
+    /* DAQ mappings */
+    g_plot_registry.register_plot("DAQ", 0x701, "Bytes_Transmited", "RF Stats");
+    g_plot_registry.register_plot("DAQ", 0x702, "TX_Fail_Count", "RF Stats");
+    g_plot_registry.register_plot("DAQ", 0x704, "Good_Packet_Receive_Count", "RF Stats");
+    g_plot_registry.register_plot("DAQ", 0x705, "MAC_ACK_Fail_Count", "RF Stats");
+    g_plot_registry.register_plot("DAQ", 0x703, "RSSI", "RF Stats");
+    g_plot_registry.register_plot("DAQ", 0x781, "LTE_RSSI", "LTE Signal");
 }
 
 void init_default_plot_drawers(){
