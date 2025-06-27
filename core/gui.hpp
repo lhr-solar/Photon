@@ -26,6 +26,20 @@
 #include "Inter_ttf.hpp"
 #include "signal_routing.hpp"
 
+enum class PlotSize { Large, Medium, Small };
+
+static ImVec2 get_plot_size(PlotSize size) {
+    switch (size) {
+        case PlotSize::Large:  return ImVec2(600, 400);
+        case PlotSize::Small:  return ImVec2(200, 150);
+        default:               return ImVec2(350, 250);
+    }
+}
+
+static std::unordered_map<std::string, PlotSize> plot_size_map;
+
+
+
 // Options and values to display/toggle from the UI
 struct UISettings {
   bool displayModels = false;
@@ -58,6 +72,34 @@ static const ImU32 palette[] = {
 static std::unordered_map<std::string, std::vector<double>> signal_times;
 static std::unordered_map<std::string, std::vector<double>> signal_values;
 static constexpr size_t MAX_SIGNAL_HISTORY = 500;
+
+static void render_plot_dock(const char* dock_id_str, std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>>& plots){
+    ImGuiID dock_id = ImGui::GetID(dock_id_str);
+    ImGui::DockSpace(dock_id);
+
+    static std::unordered_map<ImGuiID, bool> initialized;
+    if(!initialized[dock_id]){
+        initialized[dock_id] = true;
+        ImGui::DockBuilderRemoveNode(dock_id);
+        ImGui::DockBuilderAddNode(dock_id);
+        for(const auto &pl : plots){
+            ImGui::DockBuilderDockWindow(pl.first.c_str(), dock_id);
+        }
+        ImGui::DockBuilderFinish(dock_id);
+    }
+
+    for(auto &pl : plots){
+        PlotSize size = PlotSize::Medium;
+        auto it = plot_size_map.find(pl.first);
+        if(it != plot_size_map.end())
+            size = it->second;
+        ImGui::SetNextWindowSize(get_plot_size(size), ImGuiCond_FirstUseEver);
+        ImGui::Begin(pl.first.c_str());
+        auto drawer = g_plot_drawers.get_drawer(pl.first);
+        drawer(pl.first, pl.second, signal_times, signal_values);
+        ImGui::End();
+    }
+}
 
 class GUI {
 private:
@@ -896,11 +938,7 @@ void bps_window(){
               plots[plot].push_back({key, sig.name});
           }
       }
-
-      for(auto &pl : plots){
-          auto drawer = g_plot_drawers.get_drawer(pl.first);
-          drawer(pl.first, pl.second, signal_times, signal_values);
-      }
+     render_plot_dock("BPSDock", plots);
 }
 
 void controls_window(){
@@ -925,11 +963,7 @@ void controls_window(){
               plots[plot].push_back({key, sig.name});
           }
       }
-
-      for(auto &pl : plots){
-          auto drawer = g_plot_drawers.get_drawer(pl.first);
-          drawer(pl.first, pl.second, signal_times, signal_values);
-      }
+     render_plot_dock("MPPTDock", plots);
 }
 
 void prohelion_window(){
@@ -954,11 +988,7 @@ void prohelion_window(){
               plots[plot].push_back({key, sig.name});
           }
       }
-
-      for(auto &pl : plots){
-          auto drawer = g_plot_drawers.get_drawer(pl.first);
-          drawer(pl.first, pl.second, signal_times, signal_values);
-      }
+      render_plot_dock("ProhelionDock", plots);
 }
 
 void mppt_window(){
@@ -983,11 +1013,7 @@ void mppt_window(){
               plots[plot].push_back({key, sig.name});
           }
       }
-
-      for(auto &pl : plots){
-          auto drawer = g_plot_drawers.get_drawer(pl.first);
-          drawer(pl.first, pl.second, signal_times, signal_values);
-      }
+      render_plot_dock("MPPTDock", plots);
 }
 
 void daq_window(){
@@ -1013,10 +1039,7 @@ void daq_window(){
           }
       }
 
-      for(auto &pl : plots){
-          auto drawer = g_plot_drawers.get_drawer(pl.first);
-          drawer(pl.first, pl.second, signal_times, signal_values);
-      }
+      render_plot_dock("DAQDock", plots);
 }
 
 void embededPlotContents(const char * dbc_name){
@@ -1473,7 +1496,8 @@ void drawMainWindow(){
       ImGui::SetNextWindowPos(vp->WorkPos);
       ImGui::SetNextWindowSize(vp->WorkSize);
       ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-                               ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+                               ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | 
+                               ImGuiWindowFlags_NoBringToFrontOnFocus;
       ImGui::Begin("Main", nullptr, flags);
 
       //imguiGrad();

@@ -279,29 +279,29 @@ void init_default_plot_registry() {
     g_plot_registry.register_plot("Controls", 0x241, "Error_Flags", "Moco. Status");
 
 
-    g_plot_registry.register_plot("Controls", 0x242, "Bus_Current", "Bus");
-    g_plot_registry.register_plot("Controls", 0x242, "Bus_Voltage", "Bus");
+    g_plot_registry.register_plot("Controls", 0x242, "Bus_Current", "Moco. Bus");
+    g_plot_registry.register_plot("Controls", 0x242, "Bus_Voltage", "Moco. Bus");
 
-    g_plot_registry.register_plot("Controls", 0x243, "Vehicle_Velocity", "Velocity");
-    g_plot_registry.register_plot("Controls", 0x243, "Motor_Angular_Frequency", "Velocity");
+    g_plot_registry.register_plot("Controls", 0x243, "Vehicle_Velocity", "Moco. Velocity");
+    g_plot_registry.register_plot("Controls", 0x243, "Motor_Angular_Frequency", "Moco. Velocity");
 
-    g_plot_registry.register_plot("Controls", 0x244, "Phase_C_Current", "Phase Currents");
-    g_plot_registry.register_plot("Controls", 0x244, "Phase_B_Current", "Phase Currents");
+    g_plot_registry.register_plot("Controls", 0x244, "Phase_C_Current", "Moco. Phase Currents");
+    g_plot_registry.register_plot("Controls", 0x244, "Phase_B_Current", "Moco. Phase Currents");
 
-    g_plot_registry.register_plot("Controls", 0x245, "Vd", "Voltage Vector");
-    g_plot_registry.register_plot("Controls", 0x245, "Vq", "Voltage Vector");
+    g_plot_registry.register_plot("Controls", 0x245, "Vd", "Moco. Voltage Vector");
+    g_plot_registry.register_plot("Controls", 0x245, "Vq", "Moco. Voltage Vector");
 
-    g_plot_registry.register_plot("Controls", 0x246, "Id", "Current Vector");
-    g_plot_registry.register_plot("Controls", 0x246, "Iq", "Current Vector");
+    g_plot_registry.register_plot("Controls", 0x246, "Id", "Moco. Current Vector");
+    g_plot_registry.register_plot("Controls", 0x246, "Iq", "Moco. Current Vector");
 
-    g_plot_registry.register_plot("Controls", 0x247, "Real_Component", "Back EMF");
-    g_plot_registry.register_plot("Controls", 0x247, "Peak_Phase_To_Neutral_Voltage", "Back EMF");
+    g_plot_registry.register_plot("Controls", 0x247, "Real_Component", "Moco. Back EMF");
+    g_plot_registry.register_plot("Controls", 0x247, "Peak_Phase_To_Neutral_Voltage", "Moco. Back EMF");
 
     g_plot_registry.register_plot("Controls", 0x248, "Actual_Voltage", "Low Voltage Rail");
     g_plot_registry.register_plot("Controls", 0x248, "Reserved", "Low Voltage Rail");
 
-    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_3_3V", "DSP Voltage Rail");
-    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_1_9V", "DSP Voltage Rail");
+    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_3_3V", "Moco. DSP Voltage Rail");
+    g_plot_registry.register_plot("Controls", 0x249, "Actual_Voltage_1_9V", "Moco. DSP Voltage Rail");
 
     g_plot_registry.register_plot("Controls", 0x580, "State_name", "State");
 
@@ -427,6 +427,7 @@ void init_default_plot_registry() {
 }
 
 void init_default_plot_drawers(){
+    g_plot_drawers.register_drawer("Moco. Info", make_line_drawer("Value"));
     g_plot_drawers.register_drawer("Bus", make_line_drawer("Value"));
     g_plot_drawers.register_drawer("Velocity", make_line_drawer("Value"));
     g_plot_drawers.register_drawer("Phase Currents", make_line_drawer("Current (A)"));
@@ -437,4 +438,41 @@ void init_default_plot_drawers(){
     g_plot_drawers.register_drawer("DSP Voltage Rail", make_line_drawer("Voltage (V)"));
     g_plot_drawers.register_drawer("Precharge", make_line_drawer("Value"));
     g_plot_drawers.register_drawer("Faults", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("State", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Moco. Safe", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Moco. Status", make_line_drawer("Value"));
+
+    g_plot_drawers.register_drawer("Trip", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("All Clear", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Contactors", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Current", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Voltage Array", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Temperature Array", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("SOC", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Watchdog", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("CAN Error", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Command", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Supplemental Voltage", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Charge", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Voltage Summary", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Temperature Summary", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Fault State", make_line_drawer("Value"));
+
+    g_plot_drawers.register_drawer("Info", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Status", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("15V Rail", make_line_drawer("Voltage (V)"));
+    g_plot_drawers.register_drawer("Reserved0A", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Temperatures", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("DSP Board Temp", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Reserved0D", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Odometer", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("Slip Speed", make_line_drawer("Value"));
+
+    g_plot_drawers.register_drawer("MPPT32 Status", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("MPPT32 Power", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("MPPT33 Status", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("MPPT33 Power", make_line_drawer("Value"));
+
+    g_plot_drawers.register_drawer("RF Stats", make_line_drawer("Value"));
+    g_plot_drawers.register_drawer("LTE Signal", make_line_drawer("Value"));
 }
