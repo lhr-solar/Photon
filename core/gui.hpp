@@ -875,7 +875,32 @@ std::unordered_map<std::string, int> dbc_idx = {
 };
 
 void bps_window(){
+      auto messages = backend_get_messages();
+      std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>> plots;
 
+      for(const auto &mp : messages){
+          const auto &msg = mp.second;
+          if(msg.dbc_name != "BPS")
+              continue;
+          for(const auto &sig : mp.second.signals){
+              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+              auto itx = signal_times.find(key);
+              auto ity = signal_values.find(key);
+              if(itx == signal_times.end() || ity == signal_values.end())
+                  continue;
+              if(itx->second.empty())
+                  continue;
+              std::string plot = g_plot_registry.get_plot("BPS", mp.first, sig.name);
+              if(plot.empty())
+                  plot = sig.name;
+              plots[plot].push_back({key, sig.name});
+          }
+      }
+
+      for(auto &pl : plots){
+          auto drawer = g_plot_drawers.get_drawer(pl.first);
+          drawer(pl.first, pl.second, signal_times, signal_values);
+      }
 }
 
 void controls_window(){
@@ -908,14 +933,90 @@ void controls_window(){
 }
 
 void prohelion_window(){
+      auto messages = backend_get_messages();
+      std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>> plots;
 
+      for(const auto &mp : messages){
+          const auto &msg = mp.second;
+          if(msg.dbc_name != "Wavesculptor22")
+              continue;
+          for(const auto &sig : mp.second.signals){
+              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+              auto itx = signal_times.find(key);
+              auto ity = signal_values.find(key);
+              if(itx == signal_times.end() || ity == signal_values.end())
+                  continue;
+              if(itx->second.empty())
+                  continue;
+              std::string plot = g_plot_registry.get_plot("Wavesculptor22", mp.first, sig.name);
+              if(plot.empty())
+                  plot = sig.name;
+              plots[plot].push_back({key, sig.name});
+          }
+      }
+
+      for(auto &pl : plots){
+          auto drawer = g_plot_drawers.get_drawer(pl.first);
+          drawer(pl.first, pl.second, signal_times, signal_values);
+      }
 }
 
 void mppt_window(){
+      auto messages = backend_get_messages();
+      std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>> plots;
 
+      for(const auto &mp : messages){
+          const auto &msg = mp.second;
+          if(msg.dbc_name != "MPPT")
+              continue;
+          for(const auto &sig : mp.second.signals){
+              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+              auto itx = signal_times.find(key);
+              auto ity = signal_values.find(key);
+              if(itx == signal_times.end() || ity == signal_values.end())
+                  continue;
+              if(itx->second.empty())
+                  continue;
+              std::string plot = g_plot_registry.get_plot("MPPT", mp.first, sig.name);
+              if(plot.empty())
+                  plot = sig.name;
+              plots[plot].push_back({key, sig.name});
+          }
+      }
+
+      for(auto &pl : plots){
+          auto drawer = g_plot_drawers.get_drawer(pl.first);
+          drawer(pl.first, pl.second, signal_times, signal_values);
+      }
 }
 
 void daq_window(){
+      auto messages = backend_get_messages();
+      std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>> plots;
+
+      for(const auto &mp : messages){
+          const auto &msg = mp.second;
+          if(msg.dbc_name != "DAQ")
+              continue;
+          for(const auto &sig : mp.second.signals){
+              std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+              auto itx = signal_times.find(key);
+              auto ity = signal_values.find(key);
+              if(itx == signal_times.end() || ity == signal_values.end())
+                  continue;
+              if(itx->second.empty())
+                  continue;
+              std::string plot = g_plot_registry.get_plot("DAQ", mp.first, sig.name);
+              if(plot.empty())
+                  plot = sig.name;
+              plots[plot].push_back({key, sig.name});
+          }
+      }
+
+      for(auto &pl : plots){
+          auto drawer = g_plot_drawers.get_drawer(pl.first);
+          drawer(pl.first, pl.second, signal_times, signal_values);
+      }
 }
 
 void embededPlotContents(const char * dbc_name){
