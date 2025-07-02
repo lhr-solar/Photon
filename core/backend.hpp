@@ -10,14 +10,18 @@
 int backend(int argc, char* argv[]);
 
 const CanStore& get_can_store();
+void clear_can_store();
 
 bool backend_decode(uint32_t id, const CanFrame& frame, std::string& out);
+bool backend_decode_sep(uint32_t id, const CanFrame& frame, std::string& out, const char* sep);
 bool backend_decode_signals(uint32_t id, const CanFrame& frame, std::vector<std::pair<std::string, double>> &out);
 std::unordered_map<uint32_t, DbcMessage> backend_get_messages();
 
 void forward_serial_source(std::string& fd, std::string& baud);
 void forward_tcp_source(std::string& fd, std::string& port);
 void kill_data_source();
+bool is_data_source_connected();
+bool read_update_avail();
 
 void forward_dbc_load(const std::string& path);
 void forward_dbc_unload(const std::string& path);

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include "config.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -41,6 +42,12 @@ TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
             throw std::system_error(errno, std::system_category(), "socket creation failed");
 #endif
 
+#ifdef _WIN32
+        //u_long int imode = 1;
+        //ioctlsocket(_fd, FIONBIO, &imode);
+#endif
+
+
         sockaddr_in serv_addr{};
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_port = htons(port);
@@ -63,7 +70,20 @@ TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-        std::cout << "[+] Initialized connection on: " << _fd << std::endl;
+        send(_fd, "xmN10e", 6, 0);
+        // send version string
+		send(_fd, VERSION, sizeof(VERSION), 0);
+        // check if there is an update available
+		char response[5] = { 0 };
+	    int did_rec = recv(_fd, response, sizeof(response), 0);
+        // print to console, received version
+        OutputDebugStringA(response);
+        
+        // truncate response to only 5 characters
+        if (did_rec > 0) {
+            if (strncmp(response, VERSION, 5) != 0)
+                _update = true;
+        }
 
     } else {
         // server side
@@ -130,7 +150,7 @@ TcpSocket::~TcpSocket(){
 #endif
 }
 
-ssize_t TcpSocket::read(uint8_t* buf, std::size_t maxlen){
+ssize_t TcpSocket::read(uint8_t* buf, std::size_t maxlen) {
 #ifdef _WIN32
     int n = ::recv(_fd, reinterpret_cast<char*>(buf), static_cast<int>(maxlen), 0);
     return (n == SOCKET_ERROR) ? -1 : n;

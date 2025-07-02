@@ -17,6 +17,8 @@
 #include <atomic>
 #include <utility>
 #include <string>
+#include <fstream>
+#include <sys/types.h>
 
 #include "bps_dbc.hpp"
 #include "controls_dbc.hpp"
@@ -25,6 +27,7 @@
 //#include "tpee_mppt_B__dbc.hpp"
 #include "mppt_dbc.hpp"
 #include "daq_dbc.hpp"
+#include "contactor_dbc.hpp"
 
 static CanStore can_store;
 static DbcParser dbc;
@@ -44,7 +47,8 @@ static BuiltinDbc builtin_dbcs[] = {
     //{"MPPT B", tpee_mppt_B__dbc, tpee_mppt_B__dbc_size, true},
     {"MPPT", mppt_dbc, mppt_dbc_size, true},
     {"Controls", controls_dbc, controls_dbc_size, true},
-    {"DAQ", daq_dbc, daq_dbc_size, true}
+    {"DAQ", daq_dbc, daq_dbc_size, true},
+    {"Contactor", contactor_dbc, contactor_dbc_size, true}
 
 };
 static std::mutex builtin_mtx;
@@ -81,6 +85,10 @@ static void rebuild_dbc(){
 std::atomic<bool> data_source_terminate(false);
 
 const CanStore& get_can_store() { return can_store; }
+
+void clear_can_store() {
+    can_store.clear();
+}
 
 void forward_dbc_load(const std::string& path){
     if(path.empty())
@@ -128,6 +136,11 @@ std::vector<std::string> get_loaded_dbcs(){
 bool backend_decode(uint32_t id, const CanFrame &frame, std::string &out){
     std::lock_guard<std::mutex> lock(dbc_mtx);
     return dbc.decode(id, frame, out);
+}
+
+bool backend_decode_sep(uint32_t id, const CanFrame& frame, std::string& out, const char* sep) {
+    std::lock_guard<std::mutex> lock(dbc_mtx);
+    return dbc.decode_sep(id, frame, out, sep);
 }
 
 bool backend_decode_signals(uint32_t id, const CanFrame &frame, std::vector<std::pair<std::string,double>> &out){
@@ -284,17 +297,26 @@ void serial_read(SerialPort &serial, RingBuffer &ringBuffer){
 void tcp_read(TcpSocket &socket, RingBuffer &ringBuffer){
     std::vector<uint8_t> temp(READ_CHUNK);
     while(!data_source_terminate.load()){
-        size_t amount_read = socket.read(temp.data(), temp.size());
-        if(amount_read > 0) ringBuffer.write(temp.data(), amount_read);
+        ssize_t amount_read = socket.read(temp.data(), temp.size());
+        if (amount_read > 0) {
+            ringBuffer.write(temp.data(), amount_read);
+        } else if (amount_read <= 0) {
+            kill_data_source();
+            break;
+        }
     }
 }
 
 void photon_proc(RingBuffer &ringBuffer){
-    std::vector<uint8_t> temp(READ_CHUNK);
+std::vector<uint8_t> temp(READ_CHUNK);
+ //   const char* path = "raw_log.txt";
+   // std::ofstream file(path, std::ios::out | std::ios::app);
     while(true){
-        size_t amount_read = ringBuffer.read(temp.data(), temp.size());
+  size_t amount_read = ringBuffer.read(temp.data(), temp.size());
+  //      file << temp.data() << std::endl;
         parse((uint8_t*)temp.data(), amount_read);
     }
+//    file.close();
 }
 
 struct SerialSource {
@@ -311,10 +333,21 @@ struct TcpSource {
 
 std::atomic<bool> new_source_flag(false);
 std::atomic<int> sourceEnum(-1);
+std::atomic<bool> data_source_connected(false);
+std::atomic<bool> update_available(false);
+
+bool read_update_avail() {
+	bool store = update_available.load(std::memory_order_acquire);
+    return store;
+}
 
 void kill_data_source(){
     sourceEnum.store(-1);
     new_source_flag.store(true, std::memory_order_release);
+}
+
+bool is_data_source_connected() {
+    return data_source_connected.load(std::memory_order_acquire);
 }
 
 void forward_serial_source(std::string& fd, std::string& baud){
@@ -410,7 +443,6 @@ int backend(int argc, char* argv[]){
 
         if(new_source_flag.load()){ // -- new source --
             new_source_flag.store(false, std::memory_order_release);
-            
 
             // -- kill old thread --
             if(prod_t.joinable()){
@@ -421,6 +453,7 @@ int backend(int argc, char* argv[]){
 
             // -- grab protocol --
             int prot = sourceEnum.load();
+            data_source_connected.store(false, std::memory_order_release);
 
             // -- false alarm --
             if(prot == -1){
@@ -458,9 +491,15 @@ int backend(int argc, char* argv[]){
                 if((source_t)prot == remote){
                     //OutputDebugString("[!] Attempting TCP\n");
                     tcp = std::make_unique<TcpSocket>(fd, cfg);
+                    if (tcp->_update) {
+                        tcp->_update = false;
+						update_available.store(true, std::memory_order_release);
+                    }
                     prod_t = std::thread(tcp_read, std::ref(*tcp), std::ref(ringBuffer));
                 }
+                data_source_connected.store(true, std::memory_order_release);
             } catch (const std::exception &e){
+                data_source_connected.store(false, std::memory_order_release);
             }
 
         }

@@ -56,8 +56,19 @@ bool DbcParser::load(const std::string& path){
                 factor = std::stod(factorToken.substr(0, comma));
                 offset = std::stod(factorToken.substr(comma+1));
             }
+            std::string rangeToken; iss2 >> rangeToken; // [min|max]
+            double smin = 0.0, smax = 0.0;
+            if (rangeToken.size() > 2) {
+                rangeToken = rangeToken.substr(1, rangeToken.size() - 2);
+                size_t comma = rangeToken.find('|');
+                if (comma != std::string::npos) {
+                    smin = std::stod(rangeToken.substr(0, comma));
+                    smax = std::stod(rangeToken.substr(comma + 1));
+                }
+            }
             DbcSignal sig; sig.name = name; sig.start_bit = start; sig.size = size;
             sig.little_endian = little; sig.is_signed = sign; sig.factor = factor; sig.offset = offset;
+            sig.minimum = smin; sig.maximum = smax;
             current->signals.push_back(sig);
         } else 
         if(tok == "VAL_TABLE_"){
@@ -133,8 +144,19 @@ bool DbcParser::loadFromMemory(const char* data, size_t size, const std::string&
                 factor = std::stod(factorToken.substr(0, comma));
                 offset = std::stod(factorToken.substr(comma+1));
             }
+            std::string rangeToken; iss2 >> rangeToken;
+            double smin = 0.0, smax = 0.0;
+            if (rangeToken.size() > 2) {
+                rangeToken = rangeToken.substr(1, rangeToken.size() - 2);
+                size_t comma = rangeToken.find('|');
+                if (comma != std::string::npos) {
+                    smin = std::stod(rangeToken.substr(0, comma));
+                    smax = std::stod(rangeToken.substr(comma + 1));
+                }
+            }
             DbcSignal sig; sig.name = name; sig.start_bit = start; sig.size = sizeb;
             sig.little_endian = little; sig.is_signed = sign; sig.factor = factor; sig.offset = offset;
+            sig.minimum = smin; sig.maximum = smax;
             current->signals.push_back(sig);
         } else if(tok == "VAL_TABLE_"){
             std::string table; iss >> table;
@@ -211,6 +233,28 @@ bool DbcParser::decode(uint32_t id, const CanFrame& frame, std::string& out) con
     out = oss.str();
     return true;
 }
+
+bool DbcParser::decode_sep(uint32_t id, const CanFrame& frame, std::string& out, const char* sep) const {
+    auto it = _messages.find(id);
+    if (it == _messages.end()) return false;
+    std::ostringstream oss;
+    const auto& msg = it->second;
+    bool first = true;
+    for (const auto& sig : msg.signals) {
+        uint64_t raw = extract_signal(frame.data.data(), sig.start_bit, sig.size, sig.little_endian);
+        int64_t s = sig.is_signed ? sign_extend(raw, sig.size) : (int64_t)raw;
+        double value = s * sig.factor + sig.offset;
+        if (!first) oss << sep;
+        first = false;
+        oss << sig.name << ": ";
+        auto v = sig.value_map.find(s);
+        if (v != sig.value_map.end()) oss << v->second;
+        else oss << value;
+    }
+    out = oss.str();
+    return true;
+}
+
 
 bool DbcParser::decode_signals(uint32_t id, const CanFrame& frame, std::vector<std::pair<std::string,double>>& out) const{
     auto it = _messages.find(id);

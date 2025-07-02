@@ -121,7 +121,7 @@ endif()
 
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB SOURCE *.cpp )
@@ -227,6 +227,7 @@ set(DBC_FILES
     #dbc/tpee_mppt[A].dbc
     dbc/mppt.dbc
     dbc/daq.dbc
+	dbc/contactor.dbc
 )
 set(GENERATED_DBC_HEADERS)
 foreach(DBC ${DBC_FILES})
@@ -242,6 +243,7 @@ foreach(DBC ${DBC_FILES})
 endforeach()
 add_custom_target(GenerateDbcHeaders ALL DEPENDS ${GENERATED_DBC_HEADERS})
 
+add_subdirectory(shaders/glsl/imgui)
 add_subdirectory(base)
 add_dependencies(base GenerateShaderHeaders GenerateFontHeaders GenerateDbcHeaders)
 add_subdirectory(core)

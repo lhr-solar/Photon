@@ -21,10 +21,15 @@
 #include <deque>
 #include <glm/gtc/type_ptr.hpp>
 #include <vulkan/vulkan_core.h>
+#include <cstdlib>
+#include <fstream>
+#include <optional>
 #include "ui_vert_spv.hpp"
 #include "ui_frag_spv.hpp"
 #include "Inter_ttf.hpp"
 #include "signal_routing.hpp"
+#include "implot.h"
+#include "config.hpp"
 
 enum class PlotSize { Large, Medium, Small };
 
@@ -39,6 +44,61 @@ static ImVec2 get_plot_size(PlotSize size) {
 static std::unordered_map<std::string, PlotSize> plot_size_map;
 
 
+static void perform_app_update() {
+    // if no args, nothing to do
+    if (VulkanExampleBase::args.empty())
+        return;
+
+    // 1) paths
+    const std::string exePath = VulkanExampleBase::args[0];
+    const std::string newPath = exePath + ".new";
+    const std::string url = "https://github.com/RomeroPablo/CAN_sim/releases/"
+        "download/pre-release/Photon.exe";
+
+
+    // 2) download
+    const std::string curlCmd = "curl -L -o \"" + newPath + "\" " + url;
+    if (std::system(curlCmd.c_str()) != 0) {
+        std::remove(newPath.c_str());
+        return;
+    }
+
+#ifdef _WIN32
+    // 4a) Windows: write a .bat that waits, swaps, then starts EXE with args
+    const std::string batPath = exePath + "_update.bat";
+    {
+        std::ofstream bat(batPath);
+        bat << "@echo off\n";
+        bat << "timeout /T 1 /NOBREAK > NUL\n";
+        bat << "del \"" << exePath << "\"\n";
+        bat << "move \"" << newPath << "\" \"" << exePath << "\"\n";
+        // this start will reopen your app with any args
+        bat << "start \"\" \"" << exePath << "\" " << "\n";
+    }
+    // invoke the batch in its own window
+    std::string invoke = "cmd /C start \"\" \"" + batPath + "\"";
+    std::system(invoke.c_str());
+#else
+    // 4b) *nix: write a shell script that waits, swaps, chmods, then execs EXE with args
+    const std::string shPath = exePath + "_update.sh";
+    {
+        std::ofstream sh(shPath);
+        sh << "#!/bin/sh\n";
+        sh << "sleep 1\n";
+        sh << "rm \"" << exePath << "\"\n";
+        sh << "mv \"" << newPath << "\" \"" << exePath << "\"\n";
+        sh << "chmod +x \"" << exePath << "\"\n";
+        // exec so this script is replaced by your app process
+        sh << "exec \"" << exePath << "\" " << " &\n";
+    }
+    // fire it off in background
+    std::string invoke = "/bin/sh \"" + shPath + "\" &";
+    std::system(invoke.c_str());
+#endif
+
+    // 5) exit so the helper can overwrite this binary
+    std::exit(0);
+}
 
 // Options and values to display/toggle from the UI
 struct UISettings {
@@ -149,6 +209,7 @@ private:
   std::thread backend_thread;
 
   int main_tab_idx = 0;
+  bool show_dbc_config = false;
 
 public:
   // UI params are set via push constants
@@ -158,6 +219,8 @@ public:
   struct PushConstBlock {
     glm::vec2 scale;
     glm::vec2 translate;
+    glm::vec2 gradTop;
+    glm::vec2 gradBottom;
     glm::vec2 invScreenSize;
     glm::vec2 whitePixel;
     float u_time;
@@ -203,7 +266,7 @@ public:
     vkDestroySampler(device->logicalDevice, sampler, nullptr);
     vkDestroyPipelineCache(device->logicalDevice, pipelineCache, nullptr);
     vkDestroyPipeline(device->logicalDevice, pipeline, nullptr);
-    vkDestroyPipelineLayout(device->logicalDevice, pipelineLayout, nullptr);
+    //vkDestroyPipelineLayout(device->logicalDevice, pipelineLayout, nullptr);
     vkDestroyDescriptorPool(device->logicalDevice, descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(device->logicalDevice, descriptorSetLayout,
                                  nullptr);
@@ -214,16 +277,21 @@ public:
 
   // Initialize styles, keys, etc.
   void init(float width, float height) {
+      // delete update script
+#ifdef _WIN32
+      std::string update_script = "Photon.exe_update.bat";
+      std::remove(update_script.c_str());
+#endif
     // Color scheme
     PhotonStyle = ImGui::GetStyle();
     ImVec4 *colors = PhotonStyle.Colors;
 
     colors[ImGuiCol_WindowBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.7f); 
+        ImVec4(0.0f, 0.0f, 0.0f, 0.9f); 
     colors[ImGuiCol_ChildBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+        ImVec4(0.0f, 0.0f, 0.0f, 0.9f);
     colors[ImGuiCol_PopupBg] =
-        ImVec4(0.1f, 0.1f, 0.1f, 0.9f);
+        ImVec4(0.05f, 0.05f, 0.05f, 0.9f);
 
     // Borders and separators
     colors[ImGuiCol_Border] =
@@ -311,6 +379,7 @@ public:
     // Dimensions
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.ConfigDockingNoSplit =
         false; // Disable splitting (what's the point then?)
     io.ConfigDockingAlwaysTabBar = false; // Enable for only tab bars (ew)
@@ -941,6 +1010,333 @@ void bps_window(){
      render_plot_dock("BPSDock", plots);
 }
 
+std::optional<double> get_bps_value(const std::unordered_map<uint32_t, DbcMessage>& messages,
+    const char* sig) {
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "BPS")
+            continue;
+        for (const auto& s : msg.signals) {
+            if (s.name == sig) {
+                std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+                auto it = signal_values.find(key);
+                if (it != signal_values.end() && !it->second.empty())
+                    return it->second.back();
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+void Sparkline(const char* id, const float* values, int count, float min_v, float max_v, int offset, const ImVec4& col, const ImVec2& size) {
+    ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0,0));
+    if (ImPlot::BeginPlot(id,size,ImPlotFlags_CanvasOnly)) {
+        ImPlot::SetupAxes(nullptr,nullptr,ImPlotAxisFlags_NoDecorations,ImPlotAxisFlags_NoDecorations);
+        ImPlot::SetupAxesLimits(0, count - 1, min_v, max_v, ImGuiCond_Always);
+        ImPlot::SetNextLineStyle(col);
+        ImPlot::SetNextFillStyle(col, 0.25);
+        ImPlot::PlotLine(id, values, count, 1, 0, ImPlotLineFlags_Shaded, offset);
+        ImPlot::EndPlot();
+    }
+    ImPlot::PopStyleVar();
+}
+
+void custom_bps() {
+    auto messages = backend_get_messages();
+
+    struct LightSig { const char* label; const char* name; };
+    const LightSig lights[] = {
+        {"BPS Trip", "BPS_Trip"},
+        {"BPS All Clear", "BPS_All_Clear"},
+        {"HV Contactor", "HV_Contactor"},
+        {"MPPT Boost Enabled", "MPPT_Boost_Enabled"},
+        {"Charge Enabled", "Charge_Enabled"},
+        {"Array Contactor", "Array_Contactor"},
+    };
+
+    struct PlotData {
+        std::vector<double>* xs;
+        std::vector<double>* ys;
+        std::string plot_name;
+    };
+    std::vector<PlotData> plot_data;
+
+    double t_min = std::numeric_limits<double>::max();
+    double t_max = 0.0;
+
+    for (const auto& light : lights) {
+        std::string key;
+        for (const auto& mp : messages) {
+            const auto& msg = mp.second;
+            if (msg.dbc_name != "BPS") continue;
+            for (const auto& s : msg.signals) {
+                if (s.name == light.name) {
+                    key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+                    break;
+                }
+            }
+            if (!key.empty()) break;
+        }
+        if (!key.empty()) {
+            auto itx = signal_times.find(key);
+            auto ity = signal_values.find(key);
+            if (itx != signal_times.end() && ity != signal_values.end() && !itx->second.empty()) {
+                plot_data.push_back({ &itx->second, &ity->second, light.label });
+                if (!itx->second.empty()) {
+                    t_min = std::min(t_min, itx->second.front());
+                    t_max = std::max(t_max, itx->second.back());
+                }
+            }
+        }
+    }
+
+    ImGui::BeginChild("bps_status_row", ImVec2(0, 260), true);
+    if (ImGui::BeginTable("bps_status_table", 2, ImGuiTableFlags_SizingFixedFit)) {
+        ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 144.0f);
+        ImGui::TableSetupColumn("Plot", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+
+        for (size_t i = 0; i < std::size(lights); ++i) {
+            std::optional<double> v;
+            if (i < plot_data.size() && !plot_data[i].ys->empty())
+                v = plot_data[i].ys->back();
+            bool on = v && *v;
+            ImU32 col = on ? IM_COL32(100, 255, 150, 255) : IM_COL32(255, 100, 100, 255);
+            float radius = ImGui::GetTextLineHeight() * 0.4f;
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImGui::Dummy(ImVec2(radius * 2, radius * 2));
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            dl->AddCircleFilled(ImVec2(pos.x + radius, pos.y + radius), radius, col);
+            ImGui::SameLine();
+            ImGui::Text("%s", lights[i].label);
+        }
+
+        ImGui::TableSetColumnIndex(1);
+
+        ImVec2 plot_size = ImVec2(ImGui::GetContentRegionAvail().x, 220);
+        double now = ImGui::GetTime();
+        double window = 30.0;
+        double x0 = (t_max > t_min && t_max - t_min > window) ? t_max - window : t_min;
+        double x1 = t_max > t_min ? t_max : now;
+
+        ImPlotFlags plot_flags = ImPlotFlags_NoFrame | ImPlotFlags_NoTitle;
+        ImPlotAxisFlags x_flags = ImPlotAxisFlags_NoGridLines | ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoLabel;
+        ImPlotAxisFlags y_flags = ImPlotAxisFlags_LockMin | ImPlotAxisFlags_LockMax;
+
+        if (ImPlot::BeginPlot("BPS Status Signals", plot_size, plot_flags)) {
+            ImPlot::SetupAxes("Time", "State", x_flags, y_flags);
+            ImPlot::SetupAxisLimits(ImAxis_X1, x0, x1, ImGuiCond_Always);
+            ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 1.5, ImGuiCond_Always);
+			ImPlot::SetupAxisFormat(ImAxis_X1, "%.1f"); 
+            //ImPlot::SetupAxisFormat(ImAxis_X1, int_tick_formatter, nullptr);
+            for (const auto& pd : plot_data) {
+                if (!pd.xs->empty() && !pd.ys->empty())
+                    ImPlot::PlotLine(pd.plot_name.c_str(), pd.xs->data(), pd.ys->data(), (int)pd.xs->size());
+            }
+            ImPlot::EndPlot();
+        }
+
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+
+    // --- Summary Row: SoC, Avg Temp, Pack Voltage, Current, Current Sparkline ---
+    ImGui::BeginChild("bps_summary_row", ImVec2(0, 80), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    if (ImGui::BeginTable("bps_summary_table", 6, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn(" SoC", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("Avg Temp", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+        ImGui::TableSetupColumn("Supp. Voltage", ImGuiTableColumnFlags_WidthFixed, 120.0f); // New column
+        ImGui::TableSetupColumn("Pack Voltage", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+        ImGui::TableSetupColumn("Current", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+        ImGui::TableSetupColumn("##Current Sparkline", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+        ImGui::TableNextRow();
+
+        auto messages = backend_get_messages();
+        auto soc = get_bps_value(messages, "SoC");
+        auto avg_temp = get_bps_value(messages, "Average_Temp");
+        auto supp_voltage = get_bps_value(messages, "Supplemental_Voltage");
+        auto pack_voltage = get_bps_value(messages, "Pack_Voltage");
+        auto current = get_bps_value(messages, "Current");
+
+        // SoC
+        ImGui::TableSetColumnIndex(0);
+        if (soc)
+            ImGui::Text(" %.1f %%", *soc / 1000.0 / 1000.0);
+        else
+            ImGui::Text("--");
+
+        // Avg Temp
+        ImGui::TableSetColumnIndex(1);
+        if (avg_temp)
+            ImGui::Text("%.1f °C", *avg_temp / 1000.0);
+        else
+            ImGui::Text("--");
+
+        // Supplemental Voltage (new column)
+        ImGui::TableSetColumnIndex(2);
+        if (supp_voltage)
+            ImGui::Text("%.2f V", *supp_voltage / 1000.0);
+        else
+            ImGui::Text("--");
+
+        // Pack Voltage
+        ImGui::TableSetColumnIndex(3);
+        if (pack_voltage)
+            ImGui::Text("%.2f V", *pack_voltage / 1000.0);
+        else
+            ImGui::Text("--");
+
+        // Current (latest value)
+        ImGui::TableSetColumnIndex(4);
+        if (current)
+            ImGui::Text("%.2f A", *current / 1000.0);
+        else
+            ImGui::Text("--");
+
+        // Current Sparkline
+        ImGui::TableSetColumnIndex(5);
+        // Find the key for current
+        std::string current_key;
+        for (const auto& mp : messages) {
+            const auto& msg = mp.second;
+            if (msg.dbc_name != "BPS") continue;
+            for (const auto& s : msg.signals) {
+                if (s.name == "Current") {
+                    current_key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+                    break;
+                }
+            }
+            if (!current_key.empty()) break;
+        }
+        auto itx = signal_times.find(current_key);
+        auto ity = signal_values.find(current_key);
+        if (itx != signal_times.end() && ity != signal_values.end() && !itx->second.empty()) {
+            const auto& xs = itx->second;
+            const auto& ys = ity->second;
+            constexpr int N = 100;
+            int count = static_cast<int>(xs.size());
+            int start = count > N ? count - N : 0;
+            ImVec2 spark_size = ImVec2(ImGui::GetContentRegionAvail().x, 35.0f);
+            std::vector<float> ysf;
+            ysf.reserve(ys.size() - start);
+            for (auto it = ys.begin() + start; it != ys.end(); ++it)
+                ysf.push_back(static_cast<float>(*it / 1000.0));
+            float min_v = 0.0f, max_v = 100.0f;
+            int offset = 0;
+            ImVec4 spark_col = ImVec4(0.3f, 0.7f, 1.0f, 1.0f);
+            Sparkline("Current", ysf.data(), static_cast<int>(ysf.size()), min_v, max_v, offset, spark_col, spark_size);
+        }
+        else {
+            ImGui::Text("No current data");
+        }
+
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+
+    ImGui::BeginChild("bps_modules", ImVec2(0, 0), true);
+
+    const int num_modules = 32;
+    const int num_cols = 8;
+    // Use static arrays to persist values across frames
+    static double cell_volt[num_modules] = { 0.0 };
+    static double cell_temp[num_modules] = { 0.0 };
+
+    // Find the keys for the signals
+    std::string volt_idx_key, volt_val_key, temp_idx_key, temp_val_key;
+    for (std::unordered_map<uint32_t, DbcMessage>::const_iterator mp = messages.begin(); mp != messages.end(); ++mp) {
+        const DbcMessage& msg = mp->second;
+        if (msg.dbc_name != "BPS") continue;
+        for (size_t i = 0; i < msg.signals.size(); ++i) {
+            const std::string& sname = msg.signals[i].name;
+            if (sname == "Voltage_idx") volt_idx_key = msg.dbc_name + ":" + std::to_string(mp->first) + ":" + sname;
+            if (sname == "Voltage_Value") volt_val_key = msg.dbc_name + ":" + std::to_string(mp->first) + ":" + sname;
+            if (sname == "Temperature_idx") temp_idx_key = msg.dbc_name + ":" + std::to_string(mp->first) + ":" + sname;
+            if (sname == "Temperature_Value") temp_val_key = msg.dbc_name + ":" + std::to_string(mp->first) + ":" + sname;
+        }
+    }
+
+    // Map latest values to their module index, but only update if new data is available
+    if (!volt_idx_key.empty() && !volt_val_key.empty()) {
+        auto it_idx = signal_values.find(volt_idx_key);
+        auto it_val = signal_values.find(volt_val_key);
+        if (it_idx != signal_values.end() && it_val != signal_values.end()) {
+            const std::vector<double>& idxs = it_idx->second;
+            const std::vector<double>& vals = it_val->second;
+            size_t n = std::min(idxs.size(), vals.size());
+            for (size_t i = 0; i < n; ++i) {
+                int idx = static_cast<int>(idxs[i]);
+                if (idx >= 0 && idx < num_modules) {
+                    cell_volt[idx] = vals[i] / 1000.0; // mV to V
+                }
+            }
+        }
+    }
+    if (!temp_idx_key.empty() && !temp_val_key.empty()) {
+        auto it_idx = signal_values.find(temp_idx_key);
+        auto it_val = signal_values.find(temp_val_key);
+        if (it_idx != signal_values.end() && it_val != signal_values.end()) {
+            const std::vector<double>& idxs = it_idx->second;
+            const std::vector<double>& vals = it_val->second;
+            size_t n = std::min(idxs.size(), vals.size());
+            for (size_t i = 0; i < n; ++i) {
+                int idx = static_cast<int>(idxs[i]);
+                if (idx >= 0 && idx < num_modules) {
+                    cell_temp[idx] = vals[i] / 1000.0; // mC to C
+                }
+            }
+        }
+    }
+
+    if (ImGui::BeginTable("ModTable", num_cols, ImGuiTableFlags_SizingFixedFit)) {
+        ImGuiStyle& style = ImGui::GetStyle();
+        float avail_height = ImGui::GetContentRegionAvail().y;
+        float cell_height = (avail_height / 4.0f) - style.CellPadding.y * 2.0f;
+        float avail_width = ImGui::GetContentRegionAvail().x;
+        float cell_width = (avail_width / num_cols) - style.CellPadding.x * 2.0f;
+
+        for (int col = 0; col < num_cols; ++col) {
+            ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, cell_width);
+        }
+
+        for (int pos = 0; pos < num_modules; ++pos) {
+            ImGui::TableNextColumn();
+            int row = pos / 8;
+            int col = pos % 8;
+            int moduleNum = (row % 2 == 0) ? (row * 8 + (8 - col)) : (row * 8 + col + 1);
+            int dataIdx = moduleNum - 1;
+            float tmin = -20.0f, tmax = 60.0f;
+            float norm = (cell_temp[dataIdx] - tmin) / (tmax - tmin);
+            if (norm < 0) norm = 0;
+            if (norm > 1) norm = 1;
+            ImVec4 border_col = ImPlot::SampleColormap(norm, ImPlot3DColormap_Viridis);
+            std::ostringstream oss;
+            oss << "Module " << std::setw(2) << std::setfill('0') << moduleNum
+                << "\n" << std::fixed << std::setprecision(2)
+                << cell_volt[dataIdx] << " V\n"
+                << cell_temp[dataIdx] << " °C";
+            std::string label = oss.str();
+            ImVec4 bg = style.Colors[ImGuiCol_FrameBg];
+            ImGui::PushStyleColor(ImGuiCol_Button, bg);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg);
+            ImGui::PushStyleColor(ImGuiCol_Border, border_col);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+            ImGui::Button(label.c_str(), ImVec2(cell_width, cell_height));
+
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor(4);
+        }
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+
+
+}
+
 void controls_window(){
       auto messages = backend_get_messages();
       std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>> plots;
@@ -963,8 +1359,179 @@ void controls_window(){
               plots[plot].push_back({key, sig.name});
           }
       }
-     render_plot_dock("MPPTDock", plots);
+     render_plot_dock("ControlsDock", plots);
 }
+
+std::optional<double> get_controls_value(const std::unordered_map<uint32_t, DbcMessage>& messages,
+    const char* sig) {
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "Controls")
+            continue;
+        for (const auto& s : msg.signals) {
+            if (s.name == sig) {
+                std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+                auto it = signal_values.find(key);
+                if (it != signal_values.end() && !it->second.empty())
+                    return it->second.back();
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+void custom_controls() {
+    auto messages = backend_get_messages();
+
+    auto get = [&](const char* name) { return get_controls_value(messages, name); };
+
+    auto accel = get("Acceleration_Percentage");
+    auto brake = get("Brake_Percentage");
+    auto ign_array = get("IGN_Array");
+    auto ign_motor = get("IGN_Motor");
+    auto regen_sw = get("Regen_SW");
+    auto fwd = get("Forward_Gear");
+    auto rev = get("Reverse_Gear");
+    auto cruise_en = get("Cruz_EN");
+    auto cruise_set = get("Cruz_Set");
+    auto brake_light = get("Brake_Light");
+
+    auto c_fault = get("Controls_Fault");
+    auto mc_fault = get("Motor_Controller_Fault");
+    auto bps_fault = get("BPS_Fault");
+    auto pedals_fault = get("Pedals_Fault");
+    auto carcan_fault = get("CarCAN_Fault");
+    auto int_fault = get("Internal_Controls_Fault");
+    auto os_fault = get("OS_Fault");
+    auto lakshay_fault = get("Lakshay_Fault");
+
+    auto motor_safe = get("Motor_Safe");
+    auto motor_err = get("Motor_Controller_Error");
+
+    auto cur_set = get("Motor_Current_Setpoint");
+    auto vel_set = get("Motor_Velocity_Setpoint");
+    auto pwr_set = get("Motor_Power_Setpoint");
+
+    // helper widgets
+    auto draw_light = [&](const char* label, std::optional<double> v) {
+        bool on = v && *v;
+        ImU32 col = on ? IM_COL32(100, 255, 150, 255) : IM_COL32(255, 100, 100, 255);
+        float r = ImGui::GetTextLineHeight() * 0.4f;
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGui::Dummy(ImVec2(r * 2, r * 2));
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddCircleFilled(ImVec2(p.x + r, p.y + r), r, col);
+        ImGui::SameLine();
+        ImGui::Text("%s", label);
+        };
+
+    auto draw_vbar = [&](const char* label, std::optional<double> v) {
+        float h = 80.f;
+        float w = ImGui::GetFrameHeight() * 0.6f;
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRect(pos, ImVec2(pos.x + w, pos.y + h), IM_COL32(200, 200, 200, 255));
+        float frac = v ? ImClamp((float)*v / 100.f, 0.f, 1.f) : 0.f;
+        dl->AddRectFilled(ImVec2(pos.x, pos.y + h * (1 - frac)), ImVec2(pos.x + w, pos.y + h), IM_COL32(100, 255, 150, 255));
+        ImGui::Dummy(ImVec2(w, h));
+        char buf[32];
+        if (v) snprintf(buf, sizeof(buf), "%s %.0f%%", label, *v);
+        else snprintf(buf, sizeof(buf), "%s --", label);
+        ImGui::Text("%s", buf);
+        };
+
+    auto draw_gauge = [&](const char* label, std::optional<double> v, double max) {
+        float r = 35.f;
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImVec2 cursorPos = ImGui::GetCursorScreenPos();       // returns ImVec2
+        ImVec2 center = ImVec2(cursorPos.x + r,           // x + radius
+            cursorPos.y + r);          // y + radius
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float a0 = IM_PI * 0.75f;
+        float a1 = IM_PI * 2.25f;
+        dl->PathArcTo(center, r, a0, a1, 32);
+        dl->PathStroke(IM_COL32(200, 200, 200, 255), false, 2.f);
+        float frac = v ? ImClamp((float)(*v / max), 0.f, 1.f) : 0.f;
+        float ang = a0 + (a1 - a0) * frac;
+        float cx = cosf(ang) * r;                            // x component * radius
+        float sy = sinf(ang) * r;                            // y component * radius
+        ImVec2 tip = ImVec2(center.x + cx, center.y + sy);
+        dl->AddLine(center, tip, IM_COL32(100, 255, 150, 255), 2.0f);
+        ImGui::Dummy(ImVec2(r * 2, r * 1.3f));
+        char buf[32];
+        if (v) snprintf(buf, sizeof(buf), "%s %.0f", label, *v);
+        else snprintf(buf, sizeof(buf), "%s --", label);
+        ImGui::Text("%s", buf);
+        };
+
+    ImGui::BeginChild("ctrl_inputs", ImVec2(0, 140), true);
+    ImGui::Columns(2, "input_cols", false);
+    // left: vertical pedals
+    draw_vbar("Accel", accel);
+    draw_vbar("Brake", brake);
+    ImGui::NextColumn();
+    draw_light("IGN Array", ign_array);
+    draw_light("IGN Motor", ign_motor);
+    draw_light("Regen", regen_sw);
+    draw_light("Forward", fwd);
+    draw_light("Reverse", rev);
+    draw_light("Cruise EN", cruise_en);
+    draw_light("Cruise Set", cruise_set);
+    draw_light("Brake Light", brake_light);
+    ImGui::Columns(1);
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+
+    ImGui::BeginChild("ctrl_faults", ImVec2(0, 100), true);
+    ImGui::Columns(4, "fault_cols", false);
+    draw_light("Ctrl", c_fault); ImGui::NextColumn();
+    draw_light("MC", mc_fault); ImGui::NextColumn();
+    draw_light("BPS", bps_fault); ImGui::NextColumn();
+    draw_light("Pedals", pedals_fault); ImGui::NextColumn();
+    draw_light("CarCAN", carcan_fault); ImGui::NextColumn();
+    draw_light("Internal", int_fault); ImGui::NextColumn();
+    draw_light("OS", os_fault); ImGui::NextColumn();
+    draw_light("Lakshay", lakshay_fault);
+    ImGui::Columns(1);
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+
+    ImGui::BeginChild("ctrl_motor", ImVec2(0, 160), true);
+    ImGui::Columns(2, "motor_cols", false);
+    draw_light("Motor Safe", motor_safe);
+    draw_light("MC Error", motor_err);
+    ImGui::NextColumn();
+    draw_gauge("Current", cur_set, 300.0);
+    draw_gauge("Velocity", vel_set, 6000.0);
+    draw_gauge("Power", pwr_set, 100.0);
+    ImGui::Columns(1);
+    ImGui::EndChild();
+
+    // time-series plots for motor commands
+    std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> plots;
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "Controls")
+            continue;
+        for (const auto& sig : msg.signals) {
+            if (sig.name != "Motor_Current_Setpoint" && sig.name != "Motor_Velocity_Setpoint" && sig.name != "Motor_Power_Setpoint")
+                continue;
+            std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + sig.name;
+            auto itx = signal_times.find(key);
+            auto ity = signal_values.find(key);
+            if (itx == signal_times.end() || ity == signal_values.end())
+                continue;
+            if (itx->second.empty())
+                continue;
+            plots[sig.name].push_back({ key, sig.name });
+        }
+    }
+    if (!plots.empty())
+        render_plot_dock("ControlsDock", plots);
+}
+
 
 void prohelion_window(){
       auto messages = backend_get_messages();
@@ -991,6 +1558,268 @@ void prohelion_window(){
       render_plot_dock("ProhelionDock", plots);
 }
 
+std::optional<double> get_ws_value(const std::unordered_map<uint32_t, DbcMessage>& messages,
+    const char* sig) {
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "Wavesculptor22")
+            continue;
+        for (const auto& s : msg.signals) {
+            if (s.name == sig) {
+                std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+                auto it = signal_values.find(key);
+                if (it != signal_values.end() && !it->second.empty())
+                    return it->second.back();
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+void custom_prohelion() {
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    float left_width = 220.0f;
+    float right_width = avail.x - left_width - ImGui::GetStyle().ItemSpacing.x;
+
+    // --- Vehicle/Motor/Slip Speed Widget ---
+    auto messages = backend_get_messages();
+    // Find keys for the signals
+    std::optional<double> vehicle_velocity, motor_velocity, slip_speed;
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "Wavesculptor22")
+            continue;
+        for (const auto& s : msg.signals) {
+            if (s.name == "VehicleVelocity")
+                vehicle_velocity = get_ws_value(messages, "VehicleVelocity");
+            else if (s.name == "MotorVelocity")
+                motor_velocity = get_ws_value(messages, "MotorVelocity");
+            else if (s.name == "SlipSpeed")
+                slip_speed = get_ws_value(messages, "SlipSpeed");
+        }
+    }
+
+    ImGui::BeginChild("prohelion_left", ImVec2(left_width, 340), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+    // Section header
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Draw a subtle background for the value area
+    ImVec2 p0 = ImGui::GetCursorScreenPos();
+    ImVec2 p1 = ImVec2(p0.x + left_width - ImGui::GetStyle().WindowPadding.x * 2, p0.y + 80);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    // make this the same color as imgui buttons
+	dl->AddRectFilled(p0, p1, IM_COL32(20, 20, 20, 225), 0, 0.8f);
+    ImGui::PopFont();
+
+    ImGui::BeginGroup();
+    ImGui::Spacing();
+    ImGui::Text(" Vehicle Velocity:");
+    ImGui::SameLine(120);
+    if (vehicle_velocity)
+        ImGui::TextColored(ImVec4(0.3f, 0.8f, 0.4f, 1.0f), "%.2f m/s", *vehicle_velocity);
+    else
+        ImGui::TextColored(ImVec4(0.8f, 0.3f, 0.3f, 1.0f), "--");
+
+    ImGui::Text(" Motor Velocity:");
+    ImGui::SameLine(120);
+    if (motor_velocity)
+        ImGui::TextColored(ImVec4(0.3f, 0.8f, 0.4f, 1.0f), "%.2f rpm", *motor_velocity);
+    else
+        ImGui::TextColored(ImVec4(0.8f, 0.3f, 0.3f, 1.0f), "--");
+
+    ImGui::Text(" Slip Speed:");
+    ImGui::SameLine(120);
+    if (slip_speed)
+        ImGui::TextColored(ImVec4(0.3f, 0.8f, 0.4f, 1.0f), "%.2f Hz", *slip_speed);
+    else
+        ImGui::TextColored(ImVec4(0.8f, 0.3f, 0.3f, 1.0f), "--");
+    ImGui::EndGroup();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    auto bus_voltage = get_ws_value(messages, "BusVoltage");
+    auto bus_current = get_ws_value(messages, "BusCurrent");
+
+    // Display Bus Voltage
+    ImGui::Text("Bus Voltage");
+    if (bus_voltage)
+        ImGui::TextColored(ImVec4(0.3f, 0.7f, 1.0f, 1.0f), "%.2f V", *bus_voltage);
+    else
+        ImGui::Text("--");
+
+    // Display Bus Current
+    ImGui::Text("Bus Current");
+    if (bus_current)
+        ImGui::TextColored(ImVec4(0.3f, 0.7f, 1.0f, 1.0f), "%.2f A", *bus_current);
+    else
+        ImGui::Text("--");
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+
+    // --- Phase Current Plot ---
+    ImGui::BeginChild("prohelion_phase_currents", ImVec2(right_width, 340), true);
+
+    constexpr uint32_t PHASE_CURR_ID = 0x244;
+    const char* dbc_name = "Wavesculptor22";
+    const char* sig_b = "PhaseCurrentB";
+    const char* sig_c = "PhaseCurrentC";
+
+    std::string key_b = std::string(dbc_name) + ":" + std::to_string(PHASE_CURR_ID) + ":" + sig_b;
+    std::string key_c = std::string(dbc_name) + ":" + std::to_string(PHASE_CURR_ID) + ":" + sig_c;
+
+    auto itx_b = signal_times.find(key_b);
+    auto ity_b = signal_values.find(key_b);
+    auto itx_c = signal_times.find(key_c);
+    auto ity_c = signal_values.find(key_c);
+
+    ImVec2 plot_size = ImVec2(ImGui::GetContentRegionAvail().x, 300);
+
+    // Determine time window for scrolling
+    double t_min = 0.0, t_max = 0.0;
+    double window = 10.0; // seconds to display
+
+    // Use Phase B as reference for time axis
+    if (itx_b != signal_times.end() && !itx_b->second.empty()) {
+        t_max = itx_b->second.back();
+        t_min = t_max - window;
+        if (t_min < itx_b->second.front())
+            t_min = itx_b->second.front();
+    }
+
+    if (ImPlot::BeginPlot("Phase Currents", plot_size)) {
+        ImPlot::SetupAxes(
+            "Time",
+            "Current (A)",
+            ImPlotAxisFlags_None,
+            ImPlotAxisFlags_LockMin | ImPlotAxisFlags_LockMax
+        );
+        ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, 400.0, ImPlotCond_Always);
+
+        // Set up X axis to scroll with time
+        if (t_max > t_min)
+            ImPlot::SetupAxisLimits(ImAxis_X1, t_min, t_max, ImPlotCond_Always);
+
+        if (itx_b != signal_times.end() &&
+            ity_b != signal_values.end() &&
+            !itx_b->second.empty() &&
+            !ity_b->second.empty())
+            ImPlot::PlotLine("Phase B", itx_b->second.data(), ity_b->second.data(),
+                (int)itx_b->second.size());
+
+        if (itx_c != signal_times.end() &&
+            ity_c != signal_values.end() &&
+            !itx_c->second.empty() &&
+            !ity_c->second.empty())
+            ImPlot::PlotLine("Phase C", itx_c->second.data(), ity_c->second.data(),
+                (int)itx_c->second.size());
+
+        // derived A only if both are present
+        if (itx_b != signal_times.end() && ity_b != signal_values.end() &&
+            itx_c != signal_times.end() && ity_c != signal_values.end() &&
+            itx_b->second.size() == ity_b->second.size() &&
+            itx_c->second.size() == ity_c->second.size())
+        {
+            size_t n = std::min(itx_b->second.size(), itx_c->second.size());
+            std::vector<double> phase_a(n), times(n);
+            for (size_t i = 0; i < n; ++i) {
+                times[i] = itx_b->second[i];
+                phase_a[i] = -(ity_b->second[i] + ity_c->second[i]);
+            }
+            ImPlot::PlotLine("Phase A*", times.data(), phase_a.data(), (int)n);
+        }
+
+        ImPlot::EndPlot();
+    }
+
+    ImGui::EndChild();
+
+    // --- Below: Two tables for Limits and Errors ---
+    ImGui::Spacing();
+
+    ImVec2 below_size = ImGui::GetContentRegionAvail();
+    float table_width = (below_size.x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+
+    ImGui::BeginChild("prohelion_flags_tables", ImVec2(0, 250), true);
+
+    ImGui::Columns(2, nullptr, false);
+
+    // --- Limit Flags Table (Left) ---
+    static const char* limit_signals[] = {
+        "LimitReserved",
+        "LimitIpmOrMotorTemp",
+        "LimitBusVoltageLower",
+        "LimitBusVoltageUpper",
+        "LimitBusCurrent",
+        "LimitVelocity",
+        "LimitMotorCurrent",
+        "LimitOutputVoltagePWM"
+    };
+
+    ImGui::BeginChild("limit_flags_table", ImVec2(table_width, 0), true);
+    if (ImGui::BeginTable("LimitFlags", 2,ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("Limit Flag");
+        ImGui::TableSetupColumn("Triggered");
+        ImGui::TableHeadersRow();
+        for (const char* sig : limit_signals) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(sig);
+            ImGui::TableSetColumnIndex(1);
+            auto v = get_ws_value(messages, sig);
+            bool triggered = v && (*v != 0);
+            ImU32 col = triggered ? IM_COL32(100, 255, 150, 255) : IM_COL32(255, 100, 100, 255);
+            ImGui::TextColored(ImColor(col), triggered ? "ON" : "OFF");
+        }
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+
+    ImGui::NextColumn();
+
+    // --- Error Flags Table (Right) ---
+    static const char* error_signals[] = {
+        "ErrorReserved",
+        "ErrorMotorOverSpeed",
+        "ErrorDesaturationFault",
+        "Error15vRailUnderVoltage",
+        "ErrorConfigRead",
+        "ErrorWatchdogCausedLastReset",
+        "ErrorBadMotorPositionHallSeq",
+        "ErrorDcBusOverVoltage",
+        "ErrorSoftwareOverCurrent",
+        "ErrorHardwareOverCurrent"
+    };
+
+    ImGui::BeginChild("error_flags_table", ImVec2(table_width, 0), true);
+    if (ImGui::BeginTable("ErrorFlags", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("Error Flag");
+        ImGui::TableSetupColumn("Triggered");
+        ImGui::TableHeadersRow();
+        for (const char* sig : error_signals) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(sig);
+            ImGui::TableSetColumnIndex(1);
+            auto v = get_ws_value(messages, sig);
+            bool triggered = v && (*v != 0);
+            ImU32 col = triggered ? IM_COL32(100, 255, 150, 255) : IM_COL32(255, 100, 100, 255);
+            ImGui::TextColored(ImColor(col), triggered ? "ON" : "OFF");
+        }
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+
+    ImGui::Columns(1);
+    ImGui::EndChild();
+}
+
+
 void mppt_window(){
       auto messages = backend_get_messages();
       std::unordered_map<std::string, std::vector<std::pair<std::string,std::string>>> plots;
@@ -1014,6 +1843,91 @@ void mppt_window(){
           }
       }
       render_plot_dock("MPPTDock", plots);
+}
+
+std::optional<double> get_mppt_value(const std::unordered_map<uint32_t, DbcMessage>& messages,
+    int mppt_idx, const char* sig) {
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "MPPT")
+            continue;
+        if (static_cast<int>(mp.first >> 4) != mppt_idx)
+            continue;
+        for (const auto& s : msg.signals) {
+            if (s.name == sig) {
+                std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+                auto it = signal_values.find(key);
+                if (it != signal_values.end() && !it->second.empty())
+                    return it->second.back();
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+static const char* mppt_mode_str(int v) {
+    switch (v) {
+    case 0: return "Const In Volt";
+    case 1: return "Const In Curr";
+    case 2: return "Min In Curr";
+    case 3: return "Const Out Volt";
+    case 4: return "Const Out Curr";
+    case 5: return "Temp De-rate";
+    case 6: return "Fault";
+    default: return "Unknown";
+    }
+}
+
+
+void custom_mppt() {
+    auto messages = backend_get_messages();
+
+    auto draw_light = [&](const char* label, std::optional<double> v) {
+        bool on = v && *v;
+        ImU32 col = on ? IM_COL32(100, 255, 150, 255) : IM_COL32(255, 100, 100, 255);
+        float r = ImGui::GetTextLineHeight() * 0.4f;
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::Dummy(ImVec2(r * 2, r * 2));
+        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + r, pos.y + r), r, col);
+        ImGui::SameLine();
+        ImGui::Text("%s", label);
+        };
+    auto draw_value = [&](const char* label, std::optional<double> v, const char* unit) {
+        if (v) ImGui::Text("%s: %.2f %s", label, *v, unit);
+        else ImGui::Text("%s: --", label);
+        };
+
+    ImGui::Columns(2, "mpptcols", false);
+    for (int idx = 32; idx <= 33; ++idx) {
+        auto enabled = get_mppt_value(messages, idx, "MPPT_Enabled");
+        auto fault = get_mppt_value(messages, idx, "MPPT_Fault");
+        auto mode = get_mppt_value(messages, idx, "MPPT_Mode");
+        auto vin = get_mppt_value(messages, idx, "MPPT_Vin");
+        auto iin = get_mppt_value(messages, idx, "MPPT_Iin");
+        auto vout = get_mppt_value(messages, idx, "MPPT_Vout");
+        auto iout = get_mppt_value(messages, idx, "MPPT_Iout");
+        auto heatsink = get_mppt_value(messages, idx, "MPPT_HeatsinkTemperature");
+        auto ambient = get_mppt_value(messages, idx, "MPPT_AmbientTemperature");
+
+        ImGui::BeginChild(std::string("mppt_" + std::to_string(idx)).c_str(), ImVec2(0, 200), true);
+        ImGui::Text("MPPT %d", idx);
+        draw_light("Enabled", enabled);
+        draw_light("Fault", fault && *fault);
+        if (mode)
+            ImGui::Text("Mode: %s", mppt_mode_str((int)*mode));
+        else
+            ImGui::Text("Mode: --");
+        ImGui::Separator();
+        draw_value("Vin", vin, "V");
+        draw_value("Iin", iin, "A");
+        draw_value("Vout", vout, "V");
+        draw_value("Iout", iout, "A");
+        draw_value("Heatsink", heatsink, "C");
+        draw_value("Ambient", ambient, "C");
+        ImGui::EndChild();
+        ImGui::NextColumn();
+    }
+    ImGui::Columns(1);
 }
 
 void daq_window(){
@@ -1042,6 +1956,162 @@ void daq_window(){
       render_plot_dock("DAQDock", plots);
 }
 
+std::optional<double> get_daq_value(const std::unordered_map<uint32_t, DbcMessage>& messages,
+    const char* sig) {
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "DAQ")
+            continue;
+        for (const auto& s : msg.signals) {
+            if (s.name == sig) {
+                std::string key = msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+                auto it = signal_values.find(key);
+                if (it != signal_values.end() && !it->second.empty())
+                    return it->second.back();
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+static std::string get_daq_key(const std::unordered_map<uint32_t, DbcMessage>& messages,
+    const char* sig) {
+    for (const auto& mp : messages) {
+        const auto& msg = mp.second;
+        if (msg.dbc_name != "DAQ")
+            continue;
+        for (const auto& s : msg.signals) {
+            if (s.name == sig)
+                return msg.dbc_name + ":" + std::to_string(mp.first) + ":" + s.name;
+        }
+    }
+    return "";
+}
+
+void custom_daq() {
+    auto messages = backend_get_messages();
+
+    auto bytes_tx = get_daq_value(messages, "Bytes_Transmited");
+    auto tx_fail = get_daq_value(messages, "TX_Fail_Count");
+    auto good_rx = get_daq_value(messages, "Good_Packet_Receive_Count");
+    auto mac_fail = get_daq_value(messages, "MAC_ACK_Fail_Count");
+    auto rf_rssi = get_daq_value(messages, "RSSI");
+    auto lte_rssi = get_daq_value(messages, "LTE_RSSI");
+    auto heartbeat = get_daq_value(messages, "Heartbeat");
+
+    auto draw_value = [&](const char* label, std::optional<double> v) {
+        if (v)
+            ImGui::Text("%s: %.0f", label, *v);
+        else
+            ImGui::Text("%s: --", label);
+        };
+
+    ImGui::BeginChild("daq_status", ImVec2(0, 70), true);
+
+    auto draw_heartbeat = [&](const char* label, std::optional<double> v) {
+        bool on = v && *v;
+        float t = static_cast<float>(ImGui::GetTime());
+        float pulse = 0.5f + 0.5f * sinf(t * 4.0f);
+        ImVec4 col = on ? ImVec4(0.4f, 1.0f, 0.6f, pulse) : ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+        float radius = ImGui::GetTextLineHeight() * 0.4f;
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::Dummy(ImVec2(radius * 2, radius * 2));
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddCircleFilled(ImVec2(pos.x + radius, pos.y + radius), radius, ImGui::ColorConvertFloat4ToU32(col));
+        ImGui::SameLine();
+        ImGui::Text("%s", label);
+        };
+
+    draw_heartbeat("Server Heartbeat", heartbeat);
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    ImGui::BeginChild("daq_tx", ImVec2(0, 110), true);
+    ImGui::Text("RF Transmission Metrics");
+    ImGui::Separator();
+    draw_value("Bytes Tx", bytes_tx);
+    draw_value("Good RX", good_rx);
+    draw_value("TX Fail", tx_fail);
+    draw_value("MAC ACK Fail", mac_fail);
+
+    float good = good_rx.value_or(0);
+    float bad = tx_fail.value_or(0) + mac_fail.value_or(0);
+    if (good + bad > 0) {
+        float ratio = good / (good + bad);
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Success %.0f%%", ratio * 100.0f);
+        ImGui::ProgressBar(ratio, ImVec2(-1, 0), buf);
+    }
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    ImGui::BeginChild("daq_signal", ImVec2(0, 120), true);
+    ImGui::Text("Signal Strength");
+    ImGui::Separator();
+    draw_value("RF RSSI", rf_rssi);
+    draw_value("LTE RSSI", lte_rssi);
+
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+
+    // --- Admin Terminal (Unix-style) ---
+    ImGui::Spacing();
+    ImGui::BeginChild("admin_terminal", ImVec2(0, 200), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+    // Terminal state (static for persistence)
+    static std::vector<std::string> terminal_lines;
+    static char terminal_input[256] = "";
+    static bool scroll_to_bottom = false;
+
+    // Terminal style
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(20, 20, 20, 255));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(180, 255, 180, 255));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));
+
+    // Output area
+    ImGui::BeginChild("terminal_output", ImVec2(0, 150), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    for (const std::string& line : terminal_lines) {
+        ImGui::TextUnformatted(line.c_str());
+    }
+    if (scroll_to_bottom)
+        ImGui::SetScrollHereY(1.0f);
+    ImGui::EndChild();
+
+    // Input area
+    ImGui::PushItemWidth(-1);
+
+    static bool clear_input = false;
+    static bool remove_focus = false;
+    if (ImGui::InputText("##terminal_input", terminal_input, sizeof(terminal_input), ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (terminal_input[0] != '\0') {
+            std::string cmd = terminal_input;
+            terminal_lines.push_back("$ " + cmd);
+            terminal_lines.push_back("echo: " + cmd);
+            scroll_to_bottom = true;
+            clear_input = true; // Defer clearing
+            remove_focus = true; // Remove focus after enter
+        }
+    }
+    // Only clear after input box is no longer active
+    if (clear_input && !ImGui::IsItemActive()) {
+        terminal_input[0] = '\0';
+        clear_input = false;
+    }
+    // Remove focus after enter to prevent repeated submission
+    if (remove_focus) {
+        ImGui::SetKeyboardFocusHere(-1); // Move focus away from input
+        remove_focus = false;
+    }
+    ImGui::PopItemWidth();
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
+    ImGui::EndChild();
+
+}
+
 void embededPlotContents(const char * dbc_name){
     int case_num = -1;
     auto it = dbc_idx.find(dbc_name);
@@ -1049,11 +2119,11 @@ void embededPlotContents(const char * dbc_name){
         case_num = it->second;
     }
     switch(case_num){
-    case 0: bps_window(); break;
-    case 1: prohelion_window(); break;
-    case 2: mppt_window(); break;
-    case 3: controls_window(); break;
-    case 4: daq_window(); break;
+    case 0: custom_bps(); break;
+    case 1: custom_prohelion(); break;
+ //   case 2: custom_mppt(); break;
+  //  case 3: custom_controls(); break;
+   // case 4: custom_daq(); break;
     default: return;
     }
 }
@@ -1106,6 +2176,31 @@ void sigPlotContents(const char* dbc_name){
       static int protocol_idx = 0;
 
       static int connected = 0;
+      connected = is_data_source_connected();
+
+      // Check for update request from backend
+      static bool no_update_now = false;
+      if (!no_update_now) {
+          if (read_update_avail()) {
+              ImGui::OpenPopup("Update App");
+          }
+      }
+
+      if (ImGui::BeginPopupModal("Update App", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+          ImGui::Text("A new version of the application is available.\n\nWould you like to update now?");
+          ImGui::Separator();
+
+          if (ImGui::Button("Update Now", ImVec2(120, 0))) {
+              ImGui::CloseCurrentPopup();
+              perform_app_update(); // Calls the update logic as in your code
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("Later", ImVec2(120, 0))) {
+              ImGui::CloseCurrentPopup();
+              no_update_now = true;
+          }
+          ImGui::EndPopup();
+      }
 
       ImGui::Combo("##01", &protocol_idx, protocol_list, ((int)sizeof(protocol_list) / sizeof(*(protocol_list))));
       ImGui::SameLine();
@@ -1115,6 +2210,14 @@ void sigPlotContents(const char* dbc_name){
       ImGui::SameLine();
       if(ImGui::Button("Close Connection"))
           close_flag = 1;
+
+      ImGui::SameLine();
+      if (ImGui::Button("Settings"))
+          show_dbc_config = !show_dbc_config;
+
+      ImGui::SameLine();
+      if (ImGui::Button("Clear Table"))
+          clear_can_store();
 
       if(protocol_idx == 0){
           ImVec2 slot_size(ImGui::CalcItemWidth(), ImGui::GetFrameHeight());
@@ -1148,7 +2251,6 @@ void sigPlotContents(const char* dbc_name){
       ImGui::InvisibleButton("##gradient2", gradient_size);
 
       if(close_flag == 1){
-          connected = 0;
           kill_data_source();
           close_flag = 0;
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
@@ -1157,9 +2259,13 @@ void sigPlotContents(const char* dbc_name){
       if(input_flag == 1){
           input_flag = 0;
           if(protocol_idx == 0){
-              std::string ip = "3.141.38.115";
-              std::string port = "5700";
-              forward_tcp_source(ip, port);
+              std::string ip = IP;
+              std::string port = PORT;
+
+             forward_tcp_source(ip, port);
+             std::string portStr = "COM11";
+             std::string baudStr = "115200";
+            //forward_serial_source(portStr, baudStr);
           }
           if(protocol_idx == 1){
             std::string portStr(serialBuf);
@@ -1177,9 +2283,7 @@ void sigPlotContents(const char* dbc_name){
           }
 
           serialBuf[0] = baudBuf[0] = ipBuf[0] = portBuf[0] = '\0';
-          connected = 1;
       }
-
   }
 
   void AnimatedTablePlot() {
@@ -1255,7 +2359,7 @@ void sigPlotContents(const char* dbc_name){
 
     // Create a floating window
     ImGui::SetNextWindowSize(ImVec2(480, 480), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.95f); // Slight transparency
+    ImGui::SetNextWindowBgAlpha(0.10f); // Slight transparency
     ImGui::Begin("Distribution", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
     ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
@@ -1273,45 +2377,71 @@ void sigPlotContents(const char* dbc_name){
     ImGui::End();
   }
 
-  void canTableContents(){
+  void canTableContents() {
       //const char * path = "log.txt";
       //std::ofstream file(path, std::ios::out | std::ios::app);
-    static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
-                                   ImGuiTableFlags_BordersV |
-                                   ImGuiTableFlags_RowBg |
-                                   ImGuiTableFlags_Resizable |
-                                   ImGuiTableFlags_ScrollY;
-      if (ImGui::BeginTable("cantable", 3, flags)) {
-        ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 48.0f);
-        ImGui::TableSetupColumn("Len", ImGuiTableColumnFlags_WidthFixed, 24.0f);
-        ImGui::TableSetupColumn("Decoded");
-        ImGui::TableHeadersRow();
+      static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
+          ImGuiTableFlags_BordersV |
+          ImGuiTableFlags_RowBg |
+          ImGuiTableFlags_Resizable |
+          ImGuiTableFlags_ScrollY;
 
-        const CanStore &store = get_can_store();
-        for (uint32_t id = 0; id < CanStore::MAX_IDS; ++id) {
+      const CanStore& store = get_can_store();
+      auto messages = backend_get_messages();
+      float id_width = 96.0f;
+      /*
+      for (uint32_t id = 0; id < CanStore::MAX_IDS; ++id) {
           CanFrame frame;
           if (store.read(id, frame)) {
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("0x%03X", id);
-            ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%d", frame.len);
-
-            ImGui::TableSetColumnIndex(2);
-            std::string decoded;
-            if (backend_decode(id, frame, decoded)){
-              ImGui::TextUnformatted(decoded.c_str());
-              //file << decoded.c_str() << std::endl;
-            }
-            else {
-              char buf[3 * 8 + 1] = {0};
-              for (uint8_t i = 0; i < frame.len; ++i)
-                sprintf(buf + i * 3, "%02X ", frame.data[i]);
-              ImGui::TextUnformatted(buf);
-            }
+              auto mit = messages.find(id);
+              std::string label;
+              if (mit != messages.end()) label = mit->second.name;
+              else {
+                  char buf[8];
+                  sprintf(buf, "0x%03X", id);
+                  label = buf;
+              }
+              id_width = std::max(id_width, ImGui::CalcTextSize(label.c_str()).x);
           }
-        }
-        ImGui::EndTable();
+      }
+      id_width += ImGui::GetStyle().CellPadding.x * 2.0f;
+      */
+
+      if (ImGui::BeginTable("cantable", 3, flags)) {
+          ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, id_width);
+          ImGui::TableSetupColumn("Len", ImGuiTableColumnFlags_WidthFixed, 24.0f);
+          ImGui::TableSetupColumn("Decoded");
+          ImGui::TableHeadersRow();
+
+          for (uint32_t id = 0; id < CanStore::MAX_IDS; ++id) {
+              CanFrame frame;
+              if (store.read(id, frame)) {
+                  ImGui::TableNextRow();
+                  ImGui::TableSetColumnIndex(0);
+                  auto mit = messages.find(id);
+                  if (mit != messages.end())
+                      ImGui::TextUnformatted(mit->second.name.c_str());
+                  else
+                      ImGui::Text("0x%03X", id);
+                  ImGui::TableSetColumnIndex(1);
+                  ImGui::Text("%d", frame.len);
+
+                  ImGui::TableSetColumnIndex(2);
+                  std::string decoded;
+                  if (backend_decode_sep(id, frame, decoded, " | ")) {
+                  //if(backend_decode(id, frame, decoded)){
+                      ImGui::TextUnformatted(decoded.c_str());
+                      //file << decoded.c_str() << std::endl;
+                  }
+                  else {
+                      char buf[3 * 8 + 1] = { 0 };
+                      for (uint8_t i = 0; i < frame.len; ++i)
+                          sprintf(buf + i * 3, "%02X ", frame.data[i]);
+                      ImGui::TextUnformatted(buf);
+                  }
+              }
+          }
+          ImGui::EndTable();
       }
       //file.close();
   }
@@ -1371,17 +2501,23 @@ void modelWindowContents(){
   }
 
 void dbcConfigContents(){
-      static char pathBuf[256] = "";
-      ImGui::InputText("##File", pathBuf, sizeof(pathBuf));
-      ImGui::SetItemTooltip("Relative path from the executable");
-      ImGui::SameLine();
-      if(ImGui::Button("Load")){
-          std::string p(pathBuf);
-          forward_dbc_load(p);
-          pathBuf[0] = '\0';
-      }
+    if (ImGui::Button("Install Updates"))
+        ImGui::OpenPopup("Update App");
 
-      ImGui::Separator();
+    if (ImGui::BeginPopupModal("Update App", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Are you sure you want to update the application?\nThe application will restart");
+        if (ImGui::Button("Yes")) {
+            perform_app_update();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("No")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::Separator();
+
       ImGui::Text("Embedded DBC:");
       auto builtins = list_builtin_dbcs();
       for(const auto &b : builtins){
@@ -1393,8 +2529,18 @@ void dbcConfigContents(){
                   forward_builtin_dbc_unload(b.first);
           }
       }
-
       ImGui::Separator();
+
+      static char pathBuf[256] = "";
+      ImGui::InputText("##File", pathBuf, sizeof(pathBuf));
+      ImGui::SetItemTooltip("Relative path from the executable");
+      ImGui::SameLine();
+      if(ImGui::Button("Load")){
+          std::string p(pathBuf);
+          forward_dbc_load(p);
+          pathBuf[0] = '\0';
+      }
+
       ImGui::Text("Loaded DBC:");
       auto files = get_loaded_dbcs();
       for(size_t i = 0; i < files.size(); ++i){
@@ -1427,24 +2573,32 @@ void configTabContents(){
     ImGui::BeginChild("mid", ImVec2(avail.x, avail.y), false,
                       ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
 
-    // 2 columns, no border
-    ImGui::Columns(2, "cfgcols", false);
-    // set column 0 to 75% of the total:
-    ImGui::SetColumnWidth(0, avail.x * 0.75f);
+    if (show_dbc_config) {
+        // 2 columns, no border
+        ImGui::Columns(2, "cfgcols", false);
+        // set column 0 to 75% of the total:
+        ImGui::SetColumnWidth(0, avail.x * 0.75f);
 
-    // column 0
-    ImGui::BeginChild("cantab", ImVec2(0,0), true);
-    canTableContents();
-    ImGui::EndChild();
+        // column 0
+        ImGui::BeginChild("cantab", ImVec2(0, 0), true);
+        canTableContents();
+        ImGui::EndChild();
 
-    ImGui::NextColumn();
+        ImGui::NextColumn();
 
-    // column 1
-    ImGui::BeginChild("dbc", ImVec2(0,0), true);
-    dbcConfigContents();
-    ImGui::EndChild();
+        // column 1
+        ImGui::BeginChild("dbc", ImVec2(0, 0), true);
+        dbcConfigContents();
+        ImGui::EndChild();
 
-    ImGui::Columns(1);
+        ImGui::Columns(1);
+    }
+    else {
+        ImGui::BeginChild("cantab", ImVec2(0, 0), true);
+        canTableContents();
+        ImGui::EndChild();
+    }
+
     ImGui::EndChild();
 }
 
@@ -1500,6 +2654,7 @@ void drawMainWindow(){
                                ImGuiWindowFlags_NoBringToFrontOnFocus;
       ImGui::Begin("Main", nullptr, flags);
 
+
       //imguiGrad();
       update_signal_data(); // this guy is heavy as fuck
       if(ImGui::BeginTabBar("maintabs")){
@@ -1524,12 +2679,19 @@ void drawMainWindow(){
           }
 
           auto builtins = list_builtin_dbcs();
-          for(const auto &b : builtins){
-              if(!b.second) continue;
-              if(ImGui::BeginTabItem(b.first.c_str())){
+          size_t n = builtins.size();
+          size_t i = 0;
+          for (const auto& b : builtins) {
+              if (i == n - 1) break; // Skip the final element
+              if (!b.second) {
+                  ++i;
+                  continue;
+              }
+              if (ImGui::BeginTabItem(b.first.c_str())) {
                   embededPlotContents(b.first.c_str());
                   ImGui::EndTabItem();
               }
+              ++i;
           }
 
           ImGui::EndTabBar();
@@ -1545,6 +2707,8 @@ void drawMainWindow(){
     // you gotta clean all this shit lmao
     ImGui::NewFrame();
     drawMainWindow();
+    bool truth = true;
+//  ImPlot::ShowDemoWindow();
     ImGui::Render();
   }
 
@@ -1882,6 +3046,10 @@ void HeatmapPlot() {
     pushConstBlock.scale =
         glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
     pushConstBlock.translate = glm::vec2(-1.0f);
+
+    pushConstBlock.gradTop = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
+    pushConstBlock.gradBottom = glm::vec4(1.00, 1.00f, 1.00f, 1.00f);
+
     pushConstBlock.invScreenSize = glm::vec2(1.0f / io.DisplaySize.x, 1.0f / io.DisplaySize.y);
     pushConstBlock.whitePixel = glm::vec2(io.Fonts->TexUvWhitePixel.x, io.Fonts->TexUvWhitePixel.y);
     pushConstBlock.u_time = (float)ImGui::GetTime();

@@ -29,12 +29,16 @@ BO_ 1797 RF_MAC_ACK_Failure_Count: 2 Vector__XXX
 BO_ 1921 LTE_Cellular_Signal_Strength: 1 Vector__XXX
 	SG_ LTE_RSSI : 0|8@1+ (1,0) [0|255] "-dBm" Vector__XXX
 
+BO_ 1930 DAQ_Server_Heartbeat: 1 Vector__XXX
+	SG_ Heartbeat : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+
 CM_ BO_ 1793 "RF1";
 CM_ BO_ 1794 "RF2";
 CM_ BO_ 1795 "RF3";
 CM_ BO_ 1796 "RF4";
 CM_ BO_ 1797 "RF5";
 CM_ BO_ 1921 "LTE1";
+CM_ BO_ 1930 "SHB";
 
 BA_DEF_ SG_  "SPN" INT 0 524287;
 BA_DEF_ BO_  "VFrameFormat" ENUM  "StandardCAN","ExtendedCAN","reserved","J1939PG";

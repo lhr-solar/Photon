@@ -53,7 +53,7 @@ static ImGuiKey translateKey(uint32_t key)
 
         // — Control keys —
         case KEY_TAB:           return ImGuiKey_Tab;
-        //case KEY_ENTER:         return ImGuiKey_Enter;
+        case KEY_ENTER:         return ImGuiKey_Enter;
         case KEY_BACKSPACE:     return ImGuiKey_Backspace;
         case KEY_ESCAPE:        return ImGuiKey_Escape;
 
@@ -296,6 +296,7 @@ VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(const uint32_t* co
     return shaderStage;
 }
 
+constexpr float fixedFrameTime = 1.0f / 144.0f; // 144 FPS → ~6.94ms per frame
 void VulkanExampleBase::nextFrame()
 {
 	auto tStart = std::chrono::high_resolution_clock::now();
@@ -307,13 +308,15 @@ void VulkanExampleBase::nextFrame()
 	render();
 	frameCounter++;
 	auto tEnd = std::chrono::high_resolution_clock::now();
+	/*
 #if (defined(VK_USE_PLATFORM_IOS_MVK) || defined(VK_USE_PLATFORM_MACOS_MVK) || defined(VK_USE_PLATFORM_METAL_EXT)) && !defined(VK_EXAMPLE_XCODE_GENERATED)
 	// SRS - Calculate tDiff as time between frames vs. rendering time for iOS/macOS displayLink-driven examples project
 	auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tPrevEnd).count();
 #else
 	auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
 #endif
-	frameTimer = (float)tDiff / 1000.0f;
+*/
+	frameTimer = fixedFrameTime;//(float)tDiff / 1000.0f;
 	camera.update(frameTimer);
 	if (camera.moving())
 	{
@@ -1226,7 +1229,8 @@ void VulkanExampleBase::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 	case WM_MOUSEWHEEL:
 	{
 		short wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-		camera.translate(glm::vec3(0.0f, 0.0f, (float)wheelDelta * 0.005f));
+		float steps = static_cast<float>(wheelDelta) / static_cast<float>(WHEEL_DELTA);
+		camera.translate(glm::vec3(0.0f, 0.0f, steps * 0.005f));
 		viewUpdated = true;
 		break;
 	}

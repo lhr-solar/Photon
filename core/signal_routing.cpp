@@ -14,7 +14,26 @@ PlotDrawerRegistry::PlotDrawerRegistry() {
                         const SignalDataMap& times,
                         const SignalDataMap& values){
         if(ImPlot::BeginPlot(name.c_str())){
-            ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+            double y_min = 0.0, y_max = 0.0;
+            bool first = true;
+            for (const auto& sig : signals) {
+                auto ity = values.find(sig.first);
+                if (ity == values.end() || ity->second.empty())
+                    continue;
+                auto minmax = std::minmax_element(ity->second.begin(), ity->second.end());
+                if (first) {
+                    y_min = *minmax.first;
+                    y_max = *minmax.second;
+                    first = false;
+                }
+                else {
+                    y_min = std::min(y_min, *minmax.first);
+                    y_max = std::max(y_max, *minmax.second);
+                }
+            }
+            ImPlot::SetupAxes("Time", "Value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+            if (!first)
+                ImPlot::SetupAxisLimits(ImAxis_Y1, y_min, y_max, ImGuiCond_Always);
             for(const auto &sig : signals){
                 auto itx = times.find(sig.first);
                 auto ity = values.find(sig.first);
@@ -44,7 +63,26 @@ static PlotDrawFn make_line_drawer(const char* y_label) {
                      const SignalDataMap& times,
                      const SignalDataMap& values){
         if(ImPlot::BeginPlot(name.c_str())){
-            ImPlot::SetupAxes("Time", y_label, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+            double y_min = 0.0, y_max = 0.0;
+            bool first_pt = true;
+            for (const auto& sig : signals) {
+                auto ity = values.find(sig.first);
+                if (ity == values.end() || ity->second.empty())
+                    continue;
+                auto mm = std::minmax_element(ity->second.begin(), ity->second.end());
+                if (first_pt) {
+                    y_min = *mm.first;
+                    y_max = *mm.second;
+                    first_pt = false;
+                }
+                else {
+                    y_min = std::min(y_min, *mm.first);
+                    y_max = std::max(y_max, *mm.second);
+                }
+            }
+            ImPlot::SetupAxes("Time", y_label, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+            if (!first_pt)
+                ImPlot::SetupAxisLimits(ImAxis_Y1, y_min, y_max, ImGuiCond_Always);
             for(const auto &sig : signals){
                 auto itx = times.find(sig.first);
                 auto ity = values.find(sig.first);

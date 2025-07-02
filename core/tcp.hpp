@@ -29,6 +29,7 @@ class TcpSocket {
         ssize_t read(uint8_t* buf, std::size_t maxlen);
         ssize_t write(const uint8_t* buf, std::size_t len);
         void reconnect();
+        bool _update = false;
 
     private:
 #ifdef _WIN32

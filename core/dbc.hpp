@@ -15,6 +15,8 @@ struct DbcSignal {
     bool is_signed = false;
     double factor = 1.0;
     double offset = 0.0;
+    double minimum = 0.0;
+    double maximum = 0.0;
     std::unordered_map<int64_t, std::string> value_map;
 };
 
@@ -34,6 +36,7 @@ public:
     void can_parse_debug();
     bool decode_signals(uint32_t id, const CanFrame& frame, std::vector<std::pair<std::string, double>> &out) const;
     const std::unordered_map<uint32_t, DbcMessage>& messages() const { return _messages; }
+    bool decode_sep(uint32_t id, const CanFrame& frame, std::string& out, const char* sep) const;
 
 private:
     uint64_t extract_signal(const uint8_t* data, uint16_t start, uint8_t size, bool little_endian) const;

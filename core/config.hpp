@@ -3,4 +3,6 @@
 #define PORT "/dev/pts/3"
 
 #define IP "3.141.38.115"
-//#define IP "209.166.123.113"
+#define PORT "5000"
+
+#define VERSION "1.0.2"

@@ -23,3 +23,12 @@ bool CanStore::read(IdType id, CanFrame& out) const{
     out = e.frame;
     return true;
 }
+
+void CanStore::clear() {
+    for (auto& e : _entries) {
+        std::lock_guard<std::mutex> lock(e.mtx);
+        e.valid = false;
+        e.frame.len = 0;
+        e.frame.data.fill(0);
+    }
+}

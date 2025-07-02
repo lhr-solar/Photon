@@ -18,6 +18,7 @@ class CanStore {
 
         void store(IdType id, uint8_t len, const uint8_t* payload);
         bool read(IdType id, CanFrame& out) const;
+        void clear();
 
     private:
         struct Entry{
