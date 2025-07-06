@@ -4,6 +4,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <cstring>
 #include "config.hpp"
 
 #ifdef _WIN32
@@ -77,7 +78,7 @@ TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
 		char response[5] = { 0 };
 	    int did_rec = recv(_fd, response, sizeof(response), 0);
         // print to console, received version
-        OutputDebugStringA(response);
+        //OutputDebugStringA(response);
         
         // truncate response to only 5 characters
         if (did_rec > 0) {
