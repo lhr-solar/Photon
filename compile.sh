@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -rf build
+#rm -rf build
 #rm imgui.ini
 #./vert.sh
 rm log.txt

@@ -2706,8 +2706,8 @@ void drawMainWindow(){
   void newFrame(VulkanExampleBase *example, bool updateFrameGraph) {
     // you gotta clean all this shit lmao
     ImGui::NewFrame();
-//    drawMainWindow();
-    ImPlot::ShowDemoWindow();
+    drawMainWindow();
+//    ImPlot::ShowDemoWindow();
     ImGui::Render();
   }
 
