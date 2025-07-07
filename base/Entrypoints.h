@@ -103,7 +103,7 @@
     for (size_t i = 0; i < argc; i++) {                                        \
       Photon::args.push_back(argv[i]);                                  \
     };                                                                         \
-    photon = new VulkanExample();                                       \
+    photon = new Photon();                                       \
     photon->initVulkan();                                               \
     photon->setupWindow();                                              \
     photon->prepare();                                                  \

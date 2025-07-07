@@ -12,8 +12,6 @@
 #include "scene_vert_spv.hpp"
 #include "scene_frag_spv.hpp"
 
-#define VK_USE_PLATFORM_WAYLAND_KHR
-
 VkSampler sampler;
 
 // ----------------------------------------------------------------------------

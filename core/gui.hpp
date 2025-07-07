@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 // GUI
 // ----------------------------------------------------------------------------
-//
+
 #include "VulkanInitializers.hpp"
 #include "VulkanglTFModel.h"
 #include "imgui_internal.h"
@@ -2706,9 +2706,8 @@ void drawMainWindow(){
   void newFrame(VulkanExampleBase *example, bool updateFrameGraph) {
     // you gotta clean all this shit lmao
     ImGui::NewFrame();
-    drawMainWindow();
-    bool truth = true;
-//  ImPlot::ShowDemoWindow();
+//    drawMainWindow();
+    ImPlot::ShowDemoWindow();
     ImGui::Render();
   }
 

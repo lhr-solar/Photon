@@ -53,7 +53,7 @@ static ImGuiKey translateKey(uint32_t key)
 
         // — Control keys —
         case KEY_TAB:           return ImGuiKey_Tab;
-        case KEY_ENTER:         return ImGuiKey_Enter;
+//        case KEY_ENTER:         return ImGuiKey_Enter;
         case KEY_BACKSPACE:     return ImGuiKey_Backspace;
         case KEY_ESCAPE:        return ImGuiKey_Escape;
 
@@ -70,7 +70,7 @@ static ImGuiKey translateKey(uint32_t key)
         case KEY_0:             return ImGuiKey_0;
 
         case KEY_SLASH:         return ImGuiKey_Slash;
-        case KEY_PERIOD:        return ImGuiKey_Period;
+        //case KEY_PERIOD:        return ImGuiKey_Period;
 
         default:
             return ImGuiKey_None;
@@ -403,6 +403,64 @@ void VulkanExampleBase::renderLoop()
 		if (prepared && !IsIconic(window)) {
 			nextFrame();
 		}
+	}
+
+    #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	while (!quit)
+	{
+		auto tStart = std::chrono::high_resolution_clock::now();
+		if (viewUpdated)
+		{
+			viewUpdated = false;
+		}
+
+		while (!configured)
+		{
+			if (wl_display_dispatch(display) == -1)
+				break;
+		}
+		while (wl_display_prepare_read(display) != 0)
+		{
+			if (wl_display_dispatch_pending(display) == -1)
+				break;
+		}
+		wl_display_flush(display);
+		wl_display_read_events(display);
+		if (wl_display_dispatch_pending(display) == -1)
+			break;
+
+		render();
+		frameCounter++;
+		auto tEnd = std::chrono::high_resolution_clock::now();
+		auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+		frameTimer = tDiff / 1000.0f;
+		camera.update(frameTimer);
+		if (camera.moving())
+		{
+			viewUpdated = true;
+		}
+		// Convert to clamped timer value
+		if (!paused)
+		{
+			timer += timerSpeed * frameTimer;
+			if (timer > 1.0)
+			{
+				timer -= 1.0f;
+			}
+		}
+		float fpsTimer = std::chrono::duration<double, std::milli>(tEnd - lastTimestamp).count();
+		if (fpsTimer > 1000.0f)
+		{
+			if (!settings.overlay)
+			{
+				std::string windowTitle = getWindowTitle();
+				xdg_toplevel_set_title(xdg_toplevel, windowTitle.c_str());
+			}
+			lastFPS = (float)frameCounter * (1000.0f / fpsTimer);
+			frameCounter = 0;
+			lastTimestamp = tEnd;
+		}
+		//updateOverlay();
 	}
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
 	xcb_flush(connection);
@@ -2406,7 +2464,7 @@ xcb_window_t VulkanExampleBase::setupWindow()
 	window = xcb_generate_id(connection);
 
 	value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-	value_list[0] = screen->black_pixel;
+	value_list[0] = screen-> black_pixel;
 	value_list[1] =
 		XCB_EVENT_MASK_KEY_RELEASE |
 		XCB_EVENT_MASK_KEY_PRESS |
