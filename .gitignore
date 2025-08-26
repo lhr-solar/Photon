@@ -1,11 +1,5 @@
-.cache/
-.vs/
-build/
-bin/
-temp/
-out/
-compile_commands.json
-todo
-imgui.ini
-log
-log.txt
+.cache
+.notes
+.vscode
+artifacts
+Photon

@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# run "./build help" for help
+if [ "$1" = "help" ]; then
+    echo "[?] run './build' to compile debug version"
+    echo "[?] run './build Release' to compile release version"
+    echo "[?] run './build clean' to remove build artifacts"
+    echo "[?] run './build profile' to generate a flamegraph"
+    exit 0
+fi
+
+# run "./build clean" to remove build artifacts
+if [ "$1" = "clean" ]; then
+    rm -rf .cache
+    rm -rf artifacts
+    rm Photon
+    echo "[!] Cleaned build artifacts"
+    exit 0
+fi
+
+if [ "$1" = "gdb" ]; then
+    gdb -tui Photon
+    exit 0
+fi
+
+BUILD_TYPE=${1:-Debug}
+
+rm -f Photon
+mkdir -p artifacts
+cd artifacts
+cmake -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE .. -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++
+bear -- ninja -j$(nproc)
+cd ..
+mv ./artifacts/photon/Photon .
+./Photon

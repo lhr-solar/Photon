@@ -1,0 +1,36 @@
+─γ─ Photon Heterogeneous Compute Engine
+
+┌ γ ─────────────────────┐
+│            ψ           │
+│             ╲          │
+│  ξ ──► λ ──► Δ ──► μ   │
+│             ╱          │
+│            π           │
+└────────────────────────┘
+
+─< Δ engine  >─────────────────────────
+memory, threads, sync
+
+─< π   gpu   >─────────────────────────
+render & compute
+
+─< μ   gui   >─────────────────────────
+control interface
+
+─< ξ network >─────────────────────────
+ingest streams
+
+─< λ  parse  >─────────────────────────
+decode & store
+
+─< ψ  synth  >─────────────────────────
+analysis & synthesis
+
+
+─< Build >─────────────────────────────
+Ensure you have the Vulkan SDK
+< https://vulkan.lunarg.com/ >
+
+┌ linux ─────────────────┐
+│ $ ./build              │
+└────────────────────────┘
