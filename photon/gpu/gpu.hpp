@@ -67,6 +67,8 @@ public:
 
     VkPipeline pipeline;
 
+    std::vector<VkShaderModule> shaderModules;
+
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
     VkResult createInstance();
@@ -83,6 +85,7 @@ public:
     void updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed);
     void setupLayoutsAndDescriptors(VkDevice device);
     void preparePipelines(VkDevice device);
+    VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
 
 
 

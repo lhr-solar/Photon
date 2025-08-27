@@ -1,12 +1,14 @@
 /*[π] the photon gpu interface*/
 #include <algorithm>
-#include "gpu.hpp"
-#include "../gui/gui.hpp"
-#include "../engine/include.hpp"
-#include "vulkan/vulkan_core.h"
 #include <assert.h>
 #include <array>
 #include <string.h>
+
+#include "vulkan/vulkan_core.h"
+#include "gpu.hpp"
+#include "vulkanGLTF.hpp"
+#include "../engine/include.hpp"
+
 
 bool Gpu::initVulkan(){
     // interface for variable extensions in the future?
@@ -487,39 +489,63 @@ void Gpu::preparePipelines(VkDevice device){
     pipelineMultisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     pipelineMultisampleStateCreateInfo.flags = 0;
 
-    /*
-    VkPipelineMultisampleStateCreateInfo multisampleState =
-        vks::initializers::pipelineMultisampleStateCreateInfo(
-            VK_SAMPLE_COUNT_1_BIT);
+    std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
-    std::vector<VkDynamicState> dynamicStateEnables = {
-        VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-
-    VkPipelineDynamicStateCreateInfo dynamicState =
-        vks::initializers::pipelineDynamicStateCreateInfo(dynamicStateEnables);
+    VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
+	pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	pipelineDynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
+	pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+	pipelineDynamicStateCreateInfo.flags = 0;
 
     std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
 
-    VkGraphicsPipelineCreateInfo pipelineCI =
-    vks::initializers::pipelineCreateInfo(pipelineLayout, renderPass);
-    pipelineCI.pInputAssemblyState = &inputAssemblyState;
-    pipelineCI.pRasterizationState = &rasterizationState;
-    pipelineCI.pColorBlendState = &colorBlendState;
-    pipelineCI.pMultisampleState = &multisampleState;
-    pipelineCI.pViewportState = &viewportState;
-    pipelineCI.pDepthStencilState = &depthStencilState;
-    pipelineCI.pDynamicState = &dynamicState;
-    pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
-    pipelineCI.pStages = shaderStages.data();
-    pipelineCI.pVertexInputState = vkglTF::Vertex::getPipelineVertexInputState(
-    {vkglTF::VertexComponent::Position, vkglTF::VertexComponent::Normal,
-    vkglTF::VertexComponent::Color});
-    ;
+    /* Notice how this is the point we actually create the pipeline */
+    
+    // TODO: Consider how we set up the pipeline layout and render pass in earlier code...
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo {};
+    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineCreateInfo.layout = pipelineLayout;
+    pipelineCreateInfo.renderPass = renderPass;
+    pipelineCreateInfo.flags = 0;
+    pipelineCreateInfo.basePipelineIndex = -1;
+    pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    //shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT);
-    //shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT);
+    pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+    pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+    pipelineCreateInfo.pColorBlendState    = &pipelineColorBlendStateCreateInfo;
+    pipelineCreateInfo.pMultisampleState   = &pipelineMultisampleStateCreateInfo;
+    pipelineCreateInfo.pViewportState      = &pipelineViewportStateCreateInfo;
+    pipelineCreateInfo.pDepthStencilState  = &pipelineDepthStencilStateCreateInfo;
+    pipelineCreateInfo.pDynamicState       = &pipelineDynamicStateCreateInfo;
+    pipelineCreateInfo.stageCount          = static_cast<uint32_t>(shaderStages.size());
+    pipelineCreateInfo.pStages             = shaderStages.data();
+    pipelineCreateInfo.pVertexInputState   = vertex::getPipelineVertexInputState({VertexComponent::Position, VertexComponent::Normal, VertexComponent::Color});
 
-    VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipeline));
-    */
+//    shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, device);
+//    shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
 
+    VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
 }
+
+VkShaderModule loadShaderFromMemory(const uint32_t* code, size_t size, VkDevice device){
+    VkShaderModule shaderModule;
+    VkShaderModuleCreateInfo moduleCreateInfo{};
+    moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    moduleCreateInfo.pNext = nullptr;
+    moduleCreateInfo.flags = 0;
+    moduleCreateInfo.codeSize = size;
+    moduleCreateInfo.pCode = code;
+    VK_CHECK(vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &shaderModule));
+    return shaderModule;
+}
+
+VkPipelineShaderStageCreateInfo Gpu::loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device){
+    VkPipelineShaderStageCreateInfo shaderStage = {};
+    shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStage.stage = stage;
+    shaderStage.module = loadShaderFromMemory(code, size, device);
+    shaderStage.pName = "main";
+    assert(shaderStage.module != VK_NULL_HANDLE);
+    shaderModules.push_back(shaderStage.module);
+    return shaderStage;
+};
