@@ -9,6 +9,8 @@
 #include "vulkanGLTF.hpp"
 #include "../engine/include.hpp"
 
+#include "scene_frag_spv.hpp"
+#include "scene_vert_spv.hpp"
 
 bool Gpu::initVulkan(){
     // interface for variable extensions in the future?
@@ -521,10 +523,11 @@ void Gpu::preparePipelines(VkDevice device){
     pipelineCreateInfo.pStages             = shaderStages.data();
     pipelineCreateInfo.pVertexInputState   = vertex::getPipelineVertexInputState({VertexComponent::Position, VertexComponent::Normal, VertexComponent::Color});
 
-//    shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, device);
-//    shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
+    shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, device);
+    shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
 
     VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
+    log("[+] Prepared pipelines with stage count " << pipelineCreateInfo.stageCount);
 }
 
 VkShaderModule loadShaderFromMemory(const uint32_t* code, size_t size, VkDevice device){

@@ -53,6 +53,8 @@ public:
     ~Gui();
     void initWindow();
     std::string getWindowTitle()const;
+    void prepareImGui();
+    void initResources();
 
 /* end of gui class */
 };

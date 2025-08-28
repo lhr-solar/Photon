@@ -1,5 +1,6 @@
 /*[Δ] the photon heterogenous compute engine*/
 #include <thread>
+#include <iostream>
 
 #include "photon.hpp"
 #include "include.hpp"
@@ -18,8 +19,7 @@ Photon::~Photon(){
 void Photon::prepareScene(){
    gpu.vulkanSwapchain.initSurface(gpu.instance, gui.connection, gui.window, gpu.vulkanDevice.physicalDevice);
    gpu.vulkanSwapchain.createCommandPool(gpu.vulkanDevice.logicalDevice);
-   gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, 
-                                        gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
+   gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
    gpu.vulkanSwapchain.createCommandBuffers(gpu.vulkanDevice.logicalDevice);
    gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.drawCmdBuffers);
    gpu.setupDepthStencil(gui.width, gui.height);
@@ -30,9 +30,9 @@ void Photon::prepareScene(){
    gpu.updateUniformBuffers(gui.renderSettings.animateLight, gui.renderSettings.lightTimer, gui.renderSettings.lightSpeed);
    gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
    gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
+   gui.prepareImGui();
 
 /*
-    prepareImGui();
     buildCommandBuffers();
 */
 

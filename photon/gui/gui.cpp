@@ -3,6 +3,9 @@
 #include <string>
 #include <cstring>
 #include "gui.hpp"
+#include "imgui.h"
+#include "implot.h"
+#include "implot3d.h"
 #include "../engine/include.hpp"
 
 Gui::Gui(){};
@@ -132,4 +135,21 @@ std::string Gui::getWindowTitle() const {
 	std::string windowTitle =  title ; //+ deviceProperties.deviceName };
     //windowTitle += " - " + std::to_string(frameCounter) + " fps";
 	return windowTitle;
+}
+
+void Gui::prepareImGui(){
+    ImGui::CreateContext();
+    ImPlot::CreateContext();
+    ImPlot3D::CreateContext();
+    log("[+] Created ImX context!");
+
+    ImGuiIO &io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(width, height);
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    // TODO: 
+    // Font & System Scale, Styles, Font, etc.
+}
+
+void Gui::initResources(){
+
 }

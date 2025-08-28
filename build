@@ -30,6 +30,7 @@ mkdir -p artifacts
 cd artifacts
 cmake -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE .. -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++
 bear -- ninja -j$(nproc)
+
 cd ..
 mv ./artifacts/photon/Photon .
 ./Photon

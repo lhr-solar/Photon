@@ -13,6 +13,9 @@ include_directories(.external)
 include_directories(.external/glm)
 include_directories(.external/vulkan)
 include_directories(.external/vk_video)
+include_directories(.external/stb)
+include_directories(.external/imgui)
+include_directories(${CMAKE_BINARY_DIR}/generated)
 
 # require python
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -41,27 +44,4 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
 link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY})
 
 add_subdirectory(kernels)
-
-set(KERNELS
-    ${CMAKE_BINARY_DIR}/kernels/spirv/scene.vert.spv
-    ${CMAKE_BINARY_DIR}/kernels/spirv/scene.frag.spv
-    ${CMAKE_BINARY_DIR}/kernels/spirv/ui.vert.spv
-    ${CMAKE_BINARY_DIR}/kernels/spirv/ui.frag.spv
-)
-
-set(KERNEL_HEADERS)
-foreach(KERNEL ${KERNELS})
-    get_filename_component(NAME ${KERNEL} NAME)
-    string(REPLACE "." "_" VAR ${NAME})
-    set(HEADER ${CMAKE_BINARY_DIR}/generated/${VAR}.hpp)
-    add_custom_command(
-        OUTPUT ${HEADER}
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/find/spv_to_header.py ${KERNEL} ${HEADER}
-        DEPENDS ${KERNEL}
-        COMMENT "Generating ${HEADER} from ${KERNEL}")
-    list(APPEND KERNEL_HEADERS ${HEADER})
-endforeach()
-add_custom_target(GenerateKernelHeaders ALL DEPENDS ${KERNEL_HEADERS})
-
 add_subdirectory(photon)
-#add_dependencies(photon GenerateKernelHeaders)
