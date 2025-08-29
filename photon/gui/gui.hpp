@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <glm/glm.hpp>
 #include <array>
+#include <vulkan/vulkan.h>
+#include "../gpu/vulkanDevice.hpp"
 
 class Gui{
 private:
@@ -49,12 +51,18 @@ public:
         int effectType = 0;
     } renderSettings;
 
+    VkImage fontImage = VK_NULL_HANDLE;
+    VkDeviceMemory fontMemory = VK_NULL_HANDLE;
+    VkImageView fontView = VK_NULL_HANDLE;
+
+    VkSampler sampler;
+
     Gui();
     ~Gui();
     void initWindow();
     std::string getWindowTitle()const;
     void prepareImGui();
-    void initResources();
+    void initResources(VulkanDevice vulkanDevice);
 
 /* end of gui class */
 };

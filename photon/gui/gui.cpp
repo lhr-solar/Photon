@@ -7,6 +7,7 @@
 #include "implot.h"
 #include "implot3d.h"
 #include "../engine/include.hpp"
+#include "vulkan_core.h"
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -150,6 +151,98 @@ void Gui::prepareImGui(){
     // Font & System Scale, Styles, Font, etc.
 }
 
-void Gui::initResources(){
+#include <vulkan/vulkan.h>
+#include "../gpu/vulkanDevice.hpp"
+#include "../gpu/vulkanBuffer.hpp"
+#include "../gpu/gpu.hpp"
+// initialize all vulkan resources used by the UI
+void Gui::initResources(VulkanDevice vulkanDevice){
+    ImGuiIO &io = ImGui::GetIO();
+    unsigned char *fontData;
+    int texWidth, texHeight;
+    io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
+    VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
+    VkImageCreateInfo imageCreateInfo {};
+    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageCreateInfo.extent.width = texWidth;
+    imageCreateInfo.extent.height = texHeight;
+    imageCreateInfo.extent.depth = 1;
+    imageCreateInfo.mipLevels = 1;
+    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    vkCreateImage(vulkanDevice.logicalDevice, &imageCreateInfo, nullptr, &fontImage);
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, fontImage, &memReqs);
+    VkMemoryAllocateInfo memAllocInfo {};
+    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memAllocInfo.allocationSize = memReqs.size;
+    memAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &memAllocInfo, nullptr, &fontMemory));
+    log("[+] Allocated font memory");
+    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, fontImage, fontMemory, 0));
+    log("[+] Bound font memory");
 
+    VkImageViewCreateInfo imageViewCreateInfo {};
+    imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    imageViewCreateInfo.image = fontImage;
+    imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageViewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageViewCreateInfo.subresourceRange.levelCount = 1;
+    imageViewCreateInfo.subresourceRange.layerCount = 1;
+    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &imageViewCreateInfo, nullptr, &fontView));
+    log("[+] Created Font Image View");
+
+    VulkanBuffer stagingBuffer;
+    VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, uploadSize, nullptr));
+    log("[+] Created staging buffer");
+    stagingBuffer.map(VK_WHOLE_SIZE, 0);
+    memcpy(stagingBuffer.mapped, fontData, uploadSize);
+    stagingBuffer.unmap();
+
+    VkCommandBuffer copyCmd = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
+    log("[+] Created Command Buffer from Graphics Command Pool");
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.layerCount = 1;
+    Gpu::setImageLayout(copyCmd, fontImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    log("[+] Set Image Layout for Transfer");
+
+    VkBufferImageCopy bufferCopyRegion = {};
+    bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    bufferCopyRegion.imageSubresource.layerCount = 1;
+    bufferCopyRegion.imageExtent.width = texWidth;
+    bufferCopyRegion.imageExtent.height = texHeight;
+    bufferCopyRegion.imageExtent.depth = 1;
+    vkCmdCopyBufferToImage(copyCmd, stagingBuffer.buffer, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferCopyRegion);
+    log("[+] Copied Buffer to Image");
+
+    Gpu::setImageLayout(copyCmd, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    vulkanDevice.flushCommandBuffer(copyCmd, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
+    log("[+] Flushed Command Buffer");
+    stagingBuffer.destroy();
+    log("[+] Destroyed Staging Buffer");
+
+    VkSamplerCreateInfo samplerCreateInfo {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.maxAnisotropy = 1.0f;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    vkCreateSampler(vulkanDevice.logicalDevice, &samplerCreateInfo, nullptr, &sampler);
+    log("[+] Created Sampler");
+
+    // Descriptor Pool
 }

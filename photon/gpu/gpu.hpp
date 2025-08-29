@@ -16,6 +16,7 @@
     abort(); \
 } } while(0)
 
+#define DEFAULT_FENCE_TIMEOUT 100000000000
 
 class Gpu{
 public:
@@ -86,6 +87,7 @@ public:
     void setupLayoutsAndDescriptors(VkDevice device);
     void preparePipelines(VkDevice device);
     VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
+    static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
 
 
 

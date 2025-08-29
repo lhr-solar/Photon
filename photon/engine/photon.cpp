@@ -31,6 +31,7 @@ void Photon::prepareScene(){
    gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
    gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
    gui.prepareImGui();
+   gui.initResources(gpu.vulkanDevice);
 
 /*
     buildCommandBuffers();

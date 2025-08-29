@@ -273,3 +273,48 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
 
     return buffer->bind(0);
 }
+
+VkCommandBuffer VulkanDevice::createCommandBuffer(VkCommandBufferLevel level, VkCommandPool pool, bool begin){
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo {};
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.commandPool = pool;
+    commandBufferAllocateInfo.level = level;
+    commandBufferAllocateInfo.commandBufferCount = 1;
+    VkCommandBuffer cmdBuffer;
+
+    VK_CHECK(vkAllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &cmdBuffer));
+    // If requested, also start recording for the new command buffer
+    if (begin){
+        VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+	    cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &cmdBufferBeginInfo));
+    }
+    return cmdBuffer;
+}
+
+void VulkanDevice::flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free){
+    if (commandBuffer == VK_NULL_HANDLE)
+        return;
+
+    VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+    VkSubmitInfo submitInfo {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    // Create fence to ensure that the command buffer has finished executing
+    VkFenceCreateInfo fenceCreateInfo {};
+    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCreateInfo.flags = 0;
+
+    VkFence fence;
+    VK_CHECK(vkCreateFence(logicalDevice, &fenceCreateInfo, nullptr, &fence));
+    // Submit to the queue
+    VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, fence));
+    // Wait for the fence to signal that command buffer has finished executing
+    VK_CHECK(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
+    vkDestroyFence(logicalDevice, fence, nullptr);
+    if (free)
+        vkFreeCommandBuffers(logicalDevice, pool, 1, &commandBuffer);
+}
+

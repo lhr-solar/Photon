@@ -16,4 +16,5 @@ struct VulkanBuffer{
     VkResult flush(VkDeviceSize size, VkDeviceSize offset);
     void setupDescriptor(VkDeviceSize size, VkDeviceSize offset);
     VkResult bind(VkDeviceSize offset);
+    void destroy();
 };

@@ -29,3 +29,10 @@ void VulkanBuffer::setupDescriptor(VkDeviceSize size, VkDeviceSize offset){
 VkResult VulkanBuffer::bind(VkDeviceSize offset){
     return vkBindBufferMemory(device, buffer, memory, offset);
 }
+
+void VulkanBuffer::destroy(){
+    if (buffer)
+        vkDestroyBuffer(device, buffer, nullptr);
+    if (memory)
+        vkFreeMemory(device, memory, nullptr);
+}
