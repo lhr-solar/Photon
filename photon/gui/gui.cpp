@@ -2,12 +2,17 @@
 #include <stdio.h>
 #include <string>
 #include <cstring>
+#include <vulkan/vulkan.h>
+
+#include "vulkan_core.h"
 #include "gui.hpp"
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
 #include "../engine/include.hpp"
-#include "vulkan_core.h"
+#include "../gpu/vulkanDevice.hpp"
+#include "../gpu/vulkanBuffer.hpp"
+#include "../gpu/gpu.hpp"
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -151,10 +156,6 @@ void Gui::prepareImGui(){
     // Font & System Scale, Styles, Font, etc.
 }
 
-#include <vulkan/vulkan.h>
-#include "../gpu/vulkanDevice.hpp"
-#include "../gpu/vulkanBuffer.hpp"
-#include "../gpu/gpu.hpp"
 // initialize all vulkan resources used by the UI
 void Gui::initResources(VulkanDevice vulkanDevice){
     ImGuiIO &io = ImGui::GetIO();
@@ -242,7 +243,62 @@ void Gui::initResources(VulkanDevice vulkanDevice){
     samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     vkCreateSampler(vulkanDevice.logicalDevice, &samplerCreateInfo, nullptr, &sampler);
-    log("[+] Created Sampler");
+    log("[+] Created Gui Sampler");
 
     // Descriptor Pool
+    VkDescriptorPoolSize descriptorPoolSize {};
+    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorPoolSize.descriptorCount = 2;
+    std::vector<VkDescriptorPoolSize> poolSizes = { descriptorPoolSize };
+
+    VkDescriptorPoolCreateInfo descriptorPoolInfo{};
+    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    descriptorPoolInfo.pPoolSizes = poolSizes.data();
+    descriptorPoolInfo.maxSets = 2;
+    VK_CHECK(vkCreateDescriptorPool(vulkanDevice.logicalDevice, &descriptorPoolInfo, nullptr, &guiDescriptorPool));
+    log("[+] Created Gui Descriptor Pool");
+
+    // Descriptor set Layout
+    VkDescriptorSetLayoutBinding setLayoutBinding0 {};
+    setLayoutBinding0.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    setLayoutBinding0.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    setLayoutBinding0.binding = 0;
+    setLayoutBinding0.descriptorCount = 1;
+
+    VkDescriptorSetLayoutBinding setLayoutBinding1 {};
+    setLayoutBinding1.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    setLayoutBinding1.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    setLayoutBinding1.binding = 1;
+    setLayoutBinding1.descriptorCount = 1;
+
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {setLayoutBinding0, setLayoutBinding1};
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+    descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCreateInfo.pBindings = setLayoutBindings.data();
+    descriptorSetLayoutCreateInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    VK_CHECK(vkCreateDescriptorSetLayout(vulkanDevice.logicalDevice, &descriptorSetLayoutCreateInfo, nullptr, &guiDescriptorSetLayout));
+    log("[+] Created Gui Descriptor Set Layout");
+
+    // Descriptor Set
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
+    descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorSetAllocateInfo.descriptorPool = guiDescriptorPool;
+    descriptorSetAllocateInfo.pSetLayouts = &guiDescriptorSetLayout;
+    descriptorSetAllocateInfo.descriptorSetCount = 1;
+    VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorSetAllocateInfo, &guiDescriptorSet));
+    log("[+] Created Gui Descriptor Set ");
+
+    VkDescriptorImageInfo sceneDescriptorImageInfo {};
+    sceneDescriptorImageInfo.sampler = sampler;
+    sceneDescriptorImageInfo.imageView = fontView;
+    sceneDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo fontDescriptorImageInfo {};
+    fontDescriptorImageInfo.sampler = sampler;
+    fontDescriptorImageInfo.imageView = fontView;
+    fontDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+
 }

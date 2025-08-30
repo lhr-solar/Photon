@@ -57,6 +57,10 @@ public:
 
     VkSampler sampler;
 
+    VkDescriptorPool guiDescriptorPool;
+    VkDescriptorSetLayout guiDescriptorSetLayout;
+    VkDescriptorSet guiDescriptorSet;
+
     Gui();
     ~Gui();
     void initWindow();
