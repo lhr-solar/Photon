@@ -32,11 +32,7 @@ void Photon::prepareScene(){
    gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
    gui.prepareImGui();
    gui.initResources(gpu.vulkanDevice, gpu.renderPass);
-
-/*
-    buildCommandBuffers();
-*/
-
+   gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers);
 };
 
 void Photon::initThreads(){

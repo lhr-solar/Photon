@@ -472,3 +472,154 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
     log("[+] Created Graphics Gui Pipeline ");
 }
+
+
+void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers){
+    VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+    cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    VkClearValue clearValues[2];
+    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearValues[1].depthStencil = {1.0f, 0};
+
+    VkRenderPassBeginInfo renderPassBeginInfo {};
+    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.renderPass = renderPass;
+    renderPassBeginInfo.renderArea.offset.x = 0;
+    renderPassBeginInfo.renderArea.offset.y = 0;
+    renderPassBeginInfo.renderArea.extent.width = width;
+    renderPassBeginInfo.renderArea.extent.height = height;
+    renderPassBeginInfo.clearValueCount = 2;
+    renderPassBeginInfo.pClearValues = clearValues;
+
+    ImGui::NewFrame();
+    ImPlot::ShowDemoWindow();
+    ImGui::Render();
+
+    updateBuffers(vulkanDevice);
+
+    for (int32_t i = 0; i < drawCmdBuffers.size(); ++i) {
+        renderPassBeginInfo.framebuffer = frameBuffers[i];
+        VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
+        vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        VkViewport viewport {};
+        viewport.width = width;
+        viewport.height = height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
+
+        VkRect2D rect2D {};
+	    rect2D.extent.width = width;
+	    rect2D.extent.height = height;
+	    rect2D.offset.x = 0;
+	    rect2D.offset.y = 0;
+        vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &rect2D);
+
+        vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipelineLayout, 0, 1, &guiDescriptorSet, 0, nullptr);
+
+        VkDeviceSize offsets[1] = {0};
+
+        // TODO: would likely do 3D rendering here? consider the Sascha Vulkan 3D models
+
+        // TODO: this looks big tbh
+        drawFrame(drawCmdBuffers[i]);
+        vkCmdEndRenderPass(drawCmdBuffers[i]);
+        VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[i]));
+    };
+}
+
+void Gui::updateBuffers(VulkanDevice vulkanDevice){
+    ImDrawData *imDrawData = ImGui::GetDrawData();
+
+    // Note: Alignment is done inside buffer creation
+    VkDeviceSize vertexBufferSize = imDrawData->TotalVtxCount * sizeof(ImDrawVert);
+    VkDeviceSize indexBufferSize = imDrawData->TotalIdxCount * sizeof(ImDrawIdx);
+
+    if ((vertexBufferSize == 0) || (indexBufferSize == 0)) { return; }
+
+    log("[!] updateBuffers Returned Early !");
+
+    // Vertex Buffer
+    if ((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexCount != imDrawData->TotalVtxCount)) {
+      vertexBuffer.unmap();
+      vertexBuffer.destroy();
+      VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &vertexBuffer, vertexBufferSize, nullptr));
+      vertexCount = imDrawData->TotalVtxCount;
+      vertexBuffer.map(0, 0);
+    }
+
+    // Index buffer
+    if ((indexBuffer.buffer == VK_NULL_HANDLE) || (indexCount < imDrawData->TotalIdxCount)) {
+      indexBuffer.unmap();
+      indexBuffer.destroy();
+      VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &indexBuffer, indexBufferSize, 0));
+      indexCount = imDrawData->TotalIdxCount;
+      indexBuffer.map(0, 0);
+    }
+
+    // Upload data
+    ImDrawVert *vtxDst = (ImDrawVert *)vertexBuffer.mapped;
+    ImDrawIdx *idxDst = (ImDrawIdx *)indexBuffer.mapped;
+
+    // TODO profile this, consider SIMD
+    for (int n = 0; n < imDrawData->CmdListsCount; n++) {
+      const ImDrawList *cmd_list = imDrawData->CmdLists[n];
+      memcpy(vtxDst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+      memcpy(idxDst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+      vtxDst += cmd_list->VtxBuffer.Size;
+      idxDst += cmd_list->IdxBuffer.Size;
+    }
+    vertexBuffer.flush(VK_WHOLE_SIZE, 0);
+    indexBuffer.flush(VK_WHOLE_SIZE, 0);
+
+}
+
+void Gui::drawFrame(VkCommandBuffer commandBuffer){
+    ImGuiIO &io = ImGui::GetIO();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipelineLayout, 0, 1, &guiDescriptorSet, 0, nullptr);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipeline);
+    // TODO: isn't this duplicated setup?
+    VkViewport viewport {};
+    viewport.width = width;
+    viewport.height = height;
+    viewport.minDepth = 0.0;
+    viewport.maxDepth = 1.0;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    pushConstBlock.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
+    pushConstBlock.translate = glm::vec2(-1.0f);
+    pushConstBlock.gradTop = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
+    pushConstBlock.gradBottom = glm::vec4(1.00, 1.00f, 1.00f, 1.00f);
+    pushConstBlock.invScreenSize = glm::vec2(1.0f / io.DisplaySize.x, 1.0f / io.DisplaySize.y);
+    pushConstBlock.whitePixel = glm::vec2(io.Fonts->TexUvWhitePixel.x, io.Fonts->TexUvWhitePixel.y);
+    pushConstBlock.u_time = (float)ImGui::GetTime();
+    // TODO cross reference pipline layout(?), i don't think this is all getting pushed
+    vkCmdPushConstants(commandBuffer, guiPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock), &pushConstBlock);
+
+    // Render commands
+    ImDrawData *imDrawData = ImGui::GetDrawData();
+    int32_t vertexOffset = 0;
+    int32_t indexOffset = 0;
+
+    // TODO look at this runtime holy f*ck
+    if (imDrawData->CmdListsCount > 0) {
+      VkDeviceSize offsets[1] = {0};
+      vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offsets);
+      vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+      for (int32_t i = 0; i < imDrawData->CmdListsCount; i++) {
+        const ImDrawList *cmd_list = imDrawData->CmdLists[i];
+        for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++) {
+          const ImDrawCmd *pcmd = &cmd_list->CmdBuffer[j];
+          VkRect2D scissorRect;
+          scissorRect.offset.x = std::max((int32_t)(pcmd->ClipRect.x), 0);
+          scissorRect.offset.y = std::max((int32_t)(pcmd->ClipRect.y), 0);
+          scissorRect.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
+          scissorRect.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
+          vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
+          vkCmdDrawIndexed(commandBuffer, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
+          indexOffset += pcmd->ElemCount;
+        }
+        vertexOffset += cmd_list->VtxBuffer.Size;
+      }
+    }
+}

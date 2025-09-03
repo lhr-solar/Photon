@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <array>
 #include <vulkan/vulkan.h>
+#include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/vulkanDevice.hpp"
 
 class Gui{
@@ -15,7 +16,6 @@ private:
     void setupWindow();
 
 public:
-
     xcb_connection_t *connection;
     xcb_screen_t *screen;
     xcb_window_t window;
@@ -75,7 +75,12 @@ public:
         float u_time;
     } pushConstBlock;
 
+    VulkanBuffer vertexBuffer;
+    int32_t vertexCount;
+    VulkanBuffer indexBuffer;
+    int32_t indexCount;
 
+    std::vector<VkCommandBuffer> drawCmdBuffers;
 
     Gui();
     ~Gui();
@@ -83,6 +88,10 @@ public:
     std::string getWindowTitle()const;
     void prepareImGui();
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
-
+    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers);
+    void updateBuffers(VulkanDevice vulkanDevice);
+    void drawFrame(VkCommandBuffer commandBuffer);
 /* end of gui class */
 };
+
+
