@@ -542,6 +542,7 @@ VkShaderModule loadShaderFromMemory(const uint32_t* code, size_t size, VkDevice 
     return shaderModule;
 }
 
+// TODO: refactor this to retain shader modules in memory, so we don't have to re-load at runtime
 VkPipelineShaderStageCreateInfo Gpu::loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device){
     VkPipelineShaderStageCreateInfo shaderStage = {};
     shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -549,7 +550,7 @@ VkPipelineShaderStageCreateInfo Gpu::loadShader(const uint32_t* code, size_t siz
     shaderStage.module = loadShaderFromMemory(code, size, device);
     shaderStage.pName = "main";
     assert(shaderStage.module != VK_NULL_HANDLE);
-    shaderModules.push_back(shaderStage.module);
+    //shaderModules.push_back(shaderStage.module);
     return shaderStage;
 };
 

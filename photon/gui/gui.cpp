@@ -13,6 +13,8 @@
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/gpu.hpp"
+#include "scene_frag_spv.hpp"
+#include "scene_vert_spv.hpp"
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -157,7 +159,7 @@ void Gui::prepareImGui(){
 }
 
 // initialize all vulkan resources used by the UI
-void Gui::initResources(VulkanDevice vulkanDevice){
+void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ImGuiIO &io = ImGui::GetIO();
     unsigned char *fontData;
     int texWidth, texHeight;
@@ -288,7 +290,7 @@ void Gui::initResources(VulkanDevice vulkanDevice){
     descriptorSetAllocateInfo.pSetLayouts = &guiDescriptorSetLayout;
     descriptorSetAllocateInfo.descriptorSetCount = 1;
     VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorSetAllocateInfo, &guiDescriptorSet));
-    log("[+] Created Gui Descriptor Set ");
+    log("[+] Allocated Gui Descriptor Set ");
 
     VkDescriptorImageInfo sceneDescriptorImageInfo {};
     sceneDescriptorImageInfo.sampler = sampler;
@@ -300,5 +302,173 @@ void Gui::initResources(VulkanDevice vulkanDevice){
     fontDescriptorImageInfo.imageView = fontView;
     fontDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    VkWriteDescriptorSet sceneWriteDescriptorSet {};
+    sceneWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    sceneWriteDescriptorSet.dstSet = guiDescriptorSet;
+    sceneWriteDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    sceneWriteDescriptorSet.dstBinding = 0;
+    sceneWriteDescriptorSet.pImageInfo = &sceneDescriptorImageInfo;
+    sceneWriteDescriptorSet.descriptorCount = 1;
 
+    VkWriteDescriptorSet fontWriteDescriptorSet {};
+    fontWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    fontWriteDescriptorSet.dstSet = guiDescriptorSet;
+    fontWriteDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    fontWriteDescriptorSet.dstBinding = 0;
+    fontWriteDescriptorSet.pImageInfo = &sceneDescriptorImageInfo;
+    fontWriteDescriptorSet.descriptorCount = 1;
+
+    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {sceneWriteDescriptorSet, fontWriteDescriptorSet};
+
+    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+    log("[+] Updated Gui Descriptor Sets ");
+
+    // Pipeline cache
+    VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+    pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+    VK_CHECK(vkCreatePipelineCache(vulkanDevice.logicalDevice, &pipelineCacheCreateInfo, nullptr, &guiPipelineCache));
+    log("[+] Create Gui Pipeline Cache");
+
+    // Pipeline layout & Push constants for UI rendering
+    VkPushConstantRange pushConstantRange {};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(pushConstBlock);
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
+    pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutCreateInfo.setLayoutCount = 1;
+    pipelineLayoutCreateInfo.pSetLayouts = &guiDescriptorSetLayout;
+    pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+    pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+    VK_CHECK(vkCreatePipelineLayout(vulkanDevice.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &guiPipelineLayout));
+    log("[+] Created Gui Pipeline Layout ");
+
+    VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo {};
+    pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    pipelineInputAssemblyStateCreateInfo.flags = 0;
+    pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
+
+    VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo {};
+    pipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE;
+    pipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    pipelineRasterizationStateCreateInfo.flags = 0;
+    pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
+    pipelineRasterizationStateCreateInfo.lineWidth = 1.0f;
+
+    // Enable blending
+    VkPipelineColorBlendAttachmentState blendAttachmentState{};
+    blendAttachmentState.blendEnable = VK_TRUE;
+    blendAttachmentState.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    blendAttachmentState.dstColorBlendFactor =
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+    blendAttachmentState.srcAlphaBlendFactor =
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo {};
+    pipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    pipelineColorBlendStateCreateInfo.attachmentCount = 1;
+    pipelineColorBlendStateCreateInfo.pAttachments = &blendAttachmentState;
+
+    VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo {};
+    pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    pipelineDepthStencilStateCreateInfo.depthTestEnable = VK_FALSE;
+    pipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_FALSE;
+    pipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    pipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
+
+    VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo {};
+    pipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	pipelineViewportStateCreateInfo.viewportCount = 1;
+	pipelineViewportStateCreateInfo.scissorCount = 1;
+	pipelineViewportStateCreateInfo.flags = 0;
+
+    VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo {};
+    pipelineMultisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    pipelineMultisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    pipelineMultisampleStateCreateInfo.flags = 0;
+
+    std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+
+    VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
+    pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    pipelineDynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
+    pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+    pipelineDynamicStateCreateInfo.flags = 0;
+
+    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
+
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo {};
+    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineCreateInfo.layout = guiPipelineLayout;
+    pipelineCreateInfo.renderPass = renderPass;
+    pipelineCreateInfo.flags = 0;
+    pipelineCreateInfo.basePipelineIndex = -1;
+    pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; 
+
+    /*...[]__
+             --[    ]*/
+    pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+    pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+    pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+    pipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+    pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+    pipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+    pipelineCreateInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
+    pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+    pipelineCreateInfo.pStages = shaderStages.data();
+
+    // Vertex bindings an attributes based on ImGui vertex definition
+    VkVertexInputBindingDescription vInputBindDescription {};
+    vInputBindDescription.binding = 0;
+    vInputBindDescription.stride = sizeof(ImDrawVert);
+    vInputBindDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    std::vector<VkVertexInputBindingDescription> vertexInputBindings = {vInputBindDescription};
+
+    // binding location format offset
+    VkVertexInputAttributeDescription vPositionInputAttribDescription {};
+    vPositionInputAttribDescription.location = 0;
+    vPositionInputAttribDescription.binding = 0;
+    vPositionInputAttribDescription.format = VK_FORMAT_R32G32_SFLOAT;
+    vPositionInputAttribDescription.offset = offsetof(ImDrawVert, pos);
+
+    VkVertexInputAttributeDescription vUVInputAttribDescription {};
+    vUVInputAttribDescription.location = 1;
+    vUVInputAttribDescription.binding = 0;
+    vUVInputAttribDescription.format = VK_FORMAT_R32G32_SFLOAT;
+    vUVInputAttribDescription.offset = offsetof(ImDrawVert, uv);
+
+    VkVertexInputAttributeDescription vColorInputAttribDescription {};
+    vColorInputAttribDescription.location = 2;
+    vColorInputAttribDescription.binding = 0;
+    vColorInputAttribDescription.format = VK_FORMAT_R8G8B8A8_UNORM;
+    vColorInputAttribDescription.offset = offsetof(ImDrawVert, col);
+
+    std::vector<VkVertexInputAttributeDescription> vertexInputAttributes = { 
+    vPositionInputAttribDescription, vUVInputAttribDescription, vColorInputAttribDescription };
+
+    VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo {};
+    pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    pipelineVertexInputStateCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputBindings.size());
+    pipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = vertexInputBindings.data();
+    pipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributes.size());
+    pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexInputAttributes.data();
+
+    /*... []*/
+    pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+
+    shaderStages[0] = Gpu::loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
+    shaderStages[1] = Gpu::loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
+
+    vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
+    log("[+] Created Graphics Gui Pipeline ");
 }

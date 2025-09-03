@@ -86,7 +86,7 @@ public:
     void updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed);
     void setupLayoutsAndDescriptors(VkDevice device);
     void preparePipelines(VkDevice device);
-    VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
+    static VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
     static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
 
 

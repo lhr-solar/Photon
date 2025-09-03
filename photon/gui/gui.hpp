@@ -61,12 +61,28 @@ public:
     VkDescriptorSetLayout guiDescriptorSetLayout;
     VkDescriptorSet guiDescriptorSet;
 
+    VkPipelineCache guiPipelineCache;
+    VkPipelineLayout guiPipelineLayout;
+    VkPipeline guiPipeline;
+
+    struct PushConstBlock {
+        glm::vec2 scale;
+        glm::vec2 translate;
+        glm::vec2 gradTop;
+        glm::vec2 gradBottom;
+        glm::vec2 invScreenSize;
+        glm::vec2 whitePixel;
+        float u_time;
+    } pushConstBlock;
+
+
+
     Gui();
     ~Gui();
     void initWindow();
     std::string getWindowTitle()const;
     void prepareImGui();
-    void initResources(VulkanDevice vulkanDevice);
+    void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
 
 /* end of gui class */
 };
