@@ -154,6 +154,7 @@ void Gui::prepareImGui(){
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    io.IniFilename = NULL;
     // TODO: 
     // Font & System Scale, Styles, Font, etc.
 }
@@ -473,8 +474,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     log("[+] Created Graphics Gui Pipeline ");
 }
 
-
-void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers){
+void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
     VkCommandBufferBeginInfo cmdBufferBeginInfo {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 

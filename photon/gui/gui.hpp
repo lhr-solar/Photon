@@ -23,6 +23,11 @@ public:
 
     uint32_t width = 1280;
     uint32_t height = 720;
+    bool viewUpdated = false;
+    bool resized = false;
+
+    uint32_t destWidth;
+    uint32_t destHeight;
 
     std::string title = "Photon";
     std::string name = "photon";
@@ -80,18 +85,14 @@ public:
     VulkanBuffer indexBuffer;
     int32_t indexCount;
 
-    std::vector<VkCommandBuffer> drawCmdBuffers;
-
     Gui();
     ~Gui();
     void initWindow();
     std::string getWindowTitle()const;
     void prepareImGui();
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
-    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers);
+    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
     void updateBuffers(VulkanDevice vulkanDevice);
     void drawFrame(VkCommandBuffer commandBuffer);
 /* end of gui class */
 };
-
-

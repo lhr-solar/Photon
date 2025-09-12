@@ -59,7 +59,12 @@ public:
     } uboVS;
 
     Camera camera;
-    float frameTimer;
+    float frameTimer = 1.0;
+    uint32_t frameCounter = 0;
+    const double targetFrameTime = 1000.0 / 60.0; // 60 FPS → ~16.67ms per frame
+    float timerSpeed = 0.25f;
+    float timer = 0.0f;
+
 
     VkDescriptorPool descriptorPool { VK_NULL_HANDLE };
     VkDescriptorSetLayout descriptorSetLayout;
@@ -69,6 +74,8 @@ public:
     VkPipeline pipeline;
 
     std::vector<VkShaderModule> shaderModules;
+
+    uint32_t currentBuffer = 0;
 
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);

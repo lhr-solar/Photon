@@ -24,4 +24,6 @@ struct VulkanSwapchain{
     void createCommandPool(VkDevice device);
     VkResult createSwapChain(uint32_t *width, uint32_t *height, bool vsync, bool fullscreen, bool transparent, VkPhysicalDevice physicalDevice, VkDevice device);
     void createCommandBuffers(VkDevice device);
+    VkResult acquireNextImage(VkDevice device, VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex);
+    VkResult queuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore);
 };

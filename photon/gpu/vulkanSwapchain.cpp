@@ -266,3 +266,23 @@ void VulkanSwapchain::createCommandBuffers(VkDevice device){
     VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, drawCmdBuffers.data()));
     log("[+] Allocated " << drawCmdBuffers.size() << " Command Buffers with level : " << commandBufferAllocateInfo.level);
 }
+
+VkResult VulkanSwapchain::acquireNextImage(VkDevice device, VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex){
+    return vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, presentCompleteSemaphore, VkFence(nullptr) , imageIndex);
+}
+
+VkResult VulkanSwapchain::queuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore){
+    VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.pNext = NULL;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &swapChain;
+	presentInfo.pImageIndices = &imageIndex;
+    // Check if a wait semaphore has been specified to wait for before presenting the image
+	if (waitSemaphore != VK_NULL_HANDLE)
+	{
+		presentInfo.pWaitSemaphores = &waitSemaphore;
+		presentInfo.waitSemaphoreCount = 1;
+	}
+	return vkQueuePresentKHR(queue, &presentInfo);
+}

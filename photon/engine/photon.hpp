@@ -6,6 +6,8 @@
 #include "../parse/parse.hpp"
 #include "../synth/synth.hpp"
 
+#include <chrono>
+
 class Photon{
 private:
 
@@ -16,12 +18,22 @@ public:
     Parse parse;
     Synth synth;
 
+    std::chrono::time_point<std::chrono::high_resolution_clock> lastTimestamp;
+    std::chrono::time_point<std::chrono::high_resolution_clock> tPrevEnd;
+    bool paused = false;
+    bool prepared = false;
+
     Photon();
     ~Photon();
 
     void prepareScene();
     void initThreads();
     void renderLoop();
-
+    void handleEvent();
+    void render();
+    void draw();
+    void prepareFrame();
+    void submitFrame();
+    void windowResize();
 /*end of photon class*/
 };
