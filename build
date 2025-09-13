@@ -21,7 +21,7 @@ fi
 if [ "$1" = "gdb" ]; then
     gdb -tui Photon
     exit 0
-fi
+fi 
 
 BUILD_TYPE=${1:-Debug}
 

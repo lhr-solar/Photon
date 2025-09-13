@@ -34,8 +34,9 @@ void Photon::prepareScene(){
 void Photon::initThreads(){
     // lowkey consider moving this really early?
     log("[+] Initializing Threads ");
-    std::cout << "[?] Cache line size (destructive) : " << std::hardware_destructive_interference_size << std::endl;
-    std::cout << "[?] Cache line size (constructive): " << std::hardware_constructive_interference_size << std::endl;
+    // Cache line size constants not available in C++17, use typical ARM64 values
+    std::cout << "[?] Cache line size (destructive) : " << 64 << " (typical ARM64)" << std::endl;
+    std::cout << "[?] Cache line size (constructive): " << 64 << " (typical ARM64)" << std::endl;
     std::cout << "[?] Usable Hardware Threads: " << std::thread::hardware_concurrency() << std::endl;
 }
 
