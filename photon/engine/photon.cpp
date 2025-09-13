@@ -7,8 +7,6 @@
 #include "../gpu/gpu.hpp"
 #include "../gui/gui.hpp"
 #include "imgui.h"
-#include "implot.h"
-#include "implot3d.h"
 
 Photon::Photon() { log("[+] Constructing Photon"); };
 Photon::~Photon(){ log("[!] Destructuring Photon"); }
@@ -30,6 +28,7 @@ void Photon::prepareScene(){
    gui.prepareImGui();
    gui.initResources(gpu.vulkanDevice, gpu.renderPass);
    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
+   prepared = true;
 };
 
 void Photon::initThreads(){
@@ -68,6 +67,7 @@ void Photon::renderLoop(){
             gpu.timer += gpu.timerSpeed * gpu.frameTimer;
 			if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
         }
+        std::cout << "\r" << frameTime << std::flush;
     }
 }
 
@@ -88,16 +88,14 @@ void Photon::draw(){
     prepareFrame();
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
     gpu.submitInfo.commandBufferCount = 1;
-    gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer]; // ? what is this
-    VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE)); // this fucker lmao
+    gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
+    VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
     submitFrame();
 }
 
 void Photon::prepareFrame(){
     // Acquire the next image from the swap chain
 	VkResult result = gpu.vulkanSwapchain.acquireNextImage(gpu.vulkanDevice.logicalDevice, gpu.semaphores.presentComplete, &gpu.currentBuffer);
-	// Recreate the swapchain if it's no longer compatible with the surface (OUT_OF_DATE)
-	// SRS - If no longer optimal (VK_SUBOPTIMAL_KHR), wait until submitFrame() in case number of swapchain images will change on resize
 	if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) {
         if (result == VK_ERROR_OUT_OF_DATE_KHR) { windowResize(); }
 		return;
@@ -133,7 +131,7 @@ void Photon::windowResize(){
         ImGuiIO& io = ImGui::GetIO();
 		io.DisplaySize = ImVec2((float)(gui.width), (float)(gui.height));
 	}
-    vkFreeCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.commandPool, 1, gpu.vulkanSwapchain.drawCmdBuffers.data());
+    vkFreeCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.commandPool, gpu.vulkanSwapchain.drawCmdBuffers.size(), gpu.vulkanSwapchain.drawCmdBuffers.data());
     gpu.vulkanSwapchain.createCommandBuffers(gpu.vulkanDevice.logicalDevice);
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
 
@@ -143,20 +141,4 @@ void Photon::windowResize(){
     if ((gui.width > 0.0f) && (gui.height > 0.0f)) { gpu.camera.updateAspectRatio((float)gui.width / (float)gui.height); }
     gui.resized = true;
     prepared = true;
-}
-
-const char* box =
-    " ┌ γ ─────────────────────┐\n"
-    " │            ψ           │\n"
-    " │             ╲          │\n"
-    " │  ξ ──► λ ──► Δ ──► μ   │\n"
-    " │             ╱          │\n"
-    " │            π           │\n"
-    " └────────────────────────┘\n";
-void headlessRuntime(){
-    while (true) {
-        std::cout << box << std::flush;
-        std::cout << "\033[7A";
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
 }

@@ -1,6 +1,5 @@
 /*─γ─ Photon Heterogeneous Compute Engine*/
 #include "photon.hpp"
-#include "include.hpp"
 
 int main(){
     Photon photon;

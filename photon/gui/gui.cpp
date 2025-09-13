@@ -13,8 +13,8 @@
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/gpu.hpp"
-#include "scene_frag_spv.hpp"
-#include "scene_vert_spv.hpp"
+#include "ui_frag_spv.hpp"
+#include "ui_vert_spv.hpp"
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -154,9 +154,6 @@ void Gui::prepareImGui(){
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-    io.IniFilename = NULL;
-    // TODO: 
-    // Font & System Scale, Styles, Font, etc.
 }
 
 // initialize all vulkan resources used by the UI
@@ -467,8 +464,8 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     /*... []*/
     pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
 
-    shaderStages[0] = Gpu::loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
-    shaderStages[1] = Gpu::loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
+    shaderStages[0] = Gpu::loadShader(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
+    shaderStages[1] = Gpu::loadShader(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
 
     vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
     log("[+] Created Graphics Gui Pipeline ");
@@ -479,7 +476,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     VkClearValue clearValues[2];
-    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearValues[0].color = {{1.0f, 0.0f, 0.0f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo renderPassBeginInfo {};
@@ -536,9 +533,10 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
     VkDeviceSize vertexBufferSize = imDrawData->TotalVtxCount * sizeof(ImDrawVert);
     VkDeviceSize indexBufferSize = imDrawData->TotalIdxCount * sizeof(ImDrawIdx);
 
-    if ((vertexBufferSize == 0) || (indexBufferSize == 0)) { return; }
-
-    log("[!] updateBuffers Returned Early !");
+    if ((vertexBufferSize == 0) || (indexBufferSize == 0)) { 
+        log("[!] updateBuffers: No draw data available (vertexBufferSize=" << vertexBufferSize << ", indexBufferSize=" << indexBufferSize << ")");
+        return; 
+    }
 
     // Vertex Buffer
     if ((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexCount != imDrawData->TotalVtxCount)) {
@@ -588,10 +586,10 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer){
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     pushConstBlock.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
     pushConstBlock.translate = glm::vec2(-1.0f);
-    pushConstBlock.gradTop = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
-    pushConstBlock.gradBottom = glm::vec4(1.00, 1.00f, 1.00f, 1.00f);
     pushConstBlock.invScreenSize = glm::vec2(1.0f / io.DisplaySize.x, 1.0f / io.DisplaySize.y);
     pushConstBlock.whitePixel = glm::vec2(io.Fonts->TexUvWhitePixel.x, io.Fonts->TexUvWhitePixel.y);
+    pushConstBlock.gradTop = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
+    pushConstBlock.gradBottom = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
     pushConstBlock.u_time = (float)ImGui::GetTime();
     // TODO cross reference pipline layout(?), i don't think this is all getting pushed
     vkCmdPushConstants(commandBuffer, guiPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock), &pushConstBlock);

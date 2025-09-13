@@ -73,10 +73,10 @@ public:
     struct PushConstBlock {
         glm::vec2 scale;
         glm::vec2 translate;
-        glm::vec2 gradTop;
-        glm::vec2 gradBottom;
         glm::vec2 invScreenSize;
         glm::vec2 whitePixel;
+        glm::vec4 gradTop;
+        glm::vec4 gradBottom;
         float u_time;
     } pushConstBlock;
 

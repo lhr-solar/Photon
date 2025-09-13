@@ -7,8 +7,11 @@ layout (location = 2) in vec4 inColor;
 layout (push_constant) uniform PushConstants {
         vec2 scale;
         vec2 translate;
+        vec2 invScreenSize;
+        vec2 whitePixel;
         vec4 gradTop;
         vec4 gradBottom;
+        float u_time;
 } pushConstants;
 
 layout (location = 0) out vec2 outUV;

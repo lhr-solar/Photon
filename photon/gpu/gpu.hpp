@@ -9,7 +9,6 @@
 #include "vulkanSwapchain.hpp"
 #include "vulkanBuffer.hpp"
 #include "camera.hpp"
-#include "../gui/gui.hpp"
 
 #define VK_CHECK(x) do { VkResult err = x; if (err) { \
     std::cout << "Detected Vulkan error: " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
@@ -34,7 +33,6 @@ public:
     bool requiresStencil {false};
     VkFormat depthFormat;
     VkSubmitInfo submitInfo {};
-    VkCommandPool commandPool {VK_NULL_HANDLE};
     std::vector<VkFence> waitFences;
     struct {
 		// Swap chain image presentation
@@ -64,7 +62,6 @@ public:
     const double targetFrameTime = 1000.0 / 60.0; // 60 FPS → ~16.67ms per frame
     float timerSpeed = 0.25f;
     float timer = 0.0f;
-
 
     VkDescriptorPool descriptorPool { VK_NULL_HANDLE };
     VkDescriptorSetLayout descriptorSetLayout;
