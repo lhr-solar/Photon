@@ -34,3 +34,7 @@ Ensure you have the Vulkan SDK
 ┌ linux ─────────────────┐
 │ $ ./build              │
 └────────────────────────┘
+
+┌ windows ───────────────┐
+│ > .\winBuild.ps1       │
+└────────────────────────┘

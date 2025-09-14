@@ -7,7 +7,6 @@ project(NAME VERSION 1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-add_compile_options(-Wno-psabi)
 
 include_directories(.external)
 include_directories(.external/glm)
@@ -21,12 +20,26 @@ include_directories(${CMAKE_BINARY_DIR}/generated)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 # find Vulkan
-IF(NOT Vulkan_FOUND)
-    find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/libs/vulkan" REQUIRED)
-    IF(Vulkan_LIBRARY)
-        set(Vulkan_FOUND ON)
-        MESSAGE("Using bundled Vulkan library version")
-    ENDIF()
+IF(WIN32)
+	IF (NOT Vulkan_FOUND)
+		find_library(Vulkan_LIBRARY NAMES vulkan-1 vulkan PATHS ${CMAKE_SOURCE_DIR}/libs/vulkan)
+		IF (Vulkan_LIBRARY)
+			set(Vulkan_FOUND ON)
+			MESSAGE("Using bundled Vulkan library version")
+		ENDIF()
+	ENDIF()
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_WIN32_KHR")
+ELSE()
+	IF(NOT Vulkan_FOUND)
+    	find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/libs/vulkan" REQUIRED)
+    	IF(Vulkan_LIBRARY)
+        	set(Vulkan_FOUND ON)
+        	MESSAGE("Using bundled Vulkan library version")
+    	ENDIF()
+	ENDIF()
+	# find windowing service
+	find_package(XCB REQUIRED)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
 ENDIF()
 
 # check if vulkan was found
@@ -36,12 +49,12 @@ ELSE()
 	message(STATUS ${Vulkan_LIBRARY})
 ENDIF()
 
-# find windowing service
-find_package(XCB REQUIRED)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
-
 # link sources
-link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY})
+IF(WIN32)
+	# Nothing
+ELSE()
+	link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY})
+ENDIF(WIN32)
 
 add_subdirectory(kernels)
 add_subdirectory(photon)
