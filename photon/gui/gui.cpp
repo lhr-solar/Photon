@@ -154,6 +154,7 @@ void Gui::prepareImGui(){
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    io.IniFilename = nullptr;
 }
 
 // initialize all vulkan resources used by the UI
@@ -476,7 +477,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     VkClearValue clearValues[2];
-    clearValues[0].color = {{1.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[0].color = {{1.0f, 0.82f, 0.86f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo renderPassBeginInfo {};
@@ -544,7 +545,7 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
       vertexBuffer.destroy();
       VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &vertexBuffer, vertexBufferSize, nullptr));
       vertexCount = imDrawData->TotalVtxCount;
-      vertexBuffer.map(0, 0);
+      vertexBuffer.map(VK_WHOLE_SIZE, 0);
     }
 
     // Index buffer
@@ -553,7 +554,7 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
       indexBuffer.destroy();
       VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &indexBuffer, indexBufferSize, 0));
       indexCount = imDrawData->TotalIdxCount;
-      indexBuffer.map(0, 0);
+      indexBuffer.map(VK_WHOLE_SIZE, 0);
     }
 
     // Upload data

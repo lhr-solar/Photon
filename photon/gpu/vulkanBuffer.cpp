@@ -1,4 +1,5 @@
 #include "vulkanBuffer.hpp"
+#include "vulkan_core.h"
 
 VkResult VulkanBuffer::map(VkDeviceSize size, VkDeviceSize offset){
     return vkMapMemory(device, memory, offset, size, 0, &mapped);

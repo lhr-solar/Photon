@@ -32,6 +32,7 @@ public:
     std::vector<const char*> enabledInstanceExtensions;
     bool requiresStencil {false};
     VkFormat depthFormat;
+    VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo {};
     std::vector<VkFence> waitFences;
     struct {

@@ -92,12 +92,12 @@ void VulkanSwapchain::initSurface(VkInstance instance, xcb_connection_t* connect
     log("[+] Using Surface Color Space : " << surfaceFormat.colorSpace);
 }
 
-void VulkanSwapchain::createCommandPool(VkDevice device){
+void VulkanSwapchain::createSurfaceCommandPool(VkDevice device){
     VkCommandPoolCreateInfo cmdPoolInfo = {};
 	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	cmdPoolInfo.queueFamilyIndex = surfaceQueueNodeIndex;
 	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    VK_CHECK(vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &commandPool));
+    VK_CHECK(vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &surfaceCommandPool));
     log("[+] Created Command Pool for Queue Node Index " << surfaceQueueNodeIndex);
 }
 
@@ -254,12 +254,12 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
     return VK_SUCCESS;
 }
 
-void VulkanSwapchain::createCommandBuffers(VkDevice device){
+void VulkanSwapchain::createSurfaceCommandBuffers(VkDevice device){
     // create one command buffer for each swap chain image
     drawCmdBuffers.resize(imageCount);
     VkCommandBufferAllocateInfo commandBufferAllocateInfo {};
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocateInfo.commandPool = commandPool;
+    commandBufferAllocateInfo.commandPool = surfaceCommandPool;
     commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     commandBufferAllocateInfo.commandBufferCount = drawCmdBuffers.size();
 

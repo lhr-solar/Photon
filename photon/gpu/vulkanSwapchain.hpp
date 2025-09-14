@@ -12,7 +12,7 @@ struct VulkanSwapchain{
     VkSurfaceKHR surface{VK_NULL_HANDLE};
     uint32_t surfaceQueueNodeIndex{UINT32_MAX};
     VkSurfaceFormatKHR surfaceFormat{};
-    VkCommandPool commandPool{VK_NULL_HANDLE};
+    VkCommandPool surfaceCommandPool{VK_NULL_HANDLE};
     VkSwapchainKHR swapChain{VK_NULL_HANDLE};
     uint32_t imageCount;
     std::vector<VkImage> images{};
@@ -21,9 +21,9 @@ struct VulkanSwapchain{
 
 
     void initSurface(VkInstance instance, xcb_connection_t* connection, xcb_window_t window, VkPhysicalDevice physicalDevice);
-    void createCommandPool(VkDevice device);
+    void createSurfaceCommandPool(VkDevice device);
     VkResult createSwapChain(uint32_t *width, uint32_t *height, bool vsync, bool fullscreen, bool transparent, VkPhysicalDevice physicalDevice, VkDevice device);
-    void createCommandBuffers(VkDevice device);
+    void createSurfaceCommandBuffers(VkDevice device);
     VkResult acquireNextImage(VkDevice device, VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex);
     VkResult queuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore);
 };
