@@ -22,6 +22,9 @@ public:
     xcb_window_t window;
     xcb_intern_atom_reply_t *atom_wm_delete_window;
 #endif
+#ifdef WIN
+    HINSTANCE windowInstance;
+#endif
 
     uint32_t width = 1280;
     uint32_t height = 720;
@@ -95,6 +98,9 @@ public:
 #ifdef XCB
     void initxcbConnection();
     void handleEvent(const xcb_generic_event_t *event);
+#endif
+#ifdef WIN
+    void initWindow(HINSTANCE hInstance);
 #endif
 
     void initWindow();

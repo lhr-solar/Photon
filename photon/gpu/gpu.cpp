@@ -57,12 +57,12 @@ bool Gpu::initVulkan(){
 }
 
 VkResult Gpu::createInstance(){
-#ifdef XCB
     std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
+#ifdef XCB
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
 #ifdef _WIN32
-    std::vector<const char*> instanceExtensions = {};
+    instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #endif
     // grab available extensions
     uint32_t extCount = 0;
