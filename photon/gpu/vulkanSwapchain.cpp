@@ -7,6 +7,7 @@
 #include "../engine/include.hpp"
 #include "vulkan/vulkan_core.h"
 
+#ifdef XCB
 void VulkanSwapchain::initSurface(VkInstance instance, xcb_connection_t* connection, xcb_window_t window, VkPhysicalDevice physicalDevice){
 
     VkXcbSurfaceCreateInfoKHR surfaceCreateInfo = {};
@@ -61,7 +62,7 @@ void VulkanSwapchain::initSurface(VkInstance instance, xcb_connection_t* connect
 		fatal("Separate graphics and presenting queues are not supported yet!", -1);}
 
     surfaceQueueNodeIndex = graphicsQueueNodeIndex;
-    log("[+] Surface utilizing queue : " << surfaceQueueNodeIndex);
+    logs("[+] Surface utilizing queue : " << surfaceQueueNodeIndex);
 
     uint32_t formatCount;
 	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, NULL));
@@ -88,9 +89,10 @@ void VulkanSwapchain::initSurface(VkInstance instance, xcb_connection_t* connect
 
     surfaceFormat.format = selectedFormat.format;
     surfaceFormat.colorSpace = selectedFormat.colorSpace;
-    log("[+] Using Surface Format : " << surfaceFormat.format);
-    log("[+] Using Surface Color Space : " << surfaceFormat.colorSpace);
+    logs("[+] Using Surface Format : " << surfaceFormat.format);
+    logs("[+] Using Surface Color Space : " << surfaceFormat.colorSpace);
 }
+#endif
 
 void VulkanSwapchain::createSurfaceCommandPool(VkDevice device){
     VkCommandPoolCreateInfo cmdPoolInfo = {};
@@ -98,7 +100,7 @@ void VulkanSwapchain::createSurfaceCommandPool(VkDevice device){
 	cmdPoolInfo.queueFamilyIndex = surfaceQueueNodeIndex;
 	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     VK_CHECK(vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &surfaceCommandPool));
-    log("[+] Created Command Pool for Queue Node Index " << surfaceQueueNodeIndex);
+    logs("[+] Created Command Pool for Queue Node Index " << surfaceQueueNodeIndex);
 }
 
 VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, bool vsync, bool fullscreen, bool transparent, VkPhysicalDevice physicalDevice, VkDevice device){
@@ -139,13 +141,13 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
                 swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 	    }
     }
-    log("[+] Using Swap Chain present mode : " << swapchainPresentMode);
+    logs("[+] Using Swap Chain present mode : " << swapchainPresentMode);
 
     // set number of images
     uint32_t desiredNumberOfSwapchainImages = surfCaps.minImageCount + 1;
     if ((surfCaps.maxImageCount > 0) && (desiredNumberOfSwapchainImages > surfCaps.maxImageCount))
         desiredNumberOfSwapchainImages = surfCaps.maxImageCount;
-    log("[+] Number of Swap Chain Images : " << desiredNumberOfSwapchainImages);
+    logs("[+] Number of Swap Chain Images : " << desiredNumberOfSwapchainImages);
 
 
     // prefer a non-rotated transform
@@ -155,7 +157,7 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
     } else {
 		preTransform = surfCaps.currentTransform;
 	}
-    log("[+] Using Swap Chain Transform : " << preTransform);
+    logs("[+] Using Swap Chain Transform : " << preTransform);
 
     VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     std::vector<VkCompositeAlphaFlagBitsKHR> compositeAlphaFlags = {
@@ -170,7 +172,7 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
 			break;
 		};
 	}
-    log("[+] Using Composite Alpha : " << compositeAlpha);
+    logs("[+] Using Composite Alpha : " << compositeAlpha);
 
     VkSwapchainCreateInfoKHR swapchainCI = {};
 	swapchainCI.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -193,18 +195,18 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
 
     // Enable transfer source on swap chain images if supported
 	if (surfCaps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
-        log("[+] Swap Chain using Transfer Source");
+        logs("[+] Swap Chain using Transfer Source");
 		swapchainCI.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
 	// Enable transfer destination on swap chain images if supported
 	if (surfCaps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT) {
-        log("[+] Swap Chain using Transfer Destination");
+        logs("[+] Swap Chain using Transfer Destination");
 		swapchainCI.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
 
 	VK_CHECK(vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapChain));
-    log("[+] Created Swap Chain");
+    logs("[+] Created Swap Chain");
 
     // delete the old swapchain
     if(oldSwapChain != VK_NULL_HANDLE){
@@ -212,14 +214,14 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
             vkDestroyImageView(device, buffers[i].view, nullptr);
         }
         vkDestroySwapchainKHR(device, oldSwapChain, nullptr);
-        log("[!] Destroyed Old Swap Chain");
+        logs("[!] Destroyed Old Swap Chain");
     }
 
     // get the swap chain images
     VK_CHECK(vkGetSwapchainImagesKHR(device, swapChain, &imageCount, NULL));
     images.resize(imageCount);
     VK_CHECK(vkGetSwapchainImagesKHR(device, swapChain, &imageCount, images.data()));
-    log("[+] Using " << imageCount << " Swap Chain images");
+    logs("[+] Using " << imageCount << " Swap Chain images");
 
     // get the swap chain buffers containing the image and imageView
     buffers.resize(imageCount);
@@ -249,7 +251,7 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
 
 		VK_CHECK(vkCreateImageView(device, &colorAttachmentView, nullptr, &buffers[i].view));
 	}
-    log("[+] Constructed Image View");
+    logs("[+] Constructed Image View");
 
     return VK_SUCCESS;
 }
@@ -264,7 +266,7 @@ void VulkanSwapchain::createSurfaceCommandBuffers(VkDevice device){
     commandBufferAllocateInfo.commandBufferCount = drawCmdBuffers.size();
 
     VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, drawCmdBuffers.data()));
-    log("[+] Allocated " << drawCmdBuffers.size() << " Command Buffers with level : " << commandBufferAllocateInfo.level);
+    logs("[+] Allocated " << drawCmdBuffers.size() << " Command Buffers with level : " << commandBufferAllocateInfo.level);
 }
 
 VkResult VulkanSwapchain::acquireNextImage(VkDevice device, VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex){

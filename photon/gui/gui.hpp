@@ -1,6 +1,5 @@
 /*[μ] the photon graphical user interface*/
 #pragma once
-#include "xcb/xcb.h"
 #include <assert.h>
 #include <string>
 #include <stdlib.h>
@@ -9,17 +8,20 @@
 #include <vulkan/vulkan.h>
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/vulkanDevice.hpp"
+#include "../engine/include.hpp"
+
+#ifdef XCB
+#include "xcb/xcb.h"
+#endif
 
 class Gui{
-private:
-    void initxcbConnection();
-    void setupWindow();
-
 public:
+#ifdef XCB
     xcb_connection_t *connection;
     xcb_screen_t *screen;
     xcb_window_t window;
     xcb_intern_atom_reply_t *atom_wm_delete_window;
+#endif
 
     uint32_t width = 1280;
     uint32_t height = 720;
@@ -42,7 +44,7 @@ public:
         bool displayModels = false;
         bool displayLogos = false;
         bool displayBackground = false;
-        bool displayCustomModel = false; // NEW
+        bool displayCustomModel = false;
         bool animateLight = false;
         float lightSpeed = 0.25f;
         float lightTimer = 0.0f;
@@ -55,6 +57,16 @@ public:
         glm::vec4 effectColor = glm::vec4(1.0f);
         int effectType = 0;
     } renderSettings;
+
+    struct PushConstBlock {
+        glm::vec2 scale;
+        glm::vec2 translate;
+        glm::vec2 invScreenSize;
+        glm::vec2 whitePixel;
+        glm::vec4 gradTop;
+        glm::vec4 gradBottom;
+        float u_time;
+    } pushConstBlock;
 
     VkImage fontImage = VK_NULL_HANDLE;
     VkDeviceMemory fontMemory = VK_NULL_HANDLE;
@@ -70,24 +82,23 @@ public:
     VkPipelineLayout guiPipelineLayout;
     VkPipeline guiPipeline;
 
-    struct PushConstBlock {
-        glm::vec2 scale;
-        glm::vec2 translate;
-        glm::vec2 invScreenSize;
-        glm::vec2 whitePixel;
-        glm::vec4 gradTop;
-        glm::vec4 gradBottom;
-        float u_time;
-    } pushConstBlock;
-
     VulkanBuffer vertexBuffer;
     int32_t vertexCount;
     VulkanBuffer indexBuffer;
     int32_t indexCount;
 
+    bool quit = false;
+
     Gui();
     ~Gui();
+
+#ifdef XCB
+    void initxcbConnection();
+    void handleEvent(const xcb_generic_event_t *event);
+#endif
+
     void initWindow();
+    void setupWindow();
     std::string getWindowTitle()const;
     void prepareImGui();
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);

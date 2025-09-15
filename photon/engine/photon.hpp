@@ -5,6 +5,7 @@
 #include "../network/network.hpp"
 #include "../parse/parse.hpp"
 #include "../synth/synth.hpp"
+#include "include.hpp"
 
 #include <chrono>
 
@@ -29,7 +30,6 @@ public:
     void prepareScene();
     void initThreads();
     void renderLoop();
-    void handleEvent();
     void render();
     void draw();
     void prepareFrame();

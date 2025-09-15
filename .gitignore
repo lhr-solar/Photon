@@ -4,3 +4,5 @@
 artifacts
 imgui.ini
 Photon
+perf.data
+perf.data.old

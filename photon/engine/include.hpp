@@ -3,9 +3,9 @@
 
 #include <iostream>
 #ifdef NDEBUG
-#define log(x) do {} while(0)
+#define logs(x) do {} while(0)
 #else
-#define log(x) std::cout << x << '\n'
+#define logs(x) std::cout << x << '\n'
 #endif
 
 static inline unsigned rdtsc(){
@@ -16,3 +16,11 @@ static inline unsigned rdtsc(){
 
 #include <stdlib.h>
 [[noreturn]] inline void fatal(const std::string& msg, int32_t code) { std::cerr << msg << " " << std::endl; std::exit(code); }
+
+#if defined(VK_USE_PLATFORM_XCB_KHR)
+#define XCB
+#endif
+
+#if defined(_WIN32)
+#define WIN
+#endif

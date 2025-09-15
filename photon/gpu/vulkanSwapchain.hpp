@@ -1,7 +1,11 @@
 #pragma once
-#include <xcb/xcb.h>
 #include <vulkan/vulkan.h>
 #include <vector>
+#include "../engine/include.hpp"
+
+#ifdef XCB
+#include <xcb/xcb.h>
+#endif
 
 typedef struct _SwapChainBuffers{
     VkImage image{VK_NULL_HANDLE};
@@ -16,11 +20,12 @@ struct VulkanSwapchain{
     VkSwapchainKHR swapChain{VK_NULL_HANDLE};
     uint32_t imageCount;
     std::vector<VkImage> images{};
-    std::vector<SwapChainBuffer> buffers{}; // contains image views
+    std::vector<SwapChainBuffer> buffers{};
     std::vector<VkCommandBuffer> drawCmdBuffers;
 
-
+#ifdef XCB
     void initSurface(VkInstance instance, xcb_connection_t* connection, xcb_window_t window, VkPhysicalDevice physicalDevice);
+#endif
     void createSurfaceCommandPool(VkDevice device);
     VkResult createSwapChain(uint32_t *width, uint32_t *height, bool vsync, bool fullscreen, bool transparent, VkPhysicalDevice physicalDevice, VkDevice device);
     void createSurfaceCommandBuffers(VkDevice device);

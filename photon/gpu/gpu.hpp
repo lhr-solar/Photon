@@ -79,7 +79,6 @@ public:
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
     VkResult createInstance();
     VkResult setupGPU();
-    VkResult setupSwapchain();
 
     bool initVulkan();
     void createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers);

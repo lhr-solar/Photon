@@ -31,10 +31,10 @@ VkResult VulkanDevice::initDevice(VkPhysicalDevice physicalDevice){
     assert(queueFamilyCount > 0);
     queueFamilyProperties.resize(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(this->physicalDevice, &queueFamilyCount, queueFamilyProperties.data());
-    log("[?] Queue Family Properties:");
+    logs("[?] Queue Family Properties:");
     int index = 0;
     for(const auto& props : queueFamilyProperties){
-        log("[+] Queue Family Index " << index++ << " -> queue count = " << props.queueCount << " | " << printQueueFlags(props.queueFlags));
+        logs("[+] Queue Family Index " << index++ << " -> queue count = " << props.queueCount << " | " << printQueueFlags(props.queueFlags));
     }
 
     /* store list of supported extensions */
@@ -42,10 +42,10 @@ VkResult VulkanDevice::initDevice(VkPhysicalDevice physicalDevice){
     vkEnumerateDeviceExtensionProperties(this->physicalDevice, nullptr, &extCount, nullptr);
     if (extCount > 0){
         std::vector<VkExtensionProperties> extensions(extCount);
-        log("[?] Device Extension Properties: ");
+        logs("[?] Device Extension Properties: ");
         if (vkEnumerateDeviceExtensionProperties(this->physicalDevice, nullptr, &extCount, &extensions.front()) == VK_SUCCESS){
             for (auto& ext : extensions){
-                log("[+] " << ext.extensionName);
+                logs("[+] " << ext.extensionName);
                 supportedExtensions.push_back(ext.extensionName);
             }
         }
@@ -65,7 +65,7 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
     // graphics queue
     if(requestedQueueTypes & VK_QUEUE_GRAPHICS_BIT){
         queueFamilyIndices.graphics = getQueueFamilyIndex(VK_QUEUE_GRAPHICS_BIT);
-        log("[+] Graphics Queue using family index : " << queueFamilyIndices.graphics);
+        logs("[+] Graphics Queue using family index : " << queueFamilyIndices.graphics);
         VkDeviceQueueCreateInfo queueInfo{};
     	queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queueInfo.queueFamilyIndex = queueFamilyIndices.graphics;
@@ -77,7 +77,7 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
     // compute queue
     if(requestedQueueTypes & VK_QUEUE_COMPUTE_BIT){
         queueFamilyIndices.compute = getQueueFamilyIndex(VK_QUEUE_COMPUTE_BIT);
-        log("[+] Compute Queue using family index : " << queueFamilyIndices.compute);
+        logs("[+] Compute Queue using family index : " << queueFamilyIndices.compute);
         if(queueFamilyIndices.compute != queueFamilyIndices.graphics){
             // If compute family index differs, we need an additional queue create info for the compute queue
             VkDeviceQueueCreateInfo queueInfo{};
@@ -92,7 +92,7 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
     // transfer queue
     if(requestedQueueTypes & VK_QUEUE_TRANSFER_BIT){ 
         queueFamilyIndices.transfer = getQueueFamilyIndex(VK_QUEUE_TRANSFER_BIT);
-        log("[+] Transfer Queue using family index : " << queueFamilyIndices.transfer);
+        logs("[+] Transfer Queue using family index : " << queueFamilyIndices.transfer);
         if((queueFamilyIndices.transfer != queueFamilyIndices.graphics) && (queueFamilyIndices.transfer != queueFamilyIndices.compute)){
             // If transfer family index differs, we need an additional queue create info for the transfer queue
             VkDeviceQueueCreateInfo queueInfo{};
@@ -126,16 +126,16 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
 
     if(deviceExtensions.size() > 0){
         for(const char * enabledExtension : deviceExtensions){
-            if(!extensionSupported(enabledExtension)){ log("[!] Enabled device extension " << enabledExtension << " is not present at device level"); }
+            if(!extensionSupported(enabledExtension)){ logs("[!] Enabled device extension " << enabledExtension << " is not present at device level"); }
         }
 
         deviceCreateInfo.enabledExtensionCount = (uint32_t)deviceExtensions.size();
         deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
     }
 
-    log("[?] Enabled Device Extensions:");
+    logs("[?] Enabled Device Extensions:");
     for(int i = 0; i < deviceCreateInfo.enabledExtensionCount; i++){
-        log("[+] " << deviceCreateInfo.ppEnabledExtensionNames[i]);
+        logs("[+] " << deviceCreateInfo.ppEnabledExtensionNames[i]);
     }
 
     VkResult result = vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &logicalDevice);
@@ -233,7 +233,7 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
     bufferCreateInfo.usage = usageFlags;
     bufferCreateInfo.size = size;
     VK_CHECK(vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer->buffer));
-    log("[+] Created Buffer of size " << size << " with flags 0x"  << std::hex << usageFlags << std::dec);
+    logs("[+] Created Buffer of size " << size << " with flags 0x"  << std::hex << usageFlags << std::dec);
 
     VkMemoryRequirements memReqs;
     VkMemoryAllocateInfo memAlloc{};
@@ -250,7 +250,7 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
 			memAlloc.pNext = &allocFlagsInfo;
 	}
     VK_CHECK(vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer->memory));
-    log("[+] Allocated Buffer of size " << memAlloc.allocationSize );
+    logs("[+] Allocated Buffer of size " << memAlloc.allocationSize );
 
     buffer->alignment = memReqs.alignment;
     buffer->size = size;
@@ -260,13 +260,13 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
     if(data != nullptr){
         VK_CHECK(buffer->map(VK_WHOLE_SIZE, 0));
         memcpy(buffer->mapped, data, size);
-        log("[+] copied payload to buffer");
+        logs("[+] copied payload to buffer");
         if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0){
             buffer->flush(VK_WHOLE_SIZE, 0);
-            log("[!] flushed buffer");
+            logs("[!] flushed buffer");
         }
         buffer->unmap();
-        log("[-] unmapped buffer");
+        logs("[-] unmapped buffer");
     }
 
     buffer->setupDescriptor(VK_WHOLE_SIZE, 0);

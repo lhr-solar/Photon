@@ -29,16 +29,12 @@ bool Gpu::initVulkan(){
     VkBool32 validFormat {false};
     if(requiresStencil){
         validFormat = getSupportedDepthStencilFormat(vulkanDevice.physicalDevice, &depthFormat);
-        log("[+] Using Depth Stencil Format : " << depthFormat);
+        logs("[+] Using Depth Stencil Format : " << depthFormat);
     } else {
         validFormat = getSupportedDepthFormat(vulkanDevice.physicalDevice, &depthFormat);
-        log("[+] Using Depth Format : " << depthFormat);
+        logs("[+] Using Depth Format : " << depthFormat);
     }
     assert(validFormat);
-
-    result = setupSwapchain();
-    if(result != VK_SUCCESS)
-        fatal("[!] Failed to setup Swapchain", result);
 
     // create synch. objects
     VkSemaphoreCreateInfo semaphoreCreateInfo {};
@@ -61,8 +57,10 @@ bool Gpu::initVulkan(){
 }
 
 VkResult Gpu::createInstance(){
+#ifdef XCB
     std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+#endif
 
     // grab available extensions
     uint32_t extCount = 0;
@@ -71,10 +69,10 @@ VkResult Gpu::createInstance(){
         std::vector<VkExtensionProperties> extensions(extCount);
 
         if (vkEnumerateInstanceExtensionProperties(nullptr, &extCount, &extensions.front()) == VK_SUCCESS){
-            log("[?] Available Vulkan Instance Extensions:");
+            logs("[?] Available Vulkan Instance Extensions:");
             for (VkExtensionProperties& extension : extensions){
                 supportedInstanceExtensions.push_back(extension.extensionName);
-                log("[+] " << extension.extensionName);
+                logs("[+] " << extension.extensionName);
             }
         }
     }
@@ -82,7 +80,7 @@ VkResult Gpu::createInstance(){
     if(enabledInstanceExtensions.size() > 0){
         for(const char* enabledExtension : enabledInstanceExtensions){
             if(std::find(supportedInstanceExtensions.begin(), supportedInstanceExtensions.end(), enabledExtension) == supportedInstanceExtensions.end())
-                log("[!] Enabled Instance Extension \"" << enabledExtension << "\" is not present at instance level");
+                logs("[!] Enabled Instance Extension \"" << enabledExtension << "\" is not present at instance level");
 
             instanceExtensions.push_back(enabledExtension);
         }
@@ -103,9 +101,9 @@ VkResult Gpu::createInstance(){
 		instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions.data();
 	}
 
-    log("[?] Enabled Vulkan Instance Extensions:");
+    logs("[?] Enabled Vulkan Instance Extensions:");
     for(int i = 0; i < instanceCreateInfo.enabledExtensionCount; i++){
-        log("[+] " << instanceCreateInfo.ppEnabledExtensionNames[i]);
+        logs("[+] " << instanceCreateInfo.ppEnabledExtensionNames[i]);
     }
 
     VK_CHECK(vkCreateInstance(&instanceCreateInfo, nullptr, &instance));
@@ -114,7 +112,7 @@ VkResult Gpu::createInstance(){
 }
 
 VkResult Gpu::setupGPU(){
-    log("[+] Constructing GPU");
+    logs("[+] Constructing GPU");
     uint32_t gpuCount = 0;
     VK_CHECK(vkEnumeratePhysicalDevices(instance, &gpuCount, nullptr));
     if(gpuCount == 0)
@@ -141,15 +139,6 @@ VkResult Gpu::setupGPU(){
     return VK_SUCCESS;
 }
 
-VkResult Gpu::setupSwapchain(){
-    if(useSwapchain){
-        log("[+] Constructing Swapchain");
-        // deprecated
-        //vulkanSwapchain = std::make_shared<sVulkanSwapchain>();
-    }
-    return VK_SUCCESS;
-};
-
 void Gpu::createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers){
     VkFenceCreateInfo fenceCreateInfo{};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -158,7 +147,7 @@ void Gpu::createSynchronizationPrimitives(VkDevice device, std::vector<VkCommand
     for(auto& fence : waitFences){
         vkCreateFence(device, &fenceCreateInfo, nullptr, &fence);
     }
-    log("[+] Created " << waitFences.size() << " Synchronization Primitives");
+    logs("[+] Created " << waitFences.size() << " Synchronization Primitives");
 }
 
 VkBool32 Gpu::getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat){
@@ -213,7 +202,7 @@ void Gpu::setupDepthStencil(uint32_t width, uint32_t height){
 	imageCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
     VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageCI, nullptr, &depthStencil.image));
-    log("[+] Created Depth Stencil Image");
+    logs("[+] Created Depth Stencil Image");
 
     VkMemoryRequirements memReqs{};
 	vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, depthStencil.image, &memReqs);
@@ -224,7 +213,7 @@ void Gpu::setupDepthStencil(uint32_t width, uint32_t height){
     memAlloc.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
     VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &memAlloc, nullptr, &depthStencil.memory));
     VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, depthStencil.image, depthStencil.memory, 0));
-    log("[+] Allocated Depth Stencil Memory of size : " << memReqs.size);
+    logs("[+] Allocated Depth Stencil Memory of size : " << memReqs.size);
 
     VkImageViewCreateInfo imageViewCI{};
     imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -241,7 +230,7 @@ void Gpu::setupDepthStencil(uint32_t width, uint32_t height){
 		imageViewCI.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	}
 	VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &imageViewCI, nullptr, &depthStencil.view));
-    log("[+] Created Depth Stencil Image View ");
+    logs("[+] Created Depth Stencil Image View ");
 };
 
 void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
@@ -314,7 +303,7 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
 
     VK_CHECK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 
-    log("[+] Created Render Pass ");
+    logs("[+] Created Render Pass ");
 }
 
 void Gpu::createPipelineCache(VkDevice device){
@@ -322,7 +311,7 @@ void Gpu::createPipelineCache(VkDevice device){
     pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &pipelineCache);
 
-    log("[+] Created Pipeline Cache");
+    logs("[+] Created Pipeline Cache");
 }
 
 void Gpu::setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height){
@@ -343,7 +332,7 @@ void Gpu::setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapCha
 		frameBufferCreateInfo.height = height;
 		frameBufferCreateInfo.layers = 1;
 		VK_CHECK(vkCreateFramebuffer(device, &frameBufferCreateInfo, nullptr, &frameBuffers[i]));
-        log("[+] Created Frame Buffer for Image : " << i);
+        logs("[+] Created Frame Buffer for Image : " << i);
 	}
 }
 
@@ -391,7 +380,7 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device){
     descriptorPoolInfo.maxSets = 2;
 
     VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
-    log("[+] Created Descriptor Pool of count " << descriptorPoolInfo.poolSizeCount);
+    logs("[+] Created Descriptor Pool of count " << descriptorPoolInfo.poolSizeCount);
 
     // Set Layout
     VkDescriptorSetLayoutBinding uniformLayoutBinding = {};
@@ -406,7 +395,7 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device){
     descriptorLayout.pBindings = setLayoutBindings.data();
     descriptorLayout.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
     VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &descriptorSetLayout));
-    log("[+] Created Layout Binding of count " << descriptorLayout.bindingCount);
+    logs("[+] Created Layout Binding of count " << descriptorLayout.bindingCount);
     
     // Pipeline layout TODO: rewrite this in the modern style found in the newer vulkan examples ... 
     // see examples/imgui/main.cpp :: setupDescriptors() & preparePipelines()
@@ -422,7 +411,7 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device){
     pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
     pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
     VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout));
-    log("[?] Created Pipeline Layout");
+    logs("[?] Created Pipeline Layout");
 
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
     descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -430,7 +419,7 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device){
     descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
     descriptorSetAllocateInfo.descriptorSetCount = 1;
     VK_CHECK(vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet));
-    log("[+] Allocated Descriptor Set ");
+    logs("[+] Allocated Descriptor Set ");
 
     VkWriteDescriptorSet writeDescriptorSet {};
     writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -441,7 +430,7 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device){
     writeDescriptorSet.descriptorCount = 1;
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {writeDescriptorSet};
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
-    log("[+] Updated Descriptor Sets ");
+    logs("[+] Updated Descriptor Sets ");
 }
 
 void Gpu::preparePipelines(VkDevice device){
@@ -526,7 +515,7 @@ void Gpu::preparePipelines(VkDevice device){
     shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
 
     VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
-    log("[+] Prepared pipelines with stage count " << pipelineCreateInfo.stageCount);
+    logs("[+] Prepared pipelines with stage count " << pipelineCreateInfo.stageCount);
 }
 
 VkShaderModule loadShaderFromMemory(const uint32_t* code, size_t size, VkDevice device){

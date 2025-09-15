@@ -8,8 +8,8 @@
 #include "../gui/gui.hpp"
 #include "imgui.h"
 
-Photon::Photon() { log("[+] Constructing Photon"); };
-Photon::~Photon(){ log("[!] Destructuring Photon"); }
+Photon::Photon() { logs("[+] Constructing Photon"); };
+Photon::~Photon(){ logs("[!] Destructuring Photon"); }
 
 void Photon::prepareScene(){
    gpu.vulkanSwapchain.initSurface(gpu.instance, gui.connection, gui.window, gpu.vulkanDevice.physicalDevice);
@@ -33,10 +33,12 @@ void Photon::prepareScene(){
 
 void Photon::initThreads(){
     // lowkey consider moving this really early?
-    log("[+] Initializing Threads ");
+#ifdef XCB
+    logs("[+] Initializing Threads ");
     std::cout << "[?] Cache line size (destructive) : " << std::hardware_destructive_interference_size << std::endl;
     std::cout << "[?] Cache line size (constructive): " << std::hardware_constructive_interference_size << std::endl;
     std::cout << "[?] Usable Hardware Threads: " << std::thread::hardware_concurrency() << std::endl;
+#endif
 }
 
 void Photon::renderLoop(){
@@ -44,14 +46,15 @@ void Photon::renderLoop(){
     gui.destWidth  = gui.width;
     lastTimestamp = std::chrono::high_resolution_clock::now();
     tPrevEnd = lastTimestamp;
-    log("[Δ] Entering Render Loop");
+    logs("[Δ] Entering Render Loop");
     xcb_flush(gui.connection);
-    while (true) {
+    windowResize();
+    while (!gui.quit) {
         auto tStart = std::chrono::high_resolution_clock::now();
         if(gui.viewUpdated){ gui.viewUpdated = false; }
         xcb_generic_event_t *event;
         while((event = xcb_poll_for_event(gui.connection))){
-            handleEvent();
+            gui.handleEvent(event);
             free(event);
         }
         render();
@@ -69,10 +72,6 @@ void Photon::renderLoop(){
         }
         std::cout << "\r" << frameTime << std::flush;
     }
-}
-
-void Photon::handleEvent(){
-
 }
 
 void Photon::render(){
