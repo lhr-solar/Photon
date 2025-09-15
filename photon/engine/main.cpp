@@ -19,7 +19,7 @@ int main(){
 int APIENTRY WinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR, _In_ int){
     Photon photon;
     photon.gpu.initVulkan();
-    photon.gui.initWindow();
+    photon.gui.setupWindow(hinstance);
     photon.prepareScene();
     photon.initThreads();
     photon.renderLoop();

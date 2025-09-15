@@ -635,3 +635,10 @@ void Gui::handleEvent(const xcb_generic_event_t *event){
     }
 }
 #endif
+
+#ifdef WIN
+void Gui::setupWindow(HINSTANCE hInstance){
+    gui.windowInstance = hInstance;
+
+}
+#endif
