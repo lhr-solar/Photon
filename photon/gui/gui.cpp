@@ -24,12 +24,12 @@ Gui::~Gui(){
 #endif
 };
 
-void Gui::initWindow(){
 #ifdef XCB
+void Gui::initWindow(){
     initxcbConnection();
     setupWindow();
-#endif
 }
+#endif
 
 std::string Gui::getWindowTitle() const {
     // TODO: accelerator + fps
@@ -637,8 +637,56 @@ void Gui::handleEvent(const xcb_generic_event_t *event){
 #endif
 
 #ifdef WIN
-void Gui::setupWindow(HINSTANCE hInstance){
-    gui.windowInstance = hInstance;
+void Gui::initWindow(HINSTANCE hInstance, WNDPROC wndproc){
+    windowInstance = hInstance;
+    WNDCLASSEX wndClass{};
 
+	wndClass.cbSize = sizeof(WNDCLASSEX);
+	wndClass.style = CS_HREDRAW | CS_VREDRAW;
+	wndClass.lpfnWndProc = wndproc;
+	wndClass.cbClsExtra = 0;
+	wndClass.cbWndExtra = 0;
+	wndClass.hInstance = windowInstance;
+    wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+	wndClass.lpszMenuName = NULL;
+	wndClass.lpszClassName = name.c_str();
+
+    if (!RegisterClassEx(&wndClass)){
+		std::cout << "Could not register window class!\n";
+		fflush(stdout);
+		exit(1);
+	}
+
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    DWORD dwExStyle;
+	DWORD dwStyle;
+    dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
+    dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    RECT windowRect = {0L, 0L, (long)width, (long)height };
+    AdjustWindowRectEx(&windowRect, dwStyle, FALSE, dwExStyle);
+	window = CreateWindowEx(0,
+		name.c_str(),
+		title.c_str(),
+		dwStyle | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+		0,
+		0,
+		windowRect.right - windowRect.left,
+		windowRect.bottom - windowRect.top,
+		NULL,
+		NULL,
+		hInstance,
+		NULL);
+    if (!window){
+		std::cerr << "Could not create window!\n";
+		fflush(stdout);
+		return;
+	}
+
+    ShowWindow(window, SW_SHOW);
+	SetForegroundWindow(window);
+	SetFocus(window);
 }
 #endif
