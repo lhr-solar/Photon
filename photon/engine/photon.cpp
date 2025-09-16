@@ -27,7 +27,7 @@ void Photon::prepareScene(){
    gpu.createPipelineCache(gpu.vulkanDevice.logicalDevice);
    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.buffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
    gpu.prepareUniformBuffers();
-   gpu.updateUniformBuffers(gui.renderSettings.animateLight, gui.renderSettings.lightTimer, gui.renderSettings.lightSpeed);
+   gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
    gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
    gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
    gui.prepareImGui();
@@ -40,9 +40,9 @@ void Photon::initThreads(){
     // lowkey consider moving this really early?
 #ifdef XCB
     logs("[+] Initializing Threads ");
-    std::cout << "[?] Cache line size (destructive) : " << std::hardware_destructive_interference_size << std::endl;
-    std::cout << "[?] Cache line size (constructive): " << std::hardware_constructive_interference_size << std::endl;
-    std::cout << "[?] Usable Hardware Threads: " << std::thread::hardware_concurrency() << std::endl;
+    logs("[?] Cache line size (destructive) : " << std::hardware_destructive_interference_size);
+    logs("[?] Cache line size (constructive): " << std::hardware_constructive_interference_size);
+    logs("[?] Usable Hardware Threads: " << std::thread::hardware_concurrency());
 #endif
 }
 
@@ -64,39 +64,23 @@ void Photon::renderLoop(){
 				break;
 			}
 		}
-		if (prepared && !IsIconic(gui.window)) {
-			nextFrame();
-		}
+		if (prepared && !IsIconic(gui.window)) { nextFrame(); }
 	}
 #endif
 #ifdef XCB
     xcb_flush(gui.connection);
     windowResize();
     while (!gui.quit) {
-        auto tStart = std::chrono::high_resolution_clock::now();
-        if(gui.viewUpdated){ gui.viewUpdated = false; }
         xcb_generic_event_t *event;
         while((event = xcb_poll_for_event(gui.connection))){
             gui.handleEvent(event);
             free(event);
         }
-        render();
-        gpu.frameCounter++;
-        auto tEnd = std::chrono::high_resolution_clock::now();
-        double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-        if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime)));}
-        auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-        gpu.frameTimer = tDiff / 1000.0f;
-        gpu.camera.update(gpu.frameTimer); 
-        if (gpu.camera.moving()) { gui.viewUpdated = true; }
-        if(!paused){
-            gpu.timer += gpu.timerSpeed * gpu.frameTimer;
-			if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
-        }
-        std::cout << "\r" << frameTime << std::flush;
+        nextFrame();
     }
 #endif
 }
+
 void Photon::nextFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
 	if (gui.viewUpdated){
@@ -115,12 +99,11 @@ void Photon::nextFrame(){
         gpu.timer += gpu.timerSpeed * gpu.frameTimer;
         if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
     }
-    std::cout << "\r" << frameTime << std::flush;
 }
 
 void Photon::render(){
     if(!prepared) return;
-    gpu.updateUniformBuffers(gui.renderSettings.animateLight, gui.renderSettings.lightTimer, gui.renderSettings.lightSpeed);
+    gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)gui.width, (float)gui.height);
     io.DeltaTime = gpu.frameTimer;
