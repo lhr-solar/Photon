@@ -26,3 +26,12 @@ static inline unsigned rdtsc(){
 #if defined(_WIN32)
 #define WIN
 #endif
+
+#if defined(_WIN32)
+#include <windows.h>
+#include <fcntl.h>
+#include <dwmapi.h>
+#include <uxtheme.h>
+#include <io.h>
+#include <ShellScalingAPI.h>
+#endif

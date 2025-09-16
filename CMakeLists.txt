@@ -58,3 +58,7 @@ ENDIF(WIN32)
 
 add_subdirectory(kernels)
 add_subdirectory(photon)
+
+if (WIN32)
+    set_target_properties(Photon PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
