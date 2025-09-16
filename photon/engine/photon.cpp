@@ -9,7 +9,7 @@
 #include "imgui.h"
 
 Photon::Photon() { logs("[+] Constructing Photon"); };
-Photon::~Photon(){ logs("[!] Destructuring Photon"); }
+Photon::~Photon(){ logs("[!] Destructuring Photon");}
 
 void Photon::prepareScene(){
 #ifdef XCB

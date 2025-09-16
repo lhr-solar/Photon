@@ -24,6 +24,9 @@ Gui::~Gui(){
     xcb_destroy_window(connection, window);
 	xcb_disconnect(connection);
 #endif
+    ImGui::DestroyContext();
+    ImPlot::DestroyContext();
+    ImPlot3D::DestroyContext();
 };
 
 #ifdef XCB
