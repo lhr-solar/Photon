@@ -12,7 +12,9 @@ Photon::Photon() { logs("[+] Constructing Photon"); };
 Photon::~Photon(){ logs("[!] Destructuring Photon"); }
 
 void Photon::prepareScene(){
+#ifdef XCB
    gpu.vulkanSwapchain.initSurface(gpu.instance, gui.connection, gui.window, gpu.vulkanDevice.physicalDevice);
+#endif
    gpu.vulkanSwapchain.createSurfaceCommandPool(gpu.vulkanDevice.logicalDevice);
    gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
    gpu.vulkanSwapchain.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice);
@@ -47,16 +49,20 @@ void Photon::renderLoop(){
     lastTimestamp = std::chrono::high_resolution_clock::now();
     tPrevEnd = lastTimestamp;
     logs("[Δ] Entering Render Loop");
+#ifdef XCB
     xcb_flush(gui.connection);
+#endif
     windowResize();
     while (!gui.quit) {
         auto tStart = std::chrono::high_resolution_clock::now();
         if(gui.viewUpdated){ gui.viewUpdated = false; }
+#ifdef XCB
         xcb_generic_event_t *event;
         while((event = xcb_poll_for_event(gui.connection))){
             gui.handleEvent(event);
             free(event);
         }
+#endif
         render();
         gpu.frameCounter++;
         auto tEnd = std::chrono::high_resolution_clock::now();

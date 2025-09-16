@@ -2,7 +2,7 @@ param(
     [string]$arg = "Debug"
 )
 
-# run ".\build.ps1 help" for help
+# run ".\winBuild.ps1 help" for help
 if ($arg -eq "help") {
     Write-Host "[?] run '.\winBuild.ps1' to compile debug version"
     Write-Host "[?] run '.\winBuild.ps1 Release' to compile release version"
@@ -10,7 +10,7 @@ if ($arg -eq "help") {
     exit 0
 }
 
-# run ".\build.ps1 clean" to remove build artifacts
+# run ".\winBuild.ps1 clean" to remove build artifacts
 if ($arg -eq "clean") {
     Remove-Item -Recurse -Force .cache -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force artifacts -ErrorAction SilentlyContinue
@@ -21,7 +21,7 @@ if ($arg -eq "clean") {
 
 $BUILD_TYPE = $arg
 
-# Cleanup previous binary
+# Cleanup previous binary at root
 if (Test-Path Photon.exe) {
     Remove-Item Photon.exe
 }
@@ -33,19 +33,22 @@ if (!(Test-Path artifacts)) {
 
 Set-Location artifacts
 
-# Configure CMake (adjust compiler paths if using MSVC instead of MinGW)
-#cmake -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DVULKAN_SDK="$env:VULKAN_SDK" -DVulkan_LIBRARY="$env:VULKAN_SDK\Lib\vulkan-1.lib" ..
-ninja -j $env:NUMBER_OF_PROCESSORS
+# Configure and build with MSVC (64-bit)
+cmake -G "Visual Studio 17 2022" -A x64 `
+      -DCMAKE_BUILD_TYPE=$BUILD_TYPE `
+      -DVULKAN_SDK="$env:VULKAN_SDK" `
+      -DVulkan_LIBRARY="$env:VULKAN_SDK\Lib\vulkan-1.lib" ..
+cmake --build . --config $BUILD_TYPE --parallel
 
 Set-Location ..
 
-# Move binary up
-if (Test-Path ".\artifacts\photon\Photon.exe") {
-    Move-Item -Force .\artifacts\photon\Photon.exe .\Photon.exe
-}
+# Path to the built exe (inside Debug/Release)
+$BUILT_EXE = ".\artifacts\photon\$BUILD_TYPE\Photon.exe"
 
-# Run program
-if (Test-Path ".\Photon.exe") {
-    .\Photon.exe
+if (Test-Path $BUILT_EXE) {
+    Copy-Item -Force $BUILT_EXE .\Photon.exe
+    & ".\Photon.exe"
+}
+else {
+    Write-Host "[!] Build succeeded but no exe found at $BUILT_EXE"
 }

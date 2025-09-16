@@ -18,8 +18,10 @@
 
 Gui::Gui(){};
 Gui::~Gui(){
+#ifdef XCB
     xcb_destroy_window(connection, window);
 	xcb_disconnect(connection);
+#endif
 };
 
 void Gui::initWindow(){

@@ -270,7 +270,10 @@ void VulkanSwapchain::createSurfaceCommandBuffers(VkDevice device){
 }
 
 VkResult VulkanSwapchain::acquireNextImage(VkDevice device, VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex){
+#ifdef XCB
     return vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, presentCompleteSemaphore, VkFence(nullptr) , imageIndex);
+#endif
+	return VK_INCOMPLETE;
 }
 
 VkResult VulkanSwapchain::queuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore){

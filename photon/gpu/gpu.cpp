@@ -61,7 +61,9 @@ VkResult Gpu::createInstance(){
     std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
-
+#ifdef _WIN32
+    std::vector<const char*> instanceExtensions = {};
+#endif
     // grab available extensions
     uint32_t extCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);

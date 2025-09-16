@@ -51,7 +51,7 @@ ENDIF()
 
 # link sources
 IF(WIN32)
-	# Nothing
+	link_libraries(${Vulkan_LIBRARY})
 ELSE()
 	link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY})
 ENDIF(WIN32)
