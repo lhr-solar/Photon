@@ -28,8 +28,7 @@ analysis & synthesis
 
 
 ─< Build >─────────────────────────────
-Ensure you have the Vulkan SDK
-< https://vulkan.lunarg.com/ >
+< https://github.com/lhr-solar/Photon/wiki/GettingStarted >
 
 ┌ linux ─────────────────┐
 │ $ ./build              │
