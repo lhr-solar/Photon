@@ -15,6 +15,9 @@ void Photon::prepareScene(){
 #ifdef XCB
    gpu.vulkanSwapchain.initSurface(gpu.instance, gui.connection, gui.window, gpu.vulkanDevice.physicalDevice);
 #endif
+#ifdef WIN
+    gpu.vulkanSwapchain.initSurface(gpu.instance, gui.windowInstance, gui.window, gpu.vulkanDevice.physicalDevice);
+#endif
    gpu.vulkanSwapchain.createSurfaceCommandPool(gpu.vulkanDevice.logicalDevice);
    gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
    gpu.vulkanSwapchain.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice);
@@ -49,20 +52,34 @@ void Photon::renderLoop(){
     lastTimestamp = std::chrono::high_resolution_clock::now();
     tPrevEnd = lastTimestamp;
     logs("[Δ] Entering Render Loop");
+#ifdef WIN
+    MSG msg;
+	bool quitMessageReceived = false;
+	while (!quitMessageReceived) {
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+			if (msg.message == WM_QUIT) {
+				quitMessageReceived = true;
+				break;
+			}
+		}
+		if (prepared && !IsIconic(gui.window)) {
+			nextFrame();
+		}
+	}
+#endif
 #ifdef XCB
     xcb_flush(gui.connection);
-#endif
     windowResize();
     while (!gui.quit) {
         auto tStart = std::chrono::high_resolution_clock::now();
         if(gui.viewUpdated){ gui.viewUpdated = false; }
-#ifdef XCB
         xcb_generic_event_t *event;
         while((event = xcb_poll_for_event(gui.connection))){
             gui.handleEvent(event);
             free(event);
         }
-#endif
         render();
         gpu.frameCounter++;
         auto tEnd = std::chrono::high_resolution_clock::now();
@@ -78,6 +95,27 @@ void Photon::renderLoop(){
         }
         std::cout << "\r" << frameTime << std::flush;
     }
+#endif
+}
+void Photon::nextFrame(){
+    auto tStart = std::chrono::high_resolution_clock::now();
+	if (gui.viewUpdated){
+		gui.viewUpdated = false;
+	}
+	render();
+    gpu.frameCounter++;
+    auto tEnd = std::chrono::high_resolution_clock::now();
+    double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+    if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime)));}
+    auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+    gpu.frameTimer = tDiff / 1000.0f;
+    gpu.camera.update(gpu.frameTimer); 
+	if (gpu.camera.moving()) { gui.viewUpdated = true; }
+    if(!paused){
+        gpu.timer += gpu.timerSpeed * gpu.frameTimer;
+        if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
+    }
+    std::cout << "\r" << frameTime << std::flush;
 }
 
 void Photon::render(){

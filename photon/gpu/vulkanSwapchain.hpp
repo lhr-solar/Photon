@@ -26,7 +26,9 @@ struct VulkanSwapchain{
 #ifdef XCB
     void initSurface(VkInstance instance, xcb_connection_t* connection, xcb_window_t window, VkPhysicalDevice physicalDevice);
 #endif
-
+#ifdef WIN
+    void initSurface(VkInstance instance, void* platformHandle, void* platformWindow, VkPhysicalDevice physicalDevice);
+#endif
     void createSurfaceCommandPool(VkDevice device);
     VkResult createSwapChain(uint32_t *width, uint32_t *height, bool vsync, bool fullscreen, bool transparent, VkPhysicalDevice physicalDevice, VkDevice device);
     void createSurfaceCommandBuffers(VkDevice device);

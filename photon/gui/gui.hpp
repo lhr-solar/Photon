@@ -24,6 +24,7 @@ public:
 #endif
 #ifdef WIN
     HINSTANCE windowInstance;
+    HWND window;
 #endif
 
     uint32_t width = 1280;
@@ -96,15 +97,15 @@ public:
     ~Gui();
 
 #ifdef XCB
+    void initWindow();
     void initxcbConnection();
+    void setupWindow();
     void handleEvent(const xcb_generic_event_t *event);
 #endif
 #ifdef WIN
-    void initWindow(HINSTANCE hInstance);
+    void initWindow(HINSTANCE hInstance, WNDPROC wndproc);
 #endif
 
-    void initWindow();
-    void setupWindow();
     std::string getWindowTitle()const;
     void prepareImGui();
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
