@@ -6,6 +6,8 @@
 #include <glm/glm.hpp>
 #include <array>
 #include <vulkan/vulkan.h>
+#include "ui.hpp"
+#include "inputs.hpp"
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../engine/include.hpp"
@@ -41,26 +43,8 @@ public:
     struct{
         bool fullscreen = false;
         bool vsync = false;
-        bool transparent = false;
+        bool transparent = true;
     } settings;
-
-    struct {
-        bool displayModels = false;
-        bool displayLogos = false;
-        bool displayBackground = false;
-        bool displayCustomModel = false;
-        bool animateLight = false;
-        float lightSpeed = 0.25f;
-        float lightTimer = 0.0f;
-        std::array<float, 50> frameTimes{};
-        float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
-        glm::vec3 modelPosition = glm::vec3(0.0f);
-        glm::vec3 modelRotation = glm::vec3(0.0f);
-        glm::vec3 modelScale3D = glm::vec3(1.0f);
-        float modelScale = 1.0f;
-        glm::vec4 effectColor = glm::vec4(1.0f);
-        int effectType = 0;
-    } renderSettings;
 
     struct PushConstBlock {
         glm::vec2 scale;
@@ -71,6 +55,9 @@ public:
         glm::vec4 gradBottom;
         float u_time;
     } pushConstBlock;
+
+    UI ui;
+    Inputs inputs;
 
     VkImage fontImage = VK_NULL_HANDLE;
     VkDeviceMemory fontMemory = VK_NULL_HANDLE;

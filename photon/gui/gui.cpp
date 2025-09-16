@@ -6,6 +6,8 @@
 
 #include "vulkan_core.h"
 #include "gui.hpp"
+#include "ui.hpp"
+#include "inputs.hpp"
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
@@ -52,6 +54,14 @@ void Gui::prepareImGui(){
 
 // initialize all vulkan resources used by the UI
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
+    std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
+    ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
+    ui.vendorID = vulkanDevice.deviceProperties.vendorID;
+    ui.deviceID = vulkanDevice.deviceProperties.deviceID;
+    ui.deviceType = vulkanDevice.deviceProperties.deviceType;
+    ui.driverVersion = vulkanDevice.deviceProperties.driverVersion;
+    ui.apiVersion = vulkanDevice.deviceProperties.apiVersion;
+
     ImGuiIO &io = ImGui::GetIO();
     unsigned char *fontData;
     int texWidth, texHeight;
@@ -370,7 +380,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     VkClearValue clearValues[2];
-    clearValues[0].color = {{1.0f, 0.82f, 0.86f, 1.0f}};
+    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo renderPassBeginInfo {};
@@ -383,9 +393,8 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
-    ImGui::NewFrame();
-    ImPlot::ShowDemoWindow();
-    ImGui::Render();
+
+    ui.build();
 
     updateBuffers(vulkanDevice);
 
@@ -629,10 +638,127 @@ void Gui::setupWindow(){
 }
 
 void Gui::handleEvent(const xcb_generic_event_t *event){
-    switch (event->response_type & 0x7f){
-    default:
-        break;
+	switch (event->response_type & 0x7f){
+	case XCB_CLIENT_MESSAGE:
+		if ((*(xcb_client_message_event_t*)event).data.data32[0] ==
+			(*atom_wm_delete_window).atom) {
+			quit = true;
+		}
+		break;
+	case XCB_MOTION_NOTIFY:{
+		xcb_motion_notify_event_t *motion = (xcb_motion_notify_event_t *)event;
+        inputs.handleMouseMove((int32_t)motion->event_x, (int32_t)motion->event_y);
+		break;
+	}
+	break;
+    case XCB_BUTTON_PRESS:{
+        xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
+        if (press->detail == XCB_BUTTON_INDEX_1){
+            ImGui::GetIO().AddMouseButtonEvent(0, true);
+            inputs.mouseState.buttons.left = true;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_2){
+            ImGui::GetIO().AddMouseButtonEvent(2, true);
+            inputs.mouseState.buttons.middle = true;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_3){
+            ImGui::GetIO().AddMouseButtonEvent(1, true);
+            inputs.mouseState.buttons.right = true;
+        }
     }
+	break;
+    case XCB_BUTTON_RELEASE:{
+        xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
+        if (press->detail == XCB_BUTTON_INDEX_1){
+            ImGui::GetIO().AddMouseButtonEvent(0, false);
+            inputs.mouseState.buttons.left = false;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_2){
+            ImGui::GetIO().AddMouseButtonEvent(2, false);
+            inputs.mouseState.buttons.middle = false;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_3){
+            ImGui::GetIO().AddMouseButtonEvent(1, false);
+            inputs.mouseState.buttons.right = false;
+        }
+    }
+    break;
+	case XCB_KEY_PRESS:{
+        const xcb_key_release_event_t *keyEvent = (const xcb_key_release_event_t *)event;
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureKeyboard) {
+        ImGuiKey key = inputs.translateKey(keyEvent->detail);
+        if (key != ImGuiKey_None) { io.AddKeyEvent(key, true); }
+        uint8_t kc = keyEvent->detail;
+        bool shift = keyEvent->state & XCB_MOD_MASK_SHIFT;
+        char c = 0;
+        switch (kc) {
+        case KEY_A: c = shift ? 'A' : 'a'; break;
+        case KEY_B: c = shift ? 'B' : 'b'; break;
+        case KEY_C: c = shift ? 'C' : 'c'; break;
+        case KEY_D: c = shift ? 'D' : 'd'; break;
+        case KEY_E: c = shift ? 'E' : 'e'; break;
+        case KEY_F: c = shift ? 'F' : 'f'; break;
+        case KEY_G: c = shift ? 'G' : 'g'; break;
+        case KEY_H: c = shift ? 'H' : 'h'; break;
+        case KEY_I: c = shift ? 'I' : 'i'; break;
+        case KEY_J: c = shift ? 'J' : 'j'; break;
+        case KEY_K: c = shift ? 'K' : 'k'; break;
+        case KEY_L: c = shift ? 'L' : 'l'; break;
+        case KEY_M: c = shift ? 'M' : 'm'; break;
+        case KEY_N: c = shift ? 'N' : 'n'; break;
+        case KEY_O: c = shift ? 'O' : 'o'; break;
+        case KEY_P: c = shift ? 'P' : 'p'; break;
+        case KEY_Q: c = shift ? 'Q' : 'q'; break;
+        case KEY_R: c = shift ? 'R' : 'r'; break;
+        case KEY_S: c = shift ? 'S' : 's'; break;
+        case KEY_T: c = shift ? 'T' : 't'; break;
+        case KEY_U: c = shift ? 'U' : 'u'; break;
+        case KEY_V: c = shift ? 'V' : 'v'; break;
+        case KEY_W: c = shift ? 'W' : 'w'; break;
+        case KEY_X: c = shift ? 'X' : 'x'; break;
+        case KEY_Y: c = shift ? 'Y' : 'y'; break;
+        case KEY_Z: c = shift ? 'Z' : 'z'; break;
+
+        // — Digits (with shifted symbols) —
+        case KEY_1: c = shift ? '!' : '1'; break;
+        case KEY_2: c = shift ? '@' : '2'; break;
+        case KEY_3: c = shift ? '#' : '3'; break;
+        case KEY_4: c = shift ? '$' : '4'; break;
+        case KEY_5: c = shift ? '%' : '5'; break;
+        case KEY_6: c = shift ? '^' : '6'; break;
+        case KEY_7: c = shift ? '&' : '7'; break;
+        case KEY_8: c = shift ? '*' : '8'; break;
+        case KEY_9: c = shift ? '(' : '9'; break;
+        case KEY_0: c = shift ? ')' : '0'; break;
+
+        case KEY_SLASH:       c = shift ? '?' : '/'; break;
+        case KEY_PERIOD:      c = shift ? '>' : '.'; break;
+
+        // — Whitespace & controls —
+        case KEY_SPACE:       c = ' ';  break;
+        case KEY_ENTER:       c = '\n'; break;
+        case KEY_TAB:         c = '\t'; break;
+        }
+        if (c) { io.AddInputCharacter(c); }
+        }
+	}
+	break;
+	case XCB_KEY_RELEASE:{
+		const xcb_key_release_event_t *keyEvent = (const xcb_key_release_event_t *)event;
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureKeyboard) {
+            ImGuiKey key = inputs.translateKey(keyEvent->detail);
+            if (key != ImGuiKey_None) { io.AddKeyEvent(key, false); }
+        }
+	}
+	break;
+	case XCB_DESTROY_NOTIFY:
+		quit = true;
+		break;
+	default:
+		break;
+	}
 }
 #endif
 
