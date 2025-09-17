@@ -34,4 +34,5 @@ struct VulkanSwapchain{
     void createSurfaceCommandBuffers(VkDevice device);
     VkResult acquireNextImage(VkDevice device, VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex);
     VkResult queuePresent(VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore);
+    void cleanup(VkInstance instance, VkDevice device);
 };

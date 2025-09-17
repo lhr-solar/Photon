@@ -318,3 +318,6 @@ void VulkanDevice::flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue que
         vkFreeCommandBuffers(logicalDevice, pool, 1, &commandBuffer);
 }
 
+void VulkanDevice::destroyCommandBuffers(VkDevice device){
+    vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(drawCmdBuffers.size()), drawCmdBuffers.data());
+}
