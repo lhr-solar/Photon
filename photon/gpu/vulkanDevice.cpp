@@ -233,7 +233,6 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
     bufferCreateInfo.usage = usageFlags;
     bufferCreateInfo.size = size;
     VK_CHECK(vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer->buffer));
-    logs("[+] Created Buffer of size " << size << " with flags 0x"  << std::hex << usageFlags << std::dec);
 
     VkMemoryRequirements memReqs;
     VkMemoryAllocateInfo memAlloc{};
@@ -241,7 +240,7 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
     vkGetBufferMemoryRequirements(logicalDevice, buffer->buffer, &memReqs);
     memAlloc.allocationSize = memReqs.size;
     memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags, nullptr);
-
+    
     // Important: Check for VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
     VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
     if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
@@ -250,7 +249,10 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
 			memAlloc.pNext = &allocFlagsInfo;
 	}
     VK_CHECK(vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer->memory));
-    logs("[+] Allocated Buffer of size " << memAlloc.allocationSize );
+
+    logs("[Buffer] size=" << size/1024 << "KB"
+     << " | alloc=" << memAlloc.allocationSize/1024 << "KB"
+     << " | flags=0x" << std::hex << usageFlags << std::dec);
 
     buffer->alignment = memReqs.alignment;
     buffer->size = size;
