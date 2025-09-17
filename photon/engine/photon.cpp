@@ -87,6 +87,7 @@ void Photon::renderLoop(){
         nextFrame();
     }
 #endif
+    vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
 }
 
 void Photon::nextFrame(){
