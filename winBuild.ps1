@@ -37,6 +37,7 @@ Set-Location artifacts
 cmake -G "Visual Studio 17 2022" -A x64 `
       -DCMAKE_BUILD_TYPE=$BUILD_TYPE `
       -DVULKAN_SDK="$env:VULKAN_SDK" `
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
       -DVulkan_LIBRARY="$env:VULKAN_SDK\Lib\vulkan-1.lib" ..
 cmake --build . --config $BUILD_TYPE --parallel
 

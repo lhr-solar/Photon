@@ -9,7 +9,15 @@
 #include "imgui.h"
 
 Photon::Photon() { logs("[+] Constructing Photon"); };
-Photon::~Photon(){ logs("[!] Destructuring Photon");}
+Photon::~Photon(){ 
+    logs("[!] Destructuring Photon");
+    gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
+    if(gpu.descriptorPool != VK_NULL_HANDLE)
+        vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gpu.descriptorPool, nullptr);
+    if(gui.guiDescriptorPool != VK_NULL_HANDLE)
+        vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gui.guiDescriptorPool, nullptr);
+
+};
 
 void Photon::prepareScene(){
 #ifdef XCB
@@ -54,17 +62,17 @@ void Photon::renderLoop(){
     logs("[Δ] Entering Render Loop");
 #ifdef WIN
     MSG msg;
-	bool quitMessageReceived = false;
+    bool quitMessageReceived = false;
 	while (!quitMessageReceived) {
 		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-			TranslateMessage(&msg);
+        TranslateMessage(&msg);
 			DispatchMessage(&msg);
 			if (msg.message == WM_QUIT) {
 				quitMessageReceived = true;
 				break;
 			}
 		}
-		if (prepared && !IsIconic(gui.window)) { nextFrame(); }
+        if (prepared && !IsIconic(gui.window)) { nextFrame(); }
 	}
 #endif
 #ifdef XCB
