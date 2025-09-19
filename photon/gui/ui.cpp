@@ -59,16 +59,10 @@ void UI::fpsWindow(){
 }
 
 void UI::customShader(){
-    if (!customShaderTexture) {
-        return;
-    }
-
+    if (!customShaderTexture) { return; }
     if (ImGui::Begin("Custom Shader", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImVec2 size = customShaderTextureSize;
-        if (size.x <= 0.0f || size.y <= 0.0f) {
-            size = ImVec2(512.0f, 512.0f);
-        }
-
+        if (size.x <= 0.0f || size.y <= 0.0f) { size = ImVec2(512.0f, 512.0f); }
         ImVec2 available = ImGui::GetContentRegionAvail();
         ImVec2 drawSize = size;
         if (available.x > 0.0f && available.y > 0.0f) {
@@ -80,7 +74,6 @@ void UI::customShader(){
                 drawSize.y = size.y * scale;
             }
         }
-
         ImGui::Image(customShaderTexture, drawSize);
     }
     ImGui::End();

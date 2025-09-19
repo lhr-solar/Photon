@@ -20,6 +20,10 @@
 #include "custom_shader_frag_spv.hpp"
 #include "custom_shader_vert_spv.hpp"
 
+#ifdef WIN
+#include <windowsx.h>
+#endif
+
 Gui::Gui(){};
 Gui::~Gui(){
 #ifdef XCB
@@ -1038,26 +1042,161 @@ void Gui::initWindow(HINSTANCE hInstance, WNDPROC wndproc){
     dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     RECT windowRect = {0L, 0L, (long)width, (long)height };
     AdjustWindowRectEx(&windowRect, dwStyle, FALSE, dwExStyle);
-	window = CreateWindowEx(0,
-		name.c_str(),
-		title.c_str(),
-		dwStyle | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-		0,
-		0,
-		windowRect.right - windowRect.left,
-		windowRect.bottom - windowRect.top,
-		NULL,
-		NULL,
-		hInstance,
-		NULL);
+    window = CreateWindowEx(
+        dwExStyle,
+        name.c_str(),
+        title.c_str(),
+        dwStyle | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+        0,
+        0,
+        windowRect.right - windowRect.left,
+        windowRect.bottom - windowRect.top,
+        NULL,
+        NULL,
+        hInstance,
+        this);
     if (!window){
-		std::cerr << "Could not create window!\n";
-		fflush(stdout);
-		return;
-	}
+        std::cerr << "Could not create window!\n";
+        fflush(stdout);
+        return;
+    }
 
     ShowWindow(window, SW_SHOW);
-	SetForegroundWindow(window);
-	SetFocus(window);
+    SetForegroundWindow(window);
+    SetFocus(window);
+}
+
+LRESULT Gui::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam){
+    ImGuiIO& io = ImGui::GetIO();
+
+    auto updateModifiers = [&io]() {
+        const bool leftCtrl   = (GetKeyState(VK_LCONTROL) & 0x8000) != 0;
+        const bool rightCtrl  = (GetKeyState(VK_RCONTROL) & 0x8000) != 0;
+        const bool leftShift  = (GetKeyState(VK_LSHIFT) & 0x8000) != 0;
+        const bool rightShift = (GetKeyState(VK_RSHIFT) & 0x8000) != 0;
+        const bool leftAlt    = (GetKeyState(VK_LMENU) & 0x8000) != 0;
+        const bool rightAlt   = (GetKeyState(VK_RMENU) & 0x8000) != 0;
+        const bool leftSuper  = (GetKeyState(VK_LWIN) & 0x8000) != 0;
+        const bool rightSuper = (GetKeyState(VK_RWIN) & 0x8000) != 0;
+
+        io.AddKeyEvent(ImGuiKey_LeftCtrl, leftCtrl);
+        io.AddKeyEvent(ImGuiKey_RightCtrl, rightCtrl);
+        io.AddKeyEvent(ImGuiKey_LeftShift, leftShift);
+        io.AddKeyEvent(ImGuiKey_RightShift, rightShift);
+        io.AddKeyEvent(ImGuiKey_LeftAlt, leftAlt);
+        io.AddKeyEvent(ImGuiKey_RightAlt, rightAlt);
+        io.AddKeyEvent(ImGuiKey_LeftSuper, leftSuper);
+        io.AddKeyEvent(ImGuiKey_RightSuper, rightSuper);
+
+        io.AddKeyEvent(ImGuiMod_Ctrl, leftCtrl || rightCtrl);
+        io.AddKeyEvent(ImGuiMod_Shift, leftShift || rightShift);
+        io.AddKeyEvent(ImGuiMod_Alt, leftAlt || rightAlt);
+        io.AddKeyEvent(ImGuiMod_Super, leftSuper || rightSuper);
+    };
+
+    switch (msg) {
+    case WM_CLOSE:
+        DestroyWindow(hwnd);
+        return 0;
+    case WM_DESTROY:
+        quit = true;
+        PostQuitMessage(0);
+        return 0;
+    case WM_SETFOCUS:
+        io.AddFocusEvent(true);
+        updateModifiers();
+        return 0;
+    case WM_KILLFOCUS:
+        io.AddFocusEvent(false);
+        io.AddMouseButtonEvent(0, false);
+        io.AddMouseButtonEvent(1, false);
+        io.AddMouseButtonEvent(2, false);
+        inputs.mouseState.buttons.left = false;
+        inputs.mouseState.buttons.right = false;
+        inputs.mouseState.buttons.middle = false;
+        ReleaseCapture();
+        updateModifiers();
+        return 0;
+    case WM_SIZE:
+        if (wParam != SIZE_MINIMIZED) {
+            destWidth = LOWORD(lParam);
+            destHeight = HIWORD(lParam);
+            resized = true;
+        }
+        return 0;
+    case WM_MOUSEMOVE:
+        inputs.handleMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        return 0;
+    case WM_LBUTTONDOWN:
+        inputs.mouseState.buttons.left = true;
+        io.AddMouseButtonEvent(0, true);
+        SetCapture(hwnd);
+        return 0;
+    case WM_LBUTTONUP:
+        inputs.mouseState.buttons.left = false;
+        io.AddMouseButtonEvent(0, false);
+        if (!(wParam & (MK_RBUTTON | MK_MBUTTON))) {
+            ReleaseCapture();
+        }
+        return 0;
+    case WM_RBUTTONDOWN:
+        inputs.mouseState.buttons.right = true;
+        io.AddMouseButtonEvent(1, true);
+        SetCapture(hwnd);
+        return 0;
+    case WM_RBUTTONUP:
+        inputs.mouseState.buttons.right = false;
+        io.AddMouseButtonEvent(1, false);
+        if (!(wParam & (MK_LBUTTON | MK_MBUTTON))) {
+            ReleaseCapture();
+        }
+        return 0;
+    case WM_MBUTTONDOWN:
+        inputs.mouseState.buttons.middle = true;
+        io.AddMouseButtonEvent(2, true);
+        SetCapture(hwnd);
+        return 0;
+    case WM_MBUTTONUP:
+        inputs.mouseState.buttons.middle = false;
+        io.AddMouseButtonEvent(2, false);
+        if (!(wParam & (MK_LBUTTON | MK_RBUTTON))) {
+            ReleaseCapture();
+        }
+        return 0;
+    case WM_MOUSEWHEEL:
+        io.AddMouseWheelEvent(0.0f, (float)GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA);
+        return 0;
+    case WM_MOUSEHWHEEL:
+        io.AddMouseWheelEvent((float)GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA, 0.0f);
+        return 0;
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN: {
+        ImGuiKey imguiKey = inputs.translateKey((uint32_t)wParam);
+        if (imguiKey != ImGuiKey_None) {
+            io.AddKeyEvent(imguiKey, true);
+        }
+        updateModifiers();
+        return 0;
+    }
+    case WM_KEYUP:
+    case WM_SYSKEYUP: {
+        ImGuiKey imguiKey = inputs.translateKey((uint32_t)wParam);
+        if (imguiKey != ImGuiKey_None) {
+            io.AddKeyEvent(imguiKey, false);
+        }
+        updateModifiers();
+        return 0;
+    }
+    case WM_CHAR:
+    case WM_SYSCHAR:
+        if (wParam > 0 && wParam < 0x10000) {
+            io.AddInputCharacter((unsigned int)wParam);
+        }
+        return 0;
+    default:
+        break;
+    }
+
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 #endif

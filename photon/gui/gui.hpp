@@ -105,6 +105,7 @@ public:
 #endif
 #ifdef WIN
     void initWindow(HINSTANCE hInstance, WNDPROC wndproc);
+    LRESULT handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
     std::string getWindowTitle()const;
