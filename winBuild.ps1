@@ -21,6 +21,9 @@ if ($arg -eq "clean") {
 
 $BUILD_TYPE = $arg
 
+$env:VK_INSTANCE_LAYERS = "VK_LAYER_KHRONOS_validation"
+$env:VK_DEBUG = "1"
+
 # Cleanup previous binary at root
 if (Test-Path Photon.exe) {
     Remove-Item Photon.exe
