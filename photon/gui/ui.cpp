@@ -3,9 +3,12 @@
 
 void UI::build(){
     ImGui::NewFrame();
+
     ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
     fpsWindow();
+    customShader();
+
     ImGui::Render();
 }
 
@@ -51,6 +54,34 @@ void UI::fpsWindow(){
         ImGui::PlotLines("##ft", renderSettings.frameTimes.data(), (int)renderSettings.frameTimes.size(), 0,
                          nullptr, renderSettings.frameTimeMin, renderSettings.frameTimeMax,
                          ImVec2(240, 80));
+    }
+    ImGui::End();
+}
+
+void UI::customShader(){
+    if (!customShaderTexture) {
+        return;
+    }
+
+    if (ImGui::Begin("Custom Shader", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImVec2 size = customShaderTextureSize;
+        if (size.x <= 0.0f || size.y <= 0.0f) {
+            size = ImVec2(512.0f, 512.0f);
+        }
+
+        ImVec2 available = ImGui::GetContentRegionAvail();
+        ImVec2 drawSize = size;
+        if (available.x > 0.0f && available.y > 0.0f) {
+            float scaleX = available.x / size.x;
+            float scaleY = available.y / size.y;
+            float scale = scaleX < scaleY ? scaleX : scaleY;
+            if (scale < 1.0f) {
+                drawSize.x = size.x * scale;
+                drawSize.y = size.y * scale;
+            }
+        }
+
+        ImGui::Image(customShaderTexture, drawSize);
     }
     ImGui::End();
 }

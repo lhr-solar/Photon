@@ -56,6 +56,20 @@ public:
         float u_time;
     } pushConstBlock;
 
+    struct CustomShaderResources {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkFramebuffer framebuffer = VK_NULL_HANDLE;
+        VkRenderPass renderPass = VK_NULL_HANDLE;
+        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+        VkExtent2D extent{512, 512};
+        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        bool initialized = false;
+    } customShader;
+
     UI ui;
     Inputs inputs;
 
@@ -96,8 +110,10 @@ public:
     std::string getWindowTitle()const;
     void prepareImGui();
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
+    void initCustomShaderResources(VulkanDevice vulkanDevice);
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
     void updateBuffers(VulkanDevice vulkanDevice);
     void drawFrame(VkCommandBuffer commandBuffer);
+    void recordCustomShaderPass(VkCommandBuffer commandBuffer);
 /* end of gui class */
 };

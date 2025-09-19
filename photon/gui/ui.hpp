@@ -32,6 +32,10 @@ struct UI{
         int effectType = 0;
     } renderSettings;
 
+    ImTextureID customShaderTexture;
+    ImVec2 customShaderTextureSize = ImVec2(0.0f, 0.0f);
+
     void build();
     void fpsWindow();
+    void customShader();
 };
