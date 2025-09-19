@@ -17,6 +17,20 @@ int main(){
 
 #ifdef WIN
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
+    if (uMsg == WM_NCCREATE) {
+        CREATESTRUCT* createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
+        if (createStruct && createStruct->lpCreateParams) {
+            auto* gui = reinterpret_cast<Gui*>(createStruct->lpCreateParams);
+            SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(gui));
+        }
+        return TRUE;
+    }
+
+    auto* gui = reinterpret_cast<Gui*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    if (gui) {
+        return gui->handleMessage(hWnd, uMsg, wParam, lParam);
+    }
+
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
