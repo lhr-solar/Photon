@@ -17,6 +17,8 @@
 #include "../gpu/gpu.hpp"
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
+#include "custom_shader_frag_spv.hpp"
+#include "custom_shader_vert_spv.hpp"
 
 Gui::Gui(){};
 Gui::~Gui(){
