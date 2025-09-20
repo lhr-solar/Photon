@@ -16,28 +16,10 @@ int main(){
 #endif
 
 #ifdef WIN
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
-    if (uMsg == WM_NCCREATE) {
-        CREATESTRUCT* createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
-        if (createStruct && createStruct->lpCreateParams) {
-            auto* gui = reinterpret_cast<Gui*>(createStruct->lpCreateParams);
-            SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(gui));
-        }
-        return TRUE;
-    }
-
-    auto* gui = reinterpret_cast<Gui*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-    if (gui) {
-        return gui->handleMessage(hWnd, uMsg, wParam, lParam);
-    }
-
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
-}
-
 int APIENTRY WinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR, _In_ int){
     Photon photon;
     photon.gpu.initVulkan();
-    photon.gui.initWindow(hinstance, WndProc);
+    photon.gui.initWindow(hinstance);
     photon.prepareScene();
     photon.initThreads();
     photon.renderLoop();

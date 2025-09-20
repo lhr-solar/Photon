@@ -2,10 +2,6 @@
 
 #include "../engine/include.hpp"
 
-#ifdef WIN
-#include <windows.h>
-#endif
-
 void Inputs::handleMouseMove(int32_t x, int32_t y){
     int32_t dx = (int32_t)mouseState.position.x - x;
 	int32_t dy = (int32_t)mouseState.position.y - y;
@@ -70,68 +66,6 @@ ImGuiKey Inputs::translateKey(uint32_t key){
 
         default:
             return ImGuiKey_None;
-    }
-#endif
-#ifdef WIN
-    switch (key) {
-    case VK_SPACE:         return ImGuiKey_Space;
-    case 'A':              return ImGuiKey_A;
-    case 'B':              return ImGuiKey_B;
-    case 'C':              return ImGuiKey_C;
-    case 'D':              return ImGuiKey_D;
-    case 'E':              return ImGuiKey_E;
-    case 'F':              return ImGuiKey_F;
-    case 'G':              return ImGuiKey_G;
-    case 'H':              return ImGuiKey_H;
-    case 'I':              return ImGuiKey_I;
-    case 'J':              return ImGuiKey_J;
-    case 'K':              return ImGuiKey_K;
-    case 'L':              return ImGuiKey_L;
-    case 'M':              return ImGuiKey_M;
-    case 'N':              return ImGuiKey_N;
-    case 'O':              return ImGuiKey_O;
-    case 'P':              return ImGuiKey_P;
-    case 'Q':              return ImGuiKey_Q;
-    case 'R':              return ImGuiKey_R;
-    case 'S':              return ImGuiKey_S;
-    case 'T':              return ImGuiKey_T;
-    case 'U':              return ImGuiKey_U;
-    case 'V':              return ImGuiKey_V;
-    case 'W':              return ImGuiKey_W;
-    case 'X':              return ImGuiKey_X;
-    case 'Y':              return ImGuiKey_Y;
-    case 'Z':              return ImGuiKey_Z;
-
-    case VK_TAB:           return ImGuiKey_Tab;
-    case VK_RETURN:        return ImGuiKey_Enter;
-    case VK_BACK:          return ImGuiKey_Backspace;
-    case VK_ESCAPE:        return ImGuiKey_Escape;
-
-    case '1':              return ImGuiKey_1;
-    case '2':              return ImGuiKey_2;
-    case '3':              return ImGuiKey_3;
-    case '4':              return ImGuiKey_4;
-    case '5':              return ImGuiKey_5;
-    case '6':              return ImGuiKey_6;
-    case '7':              return ImGuiKey_7;
-    case '8':              return ImGuiKey_8;
-    case '9':              return ImGuiKey_9;
-    case '0':              return ImGuiKey_0;
-
-    case VK_OEM_2:         return ImGuiKey_Slash;
-    case VK_OEM_PERIOD:    return ImGuiKey_Period;
-
-    case VK_LSHIFT:        return ImGuiKey_LeftShift;
-    case VK_RSHIFT:        return ImGuiKey_RightShift;
-    case VK_LCONTROL:      return ImGuiKey_LeftCtrl;
-    case VK_RCONTROL:      return ImGuiKey_RightCtrl;
-    case VK_LMENU:         return ImGuiKey_LeftAlt;
-    case VK_RMENU:         return ImGuiKey_RightAlt;
-    case VK_LWIN:          return ImGuiKey_LeftSuper;
-    case VK_RWIN:          return ImGuiKey_RightSuper;
-
-    default:
-        return ImGuiKey_None;
     }
 #endif
     return ImGuiKey_None;

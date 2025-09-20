@@ -104,8 +104,9 @@ public:
     void handleEvent(const xcb_generic_event_t *event);
 #endif
 #ifdef WIN
-    void initWindow(HINSTANCE hInstance, WNDPROC wndproc);
-    LRESULT handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    void initWindow(HINSTANCE hInstance);
+    void handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 #endif
 
     std::string getWindowTitle()const;
