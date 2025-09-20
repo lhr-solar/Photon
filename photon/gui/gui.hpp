@@ -105,7 +105,7 @@ public:
 #endif
 #ifdef WIN
     void initWindow(HINSTANCE hInstance);
-    void handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    LRESULT handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 #endif
 

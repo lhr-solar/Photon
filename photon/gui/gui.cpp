@@ -3,7 +3,6 @@
 #include <string>
 #include <cstring>
 #include <vulkan/vulkan.h>
-
 #include "vulkan_core.h"
 #include "gui.hpp"
 #include "ui.hpp"
@@ -19,6 +18,10 @@
 #include "ui_vert_spv.hpp"
 #include "custom_shader_frag_spv.hpp"
 #include "custom_shader_vert_spv.hpp"
+
+#ifdef WIN
+#include <windowsx.h>
+#endif
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -1010,8 +1013,23 @@ void Gui::handleEvent(const xcb_generic_event_t *event){
 #ifdef WIN
 
 LRESULT CALLBACK Gui::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
-    Gui* pThis = reinterpret_cast<Gui*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-    if (pThis) pThis->handleMessages(hWnd, uMsg, wParam, lParam);
+    Gui* pThis = nullptr;
+
+    if (uMsg == WM_NCCREATE) {
+        auto createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
+        pThis = reinterpret_cast<Gui*>(createStruct->lpCreateParams);
+        if (pThis) {
+            SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pThis));
+            pThis->window = hWnd;
+        }
+    } else {
+        pThis = reinterpret_cast<Gui*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    }
+
+    if (pThis) {
+        return pThis->handleMessages(hWnd, uMsg, wParam, lParam);
+    }
+
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
@@ -1019,32 +1037,28 @@ void Gui::initWindow(HINSTANCE hInstance){
     windowInstance = hInstance;
     WNDCLASSEX wndClass{};
 
-	wndClass.cbSize = sizeof(WNDCLASSEX);
-	wndClass.style = CS_HREDRAW | CS_VREDRAW;
-	wndClass.lpfnWndProc = WndProc;
-	wndClass.cbClsExtra = 0;
-	wndClass.cbWndExtra = 0;
-	wndClass.hInstance = windowInstance;
+    wndClass.cbSize = sizeof(WNDCLASSEX);
+    wndClass.style = CS_HREDRAW | CS_VREDRAW;
+    wndClass.lpfnWndProc = WndProc;
+    wndClass.cbClsExtra = 0;
+    wndClass.cbWndExtra = 0;
+    wndClass.hInstance = windowInstance;
     wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-	wndClass.lpszMenuName = NULL;
-	wndClass.lpszClassName = name.c_str();
+    wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    wndClass.lpszMenuName = NULL;
+    wndClass.lpszClassName = name.c_str();
 
     if (!RegisterClassEx(&wndClass)){
-		std::cout << "Could not register window class!\n";
-		fflush(stdout);
-		exit(1);
-	}
+        std::cout << "Could not register window class!\n";
+        fflush(stdout);
+        exit(1);
+    }
 
-    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-
-    DWORD dwExStyle;
-	DWORD dwStyle;
-    dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
-    dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-    RECT windowRect = {0L, 0L, (long)width, (long)height };
+    DWORD dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
+    DWORD dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    RECT windowRect = {0L, 0L, static_cast<LONG>(width), static_cast<LONG>(height)};
     AdjustWindowRectEx(&windowRect, dwStyle, FALSE, dwExStyle);
+
     window = CreateWindowEx(
         0,
         name.c_str(),
@@ -1057,20 +1071,134 @@ void Gui::initWindow(HINSTANCE hInstance){
         NULL,
         NULL,
         hInstance,
-        NULL);
+        this);
+
     if (!window){
         std::cerr << "Could not create window!\n";
         fflush(stdout);
         return;
     }
 
+    destWidth = width;
+    destHeight = height;
+    SetWindowLongPtr(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+
     ShowWindow(window, SW_SHOW);
     SetForegroundWindow(window);
     SetFocus(window);
 }
 
-void Gui::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
+LRESULT Gui::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
+    ImGuiContext* context = ImGui::GetCurrentContext();
+    ImGuiIO* io = context ? &ImGui::GetIO() : nullptr;
 
-    return;
+    switch (uMsg) {
+    case WM_CLOSE:
+        quit = true;
+        DestroyWindow(hWnd);
+        return 0;
+    case WM_DESTROY:
+        quit = true;
+        PostQuitMessage(0);
+        return 0;
+    case WM_SIZE:
+        if (wParam != SIZE_MINIMIZED) {
+            destWidth = static_cast<uint32_t>(LOWORD(lParam));
+            destHeight = static_cast<uint32_t>(HIWORD(lParam));
+        }
+        return 0;
+    case WM_MOUSEMOVE: {
+        int32_t x = GET_X_LPARAM(lParam);
+        int32_t y = GET_Y_LPARAM(lParam);
+        inputs.handleMouseMove(x, y);
+        return 0;
+    }
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP: {
+        const bool pressed = (uMsg == WM_LBUTTONDOWN) || (uMsg == WM_RBUTTONDOWN) || (uMsg == WM_MBUTTONDOWN);
+        const int buttonIndex = (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONUP) ? 0 :
+                                (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONUP) ? 1 : 2;
+
+        if (pressed) {
+            SetCapture(hWnd);
+        } else {
+            ReleaseCapture();
+        }
+
+        if (buttonIndex == 0) {
+            inputs.mouseState.buttons.left = pressed;
+        } else if (buttonIndex == 1) {
+            inputs.mouseState.buttons.right = pressed;
+        } else {
+            inputs.mouseState.buttons.middle = pressed;
+        }
+
+        if (io) {
+            io->AddMouseButtonEvent(buttonIndex, pressed);
+        }
+        return 0;
+    }
+    case WM_MOUSEWHEEL:
+        if (io) {
+            const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
+            io->AddMouseWheelEvent(0.0f, wheelDelta);
+        }
+        return 0;
+    case WM_MOUSEHWHEEL:
+        if (io) {
+            const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
+            io->AddMouseWheelEvent(wheelDelta, 0.0f);
+        }
+        return 0;
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+    case WM_KEYUP:
+    case WM_SYSKEYUP: {
+        const bool pressed = (uMsg == WM_KEYDOWN) || (uMsg == WM_SYSKEYDOWN);
+        if (io) {
+            ImGuiKey key = inputs.translateWin32Key(static_cast<uint32_t>(wParam));
+            if (key != ImGuiKey_None) {
+                io->AddKeyEvent(key, pressed);
+            }
+
+            const bool leftShiftDown  = (GetKeyState(VK_LSHIFT) & 0x8000) != 0;
+            const bool rightShiftDown = (GetKeyState(VK_RSHIFT) & 0x8000) != 0;
+            const bool leftCtrlDown   = (GetKeyState(VK_LCONTROL) & 0x8000) != 0;
+            const bool rightCtrlDown  = (GetKeyState(VK_RCONTROL) & 0x8000) != 0;
+            const bool leftAltDown    = (GetKeyState(VK_LMENU) & 0x8000) != 0;
+            const bool rightAltDown   = (GetKeyState(VK_RMENU) & 0x8000) != 0;
+            const bool leftSuperDown  = (GetKeyState(VK_LWIN) & 0x8000) != 0;
+            const bool rightSuperDown = (GetKeyState(VK_RWIN) & 0x8000) != 0;
+
+            io->AddKeyEvent(ImGuiKey_LeftShift, leftShiftDown);
+            io->AddKeyEvent(ImGuiKey_RightShift, rightShiftDown);
+            io->AddKeyEvent(ImGuiKey_LeftCtrl, leftCtrlDown);
+            io->AddKeyEvent(ImGuiKey_RightCtrl, rightCtrlDown);
+            io->AddKeyEvent(ImGuiKey_LeftAlt, leftAltDown);
+            io->AddKeyEvent(ImGuiKey_RightAlt, rightAltDown);
+            io->AddKeyEvent(ImGuiKey_LeftSuper, leftSuperDown);
+            io->AddKeyEvent(ImGuiKey_RightSuper, rightSuperDown);
+
+            io->AddKeyEvent(ImGuiMod_Shift, leftShiftDown || rightShiftDown);
+            io->AddKeyEvent(ImGuiMod_Ctrl, leftCtrlDown || rightCtrlDown);
+            io->AddKeyEvent(ImGuiMod_Alt, leftAltDown || rightAltDown);
+            io->AddKeyEvent(ImGuiMod_Super, leftSuperDown || rightSuperDown);
+        }
+        return 0;
+    }
+    case WM_CHAR:
+        if (io && wParam > 0 && wParam < 0x10000) {
+            io->AddInputCharacterUTF16(static_cast<unsigned short>(wParam));
+        }
+        return 0;
+    }
+
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
+
 #endif
+

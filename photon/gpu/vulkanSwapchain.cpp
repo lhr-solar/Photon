@@ -192,14 +192,38 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
     VkSwapchainKHR oldSwapChain = swapChain;
 
     VkSurfaceCapabilitiesKHR surfCaps;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfCaps));
+    VkResult surfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfCaps);
+    if (surfaceCapabilitiesResult == VK_ERROR_SURFACE_LOST_KHR) {
+        logs("[!] Surface lost while querying capabilities; skipping swap chain recreation");
+        return surfaceCapabilitiesResult;
+    }
+    if (surfaceCapabilitiesResult != VK_SUCCESS) {
+        logs("[!] Failed to query surface capabilities; skipping swap chain recreation with VkResult " << surfaceCapabilitiesResult);
+        return surfaceCapabilitiesResult;
+    }
 
     uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, NULL);
+    VkResult presentModeCountResult = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, NULL);
+    if (presentModeCountResult == VK_ERROR_SURFACE_LOST_KHR) {
+        logs("[!] Surface lost while querying present modes; skipping swap chain recreation");
+        return presentModeCountResult;
+    }
+    if (presentModeCountResult != VK_SUCCESS) {
+        logs("[!] Failed to query surface present modes count; skipping swap chain recreation with VkResult " << presentModeCountResult);
+        return presentModeCountResult;
+    }
     assert(presentModeCount > 0);
 
     std::vector<VkPresentModeKHR> presentModes(presentModeCount);
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data()));
+    VkResult presentModesResult = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data());
+    if (presentModesResult == VK_ERROR_SURFACE_LOST_KHR) {
+        logs("[!] Surface lost while enumerating present modes; skipping swap chain recreation");
+        return presentModesResult;
+    }
+    if (presentModesResult != VK_SUCCESS) {
+        logs("[!] Failed to enumerate surface present modes; skipping swap chain recreation with VkResult " << presentModesResult);
+        return presentModesResult;
+    }
 
     VkExtent2D swapchainExtent = {};
     // if width & height = UINT32_MAX, the size of the surface is set by the swapchain
@@ -290,7 +314,17 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
 		swapchainCI.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
 
-	VK_CHECK(vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapChain));
+	VkResult createSwapchainResult = vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapChain);
+    if (createSwapchainResult == VK_ERROR_SURFACE_LOST_KHR) {
+        logs("[!] Surface lost while creating swap chain; skipping swap chain recreation");
+        swapChain = oldSwapChain;
+        return createSwapchainResult;
+    }
+    if (createSwapchainResult != VK_SUCCESS) {
+        logs("[!] Failed to create swap chain; VkResult " << createSwapchainResult);
+        swapChain = oldSwapChain;
+        return createSwapchainResult;
+    }
     logs("[+] Created Swap Chain");
 
     // delete the old swapchain
