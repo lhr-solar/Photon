@@ -121,6 +121,7 @@ void Photon::render(){
 
 void Photon::draw(){
     prepareFrame();
+    if (!prepared) { return; }
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
@@ -131,6 +132,11 @@ void Photon::draw(){
 void Photon::prepareFrame(){
     // Acquire the next image from the swap chain
 	VkResult result = gpu.vulkanSwapchain.acquireNextImage(gpu.vulkanDevice.logicalDevice, gpu.semaphores.presentComplete, &gpu.currentBuffer);
+	if (result == VK_ERROR_SURFACE_LOST_KHR) {
+        logs("[!] Swap chain surface lost; stopping rendering loop");
+        prepared = false;
+        return;
+    }
 	if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) {
         if (result == VK_ERROR_OUT_OF_DATE_KHR) { windowResize(); }
 		return;
@@ -139,6 +145,11 @@ void Photon::prepareFrame(){
 
 void Photon::submitFrame(){
     VkResult result = gpu.vulkanSwapchain.queuePresent(gpu.vulkanDevice.graphicsQueue, gpu.currentBuffer, gpu.semaphores.renderComplete);
+    if (result == VK_ERROR_SURFACE_LOST_KHR) {
+        logs("[!] Swap chain surface lost during present; stopping rendering loop");
+        prepared = false;
+        return;
+    }
     if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) {
         windowResize();
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) { return; }
@@ -153,7 +164,15 @@ void Photon::windowResize(){
     vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
     gui.width = gui.destWidth;
 	gui.height = gui.destHeight;
-    gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
+    VkResult swapchainResult = gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
+    if (swapchainResult == VK_ERROR_SURFACE_LOST_KHR) {
+        logs("[!] Swap chain recreation skipped because the surface was lost");
+        return;
+    }
+    if (swapchainResult != VK_SUCCESS) {
+        logs("[!] Swap chain recreation failed with VkResult " << swapchainResult);
+        return;
+    }
     vkDestroyImageView(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.view, nullptr);
     vkDestroyImage(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.image, nullptr);
 	vkFreeMemory(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.memory, nullptr);

@@ -15,6 +15,9 @@ struct Inputs{
 
     void handleMouseMove(int32_t x, int32_t y);
     ImGuiKey translateKey(uint32_t key);
+#if defined(_WIN32)
+    ImGuiKey translateWin32Key(uint32_t key);
+#endif
 };
 
 // — Control keys —
