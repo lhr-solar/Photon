@@ -1,5 +1,7 @@
 #include "ui.hpp"
 #include <chrono>
+#include <cmath>
+#include <algorithm>
 
 void UI::build(){
     ImGui::NewFrame();
@@ -7,7 +9,8 @@ void UI::build(){
     ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
     fpsWindow();
-    customShader();
+    customShaderWindow();
+    showCustomImage();
 
     ImGui::Render();
 }
@@ -58,10 +61,38 @@ void UI::fpsWindow(){
     ImGui::End();
 }
 
-void UI::customShader(){
-    if (!customShaderTexture) { return; }
-    if (ImGui::Begin("Custom Shader", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImVec2 size = customShaderTextureSize;
+void UI::customShaderWindow(){
+    if (!customShader.texture) { return; }
+
+    ImGui::SetNextWindowSize(ImVec2(customShader.x, customShader.y), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Custom Shader")) {
+        ImVec2 contentSize = ImGui::GetContentRegionAvail();
+        if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) {
+            contentSize = ImVec2(customShader.x, customShader.y);
+        }
+
+        const float epsilon = 0.5f;
+        if (contentSize.x > 1.0f && contentSize.y > 1.0f) {
+            if (std::fabs(contentSize.x - customShader.x) > epsilon ||
+                std::fabs(contentSize.y - customShader.y) > epsilon) {
+                customShader.x = contentSize.x;
+                customShader.y = contentSize.y;
+                customShader.dirty = true;
+            }
+        }
+
+        ImVec2 drawSize(customShader.x, customShader.y);
+        drawSize.x = std::max(drawSize.x, 1.0f);
+        drawSize.y = std::max(drawSize.y, 1.0f);
+        ImGui::Image(customShader.texture, drawSize);
+    }
+    ImGui::End();
+}
+
+void UI::showCustomImage(){
+    if (!customImageTexture) { return; }
+    if (ImGui::Begin("Custom Image", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImVec2 size = customImageTextureSize;
         if (size.x <= 0.0f || size.y <= 0.0f) { size = ImVec2(512.0f, 512.0f); }
         ImVec2 available = ImGui::GetContentRegionAvail();
         ImVec2 drawSize = size;
@@ -74,7 +105,7 @@ void UI::customShader(){
                 drawSize.y = size.y * scale;
             }
         }
-        ImGui::Image(customShaderTexture, drawSize);
+        ImGui::Image(customImageTexture, drawSize);
     }
     ImGui::End();
 }

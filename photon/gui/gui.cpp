@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string>
 #include <cstring>
+#include <cmath>
+#include <algorithm>
 #include <vulkan/vulkan.h>
 #include "vulkan_core.h"
 #include "gui.hpp"
@@ -29,6 +31,34 @@ Gui::~Gui(){
     xcb_destroy_window(connection, window);
 	xcb_disconnect(connection);
 #endif
+    destroyCustomShaderResources(true);
+    destroyVideoFeedResources(true);
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (guiDescriptorPool != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
+            guiDescriptorPool = VK_NULL_HANDLE;
+        }
+        if (guiDescriptorSetLayout != VK_NULL_HANDLE) {
+            vkDestroyDescriptorSetLayout(deviceHandle, guiDescriptorSetLayout, nullptr);
+            guiDescriptorSetLayout = VK_NULL_HANDLE;
+        }
+        if (sampler != VK_NULL_HANDLE) {
+            vkDestroySampler(deviceHandle, sampler, nullptr);
+            sampler = VK_NULL_HANDLE;
+        }
+        if (fontView != VK_NULL_HANDLE) {
+            vkDestroyImageView(deviceHandle, fontView, nullptr);
+            fontView = VK_NULL_HANDLE;
+        }
+        if (fontImage != VK_NULL_HANDLE) {
+            vkDestroyImage(deviceHandle, fontImage, nullptr);
+            fontImage = VK_NULL_HANDLE;
+        }
+        if (fontMemory != VK_NULL_HANDLE) {
+            vkFreeMemory(deviceHandle, fontMemory, nullptr);
+            fontMemory = VK_NULL_HANDLE;
+        }
+    }
     ImGui::DestroyContext();
     ImPlot::DestroyContext();
     ImPlot3D::DestroyContext();
@@ -62,6 +92,9 @@ void Gui::prepareImGui(){
 
 // initialize all vulkan resources used by the UI
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
+    deviceHandle = vulkanDevice.logicalDevice;
+    destroyCustomShaderResources(true);
+    destroyVideoFeedResources(true);
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
     ui.vendorID = vulkanDevice.deviceProperties.vendorID;
@@ -211,10 +244,12 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
 
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &fontWriteDescriptorSet, 0, nullptr);
     io.Fonts->TexID = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(guiDescriptorSet));
-    ui.customShaderTexture = static_cast<ImTextureID>(0);
-    ui.customShaderTextureSize = ImVec2(0.0f, 0.0f);
+    ui.customShader.texture = static_cast<ImTextureID>(0);
+    ui.customImageTexture = static_cast<ImTextureID>(0);
+    ui.customImageTextureSize = ImVec2(0.0f, 0.0f);
 
-    initCustomShaderResources(vulkanDevice);
+    initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
+    initVideoFeedResources(vulkanDevice);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -367,15 +402,91 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     logs("[+] Created Graphics Gui Pipeline ");
 }
 
-void Gui::initCustomShaderResources(VulkanDevice vulkanDevice){
-    customShader.extent = {512, 512};
+VkExtent2D Gui::getCustomShaderExtent() const {
+    return customShader.extent;
+}
+
+void Gui::resizeCustomShader(VulkanDevice vulkanDevice, float width, float height){
+    VkExtent2D newExtent = calculateCustomShaderExtent(width, height);
+
+    bool resourcesMissing = (customShader.image == VK_NULL_HANDLE) ||
+                            (customShader.view == VK_NULL_HANDLE) ||
+                            (customShader.framebuffer == VK_NULL_HANDLE) ||
+                            (customShader.pipeline == VK_NULL_HANDLE);
+
+    if (!resourcesMissing &&
+        newExtent.width == customShader.extent.width &&
+        newExtent.height == customShader.extent.height) {
+        ui.customShader.x = static_cast<float>(customShader.extent.width);
+        ui.customShader.y = static_cast<float>(customShader.extent.height);
+        ui.customShader.dirty = false;
+        return;
+    }
+
+    initCustomShaderResources(vulkanDevice, newExtent);
+    ui.customShader.x = static_cast<float>(customShader.extent.width);
+    ui.customShader.y = static_cast<float>(customShader.extent.height);
+    ui.customShader.dirty = false;
+}
+
+void Gui::destroyCustomShaderResources(bool releaseDescriptorSet){
+    if (releaseDescriptorSet && customShader.descriptorSet != VK_NULL_HANDLE && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &customShader.descriptorSet);
+        customShader.descriptorSet = VK_NULL_HANDLE;
+    }
+
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (customShader.pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(deviceHandle, customShader.pipeline, nullptr);
+        }
+        if (customShader.pipelineLayout != VK_NULL_HANDLE) {
+            vkDestroyPipelineLayout(deviceHandle, customShader.pipelineLayout, nullptr);
+        }
+        if (customShader.renderPass != VK_NULL_HANDLE) {
+            vkDestroyRenderPass(deviceHandle, customShader.renderPass, nullptr);
+        }
+        if (customShader.framebuffer != VK_NULL_HANDLE) {
+            vkDestroyFramebuffer(deviceHandle, customShader.framebuffer, nullptr);
+        }
+        if (customShader.view != VK_NULL_HANDLE) {
+            vkDestroyImageView(deviceHandle, customShader.view, nullptr);
+        }
+        if (customShader.image != VK_NULL_HANDLE) {
+            vkDestroyImage(deviceHandle, customShader.image, nullptr);
+        }
+        if (customShader.memory != VK_NULL_HANDLE) {
+            vkFreeMemory(deviceHandle, customShader.memory, nullptr);
+        }
+    }
+
+    customShader.extent = {0, 0};
+    customShader.pipeline = VK_NULL_HANDLE;
+    customShader.pipelineLayout = VK_NULL_HANDLE;
+    customShader.renderPass = VK_NULL_HANDLE;
+    customShader.framebuffer = VK_NULL_HANDLE;
+    customShader.view = VK_NULL_HANDLE;
+    customShader.image = VK_NULL_HANDLE;
+    customShader.memory = VK_NULL_HANDLE;
+    customShader.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    customShader.initialized = false;
+    ui.customShader.texture = static_cast<ImTextureID>(0);
+}
+
+void Gui::initCustomShaderResources(VulkanDevice vulkanDevice, VkExtent2D extent){
+    destroyCustomShaderResources();
+
+    if (extent.width == 0 || extent.height == 0) {
+        extent = {512, 512};
+    }
+
+    customShader.extent = extent;
 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.extent.width = customShader.extent.width;
-    imageInfo.extent.height = customShader.extent.height;
+    imageInfo.extent.width = extent.width;
+    imageInfo.extent.height = extent.height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
@@ -451,15 +562,15 @@ void Gui::initCustomShaderResources(VulkanDevice vulkanDevice){
     framebufferInfo.renderPass = customShader.renderPass;
     framebufferInfo.attachmentCount = 1;
     framebufferInfo.pAttachments = &customShader.view;
-    framebufferInfo.width = customShader.extent.width;
-    framebufferInfo.height = customShader.extent.height;
+    framebufferInfo.width = extent.width;
+    framebufferInfo.height = extent.height;
     framebufferInfo.layers = 1;
     VK_CHECK(vkCreateFramebuffer(vulkanDevice.logicalDevice, &framebufferInfo, nullptr, &customShader.framebuffer));
 
     VkPushConstantRange pcRange{};
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pcRange.offset = 0;
-    pcRange.size = sizeof(float);
+    pcRange.size = sizeof(PushConstants);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -534,12 +645,14 @@ void Gui::initCustomShaderResources(VulkanDevice vulkanDevice){
 
     VK_CHECK(vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineInfo, nullptr, &customShader.pipeline));
 
-    VkDescriptorSetAllocateInfo descriptorAlloc{};
-    descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descriptorAlloc.descriptorPool = guiDescriptorPool;
-    descriptorAlloc.descriptorSetCount = 1;
-    descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
-    VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &customShader.descriptorSet));
+    if (customShader.descriptorSet == VK_NULL_HANDLE) {
+        VkDescriptorSetAllocateInfo descriptorAlloc{};
+        descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        descriptorAlloc.descriptorPool = guiDescriptorPool;
+        descriptorAlloc.descriptorSetCount = 1;
+        descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
+        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &customShader.descriptorSet));
+    }
 
     VkDescriptorImageInfo imageDescriptor{};
     imageDescriptor.sampler = sampler;
@@ -555,12 +668,125 @@ void Gui::initCustomShaderResources(VulkanDevice vulkanDevice){
     write.pImageInfo = &imageDescriptor;
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &write, 0, nullptr);
 
-    ui.customShaderTexture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(customShader.descriptorSet));
-    ui.customShaderTextureSize = ImVec2(static_cast<float>(customShader.extent.width), static_cast<float>(customShader.extent.height));
+    ui.customShader.texture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(customShader.descriptorSet));
+    ui.customShader.x = static_cast<float>(customShader.extent.width);
+    ui.customShader.y = static_cast<float>(customShader.extent.height);
+    ui.customShader.dirty = false;
+}
+
+VkExtent2D Gui::calculateCustomShaderExtent(float width, float height) const {
+    float safeWidth = std::max(1.0f, width);
+    float safeHeight = std::max(1.0f, height);
+
+    VkExtent2D extent{};
+    extent.width = static_cast<uint32_t>(std::round(safeWidth));
+    extent.height = static_cast<uint32_t>(std::round(safeHeight));
+    extent.width = std::max<uint32_t>(extent.width, 1u);
+    extent.height = std::max<uint32_t>(extent.height, 1u);
+    return extent;
+}
+
+void Gui::initVideoFeedResources(VulkanDevice vulkanDevice){
+#if defined(__linux__)
+    if (!webcam.initialize("/dev/video0", 640, 480)) {
+        logs("[!] Webcam: failed to initialize /dev/video0");
+        ui.customImageTexture = static_cast<ImTextureID>(0);
+        ui.customImageTextureSize = ImVec2(0.0f, 0.0f);
+        return;
+    }
+
+    videoFeed.extent = {webcam.width(), webcam.height()};
+    if (videoFeed.extent.width == 0 || videoFeed.extent.height == 0) {
+        logs("[!] Webcam: invalid extent " << videoFeed.extent.width << "x" << videoFeed.extent.height);
+        webcam.shutdown();
+        ui.customImageTexture = static_cast<ImTextureID>(0);
+        ui.customImageTextureSize = ImVec2(0.0f, 0.0f);
+        return;
+    }
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.extent.width = videoFeed.extent.width;
+    imageInfo.extent.height = videoFeed.extent.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageInfo, nullptr, &videoFeed.image));
+
+    VkMemoryRequirements memReqs{};
+    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, videoFeed.image, &memReqs);
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReqs.size;
+    allocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &allocInfo, nullptr, &videoFeed.memory));
+    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, videoFeed.image, videoFeed.memory, 0));
+    videoFeed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    videoFeed.initialized = false;
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = videoFeed.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &videoFeed.view));
+
+    if (videoFeed.descriptorSet == VK_NULL_HANDLE) {
+        VkDescriptorSetAllocateInfo descriptorAlloc{};
+        descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        descriptorAlloc.descriptorPool = guiDescriptorPool;
+        descriptorAlloc.descriptorSetCount = 1;
+        descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
+        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &videoFeed.descriptorSet));
+    }
+
+    VkDescriptorImageInfo imageDescriptor{};
+    imageDescriptor.sampler = sampler;
+    imageDescriptor.imageView = videoFeed.view;
+    imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = videoFeed.descriptorSet;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.pImageInfo = &imageDescriptor;
+    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &write, 0, nullptr);
+
+    ui.customImageTexture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(videoFeed.descriptorSet));
+    ui.customImageTextureSize = ImVec2(static_cast<float>(videoFeed.extent.width), static_cast<float>(videoFeed.extent.height));
+
+    videoStagingBufferSize = 0;
+    videoFrameData.clear();
+    logs("[+] Webcam: initialized video feed " << videoFeed.extent.width << "x" << videoFeed.extent.height);
+#else
+    (void)vulkanDevice;
+    ui.customImageTexture = static_cast<ImTextureID>(0);
+    ui.customImageTextureSize = ImVec2(0.0f, 0.0f);
+    logs("[!] Webcam: capture is only supported on Linux");
+#endif
 }
 
 void Gui::recordCustomShaderPass(VkCommandBuffer commandBuffer){
     if (customShader.pipeline == VK_NULL_HANDLE) {
+        return;
+    }
+
+    VkExtent2D extent = getCustomShaderExtent();
+    if (extent.width == 0 || extent.height == 0) {
         return;
     }
 
@@ -583,32 +809,94 @@ void Gui::recordCustomShaderPass(VkCommandBuffer commandBuffer){
     beginInfo.renderPass = customShader.renderPass;
     beginInfo.framebuffer = customShader.framebuffer;
     beginInfo.renderArea.offset = {0, 0};
-    beginInfo.renderArea.extent = customShader.extent;
+    beginInfo.renderArea.extent = extent;
     beginInfo.clearValueCount = 1;
     beginInfo.pClearValues = &clearValue;
 
     vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
     VkViewport viewport{};
-    viewport.width = static_cast<float>(customShader.extent.width);
-    viewport.height = static_cast<float>(customShader.extent.height);
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor{};
-    scissor.extent = customShader.extent;
+    scissor.extent = extent;
     scissor.offset = {0, 0};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, customShader.pipeline);
-    float time = static_cast<float>(ImGui::GetTime());
-    vkCmdPushConstants(commandBuffer, customShader.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float), &time);
+    //float time = static_cast<float>(ImGui::GetTime());
+    pc.resolution = glm::vec2(static_cast<float>(extent.width), static_cast<float>(extent.height));
+    pc.u_time     = (float)ImGui::GetTime();
+    pc.pad        = 0.0f;
+    vkCmdPushConstants(commandBuffer, customShader.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pc);
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
 
     Gpu::setImageLayout(commandBuffer, customShader.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     customShader.initialized = true;
     customShader.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+}
+
+void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
+#if defined(__linux__)
+    if (!webcam.isAvailable()) { return; }
+    if (videoFeed.image == VK_NULL_HANDLE) {
+        initVideoFeedResources(vulkanDevice);
+        if (videoFeed.image == VK_NULL_HANDLE) { return; }
+    }
+
+    if (!webcam.captureFrame(videoFrameData)) { return; }
+    if (videoFrameData.empty()) { return; }
+
+    VkDeviceSize requiredSize = static_cast<VkDeviceSize>(videoFrameData.size());
+    if ((videoStagingBuffer.buffer == VK_NULL_HANDLE) || (requiredSize > videoStagingBufferSize)) {
+        videoStagingBuffer.unmap();
+        videoStagingBuffer.destroy();
+        VK_CHECK(vulkanDevice.createBuffer(
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            &videoStagingBuffer,
+            requiredSize,
+            nullptr));
+        videoStagingBufferSize = requiredSize;
+    }
+
+    VK_CHECK(videoStagingBuffer.map(requiredSize, 0));
+    memcpy(videoStagingBuffer.mapped, videoFrameData.data(), static_cast<size_t>(requiredSize));
+    videoStagingBuffer.unmap();
+
+    VkCommandBuffer copyCmd = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
+    VkImageSubresourceRange range{};
+    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+
+    VkImageLayout oldLayout = videoFeed.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    VkPipelineStageFlags srcStage = videoFeed.initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    Gpu::setImageLayout(copyCmd, videoFeed.image, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    VkBufferImageCopy region{};
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent.width = videoFeed.extent.width;
+    region.imageExtent.height = videoFeed.extent.height;
+    region.imageExtent.depth = 1;
+    vkCmdCopyBufferToImage(copyCmd, videoStagingBuffer.buffer, videoFeed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    Gpu::setImageLayout(copyCmd, videoFeed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    vulkanDevice.flushCommandBuffer(copyCmd, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
+
+    videoFeed.initialized = true;
+    videoFeed.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    ui.customImageTextureSize = ImVec2(static_cast<float>(videoFeed.extent.width), static_cast<float>(videoFeed.extent.height));
+#else
+    (void)vulkanDevice;
+#endif
 }
 
 void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
@@ -629,8 +917,12 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
-
+    updateVideoFeed(vulkanDevice);
     ui.build();
+
+    if (ui.customShader.dirty) {
+        resizeCustomShader(vulkanDevice, ui.customShader.x, ui.customShader.y);
+    }
 
     updateBuffers(vulkanDevice);
 
@@ -771,6 +1063,38 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer){
         vertexOffset += cmd_list->VtxBuffer.Size;
       }
     }
+}
+
+void Gui::destroyVideoFeedResources(bool releaseDescriptorSet){
+    webcam.shutdown();
+
+    if (videoStagingBuffer.buffer != VK_NULL_HANDLE) {
+        videoStagingBuffer.unmap();
+        videoStagingBuffer.destroy();
+        videoStagingBufferSize = 0;
+    }
+
+    if (releaseDescriptorSet && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE && videoFeed.descriptorSet != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &videoFeed.descriptorSet);
+        videoFeed.descriptorSet = VK_NULL_HANDLE;
+    }
+
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (videoFeed.view != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, videoFeed.view, nullptr); }
+        if (videoFeed.image != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, videoFeed.image, nullptr); }
+        if (videoFeed.memory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, videoFeed.memory, nullptr); }
+    }
+
+    videoFeed.view = VK_NULL_HANDLE;
+    videoFeed.image = VK_NULL_HANDLE;
+    videoFeed.memory = VK_NULL_HANDLE;
+    videoFeed.extent = {0, 0};
+    videoFeed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    videoFeed.initialized = false;
+
+    videoFrameData.clear();
+    ui.customImageTexture = static_cast<ImTextureID>(0);
+    ui.customImageTextureSize = ImVec2(0.0f, 0.0f);
 }
 
 #ifdef XCB

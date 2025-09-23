@@ -14,8 +14,6 @@ Photon::~Photon(){
     gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
     if(gpu.descriptorPool != VK_NULL_HANDLE)
         vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gpu.descriptorPool, nullptr);
-    if(gui.guiDescriptorPool != VK_NULL_HANDLE)
-        vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gui.guiDescriptorPool, nullptr);
 
 };
 
