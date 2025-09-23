@@ -32,10 +32,16 @@ struct UI{
         int effectType = 0;
     } renderSettings;
 
-    ImTextureID customShaderTexture = static_cast<ImTextureID>(0);
-    ImVec2 customShaderTextureSize = ImVec2(0.0f, 0.0f);
+    struct CustomShaderPanel : ImVec2 {
+        CustomShaderPanel() : ImVec2(512.0f, 512.0f) {}
+        ImTextureID texture = static_cast<ImTextureID>(0);
+        bool dirty = false;
+    } customShader;
+    ImTextureID customImageTexture = static_cast<ImTextureID>(0);
+    ImVec2 customImageTextureSize = ImVec2(0.0f, 0.0f);
 
     void build();
     void fpsWindow();
-    void customShader();
+    void customShaderWindow();
+    void showCustomImage();
 };
