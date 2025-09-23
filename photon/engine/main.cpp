@@ -10,7 +10,6 @@ int main(){
     photon.prepareScene();
     photon.initThreads();
     photon.renderLoop();
-
     return 0;
 }
 #endif
