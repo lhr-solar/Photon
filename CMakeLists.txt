@@ -57,6 +57,7 @@ ELSE()
 ENDIF(WIN32)
 
 add_subdirectory(kernels)
+add_subdirectory(fonts)
 add_subdirectory(photon)
 
 if (WIN32)

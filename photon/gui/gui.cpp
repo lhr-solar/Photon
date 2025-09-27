@@ -22,6 +22,7 @@
 #include "custom_shader_vert_spv.hpp"
 #include "background_frag_spv.hpp"
 #include "background_vert_spv.hpp"
+#include "Satoshi_Medium_ttf.hpp"
 
 #ifdef WIN
 #include <windowsx.h>
@@ -91,6 +92,17 @@ void Gui::prepareImGui(){
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
     io.IniFilename = nullptr;
+    ImFontConfig fontConfig;
+    fontConfig.FontDataOwnedByAtlas = false;
+    ImFont *satoshi = io.Fonts->AddFontFromMemoryTTF(
+        (void *)Satoshi_Medium_ttf,
+        static_cast<int>(Satoshi_Medium_ttf_size),
+        18.0f,
+        &fontConfig
+    );
+    if (satoshi != nullptr) {
+        io.FontDefault = satoshi;
+    }
 }
 
 // initialize all vulkan resources used by the UI
