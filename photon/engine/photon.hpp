@@ -13,9 +13,9 @@ class Photon{
 private:
 
 public:
+    Network network;
     Gpu gpu;
     Gui gui;
-    Network network;
     Parse parse;
     Synth synth;
 

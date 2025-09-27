@@ -8,7 +8,10 @@
 #include "../gui/gui.hpp"
 #include "imgui.h"
 
-Photon::Photon() { logs("[+] Constructing Photon"); };
+Photon::Photon(){ 
+    logs("[+] Constructing Photon"); 
+    gui.ui.networkINTF = &network;
+};
 Photon::~Photon(){ 
     logs("[!] Destructuring Photon");
     gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
@@ -50,6 +53,10 @@ void Photon::initThreads(){
     logs("[?] Cache line size (constructive): " << std::hardware_constructive_interference_size);
     logs("[?] Usable Hardware Threads: " << std::thread::hardware_concurrency());
 #endif
+    std::thread producer_t(&Network::producer, &network);
+    producer_t.detach();
+    std::thread parser_t(&Network::parser, &network);
+    parser_t.detach();
 }
 
 void Photon::renderLoop(){
