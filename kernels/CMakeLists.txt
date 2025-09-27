@@ -13,6 +13,8 @@ set(KERNEL_SOURCES
     ${KERNEL_DIR}/ui.frag
     ${KERNEL_DIR}/custom_shader.vert
     ${KERNEL_DIR}/custom_shader.frag
+    ${KERNEL_DIR}/background.vert
+    ${KERNEL_DIR}/background.frag
 )
 
 # convert GLSL to SPIR-V

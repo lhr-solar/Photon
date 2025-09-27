@@ -6,17 +6,24 @@
 void UI::build(){
     ImGui::NewFrame();
 
+    customBackground();
     ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
     fpsWindow();
     customShaderWindow();
-    showCustomImage();
+    showVideoDisplay();
 
     ImGui::Render();
 }
 
 void UI::fpsWindow(){
     ImGuiIO &io = ImGui::GetIO();
+    ImVec2 padding(12.0f, 12.0f);
+    ImVec2 windowPos = ImVec2(io.DisplaySize.x - padding.x, padding.y);
+    ImVec2 windowPivot = ImVec2(1.0f, 0.0f);
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, windowPivot);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+
     float ft = io.DeltaTime * 1000.0f;
     for (size_t i = 1; i < renderSettings.frameTimes.size(); ++i) {
         renderSettings.frameTimes[i - 1] = renderSettings.frameTimes[i];
@@ -28,8 +35,21 @@ void UI::fpsWindow(){
         renderSettings.frameTimeMin = std::min(renderSettings.frameTimeMin, v);
         renderSettings.frameTimeMax = std::max(renderSettings.frameTimeMax, v);
     }
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_AlwaysAutoResize |
+                                   ImGuiWindowFlags_NoDecoration |
+                                   ImGuiWindowFlags_NoMove |
+                                   ImGuiWindowFlags_NoSavedSettings |
+                                   ImGuiWindowFlags_NoNav |
+                                   ImGuiWindowFlags_NoFocusOnAppearing |
+                                   ImGuiWindowFlags_NoBackground;
+
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+
     // Stats window
-    if (ImGui::Begin("Photon Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::Begin("Photon Stats", nullptr, windowFlags)) {
         ImGuiIO &io = ImGui::GetIO();
         float fps = io.Framerate;
         float ft_ms = (io.DeltaTime > 0.0f) ? (io.DeltaTime * 1000.0f) : 0.0f;
@@ -59,6 +79,7 @@ void UI::fpsWindow(){
                          ImVec2(240, 80));
     }
     ImGui::End();
+    ImGui::PopStyleColor(4);
 }
 
 void UI::customShaderWindow(){
@@ -89,10 +110,10 @@ void UI::customShaderWindow(){
     ImGui::End();
 }
 
-void UI::showCustomImage(){
-    if (!customImageTexture) { return; }
+void UI::showVideoDisplay(){
+    if (!videoTexture) { return; }
     if (ImGui::Begin("Custom Image", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImVec2 size = customImageTextureSize;
+        ImVec2 size = videoTextureSize;
         if (size.x <= 0.0f || size.y <= 0.0f) { size = ImVec2(512.0f, 512.0f); }
         ImVec2 available = ImGui::GetContentRegionAvail();
         ImVec2 drawSize = size;
@@ -105,7 +126,31 @@ void UI::showCustomImage(){
                 drawSize.y = size.y * scale;
             }
         }
-        ImGui::Image(customImageTexture, drawSize);
+        ImGui::Image(videoTexture, drawSize);
     }
     ImGui::End();
+}
+
+void UI::customBackground(){
+    ImGuiIO &io = ImGui::GetIO();
+    ImVec2 displaySize = io.DisplaySize;
+    if (displaySize.x > 0.0f && displaySize.y > 0.0f) {
+        const float epsilon = 0.5f;
+        if (std::fabs(background.x - displaySize.x) > epsilon ||
+            std::fabs(background.y - displaySize.y) > epsilon) {
+            background.x = displaySize.x;
+            background.y = displaySize.y;
+            background.dirty = true;
+        }
+    }
+
+    if (!background.texture) { return; }
+
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+    if (!viewport) { return; }
+
+    ImDrawList *drawList = ImGui::GetBackgroundDrawList(viewport);
+    ImVec2 min = viewport->Pos;
+    ImVec2 max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
+    drawList->AddImage(this->background.texture, min, max);
 }

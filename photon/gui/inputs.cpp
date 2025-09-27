@@ -130,4 +130,3 @@ ImGuiKey Inputs::translateWin32Key(uint32_t key){
     return ImGuiKey_None;
 }
 #endif
-
