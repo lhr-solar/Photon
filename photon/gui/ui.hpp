@@ -37,11 +37,19 @@ struct UI{
         ImTextureID texture = static_cast<ImTextureID>(0);
         bool dirty = false;
     } customShader;
-    ImTextureID customImageTexture = static_cast<ImTextureID>(0);
-    ImVec2 customImageTextureSize = ImVec2(0.0f, 0.0f);
+
+    struct BackgroundPanel : ImVec2 {
+        BackgroundPanel() : ImVec2(0.0f, 0.0f) {}
+        ImTextureID texture = static_cast<ImTextureID>(0);
+        bool dirty = false;
+    } background;
+
+    ImTextureID videoTexture = static_cast<ImTextureID>(0);
+    ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
 
     void build();
     void fpsWindow();
     void customShaderWindow();
-    void showCustomImage();
+    void showVideoDisplay();
+    void customBackground();
 };

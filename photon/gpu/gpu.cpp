@@ -406,6 +406,7 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device){
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(int); // TODO why the hardcode?? should be sizeof(pushconstblock)
+
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.setLayoutCount = 1;
