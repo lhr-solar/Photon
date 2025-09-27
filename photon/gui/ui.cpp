@@ -1,4 +1,5 @@
 #include "ui.hpp"
+#include "../engine/include.hpp"
 #include <chrono>
 #include <cmath>
 #include <algorithm>
@@ -12,6 +13,7 @@ void UI::build(){
     fpsWindow();
     customShaderWindow();
     showVideoDisplay();
+    networkSamplePlot();
 
     ImGui::Render();
 }
@@ -128,6 +130,105 @@ void UI::showVideoDisplay(){
         }
         ImGui::Image(videoTexture, drawSize);
     }
+    ImGui::End();
+}
+
+void UI::networkSamplePlot(){
+    ImGui::SetNextWindowSize(ImVec2(460.0f, 300.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Network Samples")) {
+        ImGui::End();
+        return;
+    }
+
+    if (!networkINTF) {
+        ImGui::TextUnformatted("Network interface unavailable.");
+        ImGui::End();
+        return;
+    }
+
+    const uint16_t sampleCanId = 0x07FF;
+
+    struct ScrollingBuffer {
+        int MaxSize;
+        int Offset;
+        ImVector<ImVec2> Data;
+        ScrollingBuffer(int maxSize = 2400) : MaxSize(maxSize), Offset(0) {
+            Data.reserve(MaxSize);
+        }
+        void AddPoint(float x, float y) {
+            if (Data.size() < static_cast<size_t>(MaxSize)) {
+                Data.push_back(ImVec2(x, y));
+            } else {
+                Data[Offset] = ImVec2(x, y);
+                Offset = (Offset + 1) % MaxSize;
+            }
+        }
+        void Clear() {
+            Data.shrink(0);
+            Offset = 0;
+        }
+    };
+
+    static ScrollingBuffer sampleHistory;
+    static uint64_t lastSampleValue = 0;
+    static bool haveSample = false;
+    static float historySeconds = 10.0f;
+    static float accumulatedTime = 0.0f;
+
+    ImGui::Text("CAN 0x%03X", sampleCanId);
+    ImGui::SliderFloat("History", &historySeconds, 1.0f, 60.0f, "%.1f s");
+
+    ImGuiIO &io = ImGui::GetIO();
+    accumulatedTime += io.DeltaTime;
+
+    uint64_t rawValue = 0;
+    if (networkINTF->readSample(sampleCanId, rawValue)) {
+        lastSampleValue = rawValue;
+        haveSample = true;
+    }
+
+    if (haveSample) {
+        sampleHistory.AddPoint(accumulatedTime, static_cast<float>(lastSampleValue));
+    }
+
+    if (!haveSample || sampleHistory.Data.empty()) {
+        ImGui::Text("Waiting for samples...");
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text(networkINTF->IP.c_str());
+    ImGui::Text("Last value: 0x%016llX (%llu)",
+                static_cast<unsigned long long>(lastSampleValue),
+                static_cast<unsigned long long>(lastSampleValue));
+
+    float yMin = sampleHistory.Data[0].y;
+    float yMax = sampleHistory.Data[0].y;
+    for (const ImVec2& point : sampleHistory.Data) {
+        yMin = std::min(yMin, point.y);
+        yMax = std::max(yMax, point.y);
+    }
+    if (yMin == yMax) {
+        yMax = yMin + 1.0f;
+        yMin = yMin - 1.0f;
+    } else {
+        const float padding = (yMax - yMin) * 0.05f;
+        yMin -= padding;
+        yMax += padding;
+    }
+
+    const float plotStartTime = std::max(accumulatedTime - historySeconds, 0.0f);
+
+    if (ImPlot::BeginPlot("##network_samples", ImVec2(-1, -1))) {
+        ImPlot::SetupAxes("Time (s)", "Value", ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_None);
+        ImPlot::SetupAxisLimits(ImAxis_X1, plotStartTime, accumulatedTime, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, yMin, yMax, ImGuiCond_Always);
+        ImPlot::SetNextLineStyle(ImGui::GetStyle().Colors[ImGuiCol_PlotLines], 2.0f);
+        ImPlot::PlotLine("Sample", &sampleHistory.Data[0].x, &sampleHistory.Data[0].y,
+                         static_cast<int>(sampleHistory.Data.size()), 0, sampleHistory.Offset, sizeof(ImVec2));
+        ImPlot::EndPlot();
+    }
+
     ImGui::End();
 }
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "../network/network.hpp"
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
@@ -7,6 +8,7 @@
 #include <array>
 
 struct UI{
+    Network *networkINTF;
     char deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {0};
     uint32_t vendorID = 0;
     uint32_t deviceID = 0;
@@ -52,4 +54,5 @@ struct UI{
     void customShaderWindow();
     void showVideoDisplay();
     void customBackground();
+    void networkSamplePlot();
 };

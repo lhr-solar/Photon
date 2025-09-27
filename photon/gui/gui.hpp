@@ -12,7 +12,9 @@
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../engine/include.hpp"
+#include "../network/network.hpp"
 #include "webcam.hpp"
+
 
 #ifdef XCB
 #include "xcb/xcb.h"
@@ -30,6 +32,7 @@ public:
     HINSTANCE windowInstance;
     HWND window;
 #endif
+    UI ui;
 
     uint32_t width = 1280;
     uint32_t height = 720;
@@ -102,7 +105,6 @@ public:
     WebcamCapture webcam;
     VkDevice deviceHandle = VK_NULL_HANDLE;
 
-    UI ui;
     Inputs inputs;
 
     VkImage fontImage = VK_NULL_HANDLE;
