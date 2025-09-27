@@ -3,7 +3,6 @@
 .vscode
 artifacts
 imgui.ini
-Photon
 perf.data
 perf.data.old
 Photon.exe
