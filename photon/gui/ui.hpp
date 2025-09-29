@@ -49,6 +49,7 @@ struct UI{
     ImTextureID videoTexture = static_cast<ImTextureID>(0);
     ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
 
+    void setStyle();
     void build();
     void fpsWindow();
     void customShaderWindow();
