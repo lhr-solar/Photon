@@ -94,15 +94,11 @@ void Gui::prepareImGui(){
     io.IniFilename = nullptr;
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
-    ImFont *satoshi = io.Fonts->AddFontFromMemoryTTF(
-        (void *)Satoshi_Medium_ttf,
-        static_cast<int>(Satoshi_Medium_ttf_size),
-        18.0f,
-        &fontConfig
-    );
-    if (satoshi != nullptr) {
-        io.FontDefault = satoshi;
-    }
+    ImFont *satoshi = io.Fonts->AddFontFromMemoryTTF((void *)Satoshi_Medium_ttf, 
+            static_cast<int>(Satoshi_Medium_ttf_size), 18.0f, &fontConfig);
+    if (satoshi != nullptr) { io.FontDefault = satoshi; }
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ui.setStyle();
 }
 
 // initialize all vulkan resources used by the UI
