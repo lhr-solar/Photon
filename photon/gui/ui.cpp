@@ -339,4 +339,5 @@ void UI::setStyle(){
 
     colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     setStyle = UIstyle;
+    setStyle.ScaleAllSizes(1.0f);
 }
