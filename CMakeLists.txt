@@ -62,5 +62,5 @@ add_subdirectory(photon)
 
 if (WIN32)
     set_target_properties(Photon PROPERTIES WIN32_EXECUTABLE TRUE)
-    add_compile_definitions( WIN32_LEAN_AND_MEAN NOMINMAX _USE_MATH_DEFINES )
+    add_compile_definitions( WIN32_LEAN_AND_MEAN NOMINMAX _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 endif()

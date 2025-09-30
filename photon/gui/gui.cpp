@@ -98,6 +98,7 @@ void Gui::prepareImGui(){
             static_cast<int>(Satoshi_Medium_ttf_size), 18.0f, &fontConfig);
     if (satoshi != nullptr) { io.FontDefault = satoshi; }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.FontGlobalScale = 1.0f;
     ui.setStyle();
 }
 
@@ -1735,6 +1736,20 @@ void Gui::initWindow(HINSTANCE hInstance){
     wndClass.lpszMenuName = NULL;
     wndClass.lpszClassName = name.c_str();
 
+    constexpr WORD PHOTON_APP_ICON_ID = 101;
+    HICON largeIcon = LoadIcon(hInstance, MAKEINTRESOURCE(PHOTON_APP_ICON_ID));
+    HICON smallIcon = static_cast<HICON>(LoadImage(
+        hInstance,
+        MAKEINTRESOURCE(PHOTON_APP_ICON_ID),
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON),
+        GetSystemMetrics(SM_CYSMICON),
+        0));
+
+    if (!smallIcon) {smallIcon = largeIcon;}
+    if (largeIcon)  {wndClass.hIcon = largeIcon;}
+    if (smallIcon)  {wndClass.hIconSm = smallIcon;}
+
     if (!RegisterClassEx(&wndClass)){
         std::cout << "Could not register window class!\n";
         fflush(stdout);
@@ -1760,6 +1775,41 @@ void Gui::initWindow(HINSTANCE hInstance){
         hInstance,
         this);
 
+    if (window) {
+        if (largeIcon){SendMessage(window, WM_SETICON, ICON_BIG, (LPARAM)largeIcon);}
+        if (smallIcon){SendMessage(window, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);}
+    }
+
+	const DWORD DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+	const DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
+	const DWORD DWMWA_SYSTEMBACKDROP_TYPE = 38; // Mica backdrop
+
+	HMODULE dwm = LoadLibraryA("dwmapi.dll");
+	if (dwm){
+		using DwmSetWindowAttributeFunc = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+		auto DwmSetWindowAttributePtr = reinterpret_cast<DwmSetWindowAttributeFunc>(
+			GetProcAddress(dwm, "DwmSetWindowAttribute"));
+		if (DwmSetWindowAttributePtr){
+			BOOL enabled = TRUE;
+			DwmSetWindowAttributePtr(window, DWMWA_USE_IMMERSIVE_DARK_MODE, &enabled, sizeof(enabled));
+			DwmSetWindowAttributePtr(window, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, &enabled, sizeof(enabled));
+			DWORD backdrop = 2; // Mica
+			DwmSetWindowAttributePtr(window, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+		}
+		FreeLibrary(dwm);
+	}
+
+	HMODULE ux = LoadLibraryA("uxtheme.dll");
+	if (ux){
+		using SetWindowThemeFunc = HRESULT(WINAPI*)(HWND, LPCWSTR, LPCWSTR);
+		auto SetWindowThemePtr = reinterpret_cast<SetWindowThemeFunc>(
+			GetProcAddress(ux, "SetWindowTheme"));
+		if (SetWindowThemePtr){
+			SetWindowThemePtr(window, L"DarkMode_Explorer", nullptr);
+		}
+		FreeLibrary(ux);
+	}
+    
     if (!window){
         std::cerr << "Could not create window!\n";
         fflush(stdout);
