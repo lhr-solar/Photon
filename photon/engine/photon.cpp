@@ -39,6 +39,10 @@ void Photon::prepareScene(){
    gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
    gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
    gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
+   
+   // Load GLTF model if available
+   gpu.loadGLTFModel("models/daybreak.glb");
+   
    gui.prepareImGui();
    gui.initResources(gpu.vulkanDevice, gpu.renderPass);
    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
