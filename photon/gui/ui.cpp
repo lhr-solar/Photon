@@ -197,7 +197,6 @@ void UI::networkSamplePlot(){
         return;
     }
 
-    ImGui::Text(networkINTF->IP.c_str());
     ImGui::Text("Last value: 0x%016llX (%llu)",
                 static_cast<unsigned long long>(lastSampleValue),
                 static_cast<unsigned long long>(lastSampleValue));
@@ -254,4 +253,91 @@ void UI::customBackground(){
     ImVec2 min = viewport->Pos;
     ImVec2 max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
     drawList->AddImage(this->background.texture, min, max);
+}
+
+void UI::setStyle(){
+    ImGuiStyle UIstyle = ImGui::GetStyle();
+    // pointer to store style, do not modify directly
+    ImGuiStyle &setStyle = ImGui::GetStyle();     
+
+    ImVec4* colors = UIstyle.Colors;
+    colors[ImGuiCol_WindowBg] =
+        ImVec4(0.0f, 0.0f, 0.0f, 0.9f); 
+    colors[ImGuiCol_ChildBg] =
+        ImVec4(0.0f, 0.0f, 0.0f, 0.9f);
+    colors[ImGuiCol_PopupBg] =
+        ImVec4(0.05f, 0.05f, 0.05f, 0.9f);
+
+    // Borders and separators
+    colors[ImGuiCol_Border] =
+        ImVec4(0.2f, 0.2f, 0.2f, 1.0f); 
+    colors[ImGuiCol_Separator] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+
+    // Text colors
+    colors[ImGuiCol_Text] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); 
+    colors[ImGuiCol_TextDisabled] =
+        ImVec4(0.5f, 0.5f, 0.5f, 1.0f); 
+
+    // Headers and title
+    colors[ImGuiCol_Header] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f); 
+    colors[ImGuiCol_HeaderHovered] =
+        ImVec4(0.25f, 0.25f, 0.25f, 1.0f); 
+    colors[ImGuiCol_HeaderActive] =
+        ImVec4(0.3f, 0.3f, 0.3f, 1.0f); 
+
+    colors[ImGuiCol_TitleBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.0f, 0.0f, 0.0f, 0.7f);
+
+    // Buttons
+    colors[ImGuiCol_Button] = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+
+    // Sliders, checks, etc.
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+
+    colors[ImGuiCol_CheckMark] =
+        ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Frame backgrounds
+    colors[ImGuiCol_FrameBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.2f, 0.2f, 0.2f, 0.9f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.3f, 0.3f, 0.3f, 0.9f);
+
+    // Tabs
+    colors[ImGuiCol_Tab] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
+    colors[ImGuiCol_TabHovered] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    colors[ImGuiCol_TabActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+    colors[ImGuiCol_TabUnfocused] = ImVec4(0.1f, 0.1f, 0.1f, 0.8f);
+    colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.2f, 0.2f, 0.2f, 0.8f);
+
+    // Resize grips
+    colors[ImGuiCol_ResizeGrip] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
+    colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.3f, 0.3f, 0.3f, 0.5f);
+    colors[ImGuiCol_ResizeGripActive] = ImVec4(0.4f, 0.4f, 0.4f, 0.7f);
+
+    // Scrollbar
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.5f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.2f, 0.2f, 0.2f, 0.7f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.3f, 0.3f, 0.3f, 0.8f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+
+    // Misc
+    colors[ImGuiCol_PlotLines] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+    colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    colors[ImGuiCol_PlotHistogram] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+
+    colors[ImGuiCol_DragDropTarget] = ImVec4(1.0f, 1.0f, 1.0f, 0.9f);
+    colors[ImGuiCol_NavHighlight] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+
+    // Transparency handling
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.8f);
+
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    setStyle = UIstyle;
+    setStyle.ScaleAllSizes(1.0f);
 }
