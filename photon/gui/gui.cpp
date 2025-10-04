@@ -22,9 +22,68 @@
 #include "custom_shader_vert_spv.hpp"
 #include "background_frag_spv.hpp"
 #include "background_vert_spv.hpp"
+#include "Satoshi_Medium_ttf.hpp"
 
 #ifdef WIN
 #include <windowsx.h>
+#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE
+#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE ((DPI_AWARENESS_CONTEXT)-3)
+#endif
+#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT)-4)
+#endif
+
+static void dpiAware(){
+    static bool applied = false;
+    if (applied){
+        return;
+    }
+    applied = true;
+
+    HMODULE user32 = LoadLibraryA("user32.dll");
+    BOOL awarenessSet = FALSE;
+    if (user32){
+        typedef BOOL (WINAPI *SetProcessDpiAwarenessContextFn)(DPI_AWARENESS_CONTEXT);
+        typedef BOOL (WINAPI *SetProcessDPIAwareFn)(void);
+        SetProcessDpiAwarenessContextFn setContext = reinterpret_cast<SetProcessDpiAwarenessContextFn>(
+            GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
+        if (setContext){
+            awarenessSet = setContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            if (!awarenessSet){
+                awarenessSet = setContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+            }
+            if (awarenessSet){
+                logs("[+] Enabled per-monitor DPI awareness via SetProcessDpiAwarenessContext");
+                FreeLibrary(user32);
+                return;
+            }
+        }
+
+        HMODULE shcore = LoadLibraryA("shcore.dll");
+        if (shcore){
+            typedef HRESULT (WINAPI *SetProcessDpiAwarenessFn)(PROCESS_DPI_AWARENESS);
+            SetProcessDpiAwarenessFn setAwareness = reinterpret_cast<SetProcessDpiAwarenessFn>(
+                GetProcAddress(shcore, "SetProcessDpiAwareness"));
+            if (setAwareness){
+                HRESULT hr = setAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+                if (hr == S_OK || hr == E_ACCESSDENIED){
+                    logs("[+] Enabled per-monitor DPI awareness via SetProcessDpiAwareness");
+                    FreeLibrary(shcore);
+                    FreeLibrary(user32);
+                    return;
+                }
+            }
+            FreeLibrary(shcore);
+        }
+
+        SetProcessDPIAwareFn setLegacy = reinterpret_cast<SetProcessDPIAwareFn>(
+            GetProcAddress(user32, "SetProcessDPIAware"));
+        if (setLegacy && setLegacy()){
+            logs("[+] Enabled system DPI awareness via SetProcessDPIAware");
+        }
+        FreeLibrary(user32);
+    }
+}
 #endif
 
 Gui::Gui(){};
@@ -91,6 +150,14 @@ void Gui::prepareImGui(){
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
     io.IniFilename = nullptr;
+    ImFontConfig fontConfig;
+    fontConfig.FontDataOwnedByAtlas = false;
+    ImFont *satoshi = io.Fonts->AddFontFromMemoryTTF((void *)Satoshi_Medium_ttf, 
+            static_cast<int>(Satoshi_Medium_ttf_size), 18.0f, &fontConfig);
+    if (satoshi != nullptr) { io.FontDefault = satoshi; }
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.FontGlobalScale = 1.0f;
+    ui.setStyle();
 }
 
 // initialize all vulkan resources used by the UI
@@ -1714,6 +1781,7 @@ LRESULT CALLBACK Gui::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 void Gui::initWindow(HINSTANCE hInstance){
     windowInstance = hInstance;
+    dpiAware();
     WNDCLASSEX wndClass{};
 
     wndClass.cbSize = sizeof(WNDCLASSEX);
@@ -1726,6 +1794,20 @@ void Gui::initWindow(HINSTANCE hInstance){
     wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wndClass.lpszMenuName = NULL;
     wndClass.lpszClassName = name.c_str();
+
+    constexpr WORD PHOTON_APP_ICON_ID = 101;
+    HICON largeIcon = LoadIcon(hInstance, MAKEINTRESOURCE(PHOTON_APP_ICON_ID));
+    HICON smallIcon = static_cast<HICON>(LoadImage(
+        hInstance,
+        MAKEINTRESOURCE(PHOTON_APP_ICON_ID),
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON),
+        GetSystemMetrics(SM_CYSMICON),
+        0));
+
+    if (!smallIcon) {smallIcon = largeIcon;}
+    if (largeIcon)  {wndClass.hIcon = largeIcon;}
+    if (smallIcon)  {wndClass.hIconSm = smallIcon;}
 
     if (!RegisterClassEx(&wndClass)){
         std::cout << "Could not register window class!\n";
@@ -1752,6 +1834,41 @@ void Gui::initWindow(HINSTANCE hInstance){
         hInstance,
         this);
 
+    if (window) {
+        if (largeIcon){SendMessage(window, WM_SETICON, ICON_BIG, (LPARAM)largeIcon);}
+        if (smallIcon){SendMessage(window, WM_SETICON, ICON_SMALL, (LPARAM)smallIcon);}
+    }
+
+	const DWORD DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+	const DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
+	const DWORD DWMWA_SYSTEMBACKDROP_TYPE = 38; // Mica backdrop
+
+	HMODULE dwm = LoadLibraryA("dwmapi.dll");
+	if (dwm){
+		using DwmSetWindowAttributeFunc = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+		auto DwmSetWindowAttributePtr = reinterpret_cast<DwmSetWindowAttributeFunc>(
+			GetProcAddress(dwm, "DwmSetWindowAttribute"));
+		if (DwmSetWindowAttributePtr){
+			BOOL enabled = TRUE;
+			DwmSetWindowAttributePtr(window, DWMWA_USE_IMMERSIVE_DARK_MODE, &enabled, sizeof(enabled));
+			DwmSetWindowAttributePtr(window, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, &enabled, sizeof(enabled));
+			DWORD backdrop = 2; // Mica
+			DwmSetWindowAttributePtr(window, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+		}
+		FreeLibrary(dwm);
+	}
+
+	HMODULE ux = LoadLibraryA("uxtheme.dll");
+	if (ux){
+		using SetWindowThemeFunc = HRESULT(WINAPI*)(HWND, LPCWSTR, LPCWSTR);
+		auto SetWindowThemePtr = reinterpret_cast<SetWindowThemeFunc>(
+			GetProcAddress(ux, "SetWindowTheme"));
+		if (SetWindowThemePtr){
+			SetWindowThemePtr(window, L"DarkMode_Explorer", nullptr);
+		}
+		FreeLibrary(ux);
+	}
+    
     if (!window){
         std::cerr << "Could not create window!\n";
         fflush(stdout);
