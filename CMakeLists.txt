@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(.external)
+include_directories(.external/tinygltf)
 include_directories(.external/glm)
 include_directories(.external/vulkan)
 include_directories(.external/vk_video)

@@ -8,6 +8,7 @@
 #include "vulkanDevice.hpp"
 #include "vulkanSwapchain.hpp"
 #include "vulkanBuffer.hpp"
+#include "vulkanGLTF.hpp"
 #include "camera.hpp"
 
 #define VK_CHECK(x) do { VkResult err = x; if (err) { \
@@ -74,6 +75,9 @@ public:
     std::vector<VkShaderModule> shaderModules;
 
     uint32_t currentBuffer = 0;
+    
+    // GLTF model loading
+    vulkanGLTF gltfLoader;
 
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
@@ -90,6 +94,8 @@ public:
     void updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed);
     void setupLayoutsAndDescriptors(VkDevice device);
     void preparePipelines(VkDevice device);
+    bool loadGLTFModel(const std::string& filename);
+    void renderGLTFModel(VkCommandBuffer commandBuffer);
     static VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
     static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
 
