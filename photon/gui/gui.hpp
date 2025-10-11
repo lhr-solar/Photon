@@ -14,6 +14,7 @@
 #include "../engine/include.hpp"
 #include "../network/network.hpp"
 #include "webcam.hpp"
+#include "../gpu/vulkanVideoDecode.hpp"
 
 
 #ifdef XCB
@@ -128,14 +129,20 @@ public:
 
     bool quit = false;
 
-
     struct alignas(16) PushConstants {
-    glm::vec2 resolution;
-    float     u_time;
-    float     pad;
+        glm::vec2 resolution;
+        float     u_time;
+        float     pad;
     };
 
     PushConstants pc{};
+
+    // H.264 Video decoder
+    std::unique_ptr<VulkanVideo> h264Decoder;
+    VkDescriptorSet h264VideoDescriptorSet = VK_NULL_HANDLE;
+    bool h264VideoInitialized = false;
+    float h264PlaybackSpeed = 30.0f;
+    float h264FrameTimer = 0.0f;
 
     Gui();
     ~Gui();
@@ -161,6 +168,7 @@ public:
 
     void initVideoFeedResources(VulkanDevice vulkanDevice);
     void updateVideoFeed(VulkanDevice vulkanDevice);
+    void updateH264Video(VulkanDevice vulkanDevice);
     void destroyVideoFeedResources(bool releaseDescriptorSet = false);
 
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
