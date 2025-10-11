@@ -55,8 +55,8 @@ void Network::parser(){
             spscQueue.pop();
 
             if (ch == 't') {
-                frame.clear();
-                frame.push_back(ch);
+                frame.clear(); // clelaing the message frame
+                frame.push_back(ch); //appending the ch to the end
                 collecting = true;
                 continue;
             }
@@ -77,12 +77,43 @@ void Network::parser(){
                 continue;
             }
 
+            if (!collecting && ch == 'B') {
+                frame.push_back(ch);
+                frame.push_back(ch);
+                frame.push_back(ch);
+                if (frame.size() >= 3 && frame.substr(frame.size() - 3) == "BO_") {
+            logs("[parser] Detected DBC message definition");
+            frame.clear();
             frame.push_back(ch);
-        } else {
+            collecting = true;
+            continue;
+        }
+    }
+            if (collecting && frame.size() >= 3 && frame[0] == 'B') {
+                // Detect if we just started a new SG_ inside a DBC message
+                size_t len = frame.size();
+                if (len >= 3 && frame[len - 3] == 'S' && frame[len - 2] == 'G' && ch == '_') {
+                    // Complete the "SG_" sequence
+                    frame.push_back(ch);
+
+                    // Handle the previous BO_ frame before starting a new one
+                    handleDBCframe(frame);
+                    // example: store message ID for current context
+                    // Sigid = canID; // if you have a signal–to–message mapping
+
+                    // Start collecting new SG_ line
+                    frame.clear();
+                    frame.append("SG_");
+                    collecting = true;
+                    continue;
+                }
+}
+
+            frame.push_back(ch);
+        } else { //doesnt this mean that we'll only get the packets if the queue is empty?
             std::this_thread::yield();
         }
     }
-}
 
 Network::sample& Network::ensureSample(uint16_t canId) {
     std::lock_guard<std::mutex> guard(sampleMapMutex);
@@ -94,11 +125,35 @@ Network::sample& Network::ensureSample(uint16_t canId) {
     return *(it->second);
 }
 
+Network::sample& Network::ensureDBC(uint16_t canId, uint64_t rest_of_stuff) {
+    std::lock_guard<std::mutex> guard(sampleMapMutex);
+    auto it = sampleMap.find(canId);
+    if (it == sampleMap.end()) {
+
+        auto inserted = (canId)Map.emplace(canId, std::make_unique<sample>());
+        it = inserted.first;
+    }
+    return *(it->second);
+}
+
 void Network::writeSample(uint16_t canId, uint64_t value) {
     sample& entry = ensureSample(canId);
     std::lock_guard<std::mutex> valueGuard(entry.lock);
     entry.point = value;
 }
+
+void Network::writeDBC(uint16_t canId, uint64_t value) {
+    sample& entry = ensureSample(canId);
+    std::lock_guard<std::mutex> valueGuard(entry.lock);
+    entry.point = value;
+}
+
+void Network::writeSignal(uint16_t canId, uint64_t value) {
+    sample& entry = ensureSample(canId);
+    std::lock_guard<std::mutex> valueGuard(entry.lock);
+    entry.point = value;
+}
+
 
 bool Network::readSample(uint16_t canId, uint64_t& outValue) {
     std::unique_lock<std::mutex> mapLock(sampleMapMutex);
@@ -124,6 +179,28 @@ void Network::handleFrame(const std::string& frame) {
 
     writeSample(canId, value);
     //logs("[parser] CAN 0x" << std::hex << canId << " value 0x" << value << std::dec);
+}
+
+void Network::handleDBCframe(const std::string& frame) {
+    if (frame[0] == 'B') {
+        uint16t_t canID = 0;
+        uint64t_t rest_of_stuff = 0;
+        if (!decodeDBCFrame(frame, canID, value)) {
+            logs("[parser] Invalid DBC frame encountered");
+            return;
+        writeDBC(canID, rest_of_stuff);
+    }
+    else if (frame[0] == 'S') {
+        uint16t_t canID = 0;
+        uint64t_t signal = 0;
+        if (!decodeSIGFrame(frame, canID, value)) {
+            logs("[parser] Invalid signal frame encountered");
+            return;
+        writeSignal(canID, signal);
+        }
+    }
+
+    
 }
 
 bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
@@ -173,5 +250,98 @@ bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& v
         value = (value << 8) | byte;
     }
 
+
+
     return true;
+
+bool Network::decodeDBCFrame(const std::string& frame, uint16_t& canId, uint64_t& rest_of__stuff) {
+    if (frame.empty() || frame.front() != 'B') {
+        return false;
+    }
+
+    // Example: frame = "BO_ 1234:5678"
+    // Index 1–4 contain CAN ID digits (e.g., 1234)
+    size_t index = 1;
+    canId = 0;
+
+    // Ensure there are digits at position 1–4
+    for (; index < frame.size() && std::isdigit(static_cast<unsigned char>(frame[index])); ++index) {
+        canId = canId * 10 + (frame[index] - '0');
+    }
+
+    // Expect a colon next
+    if (index >= frame.size() || frame[index] != ':') {
+        return false;
+    }
+    ++index; // move past the colon
+
+    // Parse value (up to the end or until a non-digit)
+    value = 0;
+    for (; index < frame.size(); ++index) {
+        char ch = frame[index];
+        if (!std::isdigit(static_cast<unsigned char>(ch))) {
+            return false;
+        }
+        value = value * 10 + (ch - '0');
+    }
+
+    return true;
+}
+
+
+bool Network::decodeSIGFrame(const std::string& frame, uint16_t& canId, uint64_t& signal) {
+    // minimal format validation, not full parse
+    if (frame.empty() || frame.rfind("SG_", 0) != 0) {
+        return false;
+    }
+
+    // example structure: SG_ SignalName : 24|16@1+ (0.125,0) [0|8000] "rpm" Vector__XXX
+    for (size_t i = 0; i < frame.size(); ++i) {
+        char ch = frame[i];
+
+        // colon must have space before and after ( ...name : startbit... )
+        if (ch == ':') {
+            if (i == 0 || i + 1 >= frame.size()) return false;
+            char before = frame[i - 1];
+            char after  = frame[i + 1];
+            if (!std::isspace(static_cast<unsigned char>(before)) ||
+                !std::isspace(static_cast<unsigned char>(after))) {
+                logs("[decodeSIGFrame] invalid spacing around ':'");
+                return false;
+            }
+        }
+
+        // '|' separates start bit and length => must have digits on both sides
+        else if (ch == '|') {
+            if (i == 0 || i + 1 >= frame.size()) return false;
+            char before = frame[i - 1];
+            char after  = frame[i + 1];
+            if (!std::isdigit(static_cast<unsigned char>(before)) ||
+                !std::isdigit(static_cast<unsigned char>(after))) {
+                logs("[decodeSIGFrame] '|' not surrounded by digits");
+                return false;
+            }
+        }
+
+        // '@' should be followed by '0' or '1' (byte order indicator)
+        else if (ch == '@') {
+            if (i + 1 >= frame.size()) return false;
+            char after = frame[i + 1];
+            if (after != '0' && after != '1') {
+                logs("[decodeSIGFrame] '@' not followed by 0 or 1");
+                return false;
+            }
+        }
+    }
+
+    // if we reach here, the line looks structurally correct
+    // (you can later expand this to extract startBit/length/etc.)
+    canId = 0;   // not encoded in SG_ line itself — usually inherited from BO_
+    signal = 0;  // placeholder until real parsing is implemented
+
+    return true;
+}
+
+    // new changes
+
 }
