@@ -1317,7 +1317,7 @@ void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
 #endif
 }
 
-void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
+void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, Gpu* gpu){
     VkCommandBufferBeginInfo cmdBufferBeginInfo {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -1372,6 +1372,9 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         VkDeviceSize offsets[1] = {0};
 
         // TODO: would likely do 3D rendering here? consider the Sascha Vulkan 3D models
+        if (gpu != nullptr) {
+            gpu->renderGLTFModel(drawCmdBuffers[i]);
+        }
 
         // TODO: this looks big tbh
         drawFrame(drawCmdBuffers[i]);

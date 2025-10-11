@@ -149,6 +149,12 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
     // TODO possibly transient command buffers?
     if(queueFamilyIndices.graphics != queueFamilyIndices.compute)
         computeCommandPool = createCommandPool(queueFamilyIndices.compute, createFlags);
+    
+    // create command pool for transfer operations
+    if((queueFamilyIndices.transfer != queueFamilyIndices.graphics) && (queueFamilyIndices.transfer != queueFamilyIndices.compute))
+        transferCommandPool = createCommandPool(queueFamilyIndices.transfer, createFlags);
+    else
+        transferCommandPool = graphicsCommandPool; // Use graphics command pool if no dedicated transfer queue
 
     return result;
 };

@@ -23,6 +23,7 @@ public:
     VkInstance instance{ VK_NULL_HANDLE };
     VulkanDevice vulkanDevice {VK_NULL_HANDLE} ;
     VulkanSwapchain vulkanSwapchain;
+    std::vector<Model> models;
     bool useSwapchain = true;
     VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
 
@@ -83,7 +84,6 @@ public:
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
     VkResult createInstance();
     VkResult setupGPU();
-
     bool initVulkan();
     void createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers);
     void setupDepthStencil(uint32_t width, uint32_t height);
@@ -96,6 +96,7 @@ public:
     void preparePipelines(VkDevice device);
     bool loadGLTFModel(const std::string& filename);
     void renderGLTFModel(VkCommandBuffer commandBuffer);
+    void setupMeshDescriptors();
     static VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
     static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
 

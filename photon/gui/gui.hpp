@@ -15,6 +15,8 @@
 #include "../network/network.hpp"
 #include "webcam.hpp"
 
+// Forward declaration
+class Gpu;
 
 #ifdef XCB
 #include "xcb/xcb.h"
@@ -163,7 +165,7 @@ public:
     void updateVideoFeed(VulkanDevice vulkanDevice);
     void destroyVideoFeedResources(bool releaseDescriptorSet = false);
 
-    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
+    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, Gpu* gpu);
     void updateBuffers(VulkanDevice vulkanDevice);
     void drawFrame(VkCommandBuffer commandBuffer);
 

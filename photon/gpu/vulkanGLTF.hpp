@@ -10,22 +10,39 @@
 #include "vulkanDevice.hpp"
 #include "vulkanBuffer.hpp"
 
-// ---- Forward declarations for tinygltf (header stays lightweight)
-namespace tinygltf {
+#define VK_CHECK(x) do { VkResult err = x; if (err) { \
+    std::cout << "Detected Vulkan error: " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
+    abort(); \
+} } while(0)
+
+namespace tinygltf
+{
     class Model;
     struct Primitive;
     struct Node;
 }
 
-// ---- Mesh primitive info
-struct Primitive {
-    uint32_t firstIndex = 0;
-    uint32_t indexCount = 0;
-    int32_t  materialIndex = -1;
+struct TextureGPU
+{
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    VkSampler sampler = VK_NULL_HANDLE;
+    VkFormat format = VK_FORMAT_UNDEFINED;
+    uint32_t width = 0, height = 0;
 };
 
-// ---- Vertex layout
-enum class VertexComponent {
+// mesh info
+struct Primitive
+{
+    uint32_t firstIndex = 0;
+    uint32_t indexCount = 0;
+    int32_t materialIndex = -1;
+};
+
+// vertex layout
+enum class VertexComponent
+{
     Position,
     Normal,
     UV,
@@ -35,7 +52,14 @@ enum class VertexComponent {
     Weight0
 };
 
-struct vertex {
+struct alignas(16) ShaderMeshData {
+		glm::mat4 matrix;
+		glm::mat4 jointMatrix[128]{};
+		uint32_t jointcount{ 0 };
+	};
+
+struct vertex
+{
     glm::vec3 pos{};
     glm::vec3 normal{};
     glm::vec2 uv{};
@@ -53,55 +77,110 @@ struct vertex {
         uint32_t binding, uint32_t location, VertexComponent component);
     static std::vector<VkVertexInputAttributeDescription> inputAttributeDescriptions(
         uint32_t binding, const std::vector<VertexComponent> components);
-    static VkPipelineVertexInputStateCreateInfo* getPipelineVertexInputState(
+    static VkPipelineVertexInputStateCreateInfo *getPipelineVertexInputState(
         const std::vector<VertexComponent> components);
-
-    // NOTE: removed the bogus static loadglTFFile() here — that belongs to vulkanGLTF.
 };
 
-// ---- CPU-side GLTF model aggregation
-struct Model {
-    struct Mesh {
+// model info
+struct Model
+{
+    struct Mesh
+    {
         std::vector<Primitive> primitives;
         VulkanBuffer vertexBuffer;
         VulkanBuffer indexBuffer;
+        VulkanBuffer shaderMaterialBuffer;
+        VulkanBuffer shaderMeshBuffer;
         uint32_t vertexCount = 0;
-        uint32_t indexCount  = 0;
+        uint32_t indexCount = 0;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE; // using a descriptor for each mesh
     };
 
-    struct Node {
-        Node* parent = nullptr;
-        std::vector<Node*> children;
-        Mesh        mesh;     // (optional: could be an index/pointer to meshes[])
-        glm::mat4   matrix{1.0f};
+    struct Node
+    {
+        Node *parent = nullptr;
+        std::vector<Node *> children;
+        int32_t meshIndex = -1; // index into Model::meshes
+        glm::mat4 matrix{1.0f};
         std::string name;
-        bool        visible = true;
-
-        ~Node() {
-            for (auto* child : children) delete child;
+        bool visible = true;
+        ~Node()
+        {
+            for (auto *c : children)
+                delete c;
         }
     };
+    enum class AlphaMode
+    {
+        Opaque,
+        Mask,
+        Blend
+    };
 
-    std::vector<Node*>  nodes;
-    std::vector<Mesh>   meshes;
+    struct Material
+    {
+        // CPU-side description
+        glm::vec4 baseColorFactor{1.0f};
+        float alphaCutoff = 0.5f;
+        bool doubleSided = false;
+        AlphaMode alphaMode = AlphaMode::Opaque;
+
+        int32_t baseColorTextureIndex = -1;
+        int32_t normalTextureIndex = -1;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+        uint32_t uboOffset = 0;
+    };
+
+    struct Image
+    {
+        TextureGPU gpu; // raw Vulkan handles
+    };
+
+    struct Texture
+    {
+        int32_t imageIndex = -1;
+    };
+
+    std::vector<Node *> nodes;
+    std::vector<Mesh> meshes;
     std::vector<vertex> vertices;
     std::vector<uint32_t> indices;
+    std::vector<Image> images;
+    std::vector<Texture> textures;
+    std::vector<Material> materials;
+    std::string name;
 
     void destroy(VkDevice device);
 };
 
-// ---- GLTF loader/manager
-class vulkanGLTF {
+// gltf loader/manager
+class vulkanGLTF  
+{
 public:
-    VulkanDevice* device = nullptr;
-    Model model;
+    VulkanDevice *device = nullptr;
+    std::vector<Model> models;
 
-    bool loadglTFFile(std::string filename);
+    // load a gltf file and return its index in the models vector
+    int loadglTFFile(std::string filename);
+    
+    // get a model by index
+    Model* getModel(size_t index);
+    
+    // get number of loaded models
+    size_t getModelCount() const { return models.size(); }
+    
+    // destroy all models
     void destroy();
+    
+    // destroy a specific model by index
+    void destroyModel(size_t index);
 
 private:
-    void loadVertices(const tinygltf::Model& gltfModel, const tinygltf::Primitive& primitive);
-    void loadIndices (const tinygltf::Model& gltfModel, const tinygltf::Primitive& primitive);
-    void loadNode    (const tinygltf::Model& gltfModel, const tinygltf::Node& inputNode, Model::Node* parent);
-    void createBuffers();
+    void loadVertices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model);
+    void loadIndices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model);
+    void loadNode(const tinygltf::Model &gltfModel, const tinygltf::Node &inputNode, Model::Node *parent, Model &model);
+    void createBuffers(Model &model);
+    void loadMaterials(tinygltf::Model &input, Model &model);
+    void loadTextures(tinygltf::Model &input, Model &model);
 };
