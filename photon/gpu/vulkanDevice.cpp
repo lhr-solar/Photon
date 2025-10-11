@@ -13,6 +13,11 @@ auto printQueueFlags = [](VkQueueFlags flags){
     if (flags & VK_QUEUE_COMPUTE_BIT)  out += "COMPUTE ";
     if (flags & VK_QUEUE_TRANSFER_BIT) out += "TRANSFER ";
     if (flags & VK_QUEUE_SPARSE_BINDING_BIT) out += "SPARSE_BINDING ";
+    if (flags & VK_QUEUE_PROTECTED_BIT) out += "PROTECTED";
+    if (flags & VK_QUEUE_VIDEO_DECODE_BIT_KHR) out += "VIDEO_DECODE";
+    if (flags & VK_QUEUE_VIDEO_ENCODE_BIT_KHR) out += "VIDEO_ENCODE";
+    if (flags & VK_QUEUE_OPTICAL_FLOW_BIT_NV) out += "OPTICAL_FLOW";
+
     return out.empty() ? "UNKNOWN" : out;
 };
 
@@ -53,8 +58,6 @@ VkResult VulkanDevice::initDevice(VkPhysicalDevice physicalDevice){
 
     return VK_SUCCESS;
 };
-
-
 
 VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, std::vector<const char*> enabledExtensions, void* pNextChain, 
                                             bool useSwapChain, VkQueueFlags requestedQueueTypes){
@@ -145,10 +148,13 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
     // create command pool for graphics command buffers
     VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     graphicsCommandPool = createCommandPool(queueFamilyIndices.graphics, createFlags);
+    logs("Created Command Pool for Family Index: " << queueFamilyIndices.graphics);
 
     // TODO possibly transient command buffers?
-    if(queueFamilyIndices.graphics != queueFamilyIndices.compute)
+    if(queueFamilyIndices.graphics != queueFamilyIndices.compute){
         computeCommandPool = createCommandPool(queueFamilyIndices.compute, createFlags);
+        logs("Created Compute Command Pool for Family Index: " << queueFamilyIndices.compute);
+    }
 
     return result;
 };
@@ -250,9 +256,11 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
 	}
     VK_CHECK(vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer->memory));
 
+    /*
     logs("[Buffer] size=" << size/1024 << "KB"
      << " | alloc=" << memAlloc.allocationSize/1024 << "KB"
      << " | flags=0x" << std::hex << usageFlags << std::dec);
+     */
 
     buffer->alignment = memReqs.alignment;
     buffer->size = size;
