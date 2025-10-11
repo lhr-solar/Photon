@@ -14,6 +14,7 @@ include_directories(.external/vulkan)
 include_directories(.external/vk_video)
 include_directories(.external/stb)
 include_directories(.external/imgui)
+include_directories(.external/tinygltf)
 include_directories(${CMAKE_BINARY_DIR}/generated)
 
 # require python

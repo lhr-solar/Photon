@@ -13,11 +13,9 @@
 #include "scene_vert_spv.hpp"
 
 bool Gpu::initVulkan(){
-    // interface for variable extensions in the future?
-    // vulkan pNext... compatability
-    enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    VkResult result;
 
-    VkResult result = createInstance();
+    result = createInstance();
     if (result != VK_SUCCESS)
         fatal("[!] Failed to initialize vulkan", result);
 
@@ -57,6 +55,10 @@ bool Gpu::initVulkan(){
 }
 
 VkResult Gpu::createInstance(){
+    // interface for variable extensions in the future?
+    // vulkan pNext... compatability
+    enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+
     std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
 #ifdef XCB
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
@@ -134,10 +136,8 @@ VkResult Gpu::setupGPU(){
     // TODO if we want a dedicated transfer queue + better queue selection, improve the queue selection in the following
     VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, useSwapchain, requestedQueueTypes));
 
-    // remove index magic number, should be done programatically, see above --
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.graphics, 0, &vulkanDevice.graphicsQueue);
-    vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.compute, 0, &vulkanDevice.computeQueue);
-
+    vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.compute, 1, &vulkanDevice.computeQueue);
     return VK_SUCCESS;
 }
 
