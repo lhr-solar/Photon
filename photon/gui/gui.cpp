@@ -15,6 +15,7 @@
 #include "../engine/include.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanBuffer.hpp"
+#include "../gpu/vulkanVideoDecode.hpp"
 #include "../gpu/gpu.hpp"
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
@@ -23,7 +24,6 @@
 #include "background_frag_spv.hpp"
 #include "background_vert_spv.hpp"
 #include "Satoshi_Medium_ttf.hpp"
-#include "../gpu/vulkanVideoDecode.hpp"
 
 #ifdef WIN
 #include <windowsx.h>
@@ -482,32 +482,32 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
     logs("[+] Created Graphics Gui Pipeline ");
 
-    if (!h264Decoder) {
+    if (!ui.getH264Decoder()) {
     uint32_t vidWidth = 1280, vidHeight = 720;
-    h264Decoder = std::make_unique<VulkanVideo>(vulkanDevice, vidWidth, vidHeight);
-    if (h264Decoder->loadAndInitialize(h264VideoPath)) {
-        h264Decoder->decodeFrame(0);
+    ui.setH264Decoder(std::make_unique<VulkanVideo>(vulkanDevice, vidWidth, vidHeight));
+    if (ui.getH264Decoder()->loadAndInitialize(h264VideoPath)) {
+        ui.getH264Decoder()->decodeFrame(0);
         VkDescriptorSetAllocateInfo descriptorAlloc = {};
         descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         descriptorAlloc.descriptorPool = guiDescriptorPool;
         descriptorAlloc.descriptorSetCount = 1;
         descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
-        VkResult res = vkAllocateDescriptorSets(deviceHandle, &descriptorAlloc, &h264VideoDescriptorSet);
+        VkResult res = vkAllocateDescriptorSets(deviceHandle, &descriptorAlloc, &ui.getH264VideoDescriptorSet());
         if (res == VK_SUCCESS) {
             VkDescriptorImageInfo imageInfo = {};
             imageInfo.sampler = sampler;
-            imageInfo.imageView = h264Decoder->getCurrentDecodedImageView();
+            imageInfo.imageView = ui.getH264Decoder()->getCurrentDecodedImageView();
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             VkWriteDescriptorSet write = {};
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet = h264VideoDescriptorSet;
+            write.dstSet = ui.getH264VideoDescriptorSet();
             write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             write.dstBinding = 0;
             write.descriptorCount = 1;
             write.pImageInfo = &imageInfo;
             vkUpdateDescriptorSets(deviceHandle, 1, &write, 0, nullptr);
-            videoTexture = (ImTextureID)(uintptr_t)h264VideoDescriptorSet;
-            videoTextureSize = ImVec2(h264Decoder->getVideoWidth(), h264Decoder->getVideoHeight());
+            videoTexture = (ImTextureID)(uintptr_t)ui.getH264VideoDescriptorSet();
+            videoTextureSize = ImVec2(ui.getH264Decoder()->getVideoWidth(), ui.getH264Decoder()->getVideoHeight());
         }
     }
 }
@@ -1374,31 +1374,6 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
 
     updateVideoFeed(vulkanDevice);
     ui.build();
-
-    videoFrameTimer += ImGui::GetIO().DeltaTime;
-    if (videoFrameTimer > (1.0f / h264PlaybackSpeed) && h264Decoder) {
-        videoFrameTimer = 0.0f;
-        uint32_t nextFrame = h264Decoder->getCurrentFrameIndex() + 1;
-        if (nextFrame < h264Decoder->getFrameInfos().size()) {
-            h264Decoder->decodeFrame(nextFrame);
-        }
-    }
-    ImGui::Begin("Video Player");
-    if (videoTexture) {
-        ImGui::Text("Now Playing: %s", h264VideoPath.c_str());
-        ImGui::Image(videoTexture, videoTextureSize);
-        if (ImGui::Button("Next Frame")) {
-            uint32_t nextIndex = h264Decoder->getCurrentFrameIndex() + 1;
-            if (nextIndex < h264Decoder->getFrameInfos().size()) {
-                h264Decoder->decodeFrame(nextIndex);
-            }
-        }
-    } else {
-        ImGui::Text("No video loaded or failed to decode.");
-    }
-ImGui::End();
-
-
     if (ui.background.dirty) {
         resizeBackground(vulkanDevice, ui.background.x, ui.background.y);
     }

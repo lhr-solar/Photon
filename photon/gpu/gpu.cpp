@@ -11,6 +11,7 @@
 
 #include "scene_frag_spv.hpp"
 #include "scene_vert_spv.hpp"
+#include "vulkanLoader.h"
 
 bool Gpu::initVulkan(){
     // interface for variable extensions in the future?
@@ -24,7 +25,7 @@ bool Gpu::initVulkan(){
     result = setupGPU();
     if(result != VK_SUCCESS)
         fatal("[!] Failed to setup GPU", result);
-
+    LoadVulkanVideoFunctions(instance, vulkanDevice.logicalDevice);
     // set stencil
     VkBool32 validFormat {false};
     if(requiresStencil){
@@ -57,7 +58,7 @@ bool Gpu::initVulkan(){
 }
 
 VkResult Gpu::createInstance(){
-    std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
+    std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_VIDEO_QUEUE_EXTENSION_NAME};
 #ifdef XCB
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
@@ -132,6 +133,8 @@ VkResult Gpu::setupGPU(){
     useSwapchain = true;
     requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT; 
     // TODO if we want a dedicated transfer queue + better queue selection, improve the queue selection in the following
+    vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME);
+    vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME);
     VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, useSwapchain, requestedQueueTypes));
 
     // remove index magic number, should be done programatically, see above --

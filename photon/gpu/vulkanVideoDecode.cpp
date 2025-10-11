@@ -1,6 +1,8 @@
 #include "vulkanVideoDecode.hpp"
 #include "vulkanDevice.hpp"
 #include "../engine/include.hpp"
+#define VK_ENABLE_BETA_EXTENSIONS
+#include "vulkanLoader.h"
 #include <vulkan/vulkan.h>
 #include <stdexcept>
 #include <cstring>
@@ -99,12 +101,12 @@ void VulkanVideo::cleanup() {
     }
 
     if (sessionParams != VK_NULL_HANDLE) {
-        vkDestroyVideoSessionParametersKHR(dev, sessionParams, nullptr);
+        pfn_vkDestroyVideoSessionParametersKHR(dev, sessionParams, nullptr);
         sessionParams = VK_NULL_HANDLE;
     }
 
     if (videoSession != VK_NULL_HANDLE) {
-        vkDestroyVideoSessionKHR(dev, videoSession, nullptr);
+        pfn_vkDestroyVideoSessionKHR(dev, videoSession, nullptr);
         videoSession = VK_NULL_HANDLE;
     }
 
@@ -198,7 +200,7 @@ bool VulkanVideo::createVideoQueue() {
 }
 
 bool VulkanVideo::queryVideoCapabilities() {
-    VkResult result = vkGetPhysicalDeviceVideoCapabilitiesKHR(
+    VkResult result = pfn_vkGetPhysicalDeviceVideoCapabilitiesKHR(
         device.physicalDevice, &profileInfo, &videoCapabilities);
     
     if (result != VK_SUCCESS) {
@@ -229,7 +231,7 @@ bool VulkanVideo::createVideoSession() {
     sessionInfo.maxActiveReferencePictures = (4u < videoCapabilities.maxActiveReferencePictures) ? 4u : videoCapabilities.maxActiveReferencePictures;
     sessionInfo.pStdHeaderVersion = &videoCapabilities.stdHeaderVersion;
 
-    VkResult result = vkCreateVideoSessionKHR(device.logicalDevice, &sessionInfo, nullptr, &videoSession);
+    VkResult result = pfn_vkCreateVideoSessionKHR(device.logicalDevice, &sessionInfo, nullptr, &videoSession);
     if (result != VK_SUCCESS) {
         logs("[-] Failed to create video session: " + std::to_string(result));
         return false;
@@ -241,7 +243,7 @@ bool VulkanVideo::createVideoSession() {
 
 bool VulkanVideo::allocateSessionMemory() {
     uint32_t memReqCount = 0;
-    vkGetVideoSessionMemoryRequirementsKHR(device.logicalDevice, videoSession, &memReqCount, nullptr);
+    pfn_vkGetVideoSessionMemoryRequirementsKHR(device.logicalDevice, videoSession, &memReqCount, nullptr);
     
     if (memReqCount == 0) {
         logs("[+] No session memory requirements");
@@ -253,7 +255,7 @@ bool VulkanVideo::allocateSessionMemory() {
         req.sType = VK_STRUCTURE_TYPE_VIDEO_SESSION_MEMORY_REQUIREMENTS_KHR;
     }
     
-    vkGetVideoSessionMemoryRequirementsKHR(device.logicalDevice, videoSession, &memReqCount, memReqs.data());
+    pfn_vkGetVideoSessionMemoryRequirementsKHR(device.logicalDevice, videoSession, &memReqCount, memReqs.data());
 
     std::vector<VkBindVideoSessionMemoryInfoKHR> bindInfos;
     sessionMemory.resize(memReqCount);
@@ -279,7 +281,7 @@ bool VulkanVideo::allocateSessionMemory() {
         bindInfos.push_back(bindInfo);
     }
 
-    VkResult result = vkBindVideoSessionMemoryKHR(
+    VkResult result = pfn_vkBindVideoSessionMemoryKHR(
         device.logicalDevice, videoSession, 
         static_cast<uint32_t>(bindInfos.size()), bindInfos.data());
     
@@ -311,7 +313,7 @@ bool VulkanVideo::createSessionParameters() {
     createInfo.pNext = &h264CreateInfo;
     createInfo.videoSession = videoSession;
 
-    VkResult result = vkCreateVideoSessionParametersKHR(
+    VkResult result = pfn_vkCreateVideoSessionParametersKHR(
         device.logicalDevice, &createInfo, nullptr, &sessionParams);
     
     if (result != VK_SUCCESS) {
@@ -788,7 +790,7 @@ void VulkanVideo::findAllNALUnits(const uint8_t* data, size_t size) {
 }
 
 bool VulkanVideo::decodeFrame(uint32_t frameIndex) {
-    if (!initialized || frameIndex >= frameInfos.size()) {
+    if (!isInitialized() || frameIndex >= frameInfos.size()) {
         logs("[-] Cannot decode frame " + std::to_string(frameIndex));
         return false;
     }
@@ -836,7 +838,7 @@ bool VulkanVideo::decodeFrame(uint32_t frameIndex) {
         }
     }
 
-    vkCmdBeginVideoCodingKHR(commandBuffer, &beginCoding);
+    pfn_vkCmdBeginVideoCodingKHR(commandBuffer, &beginCoding);
 
     // Setup decode info
     StdVideoDecodeH264PictureInfo stdPictureInfo{};
@@ -885,11 +887,11 @@ bool VulkanVideo::decodeFrame(uint32_t frameIndex) {
     decodeInfo.pSetupReferenceSlot = &setupSlot;
 
     // Execute decode
-    vkCmdDecodeVideoKHR(commandBuffer, &decodeInfo);
+    pfn_vkCmdDecodeVideoKHR(commandBuffer, &decodeInfo);
 
     // End video coding
     VkVideoEndCodingInfoKHR endCoding{VK_STRUCTURE_TYPE_VIDEO_END_CODING_INFO_KHR};
-    vkCmdEndVideoCodingKHR(commandBuffer, &endCoding);
+    pfn_vkCmdEndVideoCodingKHR(commandBuffer, &endCoding);
 
     vkEndCommandBuffer(commandBuffer);
 

@@ -1,0 +1,17 @@
+#pragma once
+#include <vulkan/vulkan.h>
+
+// Declare function pointers with different names (add 'pfn' prefix)
+extern PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR pfn_vkGetPhysicalDeviceVideoCapabilitiesKHR;
+extern PFN_vkCreateVideoSessionKHR pfn_vkCreateVideoSessionKHR;
+extern PFN_vkDestroyVideoSessionKHR pfn_vkDestroyVideoSessionKHR;
+extern PFN_vkGetVideoSessionMemoryRequirementsKHR pfn_vkGetVideoSessionMemoryRequirementsKHR;
+extern PFN_vkBindVideoSessionMemoryKHR pfn_vkBindVideoSessionMemoryKHR;
+extern PFN_vkCreateVideoSessionParametersKHR pfn_vkCreateVideoSessionParametersKHR;
+extern PFN_vkDestroyVideoSessionParametersKHR pfn_vkDestroyVideoSessionParametersKHR;
+extern PFN_vkCmdBeginVideoCodingKHR pfn_vkCmdBeginVideoCodingKHR;
+extern PFN_vkCmdEndVideoCodingKHR pfn_vkCmdEndVideoCodingKHR;
+extern PFN_vkCmdDecodeVideoKHR pfn_vkCmdDecodeVideoKHR;
+
+// Loader function
+void LoadVulkanVideoFunctions(VkInstance instance, VkDevice device);

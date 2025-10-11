@@ -6,6 +6,10 @@
 #include <vulkan.h>
 #include <glm/glm.hpp>
 #include <array>
+#include <memory>
+
+// Forward declare if not included
+class VulkanVideo;
 
 struct UI{
     Network *networkINTF;
@@ -16,6 +20,11 @@ struct UI{
     uint32_t driverVersion = 0;
     uint32_t apiVersion = 0;
 
+    std::string h264VideoPath = "H264Videos/F1TestVid.mp4";
+    ImTextureID videoTexture = 0;
+    ImVec2 videoTextureSize = ImVec2(0, 0);
+    float videoFrameTimer = 0.0f;
+    
     struct {
         bool displayModels = false;
         bool displayLogos = false;
@@ -46,10 +55,37 @@ struct UI{
         bool dirty = false;
     } background;
 
-    ImTextureID videoTexture = static_cast<ImTextureID>(0);
-    ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
+    // H.264 Video decoder
+    std::unique_ptr<VulkanVideo> h264Decoder;
+    VkDescriptorSet h264VideoDescriptorSet = VK_NULL_HANDLE;
+    bool h264VideoInitialized = false;
+    float h264PlaybackSpeed = 30.0f;
+    float h264FrameTimer = 0.0f;
+
+    // Getters for decoder params
+    VulkanVideo* getH264Decoder() { return h264Decoder.get(); }
+    const VulkanVideo* getH264Decoder() const { return h264Decoder.get(); }
+    void setH264Decoder(std::unique_ptr<VulkanVideo> decoder) {h264Decoder = std::move(decoder);}
+    VkDescriptorSet& getH264VideoDescriptorSet() { return h264VideoDescriptorSet; }
+    const VkDescriptorSet& getH264VideoDescriptorSet() const { return h264VideoDescriptorSet; }
+    void setH264VideoDescriptorSet(VkDescriptorSet set) { h264VideoDescriptorSet = set; }
+    
+    bool isH264VideoInitialized() const { return h264VideoInitialized; }
+    void setH264VideoInitialized(bool initialized) { h264VideoInitialized = initialized; }
+    
+    float getH264PlaybackSpeed() const { return h264PlaybackSpeed; }
+    void setH264PlaybackSpeed(float speed) { h264PlaybackSpeed = speed; }
+    
+    float getH264FrameTimer() const { return h264FrameTimer; }
+    void setH264FrameTimer(float timer) { h264FrameTimer = timer; }
+    void updateH264FrameTimer(float deltaTime) { h264FrameTimer += deltaTime; }
+    void resetH264FrameTimer() { h264FrameTimer = 0.0f; }
+    
+    // Convenience checker
+    bool isVideoReady() const { return h264Decoder && h264VideoInitialized; }
 
     void setStyle();
+    void videoWindow();
     void build();
     void fpsWindow();
     void customShaderWindow();

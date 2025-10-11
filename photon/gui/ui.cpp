@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include "../gpu/vulkanVideoDecode.hpp"
 
 void UI::build(){
     ImGui::NewFrame();
@@ -14,6 +15,7 @@ void UI::build(){
     customShaderWindow();
     showVideoDisplay();
     networkSamplePlot();
+    videoWindow();
 
     ImGui::Render();
 }
@@ -340,4 +342,29 @@ void UI::setStyle(){
     colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     setStyle = UIstyle;
     setStyle.ScaleAllSizes(1.0f);
+}
+
+void UI::videoWindow(){
+    videoFrameTimer += ImGui::GetIO().DeltaTime;
+    if (videoFrameTimer > (1.0f / h264PlaybackSpeed) && h264Decoder) {
+        videoFrameTimer = 0.0f;
+        uint32_t nextFrame = h264Decoder->getCurrentFrameIndex() + 1;
+        if (nextFrame < h264Decoder->getFrameInfos().size()) {
+            h264Decoder->decodeFrame(nextFrame);
+        }
+    }
+    ImGui::Begin("Video Player");
+    if (videoTexture) {
+        ImGui::Text("Now Playing: %s", h264VideoPath.c_str());
+        ImGui::Image(videoTexture, videoTextureSize);
+        if (ImGui::Button("Next Frame")) {
+            uint32_t nextIndex = h264Decoder->getCurrentFrameIndex() + 1;
+            if (nextIndex < h264Decoder->getFrameInfos().size()) {
+                h264Decoder->decodeFrame(nextIndex);
+            }
+        }
+    } else {
+        ImGui::Text("No video loaded or failed to decode.");
+    }
+    ImGui::End();
 }

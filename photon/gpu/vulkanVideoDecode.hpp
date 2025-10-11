@@ -1,7 +1,7 @@
 #pragma once
-
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.h>
+#include "vulkanLoader.h"
 // H.264 codec headers
 #include <vk_video/vulkan_video_codec_h264std.h>
 #include <vk_video/vulkan_video_codec_h264std_decode.h>

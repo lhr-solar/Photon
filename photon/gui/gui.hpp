@@ -127,6 +127,7 @@ public:
     VulkanBuffer indexBuffer;
     int32_t indexCount = 0;
 
+
     bool quit = false;
 
     struct alignas(16) PushConstants {
@@ -136,13 +137,6 @@ public:
     };
 
     PushConstants pc{};
-
-    // H.264 Video decoder
-    std::unique_ptr<VulkanVideo> h264Decoder;
-    VkDescriptorSet h264VideoDescriptorSet = VK_NULL_HANDLE;
-    bool h264VideoInitialized = false;
-    float h264PlaybackSpeed = 30.0f;
-    float h264FrameTimer = 0.0f;
 
     Gui();
     ~Gui();
