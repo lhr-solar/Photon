@@ -26,6 +26,7 @@ struct VulkanDevice {
 		uint32_t graphics;
 		uint32_t compute;
 		uint32_t transfer;
+        uint32_t video;
 	} queueFamilyIndices;
 
     VkQueue graphicsQueue;

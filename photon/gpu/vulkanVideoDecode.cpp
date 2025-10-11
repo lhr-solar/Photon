@@ -158,29 +158,18 @@ bool VulkanVideo::checkVideoExtensionSupport() {
 
 bool VulkanVideo::findVideoQueueFamily() {
     uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties2(device.physicalDevice, &queueFamilyCount, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(device.physicalDevice, &queueFamilyCount, nullptr);
 
     if (queueFamilyCount == 0) {
         logs("[-] No queue families found");
         return false;
     }
-
-    std::vector<VkQueueFamilyVideoPropertiesKHR> videoProps(queueFamilyCount);
-    std::vector<VkQueueFamilyProperties2> queueProps(queueFamilyCount);
+    std::vector<VkQueueFamilyProperties> queueProps(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device.physicalDevice, &queueFamilyCount, queueProps.data());
     
-    for (uint32_t i = 0; i < queueFamilyCount; i++) {
-        videoProps[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_VIDEO_PROPERTIES_KHR;
-        queueProps[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
-        queueProps[i].pNext = &videoProps[i];
-    }
-
-    vkGetPhysicalDeviceQueueFamilyProperties2(device.physicalDevice, &queueFamilyCount, queueProps.data());
-
-    for (uint32_t i = 0; i < queueFamilyCount; i++) {
-        if (videoProps[i].videoCodecOperations & VK_VIDEO_CODEC_OPERATION_DECODE_H264_BIT_KHR) {
-            videoQueueFamily = i;
-            logs("[+] Found video decode queue family: " + std::to_string(i));
-            return true;
+    for(int i = 0; i < queueFamilyCount; i++){
+        if(queueProps[i].queueFlags & VK_QUEUE_VIDEO_ENCODE_BIT_KHR){
+            videoQueueFamily = i; return true;
         }
     }
 
@@ -189,13 +178,17 @@ bool VulkanVideo::findVideoQueueFamily() {
 }
 
 bool VulkanVideo::createVideoQueue() {
-    if (videoQueueFamily == UINT32_MAX) return false;
-    vkGetDeviceQueue(device.logicalDevice, videoQueueFamily, 0, &videoQueue);
-    if (videoQueue == VK_NULL_HANDLE) {
-        logs("[-] Failed to get video queue");
+    if (videoQueueFamily == UINT32_MAX) {
+        logs("[-] Video queue family index is UINT32_MAX!");
         return false;
     }
-    logs("[+] Video queue created");
+    vkGetDeviceQueue(device.logicalDevice, videoQueueFamily, 0, &videoQueue);
+    if (videoQueue == VK_NULL_HANDLE) {
+        logs("[-] Failed to get video queue from family " + std::to_string(videoQueueFamily) +
+             ". The logical device may not have been created with this family!");
+        return false;
+    }
+    logs("[+] Video queue created for family " + std::to_string(videoQueueFamily));
     return true;
 }
 
@@ -790,6 +783,9 @@ void VulkanVideo::findAllNALUnits(const uint8_t* data, size_t size) {
 }
 
 bool VulkanVideo::decodeFrame(uint32_t frameIndex) {
+    // if(!isInitialized()){
+    //     logs("[-] Initialization failed monke");
+    // }
     if (!isInitialized() || frameIndex >= frameInfos.size()) {
         logs("[-] Cannot decode frame " + std::to_string(frameIndex));
         return false;

@@ -104,6 +104,19 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
 		} 
     } else { queueFamilyIndices.transfer = queueFamilyIndices.graphics; }
 
+    if(requestedQueueTypes & VK_QUEUE_VIDEO_DECODE_BIT_KHR){ 
+        queueFamilyIndices.video = getQueueFamilyIndex(VK_QUEUE_VIDEO_DECODE_BIT_KHR);
+        logs("[+] Video Queue using family index : " << queueFamilyIndices.video);
+        if((queueFamilyIndices.video != queueFamilyIndices.graphics) && (queueFamilyIndices.video != queueFamilyIndices.compute)){
+            // If transfer family index differs, we need an additional queue create info for the transfer queue
+            VkDeviceQueueCreateInfo queueInfo{};
+            queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueInfo.queueFamilyIndex = queueFamilyIndices.video;
+            queueInfo.queueCount = 1;
+            queueInfo.pQueuePriorities = &defaultQueuePriority;
+            queueCreateInfos.push_back(queueInfo);
+		} 
+    } else { queueFamilyIndices.video = queueFamilyIndices.graphics; }
     // create logical device representation
     std::vector<const char*> deviceExtensions(enabledExtensions); 
     if (useSwapChain) deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -250,9 +263,9 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
 	}
     VK_CHECK(vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer->memory));
 
-    logs("[Buffer] size=" << size/1024 << "KB"
-     << " | alloc=" << memAlloc.allocationSize/1024 << "KB"
-     << " | flags=0x" << std::hex << usageFlags << std::dec);
+    //logs("[Buffer] size=" << size/1024 << "KB"
+     //<< " | alloc=" << memAlloc.allocationSize/1024 << "KB"
+     //<< " | flags=0x" << std::hex << usageFlags << std::dec);
 
     buffer->alignment = memReqs.alignment;
     buffer->size = size;

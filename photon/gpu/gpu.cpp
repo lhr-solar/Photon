@@ -26,6 +26,14 @@ bool Gpu::initVulkan(){
     if(result != VK_SUCCESS)
         fatal("[!] Failed to setup GPU", result);
     LoadVulkanVideoFunctions(instance, vulkanDevice.logicalDevice);
+
+    if ( !pfn_vkGetPhysicalDeviceVideoCapabilitiesKHR || !pfn_vkCreateVideoSessionKHR ||
+    !pfn_vkDestroyVideoSessionKHR || !pfn_vkGetVideoSessionMemoryRequirementsKHR || !pfn_vkBindVideoSessionMemoryKHR ||
+    !pfn_vkCreateVideoSessionParametersKHR || !pfn_vkDestroyVideoSessionParametersKHR || !pfn_vkCmdBeginVideoCodingKHR || !pfn_vkCmdEndVideoCodingKHR || !pfn_vkCmdDecodeVideoKHR
+        ) {
+        logs("[-] Failed to load one or more Vulkan Video extension functions. Ensure all required extensions are enabled!");
+    }
+
     // set stencil
     VkBool32 validFormat {false};
     if(requiresStencil){
@@ -58,7 +66,7 @@ bool Gpu::initVulkan(){
 }
 
 VkResult Gpu::createInstance(){
-    std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_VIDEO_QUEUE_EXTENSION_NAME};
+    std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
 #ifdef XCB
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
@@ -131,10 +139,12 @@ VkResult Gpu::setupGPU(){
 
     // TODO if we want to run headless, add interfaces for these, also consider your queues and extensions
     useSwapchain = true;
-    requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT; 
+    requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_VIDEO_DECODE_BIT_KHR; 
     // TODO if we want a dedicated transfer queue + better queue selection, improve the queue selection in the following
-    vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME);
+    vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_QUEUE_EXTENSION_NAME);        
     vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME);
+    vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME);
+    vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);   
     VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, useSwapchain, requestedQueueTypes));
 
     // remove index magic number, should be done programatically, see above --
