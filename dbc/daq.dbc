@@ -1,0 +1,62 @@
+VERSION ""
+
+NS_ : 
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	BA_DEF_DEF_
+
+BS_:
+
+BU_: Vector__XXX
+
+BO_ 1793 RF_Bytes_Transmited: 4 Vector__XXX
+	SG_ Bytes_Transmited : 0|32@1+ (1,0) [0|10000] "Bytes" Vector__XXX
+
+BO_ 1794 RF_Transmission_Failure_Count: 2 Vector__XXX
+	SG_ TX_Fail_Count : 0|16@1+ (1,0) [0|10000] "Count" Vector__XXX
+
+BO_ 1795 RF_Last_Packet_RSSI: 1 Vector__XXX
+	SG_ RSSI : 0|8@1+ (1,0) [0|255] "-dBm" Vector__XXX
+
+BO_ 1796 RF_Good_Packet_RX_Count: 2 Vector__XXX
+	SG_ Good_Packet_Receive_Count : 0|16@1+ (1,0) [0|10000] "Count" Vector__XXX
+
+BO_ 1797 RF_MAC_ACK_Failure_Count: 2 Vector__XXX
+	SG_ MAC_ACK_Fail_Count : 0|16@1+ (1,0) [0|10000] "Count" Vector__XXX
+
+BO_ 1921 LTE_Cellular_Signal_Strength: 1 Vector__XXX
+	SG_ LTE_RSSI : 0|8@1+ (1,0) [0|255] "-dBm" Vector__XXX
+
+BO_ 1930 DAQ_Server_Heartbeat: 1 Vector__XXX
+	SG_ Heartbeat : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+
+CM_ BO_ 1793 "RF1";
+CM_ BO_ 1794 "RF2";
+CM_ BO_ 1795 "RF3";
+CM_ BO_ 1796 "RF4";
+CM_ BO_ 1797 "RF5";
+CM_ BO_ 1921 "LTE1";
+CM_ BO_ 1930 "SHB";
+
+BA_DEF_ SG_  "SPN" INT 0 524287;
+BA_DEF_ BO_  "VFrameFormat" ENUM  "StandardCAN","ExtendedCAN","reserved","J1939PG";
+BA_DEF_  "DatabaseVersion" STRING ;
+BA_DEF_  "BusType" STRING ;
+BA_DEF_  "ProtocolType" STRING ;
+BA_DEF_  "DatabaseCompiler" STRING ;
+
+BA_DEF_DEF_  "SPN" 0;
+BA_DEF_DEF_  "VFrameFormat" "J1939PG";
+BA_DEF_DEF_  "DatabaseVersion" "DEMO PLUS";
+BA_DEF_DEF_  "BusType" "";
+BA_DEF_DEF_  "ProtocolType" "";
+BA_DEF_DEF_  "DatabaseCompiler" "";
+
+BA_ "ProtocolType" "J1939";
+BA_ "BusType" "CAN";
+BA_ "DatabaseCompiler" "CSS ELECTRONICS (WWW.CSSELECTRONICS.COM)";
+BA_ "DatabaseVersion" "1.0.0";
+BA_ "VFrameFormat" BO_ 1793 3;
+BA_ "VFrameFormat" BO_ 1794 3;
