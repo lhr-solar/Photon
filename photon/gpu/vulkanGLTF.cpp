@@ -136,7 +136,6 @@ int vulkanGLTF::loadglTFFile(std::string filename)
 
     logs("[+] Successfully loaded GLTF model: " << filename);
 
-    // Create a new model and add it to the vector
     models.emplace_back();
     Model &model = models.back();
     model.name = filename;
@@ -192,6 +191,36 @@ int vulkanGLTF::loadglTFFile(std::string filename)
                                        << " vertices and " << model.indices.size()
                                        << " indices");
     logs("[+] GLTF model loaded with " << model.materials.size() << " materials");
+
+    // Calculate model bounds for debugging
+    if (!model.vertices.empty())
+    {
+        logs("[DEBUG] Calculating model bounds for " << model.vertices.size() << " vertices");
+        glm::vec3 minBounds = model.vertices[0].pos;
+        glm::vec3 maxBounds = model.vertices[0].pos;
+
+        for (const auto &vertex : model.vertices)
+        {
+            minBounds.x = std::min<float>(minBounds.x, vertex.pos.x);
+            minBounds.y = std::min<float>(minBounds.y, vertex.pos.y);
+            minBounds.z = std::min<float>(minBounds.z, vertex.pos.z);
+            maxBounds.x = std::max<float>(maxBounds.x, vertex.pos.x);
+            maxBounds.y = std::max<float>(maxBounds.y, vertex.pos.y);
+            maxBounds.z = std::max<float>(maxBounds.z, vertex.pos.z);
+        }
+
+        glm::vec3 center = (minBounds + maxBounds) * 0.5f;
+        glm::vec3 size = maxBounds - minBounds;
+
+        logs("[DEBUG] Model bounds - Min: (" << minBounds.x << ", " << minBounds.y << ", " << minBounds.z << ")");
+        logs("[DEBUG] Model bounds - Max: (" << maxBounds.x << ", " << maxBounds.y << ", " << maxBounds.z << ")");
+        logs("[DEBUG] Model center: (" << center.x << ", " << center.y << ", " << center.z << ")");
+        logs("[DEBUG] Model size: (" << size.x << ", " << size.y << ", " << size.z << ")");
+    }
+    else
+    {
+        logs("[DEBUG] No vertices found in model for bounds calculation");
+    }
 
     return modelIndex;
 }
@@ -298,15 +327,20 @@ void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
                 glm::vec2(texCoordsBuffer[v * 2 + 0], texCoordsBuffer[v * 2 + 1]);
         }
 
-        // Color
+        // Color - CRITICAL: default to white with full opacity if no vertex colors
         if (colorsBuffer)
         {
             vert.color = glm::vec4(colorsBuffer[v * 4 + 0], colorsBuffer[v * 4 + 1],
                                    colorsBuffer[v * 4 + 2], colorsBuffer[v * 4 + 3]);
+            // Ensure alpha is valid
+            if (vert.color.a < 0.01f) {
+                vert.color.a = 1.0f;
+            }
         }
         else
         {
-            vert.color = glm::vec4(1.0f);
+            // No vertex colors - use white with full opacity (RGBA = 1,1,1,1)
+            vert.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
         // Tangent
@@ -605,6 +639,57 @@ void vulkanGLTF::loadTextures(tinygltf::Model &input, Model &model)
     {
         model.textures[i].imageIndex = input.textures[i].source;
     }
+
+    // Load images
+    model.images.resize(input.images.size());
+    for (size_t i = 0; i < input.images.size(); i++)
+    {
+        tinygltf::Image &gltfImage = input.images[i];
+
+        // Check if image data is available
+        if (gltfImage.image.empty())
+        {
+            logs("[!] Image " << i << " has no data, skipping");
+            continue;
+        }
+
+        // Create Vulkan image
+        TextureGPU &texture = model.images[i].gpu;
+        texture.width = gltfImage.width;
+        texture.height = gltfImage.height;
+
+        // Determine format
+        VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+        size_t imageSize = gltfImage.width * gltfImage.height * 4;
+
+        if (gltfImage.component == 3)
+        {
+            // RGB to RGBA conversion needed
+            std::vector<unsigned char> rgbaData(imageSize);
+            for (size_t p = 0; p < gltfImage.width * gltfImage.height; ++p)
+            {
+                rgbaData[p * 4 + 0] = gltfImage.image[p * 3 + 0];
+                rgbaData[p * 4 + 1] = gltfImage.image[p * 3 + 1];
+                rgbaData[p * 4 + 2] = gltfImage.image[p * 3 + 2];
+                rgbaData[p * 4 + 3] = 255; // Full opacity
+            }
+            createTextureImage(texture, rgbaData.data(), imageSize, gltfImage.width, gltfImage.height, format);
+        }
+        else if (gltfImage.component == 4)
+        {
+            // Already RGBA
+            createTextureImage(texture, gltfImage.image.data(), imageSize, gltfImage.width, gltfImage.height, format);
+        }
+        else
+        {
+            // Unsupported format - create white texture
+            logs("[!] Unsupported image component count: " << gltfImage.component);
+            std::vector<unsigned char> whiteData(imageSize, 255);
+            createTextureImage(texture, whiteData.data(), imageSize, gltfImage.width, gltfImage.height, format);
+        }
+
+        logs("[+] Loaded texture image " << i << " (" << texture.width << "x" << texture.height << ")");
+    }
 }
 
 Model *vulkanGLTF::getModel(size_t index)
@@ -655,8 +740,169 @@ void Model::destroy(VkDevice device)
     {
         delete node;
     }
+
+    // Destroy texture resources
+    for (auto &image : images)
+    {
+        if (image.gpu.sampler != VK_NULL_HANDLE)
+        {
+            vkDestroySampler(device, image.gpu.sampler, nullptr);
+            image.gpu.sampler = VK_NULL_HANDLE;
+        }
+        if (image.gpu.view != VK_NULL_HANDLE)
+        {
+            vkDestroyImageView(device, image.gpu.view, nullptr);
+            image.gpu.view = VK_NULL_HANDLE;
+        }
+        if (image.gpu.image != VK_NULL_HANDLE)
+        {
+            vkDestroyImage(device, image.gpu.image, nullptr);
+            image.gpu.image = VK_NULL_HANDLE;
+        }
+        if (image.gpu.memory != VK_NULL_HANDLE)
+        {
+            vkFreeMemory(device, image.gpu.memory, nullptr);
+            image.gpu.memory = VK_NULL_HANDLE;
+        }
+    }
+
     nodes.clear();
     meshes.clear();
     vertices.clear();
     indices.clear();
+    images.clear();
+    textures.clear();
+    materials.clear();
+}
+
+void vulkanGLTF::createTextureImage(TextureGPU &texture, const void *data, VkDeviceSize size, uint32_t width, uint32_t height, VkFormat format)
+{
+    texture.width = width;
+    texture.height = height;
+    texture.format = format;
+
+    logs("[DEBUG] Creating texture: " << width << "x" << height << ", size: " << size << " bytes");
+
+    // Create staging buffer
+    VulkanBuffer stagingBuffer;
+    VK_CHECK(device->createBuffer(
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &stagingBuffer,
+        size,
+        (void *)data));
+
+    // Create image
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = format;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VK_CHECK(vkCreateImage(device->logicalDevice, &imageInfo, nullptr, &texture.image));
+
+    // Allocate memory
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(device->logicalDevice, texture.image, &memReqs);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReqs.size;
+    allocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+
+    VK_CHECK(vkAllocateMemory(device->logicalDevice, &allocInfo, nullptr, &texture.memory));
+    VK_CHECK(vkBindImageMemory(device->logicalDevice, texture.image, texture.memory, 0));
+
+    // Copy data
+    VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, device->transferCommandPool, true);
+
+    // Transition to transfer dst
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = texture.image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    // Copy buffer to image with proper settings
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;   // Tightly packed
+    region.bufferImageHeight = 0; // Tightly packed
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {width, height, 1};
+
+    vkCmdCopyBufferToImage(copyCmd, stagingBuffer.buffer, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    // Transition to shader read
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    device->flushCommandBuffer(copyCmd, device->transferQueue, device->transferCommandPool, true);
+
+    stagingBuffer.destroy();
+    
+    logs("[DEBUG] Texture image created successfully");
+
+    // Create image view
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = texture.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VK_CHECK(vkCreateImageView(device->logicalDevice, &viewInfo, nullptr, &texture.view));
+
+    // Create sampler
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // No mipmaps
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f; // Only one mip level
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+    VK_CHECK(vkCreateSampler(device->logicalDevice, &samplerInfo, nullptr, &texture.sampler));
+    
+    logs("[DEBUG] Texture sampler created successfully");
 }

@@ -95,6 +95,7 @@ Gui::~Gui(){
     destroyBackgroundResources(true);
     destroyCustomShaderResources(true);
     destroyVideoFeedResources(true);
+    destroyRenderedFrameResources(true);
     if (deviceHandle != VK_NULL_HANDLE) {
         if (guiDescriptorPool != VK_NULL_HANDLE) {
             vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
@@ -325,6 +326,8 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
     initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
     initVideoFeedResources(vulkanDevice);
+    initRenderedFrameResources(vulkanDevice, {800, 600});
+    ui.renderedFrameTexture = (ImTextureID)renderedFrame.descriptorSet;
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -1350,6 +1353,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     for (int32_t i = 0; i < drawCmdBuffers.size(); ++i) {
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
+        
+        // Render 3D scene to off-screen framebuffer first
+        record3DScenePass(drawCmdBuffers[i], gpu);
+        
         recordBackgroundPass(drawCmdBuffers[i]);
         recordCustomShaderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -1371,12 +1378,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
 
         VkDeviceSize offsets[1] = {0};
 
-        // TODO: would likely do 3D rendering here? consider the Sascha Vulkan 3D models
-        if (gpu != nullptr) {
-            gpu->renderGLTFModel(drawCmdBuffers[i]);
-        }
-
-        // TODO: this looks big tbh
+        // 3D scene is now rendered to off-screen framebuffer (see record3DScenePass above)
+        // This main render pass now only contains ImGui UI
+        
+        // Render ImGui UI
         drawFrame(drawCmdBuffers[i]);
         vkCmdEndRenderPass(drawCmdBuffers[i]);
         VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[i]));
@@ -1520,6 +1525,326 @@ void Gui::destroyVideoFeedResources(bool releaseDescriptorSet){
     videoFrameData.clear();
     ui.videoTexture = static_cast<ImTextureID>(0);
     ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+}
+
+void Gui::initRenderedFrameResources(VulkanDevice vulkanDevice, VkExtent2D extent){
+    if (renderedFrame.initialized) { return; }
+    
+    renderedFrame.extent = extent;
+    
+    // Create image
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.extent.width = extent.width;
+    imageInfo.extent.height = extent.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    
+    VK_CHECK(vkCreateImage(deviceHandle, &imageInfo, nullptr, &renderedFrame.image));
+    
+    // Allocate memory
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(deviceHandle, renderedFrame.image, &memReqs);
+    
+    VkMemoryAllocateInfo memAllocInfo{};
+    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memAllocInfo.allocationSize = memReqs.size;
+    VkBool32 memTypeFound = VK_FALSE;
+    memAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memTypeFound);
+    
+    VK_CHECK(vkAllocateMemory(deviceHandle, &memAllocInfo, nullptr, &renderedFrame.memory));
+    VK_CHECK(vkBindImageMemory(deviceHandle, renderedFrame.image, renderedFrame.memory, 0));
+    
+    // Create image view
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = renderedFrame.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    
+    VK_CHECK(vkCreateImageView(deviceHandle, &viewInfo, nullptr, &renderedFrame.view));
+    
+    // Create sampler
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 1.0f;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    
+    VK_CHECK(vkCreateSampler(deviceHandle, &samplerInfo, nullptr, &renderedFrame.sampler));
+    
+    // Transition image layout
+    VkCommandBuffer cmdBuffer = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
+    
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = renderedFrame.image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    vulkanDevice.flushCommandBuffer(cmdBuffer, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
+    
+    renderedFrame.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    
+    // Create descriptor set
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = guiDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &guiDescriptorSetLayout;
+    
+    VK_CHECK(vkAllocateDescriptorSets(deviceHandle, &allocInfo, &renderedFrame.descriptorSet));
+    
+    // Update descriptor set
+    VkDescriptorImageInfo imageDescriptor{};
+    imageDescriptor.sampler = renderedFrame.sampler;
+    imageDescriptor.imageView = renderedFrame.view;
+    imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    
+    VkWriteDescriptorSet writeDescriptor{};
+    writeDescriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptor.dstSet = renderedFrame.descriptorSet;
+    writeDescriptor.dstBinding = 0;
+    writeDescriptor.dstArrayElement = 0;
+    writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDescriptor.descriptorCount = 1;
+    writeDescriptor.pImageInfo = &imageDescriptor;
+    
+    vkUpdateDescriptorSets(deviceHandle, 1, &writeDescriptor, 0, nullptr);
+    
+    // Create render pass for off-screen rendering
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+    
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+    
+    VK_CHECK(vkCreateRenderPass(deviceHandle, &renderPassInfo, nullptr, &renderedFrame.renderPass));
+    
+    // Create framebuffer
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = renderedFrame.renderPass;
+    framebufferInfo.attachmentCount = 1;
+    framebufferInfo.pAttachments = &renderedFrame.view;
+    framebufferInfo.width = extent.width;
+    framebufferInfo.height = extent.height;
+    framebufferInfo.layers = 1;
+    
+    VK_CHECK(vkCreateFramebuffer(deviceHandle, &framebufferInfo, nullptr, &renderedFrame.framebuffer));
+    
+    renderedFrame.initialized = true;
+    logs("[+] Initialized rendered frame resources: " << extent.width << "x" << extent.height);
+}
+
+void Gui::updateRenderedFrame(VulkanDevice vulkanDevice, VkImage sourceImage, VkExtent2D extent){
+    if (!renderedFrame.initialized) {
+        initRenderedFrameResources(vulkanDevice, extent);
+    }
+    
+    // Create command buffer for copying
+    VkCommandBuffer cmdBuffer = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
+    
+    // Transition source image to transfer source
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = sourceImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Transition destination image to transfer destination
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.image = renderedFrame.image;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Blit (copy and scale) image
+    VkImageBlit blit{};
+    blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.srcSubresource.layerCount = 1;
+    blit.srcOffsets[1].x = extent.width;
+    blit.srcOffsets[1].y = extent.height;
+    blit.srcOffsets[1].z = 1;
+    blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.dstSubresource.layerCount = 1;
+    blit.dstOffsets[1].x = renderedFrame.extent.width;
+    blit.dstOffsets[1].y = renderedFrame.extent.height;
+    blit.dstOffsets[1].z = 1;
+    
+    vkCmdBlitImage(cmdBuffer, sourceImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                   renderedFrame.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+    
+    // Transition destination image back to shader read
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.image = renderedFrame.image;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Transition source image back to present
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.image = sourceImage;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    vulkanDevice.flushCommandBuffer(cmdBuffer, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
+}
+
+void Gui::destroyRenderedFrameResources(bool releaseDescriptorSet){
+    if (releaseDescriptorSet && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE && renderedFrame.descriptorSet != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &renderedFrame.descriptorSet);
+        renderedFrame.descriptorSet = VK_NULL_HANDLE;
+    }
+    
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (renderedFrame.framebuffer != VK_NULL_HANDLE) { vkDestroyFramebuffer(deviceHandle, renderedFrame.framebuffer, nullptr); }
+        if (renderedFrame.renderPass != VK_NULL_HANDLE) { vkDestroyRenderPass(deviceHandle, renderedFrame.renderPass, nullptr); }
+        if (renderedFrame.sampler != VK_NULL_HANDLE) { vkDestroySampler(deviceHandle, renderedFrame.sampler, nullptr); }
+        if (renderedFrame.view != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, renderedFrame.view, nullptr); }
+        if (renderedFrame.image != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, renderedFrame.image, nullptr); }
+        if (renderedFrame.memory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, renderedFrame.memory, nullptr); }
+    }
+    
+    renderedFrame.framebuffer = VK_NULL_HANDLE;
+    renderedFrame.renderPass = VK_NULL_HANDLE;
+    renderedFrame.sampler = VK_NULL_HANDLE;
+    renderedFrame.view = VK_NULL_HANDLE;
+    renderedFrame.image = VK_NULL_HANDLE;
+    renderedFrame.memory = VK_NULL_HANDLE;
+    renderedFrame.extent = {0, 0};
+    renderedFrame.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    renderedFrame.initialized = false;
+}
+
+void Gui::record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu){
+    if (!renderedFrame.initialized || gpu == nullptr) { return; }
+    
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = renderedFrame.renderPass;
+    renderPassInfo.framebuffer = renderedFrame.framebuffer;
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = renderedFrame.extent;
+    
+    // Use clear color from UI settings
+    VkClearValue clearColor = {{{ui.renderSettings.sceneClearColor.r, 
+                                  ui.renderSettings.sceneClearColor.g, 
+                                  ui.renderSettings.sceneClearColor.b, 
+                                  ui.renderSettings.sceneClearColor.a}}};
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+    
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    
+    // Set viewport and scissor for off-screen rendering
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(renderedFrame.extent.width);
+    viewport.height = static_cast<float>(renderedFrame.extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = renderedFrame.extent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    
+    // Apply rotation transformation from UI
+    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), 
+                                           glm::radians(ui.renderSettings.sceneRotation), 
+                                           glm::vec3(0.0f, 1.0f, 0.0f));
+    
+    // Render the GLTF model with rotation and wireframe settings
+    gpu->renderGLTFModel(commandBuffer, rotationMatrix, ui.renderSettings.showWireframe);
+    
+    vkCmdEndRenderPass(commandBuffer);
 }
 
 #ifdef XCB

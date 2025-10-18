@@ -40,6 +40,9 @@ void Photon::prepareScene(){
    gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
    gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
    
+   // Create default white texture for models without textures
+   gpu.createDefaultWhiteTexture();
+   
    // Load GLTF model if available
    gpu.loadGLTFModel("models/daybreak.glb");
    gpu.setupMeshDescriptors();
@@ -110,6 +113,9 @@ void Photon::nextFrame(){
     if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
     auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
     gpu.frameTimer = frameTime / 1000.0f;
+    
+    // Update camera from user input
+    gpu.updateCameraFromInput(gui.inputs, gpu.frameTimer);
     gpu.camera.update(gpu.frameTimer); 
 	if (gpu.camera.moving()) { gui.viewUpdated = true; }
     if(!paused){
@@ -134,6 +140,13 @@ void Photon::draw(){
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
     VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
+    
+    // TODO: To properly display the rendered 3D frame in ImGui without recursion:
+    // 1. Render the 3D scene to an off-screen framebuffer (renderedFrame.framebuffer)
+    // 2. Display that framebuffer texture in the ImGui window
+    // 3. Render ImGui to the swap chain
+    // Currently the swap chain image includes ImGui, causing recursion if we copy it.
+    
     submitFrame();
 }
 

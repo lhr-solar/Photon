@@ -254,8 +254,9 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
 
     // set number of images
     uint32_t desiredNumberOfSwapchainImages = surfCaps.minImageCount + 1;
-    if ((surfCaps.maxImageCount > 0) && (desiredNumberOfSwapchainImages > surfCaps.maxImageCount))
+    if ((surfCaps.maxImageCount > 0) && (desiredNumberOfSwapchainImages > surfCaps.maxImageCount)) {
         desiredNumberOfSwapchainImages = surfCaps.maxImageCount;
+    }
     logs("[+] Number of Swap Chain Images : " << desiredNumberOfSwapchainImages);
 
 

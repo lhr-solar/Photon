@@ -11,6 +11,7 @@ struct Inputs{
 			bool middle = false;
 		} buttons;
 		glm::vec2 position;
+		glm::vec2 lastPosition;
     } mouseState;
 
     void handleMouseMove(int32_t x, int32_t y);

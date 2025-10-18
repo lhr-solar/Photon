@@ -183,4 +183,5 @@ private:
     void createBuffers(Model &model);
     void loadMaterials(tinygltf::Model &input, Model &model);
     void loadTextures(tinygltf::Model &input, Model &model);
+    void createTextureImage(TextureGPU &texture, const void* data, VkDeviceSize size, uint32_t width, uint32_t height, VkFormat format);
 };

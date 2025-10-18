@@ -100,6 +100,19 @@ public:
         VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
         bool initialized = false;
     } videoFeed;
+    
+    struct RenderedFrameResources {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkSampler sampler = VK_NULL_HANDLE;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+        VkFramebuffer framebuffer = VK_NULL_HANDLE;
+        VkRenderPass renderPass = VK_NULL_HANDLE;
+        VkExtent2D extent{800, 600};
+        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        bool initialized = false;
+    } renderedFrame;
 
     VulkanBuffer videoStagingBuffer;
     VkDeviceSize videoStagingBufferSize = 0;
@@ -164,6 +177,11 @@ public:
     void initVideoFeedResources(VulkanDevice vulkanDevice);
     void updateVideoFeed(VulkanDevice vulkanDevice);
     void destroyVideoFeedResources(bool releaseDescriptorSet = false);
+    
+    void initRenderedFrameResources(VulkanDevice vulkanDevice, VkExtent2D extent);
+    void updateRenderedFrame(VulkanDevice vulkanDevice, VkImage sourceImage, VkExtent2D extent);
+    void destroyRenderedFrameResources(bool releaseDescriptorSet = false);
+    void record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu);
 
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, Gpu* gpu);
     void updateBuffers(VulkanDevice vulkanDevice);

@@ -32,6 +32,9 @@ struct UI{
         float modelScale = 1.0f;
         glm::vec4 effectColor = glm::vec4(1.0f);
         int effectType = 0;
+        bool showWireframe = false;
+        float sceneRotation = 0.0f;
+        glm::vec4 sceneClearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
     } renderSettings;
 
     struct CustomShaderPanel : ImVec2 {
@@ -48,6 +51,8 @@ struct UI{
 
     ImTextureID videoTexture = static_cast<ImTextureID>(0);
     ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
+    
+    ImTextureID renderedFrameTexture = static_cast<ImTextureID>(0);
 
     void setStyle();
     void build();
@@ -55,5 +60,6 @@ struct UI{
     void customShaderWindow();
     void showVideoDisplay();
     void customBackground();
+    void showRenderedFrames();
     void networkSamplePlot();
 };
