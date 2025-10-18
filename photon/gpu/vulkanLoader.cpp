@@ -11,6 +11,8 @@ PFN_vkDestroyVideoSessionParametersKHR pfn_vkDestroyVideoSessionParametersKHR = 
 PFN_vkCmdBeginVideoCodingKHR pfn_vkCmdBeginVideoCodingKHR = nullptr;
 PFN_vkCmdEndVideoCodingKHR pfn_vkCmdEndVideoCodingKHR = nullptr;
 PFN_vkCmdDecodeVideoKHR pfn_vkCmdDecodeVideoKHR = nullptr;
+PFN_vkCreateSamplerYcbcrConversion pfn_vkCreateSamplerYcbcrConversion = nullptr;
+PFN_vkDestroySamplerYcbcrConversion pfn_vkDestroySamplerYcbcrConversion = nullptr;
 
 void LoadVulkanVideoFunctions(VkInstance instance, VkDevice device)
 {
@@ -43,4 +45,15 @@ void LoadVulkanVideoFunctions(VkInstance instance, VkDevice device)
 
     pfn_vkCmdDecodeVideoKHR =
         (PFN_vkCmdDecodeVideoKHR)vkGetDeviceProcAddr(device, "vkCmdDecodeVideoKHR");
+    pfn_vkCreateSamplerYcbcrConversion =
+        reinterpret_cast<PFN_vkCreateSamplerYcbcrConversion>(vkGetDeviceProcAddr(device, "vkCreateSamplerYcbcrConversion"));
+    if (!pfn_vkCreateSamplerYcbcrConversion) {
+        pfn_vkCreateSamplerYcbcrConversion = reinterpret_cast<PFN_vkCreateSamplerYcbcrConversion>(vkGetDeviceProcAddr(device, "vkCreateSamplerYcbcrConversionKHR"));
+    }
+
+    pfn_vkDestroySamplerYcbcrConversion =
+        reinterpret_cast<PFN_vkDestroySamplerYcbcrConversion>(vkGetDeviceProcAddr(device, "vkDestroySamplerYcbcrConversion"));
+    if (!pfn_vkDestroySamplerYcbcrConversion) {
+        pfn_vkDestroySamplerYcbcrConversion = reinterpret_cast<PFN_vkDestroySamplerYcbcrConversion>(vkGetDeviceProcAddr(device, "vkDestroySamplerYcbcrConversionKHR"));
+    }
 }

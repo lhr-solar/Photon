@@ -6,5 +6,6 @@ target_link_libraries(gui PUBLIC FontHeaders)
 add_dependencies(gui GenerateKernelHeaders GenerateFontHeaders)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(gui PUBLIC gpu)
     target_link_libraries(gui PUBLIC v4l2)
 endif()

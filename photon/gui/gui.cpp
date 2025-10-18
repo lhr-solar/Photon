@@ -3,6 +3,7 @@
 #include <string>
 #include <cstring>
 #include <cmath>
+#include <cstdint>
 #include <algorithm>
 #include <vulkan/vulkan.h>
 #include "vulkan_core.h"
@@ -15,7 +16,7 @@
 #include "../engine/include.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanBuffer.hpp"
-#include "../gpu/vulkanVideoDecode.hpp"
+#include "../parse/video_decoder.hpp"
 #include "../gpu/gpu.hpp"
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
@@ -25,6 +26,7 @@
 #include "background_vert_spv.hpp"
 #include "Satoshi_Medium_ttf.hpp"
 
+std::string h264VideoPath = "H264Videos/F1TestVid.mp4";
 #ifdef WIN
 #include <windowsx.h>
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE
@@ -33,11 +35,6 @@
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
 #define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT)-4)
 #endif
-
-std::string h264VideoPath = "H264Videos/F1TestVid.mp4";
-ImTextureID videoTexture = 0;
-ImVec2 videoTextureSize = ImVec2(0,0);
-float videoFrameTimer = 0.0f;
 
 static void dpiAware(){
     static bool applied = false;
@@ -101,6 +98,7 @@ Gui::~Gui(){
     destroyBackgroundResources(true);
     destroyCustomShaderResources(true);
     destroyVideoFeedResources(true);
+    destroyVideoPlayerResources();
     if (deviceHandle != VK_NULL_HANDLE) {
         if (guiDescriptorPool != VK_NULL_HANDLE) {
             vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
@@ -169,8 +167,10 @@ void Gui::prepareImGui(){
 // initialize all vulkan resources used by the UI
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     deviceHandle = vulkanDevice.logicalDevice;
+    ui.setH264VideoInitialized(false);
     destroyCustomShaderResources(true);
     destroyVideoFeedResources(true);
+    destroyVideoPlayerResources();
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
     ui.vendorID = vulkanDevice.deviceProperties.vendorID;
@@ -330,7 +330,6 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
 
     initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
     initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
-    initVideoFeedResources(vulkanDevice);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -483,35 +482,33 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     logs("[+] Created Graphics Gui Pipeline ");
 
     if (!ui.getH264Decoder()) {
-    uint32_t vidWidth = 1280, vidHeight = 720;
-    ui.setH264Decoder(std::make_unique<VulkanVideo>(vulkanDevice, vidWidth, vidHeight));
-    if (ui.getH264Decoder()->loadAndInitialize(h264VideoPath)) {
-        ui.getH264Decoder()->decodeFrame(0);
-        VkDescriptorSetAllocateInfo descriptorAlloc = {};
-        descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        descriptorAlloc.descriptorPool = guiDescriptorPool;
-        descriptorAlloc.descriptorSetCount = 1;
-        descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
-        VkResult res = vkAllocateDescriptorSets(deviceHandle, &descriptorAlloc, &ui.getH264VideoDescriptorSet());
-        if (res == VK_SUCCESS) {
-            VkDescriptorImageInfo imageInfo = {};
-            imageInfo.sampler = sampler;
-            imageInfo.imageView = ui.getH264Decoder()->getCurrentDecodedImageView();
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            VkWriteDescriptorSet write = {};
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet = ui.getH264VideoDescriptorSet();
-            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write.dstBinding = 0;
-            write.descriptorCount = 1;
-            write.pImageInfo = &imageInfo;
-            vkUpdateDescriptorSets(deviceHandle, 1, &write, 0, nullptr);
-            videoTexture = (ImTextureID)(uintptr_t)ui.getH264VideoDescriptorSet();
-            videoTextureSize = ImVec2(ui.getH264Decoder()->getVideoWidth(), ui.getH264Decoder()->getVideoHeight());
+        auto decoder = std::make_unique<FFmpegVideoDecoder>();
+        if (decoder->open(h264VideoPath)) {
+            ui.setH264Decoder(std::move(decoder));
+            if (ui.getH264Decoder()->frameRate() > 0.0) {
+                ui.setH264PlaybackSpeed(static_cast<float>(ui.getH264Decoder()->frameRate()));
+            }
+
+            VkExtent2D videoExtent{};
+            videoExtent.width = static_cast<uint32_t>(ui.getH264Decoder()->width());
+            videoExtent.height = static_cast<uint32_t>(ui.getH264Decoder()->height());
+            initVideoPlayerResources(vulkanDevice, videoExtent);
+
+            if (videoExtent.width > 0 && videoExtent.height > 0) {
+                if (ui.getH264Decoder()->readFrame(videoFrameData)) {
+                    uploadVideoFrame(vulkanDevice, videoFrameData.data(), videoFrameData.size(), videoExtent);
+                    ui.videoTexture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(videoPlayer.descriptorSet));
+                    ui.videoTextureSize = ImVec2(static_cast<float>(videoExtent.width), static_cast<float>(videoExtent.height));
+                    ui.setH264VideoInitialized(true);
+                    ui.resetH264FrameTimer();
+                } else {
+                    logs("[-] Failed to decode first video frame");
+                }
+            }
+        } else {
+            logs("[-] Failed to open video file: " << h264VideoPath);
         }
     }
-}
-
 }
 
 VkExtent2D Gui::getCustomShaderExtent() const {
@@ -578,6 +575,156 @@ void Gui::resizeCustomShader(VulkanDevice vulkanDevice, float width, float heigh
     ui.customShader.x = static_cast<float>(customShader.extent.width);
     ui.customShader.y = static_cast<float>(customShader.extent.height);
     ui.customShader.dirty = false;
+}
+
+void Gui::initVideoPlayerResources(VulkanDevice vulkanDevice, VkExtent2D extent) {
+    if (extent.width == 0 || extent.height == 0) {
+        return;
+    }
+
+    bool recreate = !videoPlayer.initialized ||
+                    videoPlayer.extent.width != extent.width ||
+                    videoPlayer.extent.height != extent.height;
+
+    if (!recreate && videoPlayer.image != VK_NULL_HANDLE) {
+        return;
+    }
+
+    destroyVideoPlayerResources();
+
+    videoPlayer.extent = extent;
+    videoPlayer.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.extent = {extent.width, extent.height, 1};
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageInfo, nullptr, &videoPlayer.image));
+
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, videoPlayer.image, &memReqs);
+
+    VkMemoryAllocateInfo allocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    allocInfo.allocationSize = memReqs.size;
+    allocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &allocInfo, nullptr, &videoPlayer.memory));
+    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, videoPlayer.image, videoPlayer.memory, 0));
+
+    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    viewInfo.image = videoPlayer.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.layerCount = 1;
+    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &videoPlayer.view));
+
+    if (videoPlayer.descriptorSet == VK_NULL_HANDLE) {
+        VkDescriptorSetAllocateInfo descriptorAlloc{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        descriptorAlloc.descriptorPool = guiDescriptorPool;
+        descriptorAlloc.descriptorSetCount = 1;
+        descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
+        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &videoPlayer.descriptorSet));
+    }
+
+    VkDescriptorImageInfo imageDescriptor{};
+    imageDescriptor.sampler = sampler;
+    imageDescriptor.imageView = videoPlayer.view;
+    imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    write.dstSet = videoPlayer.descriptorSet;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.pImageInfo = &imageDescriptor;
+    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &write, 0, nullptr);
+
+    videoPlayer.initialized = true;
+}
+
+void Gui::destroyVideoPlayerResources() {
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (videoPlayer.view != VK_NULL_HANDLE) {
+            vkDestroyImageView(deviceHandle, videoPlayer.view, nullptr);
+        }
+        if (videoPlayer.image != VK_NULL_HANDLE) {
+            vkDestroyImage(deviceHandle, videoPlayer.image, nullptr);
+        }
+        if (videoPlayer.memory != VK_NULL_HANDLE) {
+            vkFreeMemory(deviceHandle, videoPlayer.memory, nullptr);
+        }
+        if (videoPlayer.descriptorSet != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE) {
+            vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &videoPlayer.descriptorSet);
+        }
+    }
+
+    videoPlayer = {};
+    ui.videoTexture = static_cast<ImTextureID>(0);
+    ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+}
+
+void Gui::uploadVideoFrame(VulkanDevice vulkanDevice, const uint8_t* data, size_t byteSize, VkExtent2D extent) {
+    if (!data || byteSize == 0) {
+        return;
+    }
+
+    initVideoPlayerResources(vulkanDevice, extent);
+    if (videoPlayer.image == VK_NULL_HANDLE) {
+        return;
+    }
+
+    if (videoStagingBuffer.buffer == VK_NULL_HANDLE || videoStagingBufferSize < byteSize) {
+        if (videoStagingBuffer.buffer != VK_NULL_HANDLE) {
+            videoStagingBuffer.unmap();
+            videoStagingBuffer.destroy();
+        }
+        videoStagingBufferSize = byteSize;
+        VK_CHECK(vulkanDevice.createBuffer(
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            &videoStagingBuffer,
+            videoStagingBufferSize,
+            nullptr));
+        VK_CHECK(videoStagingBuffer.map(VK_WHOLE_SIZE, 0));
+    }
+
+    std::memcpy(videoStagingBuffer.mapped, data, byteSize);
+
+    VkCommandBuffer copyCmd = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
+
+    VkImageSubresourceRange range{};
+    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    range.levelCount = 1;
+    range.layerCount = 1;
+
+    VkPipelineStageFlags srcStage = videoPlayer.layout == VK_IMAGE_LAYOUT_UNDEFINED ?
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+    Gpu::setImageLayout(copyCmd, videoPlayer.image, videoPlayer.layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        range, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    VkBufferImageCopy copyRegion{};
+    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.imageSubresource.layerCount = 1;
+    copyRegion.imageExtent = {extent.width, extent.height, 1};
+    vkCmdCopyBufferToImage(copyCmd, videoStagingBuffer.buffer, videoPlayer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+    Gpu::setImageLayout(copyCmd, videoPlayer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        range, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    vulkanDevice.flushCommandBuffer(copyCmd, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
+
+    videoPlayer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    videoPlayer.initialized = true;
 }
 
 void Gui::destroyBackgroundResources(bool releaseDescriptorSet){
@@ -1297,6 +1444,7 @@ void Gui::recordCustomShaderPass(VkCommandBuffer commandBuffer){
 
 void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
 #if defined(__linux__)
+    if (ui.isVideoReady()) { return; }
     if (!webcam.isAvailable()) { return; }
     if (videoFeed.image == VK_NULL_HANDLE) {
         initVideoFeedResources(vulkanDevice);
@@ -1354,6 +1502,47 @@ void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
 #endif
 }
 
+void Gui::updateH264Video(VulkanDevice vulkanDevice) {
+    if (!ui.getH264Decoder()) {
+        return;
+    }
+    if (!ui.isH264VideoInitialized()) {
+        return;
+    }
+
+    float playbackSpeed = ui.getH264PlaybackSpeed();
+    if (playbackSpeed <= 0.0f) {
+        playbackSpeed = 30.0f;
+    }
+
+    float frameInterval = 1.0f / playbackSpeed;
+    ui.updateH264FrameTimer(ImGui::GetIO().DeltaTime);
+    if (ui.getH264FrameTimer() < frameInterval) {
+        return;
+    }
+    ui.resetH264FrameTimer();
+
+    if (!ui.getH264Decoder()->readFrame(videoFrameData)) {
+        ui.getH264Decoder()->reset();
+        if (!ui.getH264Decoder()->readFrame(videoFrameData)) {
+            return;
+        }
+    }
+
+    VkExtent2D extent{};
+    extent.width = static_cast<uint32_t>(ui.getH264Decoder()->width());
+    extent.height = static_cast<uint32_t>(ui.getH264Decoder()->height());
+    if (extent.width == 0 || extent.height == 0) {
+        return;
+    }
+
+    uploadVideoFrame(vulkanDevice, videoFrameData.data(), videoFrameData.size(), extent);
+    if (videoPlayer.descriptorSet != VK_NULL_HANDLE) {
+        ui.videoTexture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(videoPlayer.descriptorSet));
+        ui.videoTextureSize = ImVec2(static_cast<float>(extent.width), static_cast<float>(extent.height));
+    }
+}
+
 void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
     VkCommandBufferBeginInfo cmdBufferBeginInfo {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1372,6 +1561,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
+    updateH264Video(vulkanDevice);
     updateVideoFeed(vulkanDevice);
     ui.build();
     if (ui.background.dirty) {

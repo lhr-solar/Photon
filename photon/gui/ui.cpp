@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
-#include "../gpu/vulkanVideoDecode.hpp"
+#include "../parse/video_decoder.hpp"
 
 void UI::build(){
     ImGui::NewFrame();
@@ -345,23 +345,18 @@ void UI::setStyle(){
 }
 
 void UI::videoWindow(){
-    videoFrameTimer += ImGui::GetIO().DeltaTime;
-    if (videoFrameTimer > (1.0f / h264PlaybackSpeed) && h264Decoder) {
-        videoFrameTimer = 0.0f;
-        uint32_t nextFrame = h264Decoder->getCurrentFrameIndex() + 1;
-        if (nextFrame < h264Decoder->getFrameInfos().size()) {
-            h264Decoder->decodeFrame(nextFrame);
-        }
-    }
     ImGui::Begin("Video Player");
     if (videoTexture) {
         ImGui::Text("Now Playing: %s", h264VideoPath.c_str());
         ImGui::Image(videoTexture, videoTextureSize);
-        if (ImGui::Button("Next Frame")) {
-            uint32_t nextIndex = h264Decoder->getCurrentFrameIndex() + 1;
-            if (nextIndex < h264Decoder->getFrameInfos().size()) {
-                h264Decoder->decodeFrame(nextIndex);
+        if (ImGui::Button("Restart")) {
+            if (h264Decoder) {
+                h264Decoder->reset();
             }
+        }
+        ImGui::SameLine();
+        if (ImGui::SliderFloat("Playback FPS", &h264PlaybackSpeed, 1.0f, 120.0f, "%.1f")) {
+            h264PlaybackSpeed = std::clamp(h264PlaybackSpeed, 1.0f, 120.0f);
         }
     } else {
         ImGui::Text("No video loaded or failed to decode.");
