@@ -7,7 +7,9 @@
 #include <glm/glm.hpp>
 #include <array>
 #include <memory>
-#include "../parse/video_decoder.hpp"
+
+// Forward declare if not included
+class VulkanVideo;
 
 struct UI{
     Network *networkINTF;
@@ -54,16 +56,20 @@ struct UI{
     } background;
 
     // H.264 Video decoder
-    std::unique_ptr<FFmpegVideoDecoder> h264Decoder;
+    std::unique_ptr<VulkanVideo> h264Decoder;
+    VkDescriptorSet h264VideoDescriptorSet = VK_NULL_HANDLE;
     bool h264VideoInitialized = false;
     float h264PlaybackSpeed = 30.0f;
     float h264FrameTimer = 0.0f;
 
     // Getters for decoder params
-    FFmpegVideoDecoder* getH264Decoder() { return h264Decoder.get(); }
-    const FFmpegVideoDecoder* getH264Decoder() const { return h264Decoder.get(); }
-    void setH264Decoder(std::unique_ptr<FFmpegVideoDecoder> decoder) { h264Decoder = std::move(decoder); }
-
+    VulkanVideo* getH264Decoder() { return h264Decoder.get(); }
+    const VulkanVideo* getH264Decoder() const { return h264Decoder.get(); }
+    void setH264Decoder(std::unique_ptr<VulkanVideo> decoder) {h264Decoder = std::move(decoder);}
+    VkDescriptorSet& getH264VideoDescriptorSet() { return h264VideoDescriptorSet; }
+    const VkDescriptorSet& getH264VideoDescriptorSet() const { return h264VideoDescriptorSet; }
+    void setH264VideoDescriptorSet(VkDescriptorSet set) { h264VideoDescriptorSet = set; }
+    
     bool isH264VideoInitialized() const { return h264VideoInitialized; }
     void setH264VideoInitialized(bool initialized) { h264VideoInitialized = initialized; }
     
@@ -76,7 +82,7 @@ struct UI{
     void resetH264FrameTimer() { h264FrameTimer = 0.0f; }
     
     // Convenience checker
-    bool isVideoReady() const { return h264VideoInitialized; }
+    bool isVideoReady() const { return h264Decoder && h264VideoInitialized; }
 
     void setStyle();
     void videoWindow();

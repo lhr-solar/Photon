@@ -73,13 +73,6 @@ void VulkanVideo::cleanup() {
         vkFreeMemory(dev, currentOutputMemory, nullptr);
         currentOutputMemory = VK_NULL_HANDLE;
     }
-    if (ycbcrConversion != VK_NULL_HANDLE) {
-        if (pfn_vkDestroySamplerYcbcrConversion) {
-            pfn_vkDestroySamplerYcbcrConversion(dev, ycbcrConversion, nullptr);
-        }
-        ycbcrConversion = VK_NULL_HANDLE;
-    }
-    outputImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     for (auto& slot : dpbSlots) {
         if (slot.imageView != VK_NULL_HANDLE) {
@@ -175,7 +168,7 @@ bool VulkanVideo::findVideoQueueFamily() {
     vkGetPhysicalDeviceQueueFamilyProperties(device.physicalDevice, &queueFamilyCount, queueProps.data());
     
     for(int i = 0; i < queueFamilyCount; i++){
-        if(queueProps[i].queueFlags & VK_QUEUE_VIDEO_DECODE_BIT_KHR){
+        if(queueProps[i].queueFlags & VK_QUEUE_VIDEO_ENCODE_BIT_KHR){
             videoQueueFamily = i; return true;
         }
     }
@@ -413,19 +406,10 @@ bool VulkanVideo::createDPBSlots(uint32_t numSlots) {
 }
 
 bool VulkanVideo::createOutputImage() {
-    if (!ensureYcbcrConversion()) {
-        return false;
-    }
-
-    if (!createImage(currentOutputImage, currentOutputMemory, currentOutputImageView,
-                     videoWidth, videoHeight, getYUVFormat(),
-                     VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_SAMPLED_BIT,
-                     &profileList, ycbcrConversion)) {
-        return false;
-    }
-
-    outputImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    return true;
+    return createImage(currentOutputImage, currentOutputMemory, currentOutputImageView,
+                      videoWidth, videoHeight, getYUVFormat(),
+                      VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_SAMPLED_BIT,
+                      &profileList);
 }
 
 bool VulkanVideo::createQueryPool() {
@@ -447,45 +431,10 @@ bool VulkanVideo::createQueryPool() {
     logs("[+] Query pool created");
     return true;
 }
-bool VulkanVideo::ensureYcbcrConversion() {
-    if (ycbcrConversion != VK_NULL_HANDLE) {
-        return true;
-    }
-
-    VkSamplerYcbcrConversionCreateInfo conversionInfo{VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO};
-    conversionInfo.format = getYUVFormat();
-    conversionInfo.ycbcrModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_709;
-    conversionInfo.ycbcrRange = VK_SAMPLER_YCBCR_RANGE_ITU_NARROW;
-    conversionInfo.components = {
-        VK_COMPONENT_SWIZZLE_IDENTITY,
-        VK_COMPONENT_SWIZZLE_IDENTITY,
-        VK_COMPONENT_SWIZZLE_IDENTITY,
-        VK_COMPONENT_SWIZZLE_IDENTITY
-    };
-    conversionInfo.xChromaOffset = VK_CHROMA_LOCATION_MIDPOINT;
-    conversionInfo.yChromaOffset = VK_CHROMA_LOCATION_MIDPOINT;
-    conversionInfo.chromaFilter = VK_FILTER_LINEAR;
-    conversionInfo.forceExplicitReconstruction = VK_FALSE;
-
-    if (!pfn_vkCreateSamplerYcbcrConversion) {
-        logs("[-] vkCreateSamplerYcbcrConversion not loaded");
-        return false;
-    }
-
-    VkResult result = pfn_vkCreateSamplerYcbcrConversion(device.logicalDevice, &conversionInfo, nullptr, &ycbcrConversion);
-    if (result != VK_SUCCESS) {
-        logs("[-] Failed to create YCbCr sampler conversion");
-        return false;
-    }
-
-    return true;
-}
-
 
 bool VulkanVideo::createImage(VkImage& image, VkDeviceMemory& memory, VkImageView& imageView,
                               uint32_t width, uint32_t height, VkFormat format,
-                              VkImageUsageFlags usage, const VkVideoProfileListInfoKHR* profileList,
-                              VkSamplerYcbcrConversion conversion) {
+                              VkImageUsageFlags usage, const VkVideoProfileListInfoKHR* profileList) {
     VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imageInfo.pNext = profileList;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -521,11 +470,6 @@ bool VulkanVideo::createImage(VkImage& image, VkDeviceMemory& memory, VkImageVie
     vkBindImageMemory(device.logicalDevice, image, memory, 0);
 
     VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    VkSamplerYcbcrConversionInfo conversionInfo{VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO};
-    if (conversion != VK_NULL_HANDLE) {
-        conversionInfo.conversion = conversion;
-        viewInfo.pNext = &conversionInfo;
-    }
     viewInfo.image = image;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = format;
@@ -839,9 +783,9 @@ void VulkanVideo::findAllNALUnits(const uint8_t* data, size_t size) {
 }
 
 bool VulkanVideo::decodeFrame(uint32_t frameIndex) {
-    if(!isInitialized()){
-        logs("[-] Initialization failed monke");
-    }
+    // if(!isInitialized()){
+    //     logs("[-] Initialization failed monke");
+    // }
     if (!isInitialized() || frameIndex >= frameInfos.size()) {
         logs("[-] Cannot decode frame " + std::to_string(frameIndex));
         return false;
@@ -867,16 +811,11 @@ bool VulkanVideo::decodeFrame(uint32_t frameIndex) {
     beginCoding.videoSessionParameters = sessionParams;
 
     // Setup reference slots if needed
-    std::vector<VkVideoPictureResourceInfoKHR> referenceResources;
-    referenceResources.reserve(activeDPBSlots);
     std::vector<VkVideoReferenceSlotInfoKHR> referenceSlots;
     if (!frame.isIFrame && activeDPBSlots > 0) {
         for (uint32_t i = 0; i < activeDPBSlots && i < 4; i++) {
             if (dpbSlots[i].isReference) {
-                referenceResources.emplace_back();
-                auto& pictureResource = referenceResources.back();
-                pictureResource.sType = VK_STRUCTURE_TYPE_VIDEO_PICTURE_RESOURCE_INFO_KHR;
-                pictureResource.pNext = nullptr;
+                VkVideoPictureResourceInfoKHR pictureResource{VK_STRUCTURE_TYPE_VIDEO_PICTURE_RESOURCE_INFO_KHR};
                 pictureResource.codedOffset = {0, 0};
                 pictureResource.codedExtent = {videoWidth, videoHeight};
                 pictureResource.baseArrayLayer = 0;

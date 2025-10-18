@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <algorithm>
 #include <string.h>
-#include <limits>
 
 #include "vulkanDevice.hpp"
 #include "gpu.hpp"
@@ -61,8 +60,7 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
                                             bool useSwapChain, VkQueueFlags requestedQueueTypes){
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
-    const float defaultQueuePriority(1.0f);
-    queueFamilyIndices = {UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX};
+    const float defaultQueuePriority(0.0f);
 
     // graphics queue
     if(requestedQueueTypes & VK_QUEUE_GRAPHICS_BIT){
@@ -109,22 +107,16 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
     if(requestedQueueTypes & VK_QUEUE_VIDEO_DECODE_BIT_KHR){ 
         queueFamilyIndices.video = getQueueFamilyIndex(VK_QUEUE_VIDEO_DECODE_BIT_KHR);
         logs("[+] Video Queue using family index : " << queueFamilyIndices.video);
-        bool alreadyRequested = false;
-        for (const auto& info : queueCreateInfos) {
-            if (info.queueFamilyIndex == queueFamilyIndices.video) {
-                alreadyRequested = true;
-                break;
-            }
-        }
-        if (!alreadyRequested) {
+        if((queueFamilyIndices.video != queueFamilyIndices.graphics) && (queueFamilyIndices.video != queueFamilyIndices.compute)){
+            // If transfer family index differs, we need an additional queue create info for the transfer queue
             VkDeviceQueueCreateInfo queueInfo{};
             queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             queueInfo.queueFamilyIndex = queueFamilyIndices.video;
             queueInfo.queueCount = 1;
             queueInfo.pQueuePriorities = &defaultQueuePriority;
             queueCreateInfos.push_back(queueInfo);
-        }
-    } else { queueFamilyIndices.video = UINT32_MAX; }
+		} 
+    } else { queueFamilyIndices.video = queueFamilyIndices.graphics; }
     // create logical device representation
     std::vector<const char*> deviceExtensions(enabledExtensions); 
     if (useSwapChain) deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);

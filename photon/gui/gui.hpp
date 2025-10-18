@@ -100,16 +100,6 @@ public:
         bool initialized = false;
     } videoFeed;
 
-    struct VideoPlayerResources {
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory memory = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-        VkExtent2D extent{0, 0};
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bool initialized = false;
-    } videoPlayer;
-
     VulkanBuffer videoStagingBuffer;
     VkDeviceSize videoStagingBufferSize = 0;
     std::vector<uint8_t> videoFrameData;
@@ -169,10 +159,6 @@ public:
     void resizeBackground(VulkanDevice vulkanDevice, float width, float height);
     VkExtent2D calculateBackgroundExtent(float width, float height) const;
     void recordBackgroundPass(VkCommandBuffer commandBuffer);
-
-    void initVideoPlayerResources(VulkanDevice vulkanDevice, VkExtent2D extent);
-    void destroyVideoPlayerResources();
-    void uploadVideoFrame(VulkanDevice vulkanDevice, const uint8_t* data, size_t byteSize, VkExtent2D extent);
 
     void initVideoFeedResources(VulkanDevice vulkanDevice);
     void updateVideoFeed(VulkanDevice vulkanDevice);

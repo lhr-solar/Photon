@@ -144,22 +144,8 @@ VkResult Gpu::setupGPU(){
     vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_QUEUE_EXTENSION_NAME);        
     vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME);
     vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME);
-    vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
     vulkanDevice.enabledDeviceExtensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);   
-
-    VkPhysicalDeviceSamplerYcbcrConversionFeatures samplerYcbcrFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES};
-    VkPhysicalDeviceFeatures2 featureQuery{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    featureQuery.pNext = &samplerYcbcrFeatures;
-    vkGetPhysicalDeviceFeatures2(physicalDevice, &featureQuery);
-    void* featureChain = nullptr;
-    if (samplerYcbcrFeatures.samplerYcbcrConversion) {
-        samplerYcbcrFeatures.samplerYcbcrConversion = VK_TRUE;
-        featureChain = &samplerYcbcrFeatures;
-    } else {
-        logs("[-] VK_KHR_sampler_ycbcr_conversion feature unavailable; video playback may be limited");
-    }
-
-    VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, featureChain, useSwapchain, requestedQueueTypes));
+    VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, useSwapchain, requestedQueueTypes));
 
     // remove index magic number, should be done programatically, see above --
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.graphics, 0, &vulkanDevice.graphicsQueue);

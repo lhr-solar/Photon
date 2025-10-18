@@ -59,7 +59,6 @@ public:
     const std::vector<VideoFrameInfo>& getFrameInfos() const { return frameInfos; }
     VkImage getCurrentDecodedImage() const { return currentOutputImage; }
     VkImageView getCurrentDecodedImageView() const { return currentOutputImageView; }
-    VkSamplerYcbcrConversion getSamplerConversion() const { return ycbcrConversion; }
     uint32_t getFrameCount() const { return static_cast<uint32_t>(frameInfos.size()); }
     uint32_t getVideoWidth() const { return videoWidth; }
     uint32_t getVideoHeight() const { return videoHeight; }
@@ -108,8 +107,6 @@ private:
     VkImage currentOutputImage = VK_NULL_HANDLE;
     VkImageView currentOutputImageView = VK_NULL_HANDLE;
     VkDeviceMemory currentOutputMemory = VK_NULL_HANDLE;
-    VkSamplerYcbcrConversion ycbcrConversion = VK_NULL_HANDLE;
-    VkImageLayout outputImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     // Bitstream buffer
     VkBuffer bitstreamBuffer = VK_NULL_HANDLE;
@@ -136,11 +133,9 @@ private:
     bool createOutputImage();
     bool createQueryPool();
     
-    bool ensureYcbcrConversion();
     bool createImage(VkImage& image, VkDeviceMemory& memory, VkImageView& imageView,
                      uint32_t width, uint32_t height, VkFormat format, 
-                     VkImageUsageFlags usage, const VkVideoProfileListInfoKHR* profileList,
-                     VkSamplerYcbcrConversion conversion = VK_NULL_HANDLE);
+                     VkImageUsageFlags usage, const VkVideoProfileListInfoKHR* profileList);
     
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     VkFormat getYUVFormat() const { return VK_FORMAT_G8_B8R8_2PLANE_420_UNORM; }

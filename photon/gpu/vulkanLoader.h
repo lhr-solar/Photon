@@ -12,8 +12,6 @@ extern PFN_vkDestroyVideoSessionParametersKHR pfn_vkDestroyVideoSessionParameter
 extern PFN_vkCmdBeginVideoCodingKHR pfn_vkCmdBeginVideoCodingKHR;
 extern PFN_vkCmdEndVideoCodingKHR pfn_vkCmdEndVideoCodingKHR;
 extern PFN_vkCmdDecodeVideoKHR pfn_vkCmdDecodeVideoKHR;
-extern PFN_vkCreateSamplerYcbcrConversion pfn_vkCreateSamplerYcbcrConversion;
-extern PFN_vkDestroySamplerYcbcrConversion pfn_vkDestroySamplerYcbcrConversion;
 
 // Loader function
 void LoadVulkanVideoFunctions(VkInstance instance, VkDevice device);
