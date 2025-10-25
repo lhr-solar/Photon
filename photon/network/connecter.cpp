@@ -1,18 +1,89 @@
-// the purpose of this file is to connect DBC files to their respective CAN IDs.
-// also im assuming (its not true) that the DBC file will be accessible like a dictionary
-// and same for can IDs but im making it 
+/* [ξ] DBC Connector Interface
+   Connects parsed DBC definitions to their respective CAN IDs.
+   Acts like a runtime dictionary for DBC → CAN lookup.
+*/
 
-EXAMPLE INPUT :
-canid_map<int, int> order;
-    // Mapping values to keys
-    order[can1id] = vector<string> info = {"ID", " Name", "DLC", "Transmitter"};;
-    order[can2id] = vector<string> info = {"ID", " Name", "DLC", "Transmitter"};;
-    order[can3id] = vector<string> info = {"ID", " Name", "DLC", "Transmitter"};;
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+#include <string>
+#include <memory>
 
-Can1idSG_map<int, int> order;
+struct DbcSignalInfo {
+    int startBit;
+    int length;
+    int endianness;   // 1 = little, 0 = big
+    bool isSigned;
+    double factor;
+    double offset;
+    double minVal;
+    double maxVal;
+};
 
-    order[signalname1] = vector<string> info = {"startbit", " length", "endianness", "signedness", "factor", "Offset" , "min" Max"};;
-    order[signalname2] = vector<string> info = {"startbit", " length", "endianness", "signedness", "factor", "Offset" , "min" Max"};;
-    order[signalname2] = vector<string> info = {"startbit", " length", "endianness", "signedness", "factor", "Offset" , "min" Max"};;
+struct DbcMessageInfo {
+    int canId;
+    std::string name;
+    int dlc;
+    std::string transmitter;
 
-vector<integer> can1id = {"startbit", " length", "endianness", "signedness", "factor", "Offset" , "min" Max"};;
+    // Each message holds multiple signal definitions
+    std::unordered_map<std::string, DbcSignalInfo> signals;
+};
+
+class DbcConnector {
+public:
+    // Top-level: map CAN IDs → DBC message info
+    std::unordered_map<int, std::shared_ptr<DbcMessageInfo>> dbcMap;
+
+    // Register a new CAN message (BO_ line)
+    void registerMessage(int canId, const std::string& name, int dlc, const std::string& transmitter) {
+        auto msg = std::make_shared<DbcMessageInfo>();
+        msg->canId = canId;
+        msg->name = name;
+        msg->dlc = dlc;
+        msg->transmitter = transmitter;
+        dbcMap[canId] = msg;
+    }
+
+    // Register a new signal for a given CAN ID (SG_ line)
+    void registerSignal(int canId,
+                        const std::string& signalName,
+                        int startBit,
+                        int length,
+                        int endianness,
+                        bool isSigned,
+                        double factor,
+                        double offset,
+                        double minVal,
+                        double maxVal) {
+        if (dbcMap.find(canId) == dbcMap.end()) {
+            std::cerr << "[Connector] Error: CAN ID " << canId << " not registered before SG_ line\n";
+            return;
+        }
+
+        DbcSignalInfo sig{ startBit, length, endianness, isSigned, factor, offset, minVal, maxVal };
+        dbcMap[canId]->signals[signalName] = sig;
+    }
+
+    // Print all stored mappings for debugging
+    void dump() const {
+        for (const auto& [id, msg] : dbcMap) {
+            std::cout << "CAN ID: " << id << " | Name: " << msg->name
+                      << " | DLC: " << msg->dlc
+                      << " | Transmitter: " << msg->transmitter << "\n";
+
+            for (const auto& [sigName, sig] : msg->signals) {
+                std::cout << "  └─ Signal: " << sigName
+                          << " (StartBit: " << sig.startBit
+                          << ", Len: " << sig.length
+                          << ", Endian: " << sig.endianness
+                          << ", Signed: " << sig.isSigned
+                          << ", Factor: " << sig.factor
+                          << ", Offset: " << sig.offset
+                          << ", Min: " << sig.minVal
+                          << ", Max: " << sig.maxVal
+                          << ")\n";
+            }
+        }
+    }
+};
