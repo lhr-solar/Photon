@@ -77,6 +77,7 @@ void Network::producer() {
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
     while (1){
         auto bytesRead = socket.read(buffer.data(), buffer.size());
+        printDBCMap();
         if (bytesRead > 0) {
             for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); ++i) {
                 while (!spscQueue.try_push(buffer[i])) std::this_thread::yield();
@@ -89,53 +90,50 @@ void Network::parser() {
     std::string frame;
     frame.reserve(256);
     bool collecting = false;
-    std::string lookahead;
-    lookahead.reserve(4);
+
     while (1) {
         if (auto* byte = spscQueue.front()) {
             char ch = static_cast<char>(*byte);
             spscQueue.pop();
-            if (ch == 't') {
-                frame.clear();
-                frame.push_back(ch);
+
+            // Begin collection
+            if (!collecting && (std::isprint(ch) || ch == '\r'))
                 collecting = true;
+
+            if (!collecting)
                 continue;
-            }
-            if (!collecting && ch != 'B' && ch != 'S') continue;
+
+            // End of line (your Python stream uses '\r')
             if (ch == '\r') {
                 if (!frame.empty()) {
-                    if (frame.find("BO_") != std::string::npos || frame.find("SG_") != std::string::npos)
+                    // Remove leftover whitespace
+                    while (!frame.empty() && (frame.back() == '\r' || frame.back() == '\n'))
+                        frame.pop_back();
+
+                    // Detect and handle DBC vs CAN
+                    if (frame.rfind("BO_", 0) == 0 || frame.rfind("SG_", 0) == 0) {
+                        logs("[parser] Detected DBC line → " + frame);
                         handleDBCframe(frame);
-                    else
+                    } else if (frame.rfind("t", 0) == 0) {
                         handleFrame(frame);
+                    } else {
+                        logs("[parser] Skipped line → " + frame);
+                    }
                 }
+
                 frame.clear();
                 collecting = false;
-                lookahead.clear();
                 continue;
             }
-            if (ch == '\n') continue;
+
+            // Build current frame
             frame.push_back(ch);
-            lookahead.push_back(ch);
-            if (lookahead.size() > 3) lookahead.erase(0, lookahead.size() - 3);
-            if (lookahead == "BO_") {
-                logs("[parser] Detected start of DBC message (BO_)");
-                frame.clear();
-                frame.append("BO_");
-                collecting = true;
-                continue;
-            }
-            if (lookahead == "SG_") {
-                logs("[parser] Detected start of DBC signal (SG_)");
-                if (!frame.empty() && frame.find("BO_") != std::string::npos) handleDBCframe(frame);
-                frame.clear();
-                frame.append("SG_");
-                collecting = true;
-                continue;
-            }
-        } else std::this_thread::yield();
+        } else {
+            std::this_thread::yield();
+        }
     }
 }
+
 
 Network::sample& Network::ensureSample(uint16_t canId) {
     std::lock_guard<std::mutex> guard(sampleMapMutex);
@@ -202,37 +200,26 @@ void Network::handleFrame(const std::string& frame) {
 
 void Network::handleDBCframe(const std::string& frame) {
     if (frame.rfind("BO_", 0) == 0) {
-        uint32_t canID = 0; 
-        std::string name, sender; 
-        uint8_t dlc = 0;
-
+        uint32_t canID = 0; std::string name, sender; uint8_t dlc = 0;
         if (!decodeDBCFrame(frame, canID, name, dlc, sender)) {
-            logs("[parser] Invalid DBC BO_ frame encountered → " + frame);
+            logs("[parser] Invalid DBC BO_ frame encountered");
             return;
         }
-
         writeDBC(canID, name, dlc, sender);
         currentCanId = canID;
-        logs("[parser] Registered BO_ " + name + " (CAN ID: " + std::to_string(canID) + ")");
-        printDBCMap();  // ✅ print here after adding new BO_
         return;
     }
-
     if (frame.rfind("SG_", 0) == 0) {
         if (currentCanId == 0) {
-            logs("[parser] SG_ encountered before BO_ → " + frame);
+            logs("[parser] SG_ encountered before BO_");
             return;
         }
-
         DbcSignal sig;
         if (!decodeSIGFrame(frame, currentCanId, sig)) {
-            logs("[parser] Invalid DBC SG_ frame encountered → " + frame);
+            logs("[parser] Invalid DBC SG_ frame encountered");
             return;
         }
-
         writeSignal(currentCanId, sig);
-        logs("[parser] Registered SG_ " + sig.name + " for CAN ID " + std::to_string(currentCanId));
-        printDBCMap();  // ✅ print here after adding new SG_
         return;
     }
 }
