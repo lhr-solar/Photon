@@ -44,7 +44,8 @@ void Photon::prepareScene(){
    gpu.createDefaultWhiteTexture();
    
    // Load GLTF model if available
-   gpu.loadGLTFModel("models/daybreak.glb");
+   //gpu.loadGLTFModel("models/untitled.gltf");
+   gpu.loadGLTFModel("models/dyn.glb");
    gpu.setupMeshDescriptors();
    
    gui.prepareImGui();

@@ -22,9 +22,9 @@ VkResult VulkanBuffer::flush(VkDeviceSize size, VkDeviceSize offset){
 }
 
 void VulkanBuffer::setupDescriptor(VkDeviceSize size, VkDeviceSize offset){
-    descriptor.offset = offset;
-    descriptor.buffer = buffer;
-    descriptor.range = size;
+    vkCmdBindPipelinedescriptor.offset = offset;
+    vkCmdBindPipelinedescriptor.buffer = buffer;
+    vkCmdBindPipelinedescriptor.range = size;
 }
 
 VkResult VulkanBuffer::bind(VkDeviceSize offset){

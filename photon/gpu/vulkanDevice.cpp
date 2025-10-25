@@ -245,6 +245,7 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
     memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     vkGetBufferMemoryRequirements(logicalDevice, buffer->buffer, &memReqs);
     memAlloc.allocationSize = memReqs.size;
+    logs("Size:" + memReqs.memoryTypeBits);
     memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags, nullptr);
     
     // Important: Check for VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT

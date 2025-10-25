@@ -6,14 +6,25 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <unordered_map>
+
+// Enable GLM hashing for vector/matrix types
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 
 #include "vulkanDevice.hpp"
 #include "vulkanBuffer.hpp"
 
-#define VK_CHECK(x) do { VkResult err = x; if (err) { \
-    std::cout << "Detected Vulkan error: " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
-    abort(); \
-} } while(0)
+#define VK_CHECK(x)                                                                                              \
+    do                                                                                                           \
+    {                                                                                                            \
+        VkResult err = x;                                                                                        \
+        if (err)                                                                                                 \
+        {                                                                                                        \
+            std::cout << "Detected Vulkan error: " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            abort();                                                                                             \
+        }                                                                                                        \
+    } while (0)
 
 namespace tinygltf
 {
@@ -38,6 +49,8 @@ struct Primitive
     uint32_t firstIndex = 0;
     uint32_t indexCount = 0;
     int32_t materialIndex = -1;
+    // per-material texture binding
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 };
 
 // vertex layout
@@ -51,12 +64,12 @@ enum class VertexComponent
     Joint0,
     Weight0
 };
-
-struct alignas(16) ShaderMeshData {
-		glm::mat4 matrix;
-		glm::mat4 jointMatrix[128]{};
-		uint32_t jointcount{ 0 };
-	};
+struct alignas(16) ShaderMeshData
+{
+    glm::mat4 matrix;
+    glm::mat4 jointMatrix[128]{};
+    uint32_t jointcount{0};
+};
 
 struct vertex
 {
@@ -67,6 +80,17 @@ struct vertex
     glm::vec4 joint0{};
     glm::vec4 weight0{};
     glm::vec4 tangent{};
+    
+    bool operator==(const vertex &other) const noexcept
+    {
+        return pos == other.pos &&
+               normal == other.normal &&
+               uv == other.uv &&
+               color == other.color &&
+               joint0 == other.joint0 &&
+               weight0 == other.weight0 &&
+               tangent == other.tangent;
+    }
 
     static VkVertexInputBindingDescription vertexInputBindingDescription;
     static std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions;
@@ -81,6 +105,31 @@ struct vertex
         const std::vector<VertexComponent> components);
 };
 
+namespace std
+{
+    template <>
+    struct hash<vertex>
+    {
+        size_t operator()(const vertex &v) const noexcept
+        {
+            size_t seed = 0u;
+            auto hash_combine = [&seed](auto const &val)
+            {
+                seed ^= std::hash<std::decay_t<decltype(val)>>{}(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            };
+
+            hash_combine(v.pos);
+            hash_combine(v.normal);
+            hash_combine(v.uv);
+            hash_combine(v.color);
+            hash_combine(v.joint0);
+            hash_combine(v.weight0);
+            hash_combine(v.tangent);
+            return seed;
+        }
+    };
+}
+
 // model info
 struct Model
 {
@@ -93,6 +142,7 @@ struct Model
         VulkanBuffer shaderMeshBuffer;
         uint32_t vertexCount = 0;
         uint32_t indexCount = 0;
+
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE; // using a descriptor for each mesh
     };
 
@@ -145,6 +195,7 @@ struct Model
     std::vector<Node *> nodes;
     std::vector<Mesh> meshes;
     std::vector<vertex> vertices;
+    std::unordered_map<vertex, uint32_t> uniqueVertices{};
     std::vector<uint32_t> indices;
     std::vector<Image> images;
     std::vector<Texture> textures;
@@ -155,7 +206,7 @@ struct Model
 };
 
 // gltf loader/manager
-class vulkanGLTF  
+class vulkanGLTF
 {
 public:
     VulkanDevice *device = nullptr;
@@ -163,25 +214,27 @@ public:
 
     // load a gltf file and return its index in the models vector
     int loadglTFFile(std::string filename);
-    
+
     // get a model by index
-    Model* getModel(size_t index);
-    
+    Model *getModel(size_t index);
+
     // get number of loaded models
     size_t getModelCount() const { return models.size(); }
-    
+
     // destroy all models
     void destroy();
-    
+
     // destroy a specific model by index
     void destroyModel(size_t index);
 
 private:
     void loadVertices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model);
-    void loadIndices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model);
+    // Load indices for a primitive and add a base vertex offset so primitives
+    // appended into a single vertex buffer reference the correct vertex range.
+    void loadIndices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model, uint32_t baseVertex);
     void loadNode(const tinygltf::Model &gltfModel, const tinygltf::Node &inputNode, Model::Node *parent, Model &model);
     void createBuffers(Model &model);
     void loadMaterials(tinygltf::Model &input, Model &model);
     void loadTextures(tinygltf::Model &input, Model &model);
-    void createTextureImage(TextureGPU &texture, const void* data, VkDeviceSize size, uint32_t width, uint32_t height, VkFormat format);
+    void createTextureImage(TextureGPU &texture, const void *data, VkDeviceSize size, uint32_t width, uint32_t height, VkFormat format);
 };

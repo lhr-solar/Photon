@@ -9,7 +9,7 @@ struct VulkanBuffer{
     VkDeviceSize alignment = 0;
     VkBufferUsageFlags usageFlags;
     VkMemoryPropertyFlags memoryPropertyFlags;
-    VkDescriptorBufferInfo descriptor;
+    VkDescriptorBufferInfo vkCmdBindPipelinedescriptor;
     void* mapped = nullptr;
     VkResult map(VkDeviceSize size , VkDeviceSize offset);
     void unmap();

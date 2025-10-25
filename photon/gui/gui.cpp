@@ -745,7 +745,7 @@ void Gui::initBackgroundResources(VulkanDevice vulkanDevice, VkExtent2D extent){
     VkPipelineRasterizationStateCreateInfo raster{};
     raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = VK_CULL_MODE_NONE;
+    raster.cullMode = VK_CULL_MODE_BACK_BIT;
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster.lineWidth = 1.0f;
 
@@ -1654,45 +1654,106 @@ void Gui::initRenderedFrameResources(VulkanDevice vulkanDevice, VkExtent2D exten
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    
+
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkAttachmentReference colorAttachmentRef{};
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    
+
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
     
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.srcAccessMask = 0;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkAttachmentDescription renderPassAttachments[2] = {colorAttachment, depthAttachment};
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.attachmentCount = 2;  // Color + Depth
+    renderPassInfo.pAttachments = renderPassAttachments;
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
     
     VK_CHECK(vkCreateRenderPass(deviceHandle, &renderPassInfo, nullptr, &renderedFrame.renderPass));
-    
+
+    // Create depth image
+    VkImageCreateInfo depthImageInfo{};
+    depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
+    depthImageInfo.extent.width = extent.width;
+    depthImageInfo.extent.height = extent.height;
+    depthImageInfo.extent.depth = 1;
+    depthImageInfo.mipLevels = 1;
+    depthImageInfo.arrayLayers = 1;
+    depthImageInfo.format = VK_FORMAT_D32_SFLOAT;
+    depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    depthImageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    depthImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VK_CHECK(vkCreateImage(deviceHandle, &depthImageInfo, nullptr, &renderedFrame.depthImage));
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(deviceHandle, renderedFrame.depthImage, &memRequirements);
+
+    VkMemoryAllocateInfo depthAllocInfo{};
+    depthAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    depthAllocInfo.allocationSize = memRequirements.size;
+    depthAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+
+    VK_CHECK(vkAllocateMemory(deviceHandle, &depthAllocInfo, nullptr, &renderedFrame.depthMemory));
+    VK_CHECK(vkBindImageMemory(deviceHandle, renderedFrame.depthImage, renderedFrame.depthMemory, 0));
+
+    VkImageViewCreateInfo depthViewInfo{};
+    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthViewInfo.image = renderedFrame.depthImage;
+    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthViewInfo.format = VK_FORMAT_D32_SFLOAT;
+    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    depthViewInfo.subresourceRange.baseMipLevel = 0;
+    depthViewInfo.subresourceRange.levelCount = 1;
+    depthViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthViewInfo.subresourceRange.layerCount = 1;
+
+    VK_CHECK(vkCreateImageView(deviceHandle, &depthViewInfo, nullptr, &renderedFrame.depthView));
+
     // Create framebuffer
+    VkImageView framebufferAttachments[2] = {renderedFrame.view, renderedFrame.depthView};
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebufferInfo.renderPass = renderedFrame.renderPass;
-    framebufferInfo.attachmentCount = 1;
-    framebufferInfo.pAttachments = &renderedFrame.view;
+    framebufferInfo.attachmentCount = 2;
+    framebufferInfo.pAttachments = framebufferAttachments;
     framebufferInfo.width = extent.width;
     framebufferInfo.height = extent.height;
     framebufferInfo.layers = 1;
-    
+
     VK_CHECK(vkCreateFramebuffer(deviceHandle, &framebufferInfo, nullptr, &renderedFrame.framebuffer));
     
     renderedFrame.initialized = true;
@@ -1788,6 +1849,9 @@ void Gui::destroyRenderedFrameResources(bool releaseDescriptorSet){
         if (renderedFrame.view != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, renderedFrame.view, nullptr); }
         if (renderedFrame.image != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, renderedFrame.image, nullptr); }
         if (renderedFrame.memory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, renderedFrame.memory, nullptr); }
+        if (renderedFrame.depthView != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, renderedFrame.depthView, nullptr); }
+        if (renderedFrame.depthImage != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, renderedFrame.depthImage, nullptr); }
+        if (renderedFrame.depthMemory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, renderedFrame.depthMemory, nullptr); }
     }
     
     renderedFrame.framebuffer = VK_NULL_HANDLE;
@@ -1796,6 +1860,9 @@ void Gui::destroyRenderedFrameResources(bool releaseDescriptorSet){
     renderedFrame.view = VK_NULL_HANDLE;
     renderedFrame.image = VK_NULL_HANDLE;
     renderedFrame.memory = VK_NULL_HANDLE;
+    renderedFrame.depthView = VK_NULL_HANDLE;
+    renderedFrame.depthImage = VK_NULL_HANDLE;
+    renderedFrame.depthMemory = VK_NULL_HANDLE;
     renderedFrame.extent = {0, 0};
     renderedFrame.layout = VK_IMAGE_LAYOUT_UNDEFINED;
     renderedFrame.initialized = false;
@@ -1811,16 +1878,38 @@ void Gui::record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu){
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = renderedFrame.extent;
     
-    // Use clear color from UI settings
-    VkClearValue clearColor = {{{ui.renderSettings.sceneClearColor.r, 
-                                  ui.renderSettings.sceneClearColor.g, 
-                                  ui.renderSettings.sceneClearColor.b, 
-                                  ui.renderSettings.sceneClearColor.a}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    // Use clear color and depth from UI settings
+    std::array<VkClearValue, 2> clearValues;
+    clearValues[0].color = {{ui.renderSettings.sceneClearColor.r,
+                             ui.renderSettings.sceneClearColor.g,
+                             ui.renderSettings.sceneClearColor.b,
+                             ui.renderSettings.sceneClearColor.a}};
+    clearValues[1].depthStencil = {1.0f, 0};
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
     
+    // Transition depth image layout
+    VkImageMemoryBarrier depthBarrier{};
+    depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    depthBarrier.image = renderedFrame.depthImage;
+    depthBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    depthBarrier.subresourceRange.baseMipLevel = 0;
+    depthBarrier.subresourceRange.levelCount = 1;
+    depthBarrier.subresourceRange.baseArrayLayer = 0;
+    depthBarrier.subresourceRange.layerCount = 1;
+    depthBarrier.srcAccessMask = 0;
+    depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
+
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    
+
     // Set viewport and scissor for off-screen rendering
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -1837,9 +1926,13 @@ void Gui::record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu){
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     
     // Apply rotation transformation from UI
+    // First rotate upside down (180° around X axis), then apply user rotation around Y
     glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), 
-                                           glm::radians(ui.renderSettings.sceneRotation), 
-                                           glm::vec3(0.0f, 1.0f, 0.0f));
+                                           glm::radians(180.0f), 
+                                           glm::vec3(1.0f, 0.0f, 0.0f)); // Flip upside down
+    rotationMatrix = glm::rotate(rotationMatrix,
+                                 glm::radians(ui.renderSettings.sceneRotation), 
+                                 glm::vec3(0.0f, 1.0f, 0.0f)); // User rotation
     
     // Render the GLTF model with rotation and wireframe settings
     gpu->renderGLTFModel(commandBuffer, rotationMatrix, ui.renderSettings.showWireframe);

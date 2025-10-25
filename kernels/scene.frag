@@ -12,9 +12,10 @@ layout (binding = 3) uniform sampler2D baseColorTexture;
 layout (location = 0) out vec4 outFragColor;
 
 layout (push_constant) uniform ModelPC {
-    mat4 transform;
-    vec4 effectColor;
-    int effectType;
+	mat4 transform;
+	vec4 effectColor;
+	vec4 materialColor; // glTF baseColorFactor; defaults to 1 when no texture
+	int effectType;
 } pc;
 
 void main() 
@@ -38,7 +39,7 @@ void main()
 	vec3 specular = pow(max(dot(R, V), 0.0), 16.0) * vec3(0.75);
 	
 	// Combine texture color with vertex color and lighting
-    vec4 baseColor = textureColor * inColor;
+	vec4 baseColor = textureColor * inColor * pc.materialColor;
     baseColor.rgb = baseColor.rgb * (ambient + diffuse) + specular;
     
     outFragColor = baseColor * inEffectColor;

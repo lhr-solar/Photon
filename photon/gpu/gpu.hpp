@@ -65,6 +65,7 @@ public:
     struct UBOVS
     {
         glm::mat4 projection;
+        glm::mat4 view;
         glm::mat4 model;
         glm::vec4 lightPos;
     } uboVS;
@@ -81,6 +82,8 @@ public:
     glm::vec2 lastMousePos = glm::vec2(0.0f);
 
     VkDescriptorPool descriptorPool{VK_NULL_HANDLE};
+    // Extra pool for many per-primitive descriptor sets
+    VkDescriptorPool primitiveDescriptorPool{VK_NULL_HANDLE};
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkDescriptorSet descriptorSet;

@@ -109,6 +109,9 @@ public:
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
         VkFramebuffer framebuffer = VK_NULL_HANDLE;
         VkRenderPass renderPass = VK_NULL_HANDLE;
+        VkImage depthImage = VK_NULL_HANDLE;
+        VkDeviceMemory depthMemory = VK_NULL_HANDLE;
+        VkImageView depthView = VK_NULL_HANDLE;
         VkExtent2D extent{800, 600};
         VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
         bool initialized = false;

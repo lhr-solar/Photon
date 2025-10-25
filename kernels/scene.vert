@@ -8,6 +8,7 @@ layout (location = 3) in vec4 inColor;
 layout (binding = 0) uniform UBO
 {
         mat4 projection;
+        mat4 view;
         mat4 model;
         vec4 lightPos;
 } ubo;
@@ -15,6 +16,7 @@ layout (binding = 0) uniform UBO
 layout (push_constant) uniform ModelPC {
         mat4 transform;
         vec4 effectColor;
+        vec4 materialColor; // keep layout in sync with fragment shader
         int effectType;
 } pc;
 
@@ -36,9 +38,9 @@ void main()
         outUV = inUV;
         outEffectColor = pc.effectColor;
         mat4 modelMat = ubo.model * pc.transform;
-        gl_Position = ubo.projection * modelMat * vec4(inPos.xyz, 1.0);
+        gl_Position = ubo.projection * ubo.view * modelMat * vec4(inPos.xyz, 1.0);
 
-        vec4 pos = modelMat * vec4(inPos, 1.0);
+        vec4 pos = ubo.view * modelMat * vec4(inPos, 1.0);
         
         // Use inverse transpose for normal transformation to handle non-uniform scaling
         mat3 normalMatrix = transpose(inverse(mat3(modelMat)));

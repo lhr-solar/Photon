@@ -4,7 +4,12 @@
 #include <array>
 #include <string.h>
 
-#include "vulkan/vulkan_core.h"
+#ifdef _WIN32
+#ifndef VK_USE_PLATFORM_WIN32_KHR
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
+#endif
+#include "vulkan/vulkan.h"
 #include "gpu.hpp"
 #include "vulkanGLTF.hpp"
 #include "../engine/include.hpp"
@@ -75,7 +80,7 @@ VkResult Gpu::createInstance()
 #ifdef XCB
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
-#ifdef _WIN32
+#if defined(VK_KHR_WIN32_SURFACE_EXTENSION_NAME)
     instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #endif
     // grab available extensions
@@ -377,13 +382,13 @@ void Gpu::prepareUniformBuffers()
 {
     // Initialize camera
     camera.type = Camera::CameraType::firstperson;
-    camera.position = glm::vec3(0.0f, 0.0f, -10.0f);  // Move camera further back to see the model
+    camera.position = glm::vec3(0.0f, 3.0f, -10.0f);  // Move camera up and back to see the model better
     camera.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
     camera.fov = 60.0f;
     camera.znear = 0.1f;
-    camera.zfar = 100.0f;
+    camera.zfar = 10000.0f;
     camera.rotationSpeed = 0.25f;
-    camera.movementSpeed = 5.0f;
+    camera.movementSpeed = 40.0f;
     camera.updateAspectRatio(1.0f);  // Will be updated with actual aspect ratio later
     camera.updateViewMatrix();
     
@@ -403,10 +408,10 @@ void Gpu::prepareUniformBuffers()
 
 void Gpu::updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed)
 {
-    // TODO: think about this _./~\._
     // Vertex shader
     uboVS.projection = camera.matrices.perspective;
-    uboVS.model = camera.matrices.view;
+    uboVS.view = camera.matrices.view;
+    uboVS.model = glm::mat4(1.0f);  // Identity matrix for additional model transformations
     // Light source
     if (animateLight)
     {
@@ -429,23 +434,23 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device)
     // ermm, the discriptor count increased to handle many mashes
     VkDescriptorPoolSize uniformPoolSize = {};
     uniformPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformPoolSize.descriptorCount = 10;
+    uniformPoolSize.descriptorCount = 64;
 
     VkDescriptorPoolSize imageSamplerPoolSize = {};
     imageSamplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    imageSamplerPoolSize.descriptorCount = 10;
+    imageSamplerPoolSize.descriptorCount = 64;
 
     // storage buffer for materials
     VkDescriptorPoolSize storageBufferPoolSize = {};
     storageBufferPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    storageBufferPoolSize.descriptorCount = 20;
+    storageBufferPoolSize.descriptorCount = 64;
     std::vector<VkDescriptorPoolSize> poolSizes{uniformPoolSize, imageSamplerPoolSize, storageBufferPoolSize};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
-    descriptorPoolInfo.maxSets = 20;
+    descriptorPoolInfo.maxSets = 240;
 
     VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
     logs("[+] Created Descriptor Pool of count " << descriptorPoolInfo.poolSizeCount);
@@ -492,7 +497,8 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device)
     pushConstantRange.stageFlags =
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(int); // TODO why the hardcode?? should be sizeof(pushconstblock)
+    // transform (mat4) + effectColor (vec4) + materialColor (vec4) + effectType (int)
+    pushConstantRange.size = sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(int);
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -516,7 +522,7 @@ void Gpu::setupLayoutsAndDescriptors(VkDevice device)
     writeDescriptorSet.dstSet = descriptorSet;
     writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.pBufferInfo = &uniformBufferVS.descriptor;
+    writeDescriptorSet.pBufferInfo = &uniformBufferVS.vkCmdBindPipelinedescriptor;
     writeDescriptorSet.descriptorCount = 1;
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {writeDescriptorSet};
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
@@ -527,6 +533,41 @@ void Gpu::setupMeshDescriptors()
 {
     logs("[+] Setting up mesh descriptors");
     
+    // Compute total primitive count to size a dedicated descriptor pool
+    uint32_t totalPrims = 0;
+    for (size_t modelIndex = 0; modelIndex < gltfLoader.getModelCount(); ++modelIndex) {
+        Model *m = gltfLoader.getModel(modelIndex);
+        if (!m) continue;
+        for (const auto &mesh : m->meshes) {
+            totalPrims += static_cast<uint32_t>(mesh.primitives.size());
+        }
+    }
+
+    // Each primitive descriptor set uses 4 bindings (UBO, material SSBO, mesh SSBO, sampler)
+    if (totalPrims > 0) {
+        // Destroy previous primitive pool if any
+        if (primitiveDescriptorPool != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(vulkanDevice.logicalDevice, primitiveDescriptorPool, nullptr);
+            primitiveDescriptorPool = VK_NULL_HANDLE;
+        }
+
+        std::vector<VkDescriptorPoolSize> primPoolSizes;
+        primPoolSizes.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, totalPrims});
+        primPoolSizes.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, totalPrims * 2});
+        primPoolSizes.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, totalPrims});
+
+        VkDescriptorPoolCreateInfo primPoolInfo{};
+        primPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        primPoolInfo.poolSizeCount = static_cast<uint32_t>(primPoolSizes.size());
+        primPoolInfo.pPoolSizes = primPoolSizes.data();
+        primPoolInfo.maxSets = totalPrims + 16; // a little headroom
+        VK_CHECK(vkCreateDescriptorPool(vulkanDevice.logicalDevice, &primPoolInfo, nullptr, &primitiveDescriptorPool));
+        logs("[+] Created primitive descriptor pool for " << totalPrims << " primitives");
+    }
+
+    uint32_t primTexturesBound = 0;
+    uint32_t primDefaultsUsed = 0;
+
     for (size_t modelIndex = 0; modelIndex < gltfLoader.getModelCount(); ++modelIndex)
     {
         Model *model = gltfLoader.getModel(modelIndex);
@@ -556,7 +597,7 @@ void Gpu::setupMeshDescriptors()
             uniformWrite.dstArrayElement = 0;
             uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             uniformWrite.descriptorCount = 1;
-            uniformWrite.pBufferInfo = &uniformBufferVS.descriptor;
+            uniformWrite.pBufferInfo = &uniformBufferVS.vkCmdBindPipelinedescriptor;
             writeDescriptorSets.push_back(uniformWrite);
             
             // Material buffer
@@ -567,7 +608,7 @@ void Gpu::setupMeshDescriptors()
             materialWrite.dstArrayElement = 0;
             materialWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             materialWrite.descriptorCount = 1;
-            materialWrite.pBufferInfo = &mesh.shaderMaterialBuffer.descriptor;
+            materialWrite.pBufferInfo = &mesh.shaderMaterialBuffer.vkCmdBindPipelinedescriptor;
             writeDescriptorSets.push_back(materialWrite);
             
             // Mesh data buffer
@@ -578,7 +619,7 @@ void Gpu::setupMeshDescriptors()
             meshWrite.dstArrayElement = 0;
             meshWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             meshWrite.descriptorCount = 1;
-            meshWrite.pBufferInfo = &mesh.shaderMeshBuffer.descriptor;
+            meshWrite.pBufferInfo = &mesh.shaderMeshBuffer.vkCmdBindPipelinedescriptor;
             writeDescriptorSets.push_back(meshWrite);
             
             // Texture sampler
@@ -616,7 +657,98 @@ void Gpu::setupMeshDescriptors()
             bool hasModelTexture = (!model->images.empty() && model->images[0].gpu.view != VK_NULL_HANDLE);
             logs("[+] Created descriptor set for mesh " << meshIndex << " in model " << modelIndex << 
                  (hasModelTexture ? " (with texture)" : " (with default texture)"));
+
+            // Allocate descriptor sets per primitive so each primitive can bind its own material texture
+            for (auto &prim : mesh.primitives)
+            {
+                VkDescriptorSet primSet = VK_NULL_HANDLE;
+                VkDescriptorSetAllocateInfo primAlloc{};
+                primAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+                primAlloc.descriptorPool = (primitiveDescriptorPool != VK_NULL_HANDLE) ? primitiveDescriptorPool : descriptorPool;
+                primAlloc.descriptorSetCount = 1;
+                primAlloc.pSetLayouts = &descriptorSetLayout;
+                VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &primAlloc, &primSet));
+
+                std::vector<VkWriteDescriptorSet> primWrites;
+
+                // Bind uniform buffer
+                VkWriteDescriptorSet primUniform{};
+                primUniform.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                primUniform.dstSet = primSet;
+                primUniform.dstBinding = 0;
+                primUniform.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                primUniform.descriptorCount = 1;
+                primUniform.pBufferInfo = &uniformBufferVS.vkCmdBindPipelinedescriptor;
+                primWrites.push_back(primUniform);
+
+                // Material storage buffer (all materials packed)
+                VkWriteDescriptorSet primMaterial{};
+                primMaterial.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                primMaterial.dstSet = primSet;
+                primMaterial.dstBinding = 1;
+                primMaterial.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                primMaterial.descriptorCount = 1;
+                primMaterial.pBufferInfo = &mesh.shaderMaterialBuffer.vkCmdBindPipelinedescriptor;
+                primWrites.push_back(primMaterial);
+
+                // Mesh data buffer
+                VkWriteDescriptorSet primMesh{};
+                primMesh.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                primMesh.dstSet = primSet;
+                primMesh.dstBinding = 2;
+                primMesh.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                primMesh.descriptorCount = 1;
+                primMesh.pBufferInfo = &mesh.shaderMeshBuffer.vkCmdBindPipelinedescriptor;
+                primWrites.push_back(primMesh);
+
+                // Resolve the texture for this primitive's material
+                VkDescriptorImageInfo primImage{};
+                bool setTexture = false;
+                if (prim.materialIndex >= 0 && prim.materialIndex < static_cast<int32_t>(model->materials.size()))
+                {
+                    const auto &mat = model->materials[prim.materialIndex];
+                    if (mat.baseColorTextureIndex >= 0 && mat.baseColorTextureIndex < static_cast<int32_t>(model->textures.size()))
+                    {
+                        int imgIndex = model->textures[mat.baseColorTextureIndex].imageIndex;
+                        if (imgIndex >= 0 && imgIndex < static_cast<int32_t>(model->images.size()))
+                        {
+                            const auto &img = model->images[imgIndex].gpu;
+                            if (img.view != VK_NULL_HANDLE && img.sampler != VK_NULL_HANDLE)
+                            {
+                                primImage.imageView = img.view;
+                                primImage.sampler = img.sampler;
+                                primImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                                setTexture = true;
+                                primTexturesBound++;
+                            }
+                        }
+                    }
+                }
+                if (!setTexture)
+                {
+                    primImage.imageView = defaultWhiteTexture.view;
+                    primImage.sampler = defaultWhiteTexture.sampler;
+                    primImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    primDefaultsUsed++;
+                }
+
+                VkWriteDescriptorSet primTexture{};
+                primTexture.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                primTexture.dstSet = primSet;
+                primTexture.dstBinding = 3;
+                primTexture.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                primTexture.descriptorCount = 1;
+                primTexture.pImageInfo = &primImage;
+                primWrites.push_back(primTexture);
+
+                vkUpdateDescriptorSets(vulkanDevice.logicalDevice, static_cast<uint32_t>(primWrites.size()), primWrites.data(), 0, nullptr);
+                prim.descriptorSet = primSet;
+            }
         }
+    }
+
+    if (totalPrims > 0) {
+        logs("[?] Primitive textures: bound=" << primTexturesBound << ", defaults=" << primDefaultsUsed << ", totalPrims=" << totalPrims);
     }
 }
 
@@ -638,8 +770,8 @@ void Gpu::preparePipelines(VkDevice device)
     VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo{};
     pipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
-    pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-    pipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE;  
+    pipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
     pipelineRasterizationStateCreateInfo.flags = 0;
     pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
     pipelineRasterizationStateCreateInfo.lineWidth = 1.0f;
@@ -890,12 +1022,14 @@ void Gpu::renderGLTFModel(VkCommandBuffer commandBuffer)
     {
         glm::mat4 transform;
         glm::vec4 effectColor;
+        glm::vec4 materialColor;
         int32_t effectType;
     } pushConstants;
 
     pushConstants.transform = glm::mat4(1.0f);                     // Identity matrix
     pushConstants.effectColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f); // White
-    pushConstants.effectType = 0;                                  // No effect
+    pushConstants.materialColor = glm::vec4(1.0f);                  // default
+    pushConstants.effectType = 0;                                   // No effect
 
     vkCmdPushConstants(
         commandBuffer,
@@ -915,53 +1049,30 @@ void Gpu::renderGLTFModel(VkCommandBuffer commandBuffer)
             continue;
         }
 
-        // logs("[DEBUG] Model " << modelIndex << " has " << model->meshes.size() << " meshes");
+        // Bind the shared vertex/index buffers created for this model (stored on mesh 0)
+        if (model->meshes.empty()) { continue; }
+        const auto &sharedMesh = model->meshes[0];
+        VkDeviceSize offsets[] = {0};
+        if (sharedMesh.vertexBuffer.buffer != VK_NULL_HANDLE) {
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &sharedMesh.vertexBuffer.buffer, offsets);
+        }
+        if (sharedMesh.indexBuffer.buffer != VK_NULL_HANDLE) {
+            vkCmdBindIndexBuffer(commandBuffer, sharedMesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+        }
         
-        // Render all meshes in this model
+        // Render all meshes/primitives in this model
         for (size_t meshIndex = 0; meshIndex < model->meshes.size(); ++meshIndex)
         {
             const auto &mesh = model->meshes[meshIndex];
-            if (mesh.vertexCount == 0)
-            {
-                logs("[DEBUG] Mesh " << meshIndex << " has 0 vertices, skipping");
-                continue;
-            }
-
-            //logs("[DEBUG] Rendering mesh " << meshIndex << " with " << mesh.vertexCount << " vertices, " << mesh.indexCount << " indices");
-
-            if (mesh.descriptorSet != VK_NULL_HANDLE)
-            {
-                // logs("[DEBUG] Binding descriptor set for mesh " << meshIndex);
-                // vkCmdBindDescriptorSets(
-                //     commandBuffer,
-                //     VK_PIPELINE_BIND_POINT_GRAPHICS,
-                //     pipelineLayout,
-                //     0, // First set
-                //     1, // Bind 1 set
-                //     &mesh.descriptorSet,
-                //     0, nullptr);
-            }
-            else
-            {
-                logs("[DEBUG] Mesh " << meshIndex << " has null descriptor set");
-            }
-            
-            // Bind vertex buffer
-            VkBuffer vertexBuffers[] = {mesh.vertexBuffer.buffer};
-            VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-            
-            // Bind index buffer and draw
-            if (mesh.indexCount > 0)
-            {
-                // logs("[DEBUG] Drawing indexed: " << mesh.indexCount << " indices");
-                vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, 0, 0, 0);
-            }
-            else
-            {
-                // logs("[DEBUG] Drawing non-indexed: " << mesh.vertexCount << " vertices");
-                vkCmdDraw(commandBuffer, mesh.vertexCount, 1, 0, 0);
+            // Draw each primitive range within the shared index buffer
+            for (const auto &prim : mesh.primitives) {
+                // Bind descriptor set for the primitive (per-material texture)
+                VkDescriptorSet setToBind = prim.descriptorSet != VK_NULL_HANDLE ? prim.descriptorSet
+                                           : (mesh.descriptorSet != VK_NULL_HANDLE ? mesh.descriptorSet : descriptorSet);
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &setToBind, 0, nullptr);
+                if (prim.indexCount > 0 && sharedMesh.indexBuffer.buffer != VK_NULL_HANDLE) {
+                    vkCmdDrawIndexed(commandBuffer, prim.indexCount, 1, prim.firstIndex, 0, 0);
+                }
             }
         }
     }
@@ -984,56 +1095,60 @@ void Gpu::renderGLTFModel(VkCommandBuffer commandBuffer, glm::mat4 transform, bo
         if (!model)
             continue;
 
+        if (model->meshes.empty()) continue;
+        const auto &sharedMesh = model->meshes[0];
+        VkDeviceSize offsets[1] = {0};
+        if (sharedMesh.vertexBuffer.buffer != VK_NULL_HANDLE) {
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &sharedMesh.vertexBuffer.buffer, offsets);
+        }
+        if (sharedMesh.indexBuffer.buffer != VK_NULL_HANDLE) {
+            vkCmdBindIndexBuffer(commandBuffer, sharedMesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+        }
+
         for (size_t meshIndex = 0; meshIndex < model->meshes.size(); ++meshIndex)
         {
             auto &mesh = model->meshes[meshIndex];
-
-            // Bind vertex and index buffers
-            VkDeviceSize offsets[1] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh.vertexBuffer.buffer, offsets);
-
-            if (mesh.indexCount > 0)
-            {
-                vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-            }
-
-            // Bind descriptor set for this mesh
-            VkDescriptorSet descriptorSet = mesh.descriptorSet;
-            if (descriptorSet == VK_NULL_HANDLE)
-            {
-                descriptorSet = this->descriptorSet; // Fallback
-            }
-
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
             // Set up push constants with the provided transform
             struct
             {
                 glm::mat4 transform;
                 glm::vec4 effectColor;
+                glm::vec4 materialColor;
                 int32_t effectType;
-            } pushConstants;
+            } meshPushConstants;
 
-            pushConstants.transform = transform;
-            pushConstants.effectColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            pushConstants.effectType = 0;
+            meshPushConstants.transform = transform;
+            meshPushConstants.effectColor = glm::vec4(1.0f);
+            meshPushConstants.materialColor = glm::vec4(1.0f);
+            meshPushConstants.effectType = 0;
 
             vkCmdPushConstants(
                 commandBuffer,
                 pipelineLayout,
                 VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                 0,
-                sizeof(pushConstants),
-                &pushConstants);
+                sizeof(meshPushConstants),
+                &meshPushConstants);
 
-            // Draw
-            if (mesh.indexCount > 0)
-            {
-                vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, 0, 0, 0);
-            }
-            else
-            {
-                vkCmdDraw(commandBuffer, mesh.vertexCount, 1, 0, 0);
+            // Draw each primitive (binding per-primitive descriptor)
+            for (const auto &prim : mesh.primitives) {
+                // Update material color per-primitive (baseColorFactor)
+                glm::vec4 matColor(1.0f);
+                if (prim.materialIndex >= 0 && prim.materialIndex < static_cast<int32_t>(model->materials.size())) {
+                    matColor = model->materials[prim.materialIndex].baseColorFactor;
+                }
+                struct { glm::vec4 materialColor; } pcUpdate;
+                pcUpdate.materialColor = matColor;
+                vkCmdPushConstants(commandBuffer, pipelineLayout,
+                    VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4) + sizeof(glm::vec4), sizeof(glm::vec4), &pcUpdate);
+
+                VkDescriptorSet setToBind = prim.descriptorSet != VK_NULL_HANDLE ? prim.descriptorSet
+                                           : (mesh.descriptorSet != VK_NULL_HANDLE ? mesh.descriptorSet : descriptorSet);
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &setToBind, 0, nullptr);
+                if (prim.indexCount > 0 && sharedMesh.indexBuffer.buffer != VK_NULL_HANDLE) {
+                    vkCmdDrawIndexed(commandBuffer, prim.indexCount, 1, prim.firstIndex, 0, 0);
+                }
             }
         }
     }

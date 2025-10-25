@@ -155,10 +155,14 @@ int vulkanGLTF::loadglTFFile(std::string filename)
             Primitive prim;
             prim.firstIndex = static_cast<uint32_t>(model.indices.size());
 
+            // Track the starting vertex before appending vertices for this primitive
+            const uint32_t vertexStart = static_cast<uint32_t>(model.vertices.size());
+
             loadVertices(gltfModel, primitive, model);
 
-            // Load index data
-            loadIndices(gltfModel, primitive, model);
+            // Load index data and add baseVertex so indices point to the correct
+            // portion of the unified vertex array
+            loadIndices(gltfModel, primitive, model, vertexStart);
 
             prim.indexCount =
                 static_cast<uint32_t>(model.indices.size()) - prim.firstIndex;
@@ -300,6 +304,7 @@ void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
                   .data[accessor.byteOffset + view.byteOffset]));
     }
 
+
     // Create vertices
     for (size_t v = 0; v < vertexCount; v++)
     {
@@ -312,12 +317,14 @@ void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
                                  positionBuffer[v * 3 + 2]);
         }
 
-        // Normal
+        // Normal - Flipped as requested by user
         if (normalsBuffer)
         {
-            vert.normal =
-                glm::vec3(normalsBuffer[v * 3 + 0], normalsBuffer[v * 3 + 1],
-                          normalsBuffer[v * 3 + 2]);
+            vert.normal = -glm::normalize(
+                glm::vec3(
+                    normalsBuffer[v * 3 + 0],
+                    normalsBuffer[v * 3 + 1],
+                    normalsBuffer[v * 3 + 2]));
         }
 
         // Texture coordinates
@@ -333,7 +340,8 @@ void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
             vert.color = glm::vec4(colorsBuffer[v * 4 + 0], colorsBuffer[v * 4 + 1],
                                    colorsBuffer[v * 4 + 2], colorsBuffer[v * 4 + 3]);
             // Ensure alpha is valid
-            if (vert.color.a < 0.01f) {
+            if (vert.color.a < 0.01f)
+            {
                 vert.color.a = 1.0f;
             }
         }
@@ -357,7 +365,8 @@ void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
 
 void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
                              const tinygltf::Primitive &primitive,
-                             Model &model)
+                             Model &model,
+                             uint32_t baseVertex)
 {
     if (primitive.indices >= 0)
     {
@@ -376,7 +385,7 @@ void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
             const uint32_t *buf = static_cast<const uint32_t *>(dataPtr);
             for (size_t index = 0; index < accessor.count; index++)
             {
-                model.indices.push_back(buf[index]);
+                model.indices.push_back(baseVertex + buf[index]);
             }
             break;
         }
@@ -385,7 +394,7 @@ void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
             const uint16_t *buf = static_cast<const uint16_t *>(dataPtr);
             for (size_t index = 0; index < accessor.count; index++)
             {
-                model.indices.push_back(buf[index]);
+                model.indices.push_back(baseVertex + static_cast<uint32_t>(buf[index]));
             }
             break;
         }
@@ -394,7 +403,7 @@ void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
             const uint8_t *buf = static_cast<const uint8_t *>(dataPtr);
             for (size_t index = 0; index < accessor.count; index++)
             {
-                model.indices.push_back(buf[index]);
+                model.indices.push_back(baseVertex + static_cast<uint32_t>(buf[index]));
             }
             break;
         }
@@ -506,47 +515,53 @@ void vulkanGLTF::createBuffers(Model &model)
 
     for (auto &mesh : model.meshes)
     {
-        // create material and texture buffer
+        // Create per-mesh material storage buffer (if there are materials)
+        if (!model.materials.empty())
         {
             VkDeviceSize bufferSize =
-                model.materials.size() * sizeof(Model::Material);
+                static_cast<VkDeviceSize>(model.materials.size()) * sizeof(Model::Material);
+
+            // Staging buffer with material data
             VulkanBuffer stagingBuffer;
-            VkDeviceMemory stagingBufferMemory;
-            result = device->createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                          &stagingBuffer, bufferSize,
-                                          model.materials.data());
+            result = device->createBuffer(
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                &stagingBuffer,
+                bufferSize,
+                model.materials.data());
             if (result != VK_SUCCESS)
             {
-                logs("[!] Failed to create texture staging buffer");
+                logs("[!] Failed to create material staging buffer");
                 return;
             }
+
+            // Device-local storage buffer for materials
             result = device->createBuffer(
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mesh.shaderMaterialBuffer,
-                bufferSize, nullptr);
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                &mesh.shaderMaterialBuffer,
+                bufferSize,
+                nullptr);
             if (result != VK_SUCCESS)
             {
                 logs("[!] Failed to create shader material buffer");
+                stagingBuffer.destroy();
                 return;
             }
-            logs("[+] mat and text buffers complete");
-            // Copy from staging buffers
+
+            // Copy staging -> device local
             VkCommandBuffer copyCmd = device->createCommandBuffer(
                 VK_COMMAND_BUFFER_LEVEL_PRIMARY, device->transferCommandPool, true);
             VkBufferCopy copyRegion{};
             copyRegion.size = bufferSize;
-            vkCmdCopyBuffer(copyCmd, stagingBuffer.buffer,
-                            mesh.shaderMaterialBuffer.buffer, 1, &copyRegion);
-            device->flushCommandBuffer(copyCmd, device->transferQueue,
-                                       device->transferCommandPool, true);
+            vkCmdCopyBuffer(copyCmd, stagingBuffer.buffer, mesh.shaderMaterialBuffer.buffer, 1, &copyRegion);
+            device->flushCommandBuffer(copyCmd, device->transferQueue, device->transferCommandPool, true);
             stagingBuffer.destroy();
 
-            mesh.shaderMaterialBuffer.descriptor.buffer =
-                mesh.shaderMaterialBuffer.buffer;
-            mesh.shaderMaterialBuffer.descriptor.offset = 0;
-            mesh.shaderMaterialBuffer.descriptor.range = bufferSize;
+            // Update descriptor info
+            mesh.shaderMaterialBuffer.vkCmdBindPipelinedescriptor.buffer = mesh.shaderMaterialBuffer.buffer;
+            mesh.shaderMaterialBuffer.vkCmdBindPipelinedescriptor.offset = 0;
+            mesh.shaderMaterialBuffer.vkCmdBindPipelinedescriptor.range = bufferSize;
         }
         logs("[+] staged command buffers");
         { // future skeleton support
@@ -576,9 +591,9 @@ void vulkanGLTF::createBuffers(Model &model)
                                        device->transferCommandPool, true);
             stagingBuffer.destroy();
 
-            mesh.shaderMeshBuffer.descriptor.buffer = mesh.shaderMeshBuffer.buffer;
-            mesh.shaderMeshBuffer.descriptor.offset = 0;
-            mesh.shaderMeshBuffer.descriptor.range = bufferSize;
+            mesh.shaderMeshBuffer.vkCmdBindPipelinedescriptor.buffer = mesh.shaderMeshBuffer.buffer;
+            mesh.shaderMeshBuffer.vkCmdBindPipelinedescriptor.offset = 0;
+            mesh.shaderMeshBuffer.vkCmdBindPipelinedescriptor.range = bufferSize;
         }
     }
     logs("[+] gtlf buffers complete");
@@ -589,29 +604,59 @@ void vulkanGLTF::loadMaterials(tinygltf::Model &input, Model &model)
     model.materials.resize(input.materials.size());
     for (size_t i = 0; i < input.materials.size(); i++)
     {
-        // We only read the most basic properties required for our sample
-        tinygltf::Material glTFMaterial = input.materials[i];
-        // Get the base color factor
-        if (glTFMaterial.values.find("baseColorFactor") !=
-            glTFMaterial.values.end())
+        // We only read the most common properties used by our renderer
+        const tinygltf::Material &glTFMaterial = input.materials[i];
+
+        // Base color factor (prioritize PBR block, fallback to legacy values[])
+        if (!glTFMaterial.pbrMetallicRoughness.baseColorFactor.empty())
+        {
+            const auto &f = glTFMaterial.pbrMetallicRoughness.baseColorFactor; // std::vector<double> size 4
+            model.materials[i].baseColorFactor = glm::vec4(
+                static_cast<float>(f[0]), static_cast<float>(f[1]),
+                static_cast<float>(f[2]), static_cast<float>(f[3]));
+        }
+        else if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end())
         {
             model.materials[i].baseColorFactor = glm::make_vec4(
-                glTFMaterial.values["baseColorFactor"].ColorFactor().data());
+                glTFMaterial.values.at("baseColorFactor").ColorFactor().data());
         }
-        // Get base color texture index
-        if (glTFMaterial.values.find("baseColorTexture") !=
-            glTFMaterial.values.end())
+
+        // Base color texture index (prefer PBR MR, fallback to legacy values[])
+        model.materials[i].baseColorTextureIndex = -1; // default
+        if (glTFMaterial.pbrMetallicRoughness.baseColorTexture.index >= 0)
         {
             model.materials[i].baseColorTextureIndex =
-                glTFMaterial.values["baseColorTexture"].TextureIndex();
+                glTFMaterial.pbrMetallicRoughness.baseColorTexture.index;
         }
-        // Get the normal map texture index
-        if (glTFMaterial.additionalValues.find("normalTexture") !=
-            glTFMaterial.additionalValues.end())
+        else if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end())
+        {
+            model.materials[i].baseColorTextureIndex =
+                glTFMaterial.values.at("baseColorTexture").TextureIndex();
+        }
+
+        // Normal map texture index (prefer top-level normalTexture, fallback to additionalValues[])
+        model.materials[i].normalTextureIndex = -1; // default
+        if (glTFMaterial.normalTexture.index >= 0)
+        {
+            model.materials[i].normalTextureIndex = glTFMaterial.normalTexture.index;
+        }
+        else if (glTFMaterial.additionalValues.find("normalTexture") != glTFMaterial.additionalValues.end())
         {
             model.materials[i].normalTextureIndex =
-                glTFMaterial.additionalValues["normalTexture"].TextureIndex();
+                glTFMaterial.additionalValues.at("normalTexture").TextureIndex();
         }
+
+        // Debug trace to help diagnose missing textures
+        if (model.materials[i].baseColorTextureIndex < 0)
+        {
+            logs("[?] Material " << i << " has no baseColorTexture (using default)");
+        }
+        else
+        {
+            logs("[+] Material " << i << " baseColorTexture index = "
+                                 << model.materials[i].baseColorTextureIndex);
+        }
+
         // Get some additional material parameters that are used in this sample
         // Convert alpha mode string to enum
         if (glTFMaterial.alphaMode == "BLEND")
@@ -626,18 +671,31 @@ void vulkanGLTF::loadMaterials(tinygltf::Model &input, Model &model)
         {
             model.materials[i].alphaMode = Model::AlphaMode::Opaque;
         }
-        model.materials[i].alphaCutoff =
-            static_cast<float>(glTFMaterial.alphaCutoff);
-        model.materials[i].doubleSided = glTFMaterial.doubleSided;
+        model.materials[i].alphaCutoff = 1;
     }
 }
 
 void vulkanGLTF::loadTextures(tinygltf::Model &input, Model &model)
 {
+    // Trace texture-related extensions to help diagnose missing textures (e.g., KTX2)
+    if (!input.extensionsUsed.empty())
+    {
+        for (const auto &ext : input.extensionsUsed)
+        {
+            if (ext == "KHR_texture_basisu")
+            {
+                logs("[?] GLTF uses KHR_texture_basisu (KTX2/BasisU) textures; current loader decodes only PNG/JPEG via STB");
+            }
+        }
+    }
+
+    logs("[DEBUG] GLTF counts: textures=" << input.textures.size() << ", images=" << input.images.size());
+
     model.textures.resize(input.textures.size());
     for (size_t i = 0; i < input.textures.size(); i++)
     {
         model.textures[i].imageIndex = input.textures[i].source;
+        logs("[DEBUG] Texture " << i << " -> image index " << model.textures[i].imageIndex);
     }
 
     // Load images
@@ -649,7 +707,8 @@ void vulkanGLTF::loadTextures(tinygltf::Model &input, Model &model)
         // Check if image data is available
         if (gltfImage.image.empty())
         {
-            logs("[!] Image " << i << " has no data, skipping");
+            logs("[!] Image " << i << " has no decoded pixel data, skipping. mimeType='" << gltfImage.mimeType
+                              << "' uri='" << gltfImage.uri << "' bufferView=" << gltfImage.bufferView);
             continue;
         }
 
@@ -868,7 +927,7 @@ void vulkanGLTF::createTextureImage(TextureGPU &texture, const void *data, VkDev
     device->flushCommandBuffer(copyCmd, device->transferQueue, device->transferCommandPool, true);
 
     stagingBuffer.destroy();
-    
+
     logs("[DEBUG] Texture image created successfully");
 
     // Create image view
@@ -903,6 +962,6 @@ void vulkanGLTF::createTextureImage(TextureGPU &texture, const void *data, VkDev
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
 
     VK_CHECK(vkCreateSampler(device->logicalDevice, &samplerInfo, nullptr, &texture.sampler));
-    
+
     logs("[DEBUG] Texture sampler created successfully");
 }
