@@ -44,13 +44,14 @@ private:
 public:
     Network();
     void producer();
+    void printDBCMap();
     void parser();
 
     bool readSample(uint16_t canId, uint64_t& outValue);
     void writeSample(uint16_t canId, uint64_t value);
 
     SPSCQueue<uint8_t> spscQueue;
-    std::string IP = "3.141.38.115";
+    std::string IP = "172.0.0.1"; //"3.141.38.115";
     unsigned PORT = 8187;
 
 private:
@@ -74,3 +75,4 @@ private:
 
     uint32_t currentCanId = 0;
 };
+

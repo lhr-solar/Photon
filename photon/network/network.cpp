@@ -75,12 +75,12 @@ Network::Network() : spscQueue(QUEUE_CAPACITY) {}
 void Network::producer() {
     TcpSocket socket(IP, PORT);
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
-    while (1) {
+    while (1){
         auto bytesRead = socket.read(buffer.data(), buffer.size());
         if (bytesRead > 0) {
             for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); ++i) {
                 while (!spscQueue.try_push(buffer[i])) std::this_thread::yield();
-            }
+}
         }
     }
 }
@@ -202,38 +202,50 @@ void Network::handleFrame(const std::string& frame) {
 
 void Network::handleDBCframe(const std::string& frame) {
     if (frame.rfind("BO_", 0) == 0) {
-        uint32_t canID = 0; std::string name, sender; uint8_t dlc = 0;
+        uint32_t canID = 0; 
+        std::string name, sender; 
+        uint8_t dlc = 0;
+
         if (!decodeDBCFrame(frame, canID, name, dlc, sender)) {
-            logs("[parser] Invalid DBC BO_ frame encountered");
+            logs("[parser] Invalid DBC BO_ frame encountered → " + frame);
             return;
         }
+
         writeDBC(canID, name, dlc, sender);
         currentCanId = canID;
+        logs("[parser] Registered BO_ " + name + " (CAN ID: " + std::to_string(canID) + ")");
+        printDBCMap();  // ✅ print here after adding new BO_
         return;
     }
+
     if (frame.rfind("SG_", 0) == 0) {
         if (currentCanId == 0) {
-            logs("[parser] SG_ encountered before BO_");
+            logs("[parser] SG_ encountered before BO_ → " + frame);
             return;
         }
+
         DbcSignal sig;
         if (!decodeSIGFrame(frame, currentCanId, sig)) {
-            logs("[parser] Invalid DBC SG_ frame encountered");
+            logs("[parser] Invalid DBC SG_ frame encountered → " + frame);
             return;
         }
+
         writeSignal(currentCanId, sig);
+        logs("[parser] Registered SG_ " + sig.name + " for CAN ID " + std::to_string(currentCanId));
+        printDBCMap();  // ✅ print here after adding new SG_
         return;
     }
 }
 
 bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
     if (frame.empty() || frame.front() != 't') return false;
-    if (frame.back() != '\r') return false;
+    // if (frame.back() != '\r') return false;
     if (frame.size() < 5) return false;
     int dataLength = hexValue(frame[4]);
     if (dataLength < 0 || dataLength > 8) return false;
     const std::size_t expectedLength = 5 + static_cast<std::size_t>(dataLength) * 2;
-    if (frame.size() - 1 != expectedLength) return false;
+    if (frame.size() != expectedLength) return false;
+    // logs(std::to_string(frame.size()) + " vs " + std::to_string(expectedLength));
     canId = 0;
     for (std::size_t i = 1; i <= 3; ++i) {
         int nibble = hexValue(frame[i]);
@@ -283,4 +295,42 @@ bool Network::decodeSIGFrame(const std::string& frame, uint32_t& canId, DbcSigna
     char sign; iss >> sign;
     sig.isSigned = (sign == '-');
     return true;
+}
+
+void Network::printDBCMap() {
+    std::lock_guard<std::mutex> guard(dbcMapMutex);
+
+    if (dbcMap.empty()) {
+        logs("[DBC] No DBC messages stored yet.");
+        return;
+    }
+
+    logs("========== DBC MAP ==========");
+    for (const auto& [canId, msgPtr] : dbcMap) {
+        const auto& msg = *msgPtr;
+        std::ostringstream oss;
+        oss << "[DBC] CAN ID: " << canId
+            << " | Name: " << msg.name
+            << " | DLC: " << (int)msg.dlc
+            << " | Sender: " << msg.sender;
+        logs(oss.str());
+
+        if (msg.signals.empty()) {
+            logs("    (No signals found for this message)");
+        } else {
+            for (const auto& sig : msg.signals) {
+                std::ostringstream sigoss;
+                sigoss << "    SG_ " << sig.name
+                       << " : start=" << sig.startBit
+                       << " len=" << sig.length
+                       << " @byteOrder=" << sig.byteOrder
+                       << (sig.isSigned ? " signed" : " unsigned")
+                       << " scale=" << sig.scale
+                       << " offset=" << sig.offset
+                       << " [" << sig.minVal << "|" << sig.maxVal << "]";
+                logs(sigoss.str());
+            }
+        }
+    }
+    logs("=============================");
 }
