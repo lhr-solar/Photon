@@ -194,7 +194,7 @@ void Network::handleFrame(const std::string& frame) {
     uint16_t canId = 0;
     uint64_t value = 0;
     if (!decodeFrame(frame, canId, value)) {
-        logs("[parser] Invalid SLCAN frame encountered");
+        logs("[parser] Invalid SLCAN frame encountered → \"" + frame + "\"");
         return;
     }
     writeSample(canId, value);
