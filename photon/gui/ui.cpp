@@ -1,18 +1,25 @@
 #include "ui.hpp"
 #include "../engine/include.hpp"
+#include "imgui.h"
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include "console.hpp"
 
 void UI::build(){
     ImGui::NewFrame();
 
+    static Console console;
+    static bool flag = true;
+    console.Draw("Console", &flag);
+
     customBackground();
-    ImPlot::ShowDemoWindow();
-    ImPlot3D::ShowDemoWindow();
+//    ImPlot::ShowDemoWindow();
+//    ImPlot3D::ShowDemoWindow();
+//    ImGui::ShowDemoWindow();
     fpsWindow();
     customShaderWindow();
-    showVideoDisplay();
+//    showVideoDisplay();
     networkSamplePlot();
 
     ImGui::Render();

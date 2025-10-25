@@ -24,68 +24,6 @@
 #include "background_vert_spv.hpp"
 #include "Satoshi_Medium_ttf.hpp"
 
-#ifdef WIN
-#include <windowsx.h>
-#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE
-#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE ((DPI_AWARENESS_CONTEXT)-3)
-#endif
-#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
-#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT)-4)
-#endif
-
-static void dpiAware(){
-    static bool applied = false;
-    if (applied){
-        return;
-    }
-    applied = true;
-
-    HMODULE user32 = LoadLibraryA("user32.dll");
-    BOOL awarenessSet = FALSE;
-    if (user32){
-        typedef BOOL (WINAPI *SetProcessDpiAwarenessContextFn)(DPI_AWARENESS_CONTEXT);
-        typedef BOOL (WINAPI *SetProcessDPIAwareFn)(void);
-        SetProcessDpiAwarenessContextFn setContext = reinterpret_cast<SetProcessDpiAwarenessContextFn>(
-            GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
-        if (setContext){
-            awarenessSet = setContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-            if (!awarenessSet){
-                awarenessSet = setContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-            }
-            if (awarenessSet){
-                logs("[+] Enabled per-monitor DPI awareness via SetProcessDpiAwarenessContext");
-                FreeLibrary(user32);
-                return;
-            }
-        }
-
-        HMODULE shcore = LoadLibraryA("shcore.dll");
-        if (shcore){
-            typedef HRESULT (WINAPI *SetProcessDpiAwarenessFn)(PROCESS_DPI_AWARENESS);
-            SetProcessDpiAwarenessFn setAwareness = reinterpret_cast<SetProcessDpiAwarenessFn>(
-                GetProcAddress(shcore, "SetProcessDpiAwareness"));
-            if (setAwareness){
-                HRESULT hr = setAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-                if (hr == S_OK || hr == E_ACCESSDENIED){
-                    logs("[+] Enabled per-monitor DPI awareness via SetProcessDpiAwareness");
-                    FreeLibrary(shcore);
-                    FreeLibrary(user32);
-                    return;
-                }
-            }
-            FreeLibrary(shcore);
-        }
-
-        SetProcessDPIAwareFn setLegacy = reinterpret_cast<SetProcessDPIAwareFn>(
-            GetProcAddress(user32, "SetProcessDPIAware"));
-        if (setLegacy && setLegacy()){
-            logs("[+] Enabled system DPI awareness via SetProcessDPIAware");
-        }
-        FreeLibrary(user32);
-    }
-}
-#endif
-
 Gui::Gui(){};
 Gui::~Gui(){
 #ifdef XCB
@@ -1757,6 +1695,66 @@ void Gui::handleEvent(const xcb_generic_event_t *event){
 #endif
 
 #ifdef WIN
+
+#include <windowsx.h>
+#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE
+#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE ((DPI_AWARENESS_CONTEXT)-3)
+#endif
+#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT)-4)
+#endif
+
+static void dpiAware(){
+    static bool applied = false;
+    if (applied){
+        return;
+    }
+    applied = true;
+
+    HMODULE user32 = LoadLibraryA("user32.dll");
+    BOOL awarenessSet = FALSE;
+    if (user32){
+        typedef BOOL (WINAPI *SetProcessDpiAwarenessContextFn)(DPI_AWARENESS_CONTEXT);
+        typedef BOOL (WINAPI *SetProcessDPIAwareFn)(void);
+        SetProcessDpiAwarenessContextFn setContext = reinterpret_cast<SetProcessDpiAwarenessContextFn>(
+            GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
+        if (setContext){
+            awarenessSet = setContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            if (!awarenessSet){
+                awarenessSet = setContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+            }
+            if (awarenessSet){
+                logs("[+] Enabled per-monitor DPI awareness via SetProcessDpiAwarenessContext");
+                FreeLibrary(user32);
+                return;
+            }
+        }
+
+        HMODULE shcore = LoadLibraryA("shcore.dll");
+        if (shcore){
+            typedef HRESULT (WINAPI *SetProcessDpiAwarenessFn)(PROCESS_DPI_AWARENESS);
+            SetProcessDpiAwarenessFn setAwareness = reinterpret_cast<SetProcessDpiAwarenessFn>(
+                GetProcAddress(shcore, "SetProcessDpiAwareness"));
+            if (setAwareness){
+                HRESULT hr = setAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+                if (hr == S_OK || hr == E_ACCESSDENIED){
+                    logs("[+] Enabled per-monitor DPI awareness via SetProcessDpiAwareness");
+                    FreeLibrary(shcore);
+                    FreeLibrary(user32);
+                    return;
+                }
+            }
+            FreeLibrary(shcore);
+        }
+
+        SetProcessDPIAwareFn setLegacy = reinterpret_cast<SetProcessDPIAwareFn>(
+            GetProcAddress(user32, "SetProcessDPIAware"));
+        if (setLegacy && setLegacy()){
+            logs("[+] Enabled system DPI awareness via SetProcessDPIAware");
+        }
+        FreeLibrary(user32);
+    }
+}
 
 LRESULT CALLBACK Gui::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
     Gui* pThis = nullptr;

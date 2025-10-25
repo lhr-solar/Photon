@@ -6,6 +6,7 @@
 #include <vulkan.h>
 #include <glm/glm.hpp>
 #include <array>
+#include "console.hpp"
 
 struct UI{
     Network *networkINTF;
@@ -57,3 +58,5 @@ struct UI{
     void customBackground();
     void networkSamplePlot();
 };
+
+
