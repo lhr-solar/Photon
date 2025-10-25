@@ -1,0 +1,1188 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3
+					],
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						4
+					]
+				},
+				{
+					"build" : "kernels",
+					"jsonFile" : "directory-kernels-Debug-e567a076526caef4068b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "kernels",
+					"targetIndexes" : 
+					[
+						2,
+						5
+					]
+				},
+				{
+					"build" : "fonts",
+					"jsonFile" : "directory-fonts-Debug-769006f5e0bf9066d720.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "fonts",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "photon",
+					"childIndexes" : 
+					[
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"jsonFile" : "directory-photon-Debug-877820ea5f3be1348bbb.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "photon",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "photon/engine",
+					"jsonFile" : "directory-photon.engine-Debug-d33bdb510202dd3daddd.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/engine",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "photon/gpu",
+					"jsonFile" : "directory-photon.gpu-Debug-ff5ef0edc40be5507615.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gpu",
+					"targetIndexes" : 
+					[
+						7
+					]
+				},
+				{
+					"build" : "photon/gui",
+					"jsonFile" : "directory-photon.gui-Debug-2ae4418a4123df8b2295.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gui",
+					"targetIndexes" : 
+					[
+						8
+					]
+				},
+				{
+					"build" : "photon/network",
+					"jsonFile" : "directory-photon.network-Debug-dbac9d4c436beb359dc6.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/network",
+					"targetIndexes" : 
+					[
+						9
+					]
+				},
+				{
+					"build" : "photon/parse",
+					"jsonFile" : "directory-photon.parse-Debug-0ec1a61351a1b062a4d0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/parse",
+					"targetIndexes" : 
+					[
+						10
+					]
+				},
+				{
+					"build" : "photon/synth",
+					"jsonFile" : "directory-photon.synth-Debug-921c2104a1e25077e1d3.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/synth",
+					"targetIndexes" : 
+					[
+						11
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"name" : "NAME",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ALL_BUILD-Debug-ce164124d50a79216091.json",
+					"name" : "ALL_BUILD",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "GenerateFontHeaders::@28540453289e944cb2e9",
+					"jsonFile" : "target-GenerateFontHeaders-Debug-1ddc9e690065fab11589.json",
+					"name" : "GenerateFontHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "GenerateKernelHeaders::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-GenerateKernelHeaders-Debug-98956153938c113e7bbb.json",
+					"name" : "GenerateKernelHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "Photon::@14bc0c096ae1d1635d0d",
+					"jsonFile" : "target-Photon-Debug-7eeb393508a0c93a982f.json",
+					"name" : "Photon",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ZERO_CHECK-Debug-96848e493141f3dc081a.json",
+					"name" : "ZERO_CHECK",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "compile_kernels::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-compile_kernels-Debug-18c527053ea4a4aefd83.json",
+					"name" : "compile_kernels",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "engine::@094849aa84dc83bc757b",
+					"jsonFile" : "target-engine-Debug-c35a6838189e450d620c.json",
+					"name" : "engine",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "gpu::@639c691ed8fe00215672",
+					"jsonFile" : "target-gpu-Debug-1ec0a8a8ddb8364aa62d.json",
+					"name" : "gpu",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "gui::@9bbf4b0247a3806d05b0",
+					"jsonFile" : "target-gui-Debug-2c24bc0f85d32235b786.json",
+					"name" : "gui",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "network::@0ba1bf266af7f50e8e09",
+					"jsonFile" : "target-network-Debug-6400612310dfcf4b5c6e.json",
+					"name" : "network",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 8,
+					"id" : "parse::@c2fcf3a84381047cb015",
+					"jsonFile" : "target-parse-Debug-939429003b487dee161a.json",
+					"name" : "parse",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 9,
+					"id" : "synth::@4cc3f628e895ca9b569d",
+					"jsonFile" : "target-synth-Debug-feebd540f8d682c95e98.json",
+					"name" : "synth",
+					"projectIndex" : 0
+				}
+			]
+		},
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3
+					],
+					"jsonFile" : "directory-.-Release-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						4
+					]
+				},
+				{
+					"build" : "kernels",
+					"jsonFile" : "directory-kernels-Release-e567a076526caef4068b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "kernels",
+					"targetIndexes" : 
+					[
+						2,
+						5
+					]
+				},
+				{
+					"build" : "fonts",
+					"jsonFile" : "directory-fonts-Release-769006f5e0bf9066d720.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "fonts",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "photon",
+					"childIndexes" : 
+					[
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"jsonFile" : "directory-photon-Release-877820ea5f3be1348bbb.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "photon",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "photon/engine",
+					"jsonFile" : "directory-photon.engine-Release-d33bdb510202dd3daddd.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/engine",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "photon/gpu",
+					"jsonFile" : "directory-photon.gpu-Release-ff5ef0edc40be5507615.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gpu",
+					"targetIndexes" : 
+					[
+						7
+					]
+				},
+				{
+					"build" : "photon/gui",
+					"jsonFile" : "directory-photon.gui-Release-2ae4418a4123df8b2295.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gui",
+					"targetIndexes" : 
+					[
+						8
+					]
+				},
+				{
+					"build" : "photon/network",
+					"jsonFile" : "directory-photon.network-Release-dbac9d4c436beb359dc6.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/network",
+					"targetIndexes" : 
+					[
+						9
+					]
+				},
+				{
+					"build" : "photon/parse",
+					"jsonFile" : "directory-photon.parse-Release-0ec1a61351a1b062a4d0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/parse",
+					"targetIndexes" : 
+					[
+						10
+					]
+				},
+				{
+					"build" : "photon/synth",
+					"jsonFile" : "directory-photon.synth-Release-921c2104a1e25077e1d3.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/synth",
+					"targetIndexes" : 
+					[
+						11
+					]
+				}
+			],
+			"name" : "Release",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"name" : "NAME",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ALL_BUILD-Release-ce164124d50a79216091.json",
+					"name" : "ALL_BUILD",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "GenerateFontHeaders::@28540453289e944cb2e9",
+					"jsonFile" : "target-GenerateFontHeaders-Release-1ddc9e690065fab11589.json",
+					"name" : "GenerateFontHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "GenerateKernelHeaders::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-GenerateKernelHeaders-Release-98956153938c113e7bbb.json",
+					"name" : "GenerateKernelHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "Photon::@14bc0c096ae1d1635d0d",
+					"jsonFile" : "target-Photon-Release-0d1d53e476983ef75be7.json",
+					"name" : "Photon",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ZERO_CHECK-Release-96848e493141f3dc081a.json",
+					"name" : "ZERO_CHECK",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "compile_kernels::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-compile_kernels-Release-18c527053ea4a4aefd83.json",
+					"name" : "compile_kernels",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "engine::@094849aa84dc83bc757b",
+					"jsonFile" : "target-engine-Release-b0931fd57cb64d7f1bd2.json",
+					"name" : "engine",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "gpu::@639c691ed8fe00215672",
+					"jsonFile" : "target-gpu-Release-ab80ee19c106377a2077.json",
+					"name" : "gpu",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "gui::@9bbf4b0247a3806d05b0",
+					"jsonFile" : "target-gui-Release-53626a4e16cee13dd1b0.json",
+					"name" : "gui",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "network::@0ba1bf266af7f50e8e09",
+					"jsonFile" : "target-network-Release-33065efa09e9a7135c26.json",
+					"name" : "network",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 8,
+					"id" : "parse::@c2fcf3a84381047cb015",
+					"jsonFile" : "target-parse-Release-5b1928e2ea85a85276b2.json",
+					"name" : "parse",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 9,
+					"id" : "synth::@4cc3f628e895ca9b569d",
+					"jsonFile" : "target-synth-Release-0b193343d135a12a85b0.json",
+					"name" : "synth",
+					"projectIndex" : 0
+				}
+			]
+		},
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3
+					],
+					"jsonFile" : "directory-.-MinSizeRel-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						4
+					]
+				},
+				{
+					"build" : "kernels",
+					"jsonFile" : "directory-kernels-MinSizeRel-e567a076526caef4068b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "kernels",
+					"targetIndexes" : 
+					[
+						2,
+						5
+					]
+				},
+				{
+					"build" : "fonts",
+					"jsonFile" : "directory-fonts-MinSizeRel-769006f5e0bf9066d720.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "fonts",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "photon",
+					"childIndexes" : 
+					[
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"jsonFile" : "directory-photon-MinSizeRel-877820ea5f3be1348bbb.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "photon",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "photon/engine",
+					"jsonFile" : "directory-photon.engine-MinSizeRel-d33bdb510202dd3daddd.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/engine",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "photon/gpu",
+					"jsonFile" : "directory-photon.gpu-MinSizeRel-ff5ef0edc40be5507615.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gpu",
+					"targetIndexes" : 
+					[
+						7
+					]
+				},
+				{
+					"build" : "photon/gui",
+					"jsonFile" : "directory-photon.gui-MinSizeRel-2ae4418a4123df8b2295.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gui",
+					"targetIndexes" : 
+					[
+						8
+					]
+				},
+				{
+					"build" : "photon/network",
+					"jsonFile" : "directory-photon.network-MinSizeRel-dbac9d4c436beb359dc6.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/network",
+					"targetIndexes" : 
+					[
+						9
+					]
+				},
+				{
+					"build" : "photon/parse",
+					"jsonFile" : "directory-photon.parse-MinSizeRel-0ec1a61351a1b062a4d0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/parse",
+					"targetIndexes" : 
+					[
+						10
+					]
+				},
+				{
+					"build" : "photon/synth",
+					"jsonFile" : "directory-photon.synth-MinSizeRel-921c2104a1e25077e1d3.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/synth",
+					"targetIndexes" : 
+					[
+						11
+					]
+				}
+			],
+			"name" : "MinSizeRel",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"name" : "NAME",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ALL_BUILD-MinSizeRel-ce164124d50a79216091.json",
+					"name" : "ALL_BUILD",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "GenerateFontHeaders::@28540453289e944cb2e9",
+					"jsonFile" : "target-GenerateFontHeaders-MinSizeRel-1ddc9e690065fab11589.json",
+					"name" : "GenerateFontHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "GenerateKernelHeaders::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-GenerateKernelHeaders-MinSizeRel-98956153938c113e7bbb.json",
+					"name" : "GenerateKernelHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "Photon::@14bc0c096ae1d1635d0d",
+					"jsonFile" : "target-Photon-MinSizeRel-c90c1a0729f95fca52bf.json",
+					"name" : "Photon",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ZERO_CHECK-MinSizeRel-96848e493141f3dc081a.json",
+					"name" : "ZERO_CHECK",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "compile_kernels::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-compile_kernels-MinSizeRel-18c527053ea4a4aefd83.json",
+					"name" : "compile_kernels",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "engine::@094849aa84dc83bc757b",
+					"jsonFile" : "target-engine-MinSizeRel-9dade1c9594338269c6a.json",
+					"name" : "engine",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "gpu::@639c691ed8fe00215672",
+					"jsonFile" : "target-gpu-MinSizeRel-3c9d2e1e921143c888fb.json",
+					"name" : "gpu",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "gui::@9bbf4b0247a3806d05b0",
+					"jsonFile" : "target-gui-MinSizeRel-3af375d937c3269ae319.json",
+					"name" : "gui",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "network::@0ba1bf266af7f50e8e09",
+					"jsonFile" : "target-network-MinSizeRel-a2d6da906fb3a07b6683.json",
+					"name" : "network",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 8,
+					"id" : "parse::@c2fcf3a84381047cb015",
+					"jsonFile" : "target-parse-MinSizeRel-85c1bdba07ebc24b68d3.json",
+					"name" : "parse",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 9,
+					"id" : "synth::@4cc3f628e895ca9b569d",
+					"jsonFile" : "target-synth-MinSizeRel-8cd975f5902d2f00f90d.json",
+					"name" : "synth",
+					"projectIndex" : 0
+				}
+			]
+		},
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3
+					],
+					"jsonFile" : "directory-.-RelWithDebInfo-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						4
+					]
+				},
+				{
+					"build" : "kernels",
+					"jsonFile" : "directory-kernels-RelWithDebInfo-e567a076526caef4068b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "kernels",
+					"targetIndexes" : 
+					[
+						2,
+						5
+					]
+				},
+				{
+					"build" : "fonts",
+					"jsonFile" : "directory-fonts-RelWithDebInfo-769006f5e0bf9066d720.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "fonts",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "photon",
+					"childIndexes" : 
+					[
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"jsonFile" : "directory-photon-RelWithDebInfo-877820ea5f3be1348bbb.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "photon",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "photon/engine",
+					"jsonFile" : "directory-photon.engine-RelWithDebInfo-d33bdb510202dd3daddd.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/engine",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "photon/gpu",
+					"jsonFile" : "directory-photon.gpu-RelWithDebInfo-ff5ef0edc40be5507615.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gpu",
+					"targetIndexes" : 
+					[
+						7
+					]
+				},
+				{
+					"build" : "photon/gui",
+					"jsonFile" : "directory-photon.gui-RelWithDebInfo-2ae4418a4123df8b2295.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/gui",
+					"targetIndexes" : 
+					[
+						8
+					]
+				},
+				{
+					"build" : "photon/network",
+					"jsonFile" : "directory-photon.network-RelWithDebInfo-dbac9d4c436beb359dc6.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/network",
+					"targetIndexes" : 
+					[
+						9
+					]
+				},
+				{
+					"build" : "photon/parse",
+					"jsonFile" : "directory-photon.parse-RelWithDebInfo-0ec1a61351a1b062a4d0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/parse",
+					"targetIndexes" : 
+					[
+						10
+					]
+				},
+				{
+					"build" : "photon/synth",
+					"jsonFile" : "directory-photon.synth-RelWithDebInfo-921c2104a1e25077e1d3.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "photon/synth",
+					"targetIndexes" : 
+					[
+						11
+					]
+				}
+			],
+			"name" : "RelWithDebInfo",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					],
+					"name" : "NAME",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ALL_BUILD-RelWithDebInfo-ce164124d50a79216091.json",
+					"name" : "ALL_BUILD",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "GenerateFontHeaders::@28540453289e944cb2e9",
+					"jsonFile" : "target-GenerateFontHeaders-RelWithDebInfo-1ddc9e690065fab11589.json",
+					"name" : "GenerateFontHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "GenerateKernelHeaders::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-GenerateKernelHeaders-RelWithDebInfo-98956153938c113e7bbb.json",
+					"name" : "GenerateKernelHeaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "Photon::@14bc0c096ae1d1635d0d",
+					"jsonFile" : "target-Photon-RelWithDebInfo-b0de78659b5bb27fed8b.json",
+					"name" : "Photon",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ZERO_CHECK-RelWithDebInfo-96848e493141f3dc081a.json",
+					"name" : "ZERO_CHECK",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "compile_kernels::@b85b5e8d2ed61bca781d",
+					"jsonFile" : "target-compile_kernels-RelWithDebInfo-18c527053ea4a4aefd83.json",
+					"name" : "compile_kernels",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "engine::@094849aa84dc83bc757b",
+					"jsonFile" : "target-engine-RelWithDebInfo-36302f14b8a676561fdc.json",
+					"name" : "engine",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "gpu::@639c691ed8fe00215672",
+					"jsonFile" : "target-gpu-RelWithDebInfo-b1084dcf2ab881706c4e.json",
+					"name" : "gpu",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "gui::@9bbf4b0247a3806d05b0",
+					"jsonFile" : "target-gui-RelWithDebInfo-33bc49f813aa68613aa2.json",
+					"name" : "gui",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "network::@0ba1bf266af7f50e8e09",
+					"jsonFile" : "target-network-RelWithDebInfo-4177f573254f835018e5.json",
+					"name" : "network",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 8,
+					"id" : "parse::@c2fcf3a84381047cb015",
+					"jsonFile" : "target-parse-RelWithDebInfo-ba78400791e79252d400.json",
+					"name" : "parse",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 9,
+					"id" : "synth::@4cc3f628e895ca9b569d",
+					"jsonFile" : "target-synth-RelWithDebInfo-a7ee6107de130fb14e9e.json",
+					"name" : "synth",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build",
+		"source" : "C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

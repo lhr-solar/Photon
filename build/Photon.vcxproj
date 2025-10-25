@@ -1,0 +1,650 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{59A8F9A4-C088-3F5E-88CB-70F320B08BEF}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>Photon</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Photon.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Photon</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Photon.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Photon</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Photon.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Photon</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Photon.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Photon</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>C:\VulkanSDK\1.4.321.1\Lib\vulkan-1.lib;C:\ffmpeg\lib\avcodec.lib;C:\ffmpeg\lib\avformat.lib;C:\ffmpeg\lib\avutil.lib;C:\ffmpeg\lib\swscale.lib;C:\ffmpeg\lib\swresample.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/Debug/Photon.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/Debug/Photon.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NDEBUG;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NDEBUG;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>C:\VulkanSDK\1.4.321.1\Lib\vulkan-1.lib;C:\ffmpeg\lib\avcodec.lib;C:\ffmpeg\lib\avformat.lib;C:\ffmpeg\lib\avutil.lib;C:\ffmpeg\lib\swscale.lib;C:\ffmpeg\lib\swresample.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/Release/Photon.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/Release/Photon.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NDEBUG;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NDEBUG;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>C:\VulkanSDK\1.4.321.1\Lib\vulkan-1.lib;C:\ffmpeg\lib\avcodec.lib;C:\ffmpeg\lib\avformat.lib;C:\ffmpeg\lib\avutil.lib;C:\ffmpeg\lib\swscale.lib;C:\ffmpeg\lib\swresample.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/MinSizeRel/Photon.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/MinSizeRel/Photon.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NDEBUG;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;VK_USE_PLATFORM_WIN32_KHR;NDEBUG;WIN32_LEAN_AND_MEAN;NOMINMAX;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>C:\VulkanSDK\1.4.321.1\Lib\vulkan-1.lib;C:\ffmpeg\lib\avcodec.lib;C:\ffmpeg\lib\avformat.lib;C:\ffmpeg\lib\avutil.lib;C:\ffmpeg\lib\swscale.lib;C:\ffmpeg\lib\swresample.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/RelWithDebInfo/Photon.lib</ImportLibrary>
+      <ProgramDataBaseFile>C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/RelWithDebInfo/Photon.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\dummy.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\glm.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imgui.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imgui_demo.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imgui_draw.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imgui_tables.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot3d.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot3d_demo.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot3d_items.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot3d_meshes.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot_demo.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot_items.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\checkheader.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\errstr.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\filestream.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\glloader.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\hashlist.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\hashtable.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\memstream.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\swap.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\texture.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\vk_funcs.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\vkloader.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\writer.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\writer_v1.c" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\artifacts\CMakeFiles\3.31.6-msvc6\CompilerIdC\CMakeCCompilerId.c">
+      <ObjectFileName>$(IntDir)/artifacts/CMakeFiles/3.31.6-msvc6/CompilerIdC/CMakeCCompilerId.c.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\artifacts\CMakeFiles\3.31.6-msvc6\CompilerIdCXX\CMakeCXXCompilerId.cpp">
+      <ObjectFileName>$(IntDir)/artifacts/CMakeFiles/3.31.6-msvc6/CompilerIdCXX/CMakeCXXCompilerId.cpp.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CompilerIdC\CMakeCCompilerId.c">
+      <ObjectFileName>$(IntDir)/CMakeFiles/3.31.6-msvc6/CompilerIdC/CMakeCCompilerId.c.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CompilerIdCXX\CMakeCXXCompilerId.cpp">
+      <ObjectFileName>$(IntDir)/CMakeFiles/3.31.6-msvc6/CompilerIdCXX/CMakeCXXCompilerId.cpp.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\engine\main.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\engine\photon.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\gpu.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanBuffer.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanDevice.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanGLTF.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanSwapchain.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\frame.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\gui.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\inputs.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\ui.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\videoDecoder.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\videoElement.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\webcam.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\network\network.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\network\tcp.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\parse\parse.cpp" />
+    <ClCompile Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\synth\synth.cpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\common.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\_features.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\_fixes.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\_noise.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\_swizzle.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\_swizzle_func.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\_vectorize.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_common.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_exponential.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_geometric.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_integer.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_matrix.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_packing.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_trigonometric.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\func_vector_relational.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\precision.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\setup.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_float.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_gentype.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_half.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_int.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat2x2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat2x3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat2x4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat3x2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat3x3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat3x4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat4x2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat4x3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_mat4x4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_vec.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_vec1.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_vec2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_vec3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\detail\type_vec4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\exponential.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\ext.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\fwd.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\geometric.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\glm.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\bitfield.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\color_space.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\constants.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\epsilon.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\functions.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\integer.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\matrix_access.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\matrix_integer.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\matrix_inverse.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\matrix_transform.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\noise.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\packing.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\quaternion.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\random.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\reciprocal.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\round.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\type_aligned.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\type_precision.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\type_ptr.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\ulp.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtc\vec1.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\associated_min_max.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\bit.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\closest_point.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\color_encoding.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\color_space.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\color_space_YCoCg.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\common.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\compatibility.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\component_wise.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\dual_quaternion.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\euler_angles.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\extend.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\extended_min_max.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\exterior_product.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\fast_exponential.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\fast_square_root.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\fast_trigonometry.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\gradient_paint.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\handed_coordinate_space.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\hash.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\integer.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\intersect.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\io.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\log_base.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_cross_product.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_decompose.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_factorisation.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_interpolation.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_major_storage.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_operation.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_query.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\matrix_transform_2d.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\mixed_product.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\norm.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\normal.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\normalize_dot.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\number_precision.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\optimum_pow.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\orthonormalize.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\perpendicular.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\polar_coordinates.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\projection.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\quaternion.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\range.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\raw_data.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\rotate_normalized_axis.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\rotate_vector.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\scalar_multiplication.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\scalar_relational.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\spline.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\std_based_type.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\string_cast.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\transform.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\transform2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\type_aligned.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\type_trait.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\vec_swizzle.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\vector_angle.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\vector_query.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\gtx\wrap.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\integer.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat2x2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat2x3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat2x4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat3x2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat3x3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat3x4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat4x2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat4x3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\mat4x4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\matrix.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\packing.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\common.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\exponential.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\geometric.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\integer.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\matrix.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\packing.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\platform.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\trigonometric.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\simd\vector_relational.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\trigonometric.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\vec2.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\vec3.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\vec4.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm\glm\vector_relational.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imconfig.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imgui.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imgui_internal.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot3d.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot3d_internal.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\implot_internal.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imstb_rectpack.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imstb_textedit.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\imstb_truetype.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\terminal.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui\terminal_helpers.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\include\ktx.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\include\ktxvulkan.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\filestream.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\gl_format.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\gl_funcptrs.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\gles1_funcptrs.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\gles2_funcptrs.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\gles3_funcptrs.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\ktxgl.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\ktxint.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\memstream.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\stream.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\uthash.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\vk_format.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\lib\vk_funcs.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\ktx\other_include\KHR\khrplatform.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf\json.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf\stb_image.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf\tiny_gltf.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_av1std.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_av1std_decode.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_av1std_encode.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_h264std.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_h264std_decode.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_h264std_encode.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_h265std.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_h265std_decode.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codec_h265std_encode.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video\vulkan_video_codecs_common.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vk_icd.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vk_layer.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vk_platform.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_android.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_beta.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_core.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_directfb.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_enums.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_extension_inspection.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_format_traits.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_fuchsia.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_funcs.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_ggp.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_handles.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_hash.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_hpp_macros.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_ios.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_macos.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_metal.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_raii.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_screen.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_shared.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_static_assertions.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_structs.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_to_string.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_vi.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_video.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_wayland.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_win32.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_xcb.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_xlib.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan\vulkan_xlib_xrandr.h" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\engine\include.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\engine\photon.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\camera.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\gpu.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanBuffer.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanDevice.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanGLTF.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\vulkanSwapchain.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\frame.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\gui.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\inputs.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\ui.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\videoDecoder.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\videoElement.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gui\webcam.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\network\network.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\network\spsc.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\network\tcp.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\parse\parse.hpp" />
+    <ClInclude Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\synth\synth.hpp" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\ZERO_CHECK.vcxproj">
+      <Project>{387AC1E5-5ABE-3111-BEF3-16F3CCE8147D}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\Shaders.vcxproj">
+      <Project>{32017BB1-379A-3D3C-9A82-B61AD70CCA49}</Project>
+      <Name>Shaders</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

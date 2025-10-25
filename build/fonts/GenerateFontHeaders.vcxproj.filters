@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\Satoshi_Medium_ttf.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\03c211fcc9e898d5923ab7e01626304d\GenerateFontHeaders.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\fonts\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\fonts\CMakeFiles\GenerateFontHeaders" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{1B11C5CD-1117-36B5-8588-E50C8247B42F}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

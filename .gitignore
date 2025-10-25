@@ -1,0 +1,9 @@
+.cache
+.notes
+.vscode
+artifacts
+imgui.ini
+perf.data
+perf.data.old
+Photon.exe
+*.mp4

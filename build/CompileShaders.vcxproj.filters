@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\background.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\background_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\band.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\band_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\custom_shader.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\custom_shader_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\defaultWhite.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\defaultWhite_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\default.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\default_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\dust.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\dust_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\eyes.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\eyes_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\scene.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\scene_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\sun.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\sun_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\ui.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\ui_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\2632b29d7b33ad8435e77246447127b4\CompileShaders.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\CompileShaders" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{1B11C5CD-1117-36B5-8588-E50C8247B42F}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

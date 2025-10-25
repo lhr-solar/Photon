@@ -1,0 +1,1128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{32017BB1-379A-3D3C-9A82-B61AD70CCA49}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>Shaders</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\glm;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vulkan;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\vk_video;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\stb;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\imgui;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\.external\tinygltf;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated;C:\ffmpeg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\background_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling background.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling background.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling background.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling background.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\background_vert_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling background.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling background.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling background.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling background.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/background_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\band_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling band.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling band.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling band.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling band.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/band_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\custom_shader_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling custom_shader.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling custom_shader.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling custom_shader.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling custom_shader.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\custom_shader_vert_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling custom_shader.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling custom_shader.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling custom_shader.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling custom_shader.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/custom_shader_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\defaultWhite_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling defaultWhite.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling defaultWhite.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling defaultWhite.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling defaultWhite.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/defaultWhite_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\default_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling default.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling default.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling default.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling default.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/default_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\dust_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling dust.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling dust.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling dust.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling dust.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/dust_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\eyes_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling eyes.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling eyes.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling eyes.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling eyes.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/eyes_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\scene_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling scene.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling scene.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling scene.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling scene.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\scene_vert_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling scene.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling scene.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling scene.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling scene.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/scene_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\sun_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling sun.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling sun.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling sun.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling sun.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/sun_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\ui_frag_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling ui.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling ui.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling ui.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling ui.frag → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_frag_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\008606fe41e70459d88edeb8fef677b4\ui_vert_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling ui.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling ui.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling ui.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling ui.vert → C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslc C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.vert -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+xxd -i C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert.spv &gt; C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/generated/ui_vert_spv.hpp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\2632b29d7b33ad8435e77246447127b4\Shaders.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\Shaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\Shaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\Shaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\band_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\default_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\defaultWhite_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\dust_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\eyes_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\sun_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_frag_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\background_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\custom_shader_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\scene_vert_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\generated\ui_vert_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\Shaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</VerifyInputsAndOutputsExist>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPackageMessage.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython\Support.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\FindPython3.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\Shaders">
+    </None>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\ZERO_CHECK.vcxproj">
+      <Project>{387AC1E5-5ABE-3111-BEF3-16F3CCE8147D}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

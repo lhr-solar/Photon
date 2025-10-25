@@ -1,0 +1,12 @@
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/ZERO_CHECK.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/kernels/CMakeFiles/compile_kernels.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/kernels/CMakeFiles/GenerateKernelHeaders.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/fonts/CMakeFiles/GenerateFontHeaders.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/photon/CMakeFiles/Photon.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/photon/engine/CMakeFiles/engine.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/photon/gpu/CMakeFiles/gpu.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/photon/gui/CMakeFiles/gui.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/photon/network/CMakeFiles/network.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/photon/parse/CMakeFiles/parse.dir
+C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/photon/synth/CMakeFiles/synth.dir

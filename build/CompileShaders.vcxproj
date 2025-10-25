@@ -1,0 +1,1352 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{F6AC1463-93B6-35D0-A7D8-56A91341F04F}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>CompileShaders</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\background.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader background</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader background</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader background</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader background</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/background.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\background_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting background.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background_spv.hpp -DSHADER_NAME=background -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting background.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background_spv.hpp -DSHADER_NAME=background -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting background.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background_spv.hpp -DSHADER_NAME=background -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting background.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/background_spv.hpp -DSHADER_NAME=background -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\band.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader band</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader band</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader band</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader band</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/band.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\band.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\band_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting band.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band_spv.hpp -DSHADER_NAME=band -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting band.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band_spv.hpp -DSHADER_NAME=band -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting band.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band_spv.hpp -DSHADER_NAME=band -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting band.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/band_spv.hpp -DSHADER_NAME=band -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\custom_shader.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader custom_shader</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader custom_shader</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader custom_shader</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader custom_shader</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/custom_shader.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\custom_shader_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting custom_shader.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader_spv.hpp -DSHADER_NAME=custom_shader -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting custom_shader.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader_spv.hpp -DSHADER_NAME=custom_shader -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting custom_shader.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader_spv.hpp -DSHADER_NAME=custom_shader -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting custom_shader.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/custom_shader_spv.hpp -DSHADER_NAME=custom_shader -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\defaultWhite.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader defaultWhite</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader defaultWhite</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader defaultWhite</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader defaultWhite</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/defaultWhite.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\defaultWhite.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\defaultWhite_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting defaultWhite.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite_spv.hpp -DSHADER_NAME=defaultWhite -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting defaultWhite.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite_spv.hpp -DSHADER_NAME=defaultWhite -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting defaultWhite.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite_spv.hpp -DSHADER_NAME=defaultWhite -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting defaultWhite.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/defaultWhite_spv.hpp -DSHADER_NAME=defaultWhite -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\default.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader default</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader default</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader default</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader default</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/default.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\default.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\default_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting default.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default_spv.hpp -DSHADER_NAME=default -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting default.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default_spv.hpp -DSHADER_NAME=default -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting default.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default_spv.hpp -DSHADER_NAME=default -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting default.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/default_spv.hpp -DSHADER_NAME=default -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\dust.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader dust</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader dust</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader dust</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader dust</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/dust.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\dust.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\dust_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting dust.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust_spv.hpp -DSHADER_NAME=dust -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting dust.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust_spv.hpp -DSHADER_NAME=dust -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting dust.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust_spv.hpp -DSHADER_NAME=dust -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting dust.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/dust_spv.hpp -DSHADER_NAME=dust -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\eyes.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader eyes</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader eyes</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader eyes</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader eyes</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/eyes.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\eyes.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\eyes_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting eyes.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes_spv.hpp -DSHADER_NAME=eyes -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting eyes.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes_spv.hpp -DSHADER_NAME=eyes -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting eyes.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes_spv.hpp -DSHADER_NAME=eyes -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting eyes.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/eyes_spv.hpp -DSHADER_NAME=eyes -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\scene.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader scene</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader scene</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader scene</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader scene</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/scene.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\scene_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting scene.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene_spv.hpp -DSHADER_NAME=scene -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting scene.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene_spv.hpp -DSHADER_NAME=scene -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting scene.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene_spv.hpp -DSHADER_NAME=scene -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting scene.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/scene_spv.hpp -DSHADER_NAME=scene -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\sun.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader sun</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader sun</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader sun</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader sun</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/sun.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\sun.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\sun_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting sun.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun_spv.hpp -DSHADER_NAME=sun -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting sun.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun_spv.hpp -DSHADER_NAME=sun -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting sun.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun_spv.hpp -DSHADER_NAME=sun -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting sun.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/sun_spv.hpp -DSHADER_NAME=sun -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\ui.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader ui</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader ui</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader ui</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader ui</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\VulkanSDK\1.4.321.1\Bin\glslc.exe C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/kernels/ui.frag -o C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\1239dcbd70cf6b7034e1a1f2411b2f99\ui_spv.hpp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Converting ui.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui_spv.hpp -DSHADER_NAME=ui -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Converting ui.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui_spv.hpp -DSHADER_NAME=ui -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Converting ui.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui_spv.hpp -DSHADER_NAME=ui -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Converting ui.spv to header</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DSPV_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui.spv -DHEADER_FILE=C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/photon/gpu/shaders/ui_spv.hpp -DSHADER_NAME=ui -P C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/spv_to_header.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\2632b29d7b33ad8435e77246447127b4\CompileShaders.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\CompileShaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\CompileShaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\CompileShaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\background_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\band_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\custom_shader_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\default_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\defaultWhite_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\dust_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\eyes_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\scene_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\sun_spv.hpp;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\photon\gpu\shaders\ui_spv.hpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\CompileShaders</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</VerifyInputsAndOutputsExist>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root -BC:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build --check-stamp-file C:/Users/vijaa/OneDrive/Documents/UT/ECE/LHRS/Junior/PhotonLocalRoot/Root/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCXXInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Compiler\MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake;C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeCXXCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeRCCompiler.cmake;C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\3.31.6-msvc6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\CMakeFiles\CompileShaders">
+    </None>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\vijaa\OneDrive\Documents\UT\ECE\LHRS\Junior\PhotonLocalRoot\Root\build\ZERO_CHECK.vcxproj">
+      <Project>{387AC1E5-5ABE-3111-BEF3-16F3CCE8147D}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

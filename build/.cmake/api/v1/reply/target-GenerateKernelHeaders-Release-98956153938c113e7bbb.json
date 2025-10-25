@@ -1,0 +1,184 @@
+{
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_custom_target"
+		],
+		"files" : 
+		[
+			"kernels/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 63,
+				"parent" : 0
+			}
+		]
+	},
+	"dependencies" : 
+	[
+		{
+			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
+		}
+	],
+	"id" : "GenerateKernelHeaders::@b85b5e8d2ed61bca781d",
+	"name" : "GenerateKernelHeaders",
+	"paths" : 
+	{
+		"build" : "kernels",
+		"source" : "kernels"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		},
+		{
+			"name" : "CMake Rules",
+			"sourceIndexes" : 
+			[
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"isGenerated" : true,
+			"path" : "build/kernels/CMakeFiles/GenerateKernelHeaders",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/a3a94c5cfcfa943f714d6808ea6b380d/GenerateKernelHeaders.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/background_frag_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/background_vert_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/custom_shader_frag_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/custom_shader_vert_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/scene_frag_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/scene_vert_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/ui_frag_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/008606fe41e70459d88edeb8fef677b4/ui_vert_spv.hpp.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/background.frag.spv.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/background.vert.spv.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/custom_shader.frag.spv.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/custom_shader.vert.spv.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/scene.frag.spv.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/scene.vert.spv.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/ui.frag.spv.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/8a5a0aa97a2ce65bb4c14b6081c94c89/ui.vert.spv.rule",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "UTILITY"
+}
