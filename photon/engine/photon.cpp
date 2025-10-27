@@ -111,7 +111,6 @@ void Photon::nextFrame(){
         gpu.timer += gpu.timerSpeed * gpu.frameTimer;
         if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
     }
-
 }
 
 void Photon::render(){
@@ -137,7 +136,7 @@ void Photon::prepareFrame(){
     // Acquire the next image from the swap chain
 	VkResult result = gpu.vulkanSwapchain.acquireNextImage(gpu.vulkanDevice.logicalDevice, gpu.semaphores.presentComplete, &gpu.currentBuffer);
 	if (result == VK_ERROR_SURFACE_LOST_KHR) {
-        logs("[!] Swap chain surface lost; stopping rendering loop");
+        logs("[!] Swap chain surface lost; resetting render loop");
         prepared = false;
         return;
     }
@@ -150,7 +149,7 @@ void Photon::prepareFrame(){
 void Photon::submitFrame(){
     VkResult result = gpu.vulkanSwapchain.queuePresent(gpu.vulkanDevice.graphicsQueue, gpu.currentBuffer, gpu.semaphores.renderComplete);
     if (result == VK_ERROR_SURFACE_LOST_KHR) {
-        logs("[!] Swap chain surface lost during present; stopping rendering loop");
+        logs("[!] Swap chain surface lost during present; resetting rendering loop");
         prepared = false;
         return;
     }
