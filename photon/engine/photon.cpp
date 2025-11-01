@@ -91,16 +91,13 @@ void Photon::renderLoop(){
 void Photon::nextFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
 	    render();
-    gpu.frameCounter++;
     auto tEnd = std::chrono::high_resolution_clock::now();
     double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+
+    gpu.frameCounter++;
     if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
     gpu.frameTimer = frameTime / 1000.0f;
     gpu.camera.update(gpu.frameTimer); 
-    if(!paused){
-        gpu.timer += gpu.timerSpeed * gpu.frameTimer;
-        if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
-    }
 }
 
 void Photon::render(){

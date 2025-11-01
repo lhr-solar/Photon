@@ -21,7 +21,6 @@ public:
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTimestamp;
     std::chrono::time_point<std::chrono::high_resolution_clock> tPrevEnd;
-    bool paused = false;
     bool prepared = false;
 
     Photon();
