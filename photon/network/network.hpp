@@ -1,23 +1,44 @@
-/*[ξ] the photon network interface*/
+/* [ξ] Photon Network Interface
+   Handles real-time SLCAN (CAN over TCP) parsing and DBC mapping.
+   Designed for thread-safe CAN streaming and modular DBC integration.
+*/
+
 #pragma once
 #include <array>
-#include <stdint.h>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <mutex>
-#include <memory>
 #include <vector>
 #include "spsc.hpp"
 
+// forward declaration
+class TcpSocket;
+class DbcConnector;
+
 class Network {
+public:
+    Network();
+
+    // --- Threads ---
+    void producer();
+    void parser();
+
+    // --- Debug / DBC ---
+    void printDBCMap();
+    bool loadDBC(const std::string& path);
+
+    // --- CAN sample interface ---
+    bool readSample(uint16_t canId, uint64_t& outValue);
+    void writeSample(uint16_t canId, uint64_t value);
+
+    // --- Network configuration ---
+    std::string IP = "3.141.38.115";
+    unsigned PORT = 8187;
+    SPSCQueue<uint8_t> spscQueue;
+
 private:
     struct sample {
-        sample() = default;
-        sample(const sample&) = delete;
-        sample& operator=(const sample&) = delete;
-        sample(sample&&) = delete;
-        sample& operator=(sample&&) = delete;
-
         std::mutex lock;
         uint64_t point = 0;
     };
@@ -41,38 +62,17 @@ private:
         std::vector<DbcSignal> signals;
     };
 
-public:
-    Network();
-    void producer();
-    void printDBCMap();
-    void parser();
+    // --- Maps ---
+    std::unordered_map<uint16_t, sample> sampleMap;
+    std::unordered_map<uint32_t, DbcMessage> dbcMap;
 
-    bool readSample(uint16_t canId, uint64_t& outValue);
-    void writeSample(uint16_t canId, uint64_t value);
+    std::mutex sampleMapMutex;
+    std::mutex dbcMapMutex;
 
-    SPSCQueue<uint8_t> spscQueue;
-    std::string IP = "127.0.0.1"; //"3.141.38.115";
-    unsigned PORT = 8187;
+    uint32_t currentCanId = 0;
 
-private:
+    // --- Helpers ---
     sample& ensureSample(uint16_t canId);
     bool decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value);
     void handleFrame(const std::string& frame);
-
-    // DBC system
-    DbcMessage& ensureDBC(uint32_t canId);
-    void writeDBC(uint32_t canId, const std::string& name, uint8_t dlc, const std::string& sender);
-    void writeSignal(uint32_t canId, const DbcSignal& sig);
-    void handleDBCframe(const std::string& frame);
-    bool decodeDBCFrame(const std::string& frame, uint32_t& canId, std::string& name, uint8_t& dlc, std::string& sender);
-    bool decodeSIGFrame(const std::string& frame, uint32_t& canId, DbcSignal& sig);
-
-    std::mutex sampleMapMutex;
-    std::unordered_map<uint16_t, std::unique_ptr<sample>> sampleMap;
-
-    std::mutex dbcMapMutex;
-    std::unordered_map<uint32_t, std::unique_ptr<DbcMessage>> dbcMap;
-
-    uint32_t currentCanId = 0;
 };
-

@@ -1,88 +1,39 @@
 #include "network.hpp"
 #include "tcp.hpp"
-#include "spsc.hpp"
-#include <cstddef>
-#include <iomanip>
+#include "dbc_loader.hpp"
+#include "dbc_connector.hpp"
 #include <thread>
-#include <vector>
 #include <iostream>
 #include <sstream>
-#include <unordered_map>
-#include <memory>
-#include "../engine/include.hpp"
+#include <cctype>
 
-int hexValue(char c) {
+#define QUEUE_CAPACITY 2048
+#define BUFFER_CAPACITY 1024
+
+static int hexValue(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
     if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
     return -1;
 }
 
-struct DbcSignalInfo {
-    int startBit;
-    int length;
-    int endianness;
-    bool isSigned;
-    double factor;
-    double offset;
-    double minVal;
-    double maxVal;
-};
-
-struct DbcMessageInfo {
-    int canId;
-    std::string name;
-    int dlc;
-    std::string transmitter;
-    std::unordered_map<std::string, DbcSignalInfo> signals;
-};
-
-class DbcConnector {
-public:
-    std::unordered_map<int, std::shared_ptr<DbcMessageInfo>> dbcMap;
-
-    void registerMessage(int canId, const std::string& name, int dlc, const std::string& transmitter) {
-        auto msg = std::make_shared<DbcMessageInfo>();
-        msg->canId = canId;
-        msg->name = name;
-        msg->dlc = dlc;
-        msg->transmitter = transmitter;
-        dbcMap[canId] = msg;
-    }
-
-    void registerSignal(int canId,
-                        const std::string& signalName,
-                        int startBit,
-                        int length,
-                        int endianness,
-                        bool isSigned,
-                        double factor,
-                        double offset,
-                        double minVal,
-                        double maxVal) {
-        if (dbcMap.find(canId) == dbcMap.end()) return;
-        DbcSignalInfo sig{ startBit, length, endianness, isSigned, factor, offset, minVal, maxVal };
-        dbcMap[canId]->signals[signalName] = sig;
-    }
-};
-
-static DbcConnector dbcConnector;
-
-#define QUEUE_CAPACITY 2048
 Network::Network() : spscQueue(QUEUE_CAPACITY) {}
 
-#define BUFFER_CAPACITY 1024
 void Network::producer() {
+    std::cerr << "[DEBUG] Using IP=" << IP << " PORT=" << PORT << "\n";
     TcpSocket socket(IP, PORT);
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
-    while (1){
+
+    std::cerr << "[+] Attempting connection to " << IP << ":" << PORT << "...\n";
+    std::cerr << "[+] Connected (TcpSocket constructor succeeded).\n";
+
+
+    while (true) {
         auto bytesRead = socket.read(buffer.data(), buffer.size());
-        printDBCMap();
         if (bytesRead > 0) {
-            for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); ++i) {
+            for (size_t i = 0; i < (size_t)bytesRead; ++i)
                 while (!spscQueue.try_push(buffer[i])) std::this_thread::yield();
-}
-        }
+        } else std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
@@ -91,233 +42,105 @@ void Network::parser() {
     frame.reserve(256);
     bool collecting = false;
 
-    while (1) {
+    while (true) {
         if (auto* byte = spscQueue.front()) {
             char ch = static_cast<char>(*byte);
             spscQueue.pop();
 
-            // Begin collection
             if (!collecting && (std::isprint(ch) || ch == '\r'))
                 collecting = true;
+            if (!collecting) continue;
 
-            if (!collecting)
-                continue;
-
-            // End of line (your Python stream uses '\r')
             if (ch == '\r') {
                 if (!frame.empty()) {
-                    // Remove leftover whitespace
                     while (!frame.empty() && (frame.back() == '\r' || frame.back() == '\n'))
                         frame.pop_back();
 
-                    // Detect and handle DBC vs CAN
-                    if (frame.rfind("BO_", 0) == 0 || frame.rfind("SG_", 0) == 0) {
-                        logs("[parser] Detected DBC line → " + frame);
-                        handleDBCframe(frame);
-                    } else if (frame.rfind("t", 0) == 0) {
-                        handleFrame(frame);
-                    } else {
-                        logs("[parser] Skipped line → " + frame);
-                    }
+                    if (frame.rfind("t", 0) == 0) handleFrame(frame);
                 }
-
                 frame.clear();
                 collecting = false;
                 continue;
             }
 
-            // Build current frame
             frame.push_back(ch);
-        } else {
-            std::this_thread::yield();
-        }
-    }
-}
-
-
-Network::sample& Network::ensureSample(uint16_t canId) {
-    std::lock_guard<std::mutex> guard(sampleMapMutex);
-    auto it = sampleMap.find(canId);
-    if (it == sampleMap.end()) {
-        auto inserted = sampleMap.emplace(canId, std::make_unique<sample>());
-        it = inserted.first;
-    }
-    return *(it->second);
-}
-
-Network::DbcMessage& Network::ensureDBC(uint32_t canId) {
-    std::lock_guard<std::mutex> guard(dbcMapMutex);
-    auto it = dbcMap.find(canId);
-    if (it == dbcMap.end()) {
-        auto inserted = dbcMap.emplace(canId, std::make_unique<DbcMessage>());
-        it = inserted.first;
-    }
-    return *(it->second);
-}
-
-void Network::writeSample(uint16_t canId, uint64_t value) {
-    sample& entry = ensureSample(canId);
-    std::lock_guard<std::mutex> valueGuard(entry.lock);
-    entry.point = value;
-}
-
-void Network::writeDBC(uint32_t canId, const std::string& name, uint8_t dlc, const std::string& sender) {
-    DbcMessage& msg = ensureDBC(canId);
-    std::lock_guard<std::mutex> guard(dbcMapMutex);
-    msg.name = name;
-    msg.dlc = dlc;
-    msg.sender = sender;
-    dbcConnector.registerMessage(canId, name, dlc, sender);
-}
-
-void Network::writeSignal(uint32_t canId, const DbcSignal& sig) {
-    DbcMessage& msg = ensureDBC(canId);
-    std::lock_guard<std::mutex> guard(dbcMapMutex);
-    msg.signals.push_back(sig);
-    dbcConnector.registerSignal(canId, sig.name, sig.startBit, sig.length, sig.byteOrder, sig.isSigned, sig.scale, sig.offset, sig.minVal, sig.maxVal);
-}
-
-bool Network::readSample(uint16_t canId, uint64_t& outValue) {
-    std::unique_lock<std::mutex> mapLock(sampleMapMutex);
-    auto it = sampleMap.find(canId);
-    if (it == sampleMap.end()) return false;
-    sample* entry = it->second.get();
-    mapLock.unlock();
-    std::lock_guard<std::mutex> valueGuard(entry->lock);
-    outValue = entry->point;
-    return true;
-}
-
-void Network::handleFrame(const std::string& frame) {
-    uint16_t canId = 0;
-    uint64_t value = 0;
-    if (!decodeFrame(frame, canId, value)) {
-        logs("[parser] Invalid SLCAN frame encountered → \"" + frame + "\"");
-        return;
-    }
-    writeSample(canId, value);
-}
-
-void Network::handleDBCframe(const std::string& frame) {
-    if (frame.rfind("BO_", 0) == 0) {
-        uint32_t canID = 0; std::string name, sender; uint8_t dlc = 0;
-        if (!decodeDBCFrame(frame, canID, name, dlc, sender)) {
-            logs("[parser] Invalid DBC BO_ frame encountered");
-            return;
-        }
-        writeDBC(canID, name, dlc, sender);
-        currentCanId = canID;
-        return;
-    }
-    if (frame.rfind("SG_", 0) == 0) {
-        if (currentCanId == 0) {
-            logs("[parser] SG_ encountered before BO_");
-            return;
-        }
-        DbcSignal sig;
-        if (!decodeSIGFrame(frame, currentCanId, sig)) {
-            logs("[parser] Invalid DBC SG_ frame encountered");
-            return;
-        }
-        writeSignal(currentCanId, sig);
-        return;
+        } else std::this_thread::yield();
     }
 }
 
 bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
-    if (frame.empty() || frame.front() != 't') return false;
-    // if (frame.back() != '\r') return false;
-    if (frame.size() < 5) return false;
+    if (frame.empty() || frame.front() != 't' || frame.size() < 5) return false;
     int dataLength = hexValue(frame[4]);
     if (dataLength < 0 || dataLength > 8) return false;
-    const std::size_t expectedLength = 5 + static_cast<std::size_t>(dataLength) * 2;
+
+    const size_t expectedLength = 5 + (size_t)dataLength * 2;
     if (frame.size() != expectedLength) return false;
-    // logs(std::to_string(frame.size()) + " vs " + std::to_string(expectedLength));
+
     canId = 0;
-    for (std::size_t i = 1; i <= 3; ++i) {
+    for (size_t i = 1; i <= 3; ++i) {
         int nibble = hexValue(frame[i]);
         if (nibble < 0) return false;
-        canId = static_cast<uint16_t>((canId << 4) | static_cast<uint16_t>(nibble));
+        canId = (uint16_t)((canId << 4) | nibble);
     }
+
     value = 0;
     for (int i = 0; i < dataLength; ++i) {
         int hi = hexValue(frame[5 + i * 2]);
         int lo = hexValue(frame[6 + i * 2]);
         if (hi < 0 || lo < 0) return false;
-        uint8_t byte = static_cast<uint8_t>((hi << 4) | lo);
+        uint8_t byte = (uint8_t)((hi << 4) | lo);
         value = (value << 8) | byte;
     }
     return true;
 }
 
-bool Network::decodeDBCFrame(const std::string& frame, uint32_t& canId, std::string& name, uint8_t& dlc, std::string& sender) {
-    if (frame.empty() || frame.rfind("BO_", 0) != 0) return false;
-    std::istringstream iss(frame);
-    std::string tag;
-    iss >> tag;
-    iss >> canId;
-    std::string temp;
-    iss >> temp;
-    auto colon = temp.find(':');
-    if (colon == std::string::npos) return false;
-    name = temp.substr(0, colon);
-    std::string dlcStr;
-    iss >> dlcStr;
-    dlc = static_cast<uint8_t>(std::stoi(dlcStr));
-    iss >> sender;
-    return true;
-}
-
-bool Network::decodeSIGFrame(const std::string& frame, uint32_t& canId, DbcSignal& sig) {
-    if (frame.empty() || frame.rfind("SG_", 0) != 0) return false;
-    std::istringstream iss(frame);
-    std::string tag; iss >> tag;
-    iss >> sig.name;
-    char colon; iss >> colon;
-    iss >> sig.startBit;
-    iss.ignore(1, '|');
-    iss >> sig.length;
-    char at; iss >> at;
-    iss >> sig.byteOrder;
-    char sign; iss >> sign;
-    sig.isSigned = (sign == '-');
-    return true;
-}
-
-void Network::printDBCMap() {
-    std::lock_guard<std::mutex> guard(dbcMapMutex);
-
-    if (dbcMap.empty()) {
-        logs("[DBC] No DBC messages stored yet.");
+void Network::handleFrame(const std::string& frame) {
+    uint16_t canId;
+    uint64_t value;
+    if (!decodeFrame(frame, canId, value)) {
+        std::cerr << "[parser] Invalid SLCAN frame → " << frame << "\n";
         return;
     }
 
-    logs("========== DBC MAP ==========");
-    for (const auto& [canId, msgPtr] : dbcMap) {
-        const auto& msg = *msgPtr;
-        std::ostringstream oss;
-        oss << "[DBC] CAN ID: " << canId
-            << " | Name: " << msg.name
-            << " | DLC: " << (int)msg.dlc
-            << " | Sender: " << msg.sender;
-        logs(oss.str());
+    std::lock_guard<std::mutex> lock(sampleMapMutex);
+    auto& entry = sampleMap[canId];
+    std::lock_guard<std::mutex> entryLock(entry.lock);
+    entry.point = value;
 
-        if (msg.signals.empty()) {
-            logs("    (No signals found for this message)");
-        } else {
-            for (const auto& sig : msg.signals) {
-                std::ostringstream sigoss;
-                sigoss << "    SG_ " << sig.name
-                       << " : start=" << sig.startBit
-                       << " len=" << sig.length
-                       << " @byteOrder=" << sig.byteOrder
-                       << (sig.isSigned ? " signed" : " unsigned")
-                       << " scale=" << sig.scale
-                       << " offset=" << sig.offset
-                       << " [" << sig.minVal << "|" << sig.maxVal << "]";
-                logs(sigoss.str());
-            }
-        }
+    std::cerr << "[SLCAN] ID=" << canId << " Value=" << std::hex << value << std::dec << "\n";
+}
+
+Network::sample& Network::ensureSample(uint16_t canId) {
+    std::lock_guard<std::mutex> guard(sampleMapMutex);
+    return sampleMap[canId];
+}
+
+bool Network::readSample(uint16_t canId, uint64_t& outValue) {
+    std::lock_guard<std::mutex> guard(sampleMapMutex);
+    auto it = sampleMap.find(canId);
+    if (it == sampleMap.end()) return false;
+    std::lock_guard<std::mutex> lock(it->second.lock);
+    outValue = it->second.point;
+    return true;
+}
+
+void Network::writeSample(uint16_t canId, uint64_t value) {
+    std::lock_guard<std::mutex> guard(sampleMapMutex);
+    auto& s = sampleMap[canId];
+    std::lock_guard<std::mutex> lock(s.lock);
+    s.point = value;
+}
+
+bool Network::loadDBC(const std::string& path) {
+    std::cerr << "[DBC Loader] Loading DBC from " << path << "\n";
+    DbcConnector connector;
+    return DbcLoader::loadFromFile(path, connector);
+}
+
+void Network::printDBCMap() {
+    std::cerr << "[DBC] Dump of loaded messages:\n";
+    for (const auto& [id, msg] : dbcMap) {
+        std::cerr << "CAN ID: " << id << " Name: " << msg.name
+                  << " DLC: " << (int)msg.dlc << " Sender: " << msg.sender << "\n";
     }
-    logs("=============================");
 }
