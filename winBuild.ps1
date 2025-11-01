@@ -44,6 +44,21 @@ cmake -G "Visual Studio 17 2022" -A x64 `
       -DVulkan_LIBRARY="$env:VULKAN_SDK\Lib\vulkan-1.lib" ..
 cmake --build . --config $BUILD_TYPE --parallel
 
+# Produce an up-to-date compile_commands.json for clangd via Ninja generator.
+cmake -S .. -B clangd `
+      -G "Ninja" `
+      -DCMAKE_BUILD_TYPE=$BUILD_TYPE `
+      -DVULKAN_SDK="$env:VULKAN_SDK" `
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
+      -DVulkan_LIBRARY="$env:VULKAN_SDK\Lib\vulkan-1.lib" | Out-Null
+if (Test-Path .\clangd\compile_commands.json) {
+    Copy-Item -Force .\clangd\compile_commands.json .\compile_commands.json
+    Write-Host "[+] Updated artifacts\compile_commands.json for clangd"
+}
+else {
+    Write-Warning "clangd compile_commands.json was not generated"
+}
+
 Set-Location ..
 
 # Path to the built exe (inside Debug/Release)

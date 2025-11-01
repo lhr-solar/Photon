@@ -31,10 +31,7 @@ bool Gpu::initVulkan(){
     // create sync objects
     VkSemaphoreCreateInfo semaphoreCreateInfo {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    
-    // ensure image is displayed before we start submitting new commands
     VK_CHECK(vkCreateSemaphore(vulkanDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &semaphores.presentComplete));
-    // ensure image is not presented until we have submitted and executed all commands
     VK_CHECK(vkCreateSemaphore(vulkanDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &semaphores.renderComplete));
 
     // submit info only valid for graphics atm
@@ -114,7 +111,7 @@ VkResult Gpu::setupGPU(){
     if(gpuCount == 0)
         fatal("[!] Could not enumerate physical devices", -1);
 
-    std::vector<VkPhysicalDevice> physicalDevices(gpuCount);
+    physicalDevices.resize(gpuCount);
 	VK_CHECK(vkEnumeratePhysicalDevices(instance, &gpuCount, physicalDevices.data()));
 
     // select first device by default, may want to expand this in the future

@@ -30,15 +30,14 @@ public:
     uint32_t apiVersion = VK_API_VERSION_1_0;
     std::vector<std::string> supportedInstanceExtensions;
     std::vector<const char*> enabledInstanceExtensions;
+    std::vector<VkPhysicalDevice> physicalDevices;
     VkFormat depthFormat;
     VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo {};
     std::vector<VkFence> waitFences;
     struct {
-		// Swap chain image presentation
-		VkSemaphore presentComplete;
-		// Command buffer submission and execution
-		VkSemaphore renderComplete;
+		VkSemaphore presentComplete; // Swap chain image presentation
+		VkSemaphore renderComplete;  // Command buffer submission and execution
 	} semaphores;
     struct {
         VkImage image;
@@ -90,7 +89,8 @@ public:
     void setupLayoutsAndDescriptors(VkDevice device);
     void preparePipelines(VkDevice device);
     static VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
-    static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
+    static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, 
+            VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
 
 /* end of gpu class */
 };
