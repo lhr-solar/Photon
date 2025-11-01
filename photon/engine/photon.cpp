@@ -92,8 +92,6 @@ void Photon::nextFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
 	    render();
     gpu.frameCounter++;
-    std::cout << gpu.frameCounter << std::endl;
-    std::cout << '\r';
     auto tEnd = std::chrono::high_resolution_clock::now();
     double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
     if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
