@@ -47,13 +47,6 @@ void Photon::prepareScene(){
 };
 
 void Photon::initThreads(){
-    // lowkey consider moving this really early?
-#ifdef XCB
-    logs("[+] Initializing Threads ");
-    logs("[?] Cache line size (destructive) : " << std::hardware_destructive_interference_size);
-    logs("[?] Cache line size (constructive): " << std::hardware_constructive_interference_size);
-    logs("[?] Usable Hardware Threads: " << std::thread::hardware_concurrency());
-#endif
     std::thread producer_t(&Network::producer, &network);
     producer_t.detach();
     std::thread parser_t(&Network::parser, &network);
