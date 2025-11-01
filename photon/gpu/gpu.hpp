@@ -57,7 +57,7 @@ public:
 
     Camera camera;
     float frameTimer = 1.0;
-    uint32_t frameCounter = 0;
+    uint64_t frameCounter = 0;
     const double targetFrameTime = 1000.0 / 144.0; // e.g. if you want 60 FPS → ~16.67ms per frame
     float timerSpeed = 0.25f;
     float timer = 0.0f;
