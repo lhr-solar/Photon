@@ -20,17 +20,16 @@
 class Gpu{
 public:
     VkInstance instance{ VK_NULL_HANDLE };
+    VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
     VulkanDevice vulkanDevice {VK_NULL_HANDLE} ;
     VulkanSwapchain vulkanSwapchain;
     bool useSwapchain = true;
-    VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
 
     std::string title = "Photon";
     std::string name = "Photon";
     uint32_t apiVersion = VK_API_VERSION_1_0;
     std::vector<std::string> supportedInstanceExtensions;
     std::vector<const char*> enabledInstanceExtensions;
-    bool requiresStencil {false};
     VkFormat depthFormat;
     VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo {};
@@ -60,7 +59,7 @@ public:
     Camera camera;
     float frameTimer = 1.0;
     uint32_t frameCounter = 0;
-    const double targetFrameTime = 1000.0 / 144.0; // 60 FPS → ~16.67ms per frame
+    const double targetFrameTime = 1000.0 / 144.0; // e.g. if you want 60 FPS → ~16.67ms per frame
     float timerSpeed = 0.25f;
     float timer = 0.0f;
 

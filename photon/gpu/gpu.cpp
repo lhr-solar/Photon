@@ -23,18 +23,12 @@ bool Gpu::initVulkan(){
     if(result != VK_SUCCESS)
         fatal("[!] Failed to setup GPU", result);
 
-    // set stencil
     VkBool32 validFormat {false};
-    if(requiresStencil){
-        validFormat = getSupportedDepthStencilFormat(vulkanDevice.physicalDevice, &depthFormat);
-        logs("[+] Using Depth Stencil Format : " << depthFormat);
-    } else {
-        validFormat = getSupportedDepthFormat(vulkanDevice.physicalDevice, &depthFormat);
-        logs("[+] Using Depth Format : " << depthFormat);
-    }
+    validFormat = getSupportedDepthFormat(vulkanDevice.physicalDevice, &depthFormat);
+    logs("[+] Using Depth Format : " << depthFormat);
     assert(validFormat);
 
-    // create synch. objects
+    // create sync objects
     VkSemaphoreCreateInfo semaphoreCreateInfo {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     
@@ -66,12 +60,10 @@ VkResult Gpu::createInstance(){
 #ifdef _WIN32
     instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #endif
-    // grab available extensions
     uint32_t extCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
     if(extCount > 0){
         std::vector<VkExtensionProperties> extensions(extCount);
-
         if (vkEnumerateInstanceExtensionProperties(nullptr, &extCount, &extensions.front()) == VK_SUCCESS){
             logs("[?] Available Vulkan Instance Extensions:");
             for (VkExtensionProperties& extension : extensions){
