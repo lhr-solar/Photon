@@ -1256,9 +1256,6 @@ void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
 }
 
 void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
-    VkCommandBufferBeginInfo cmdBufferBeginInfo {};
-    cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
     VkClearValue clearValues[2];
     clearValues[0].color = {{0.0f, 0.00f, 0.00f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -1285,6 +1282,8 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
 
     updateBuffers(vulkanDevice);
 
+    VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+    cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     for (int32_t i = 0; i < drawCmdBuffers.size(); ++i) {
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));

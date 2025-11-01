@@ -71,7 +71,7 @@ void Photon::renderLoop(){
 				break;
 			}
 		}
-        if (prepared && !IsIconic(gui.window)) { nextFrame(); }
+        if (prepared && !IsIconic(gui.window)) { renderFrame(); }
 	}
 #endif
 #ifdef XCB
@@ -82,44 +82,46 @@ void Photon::renderLoop(){
         while((event = xcb_poll_for_event(gui.connection))){
             gui.handleEvent(event); free(event);
         }
-        nextFrame();
+        renderFrame();
     }
 #endif
     vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
 }
 
-void Photon::nextFrame(){
+void Photon::renderFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
-	    render();
+	    prepareFrame();
     auto tEnd = std::chrono::high_resolution_clock::now();
     gpu.frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-
     gpu.frameCounter++;
     if(gpu.frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - gpu.frameTime))); gpu.frameTime = gpu.targetFrameTime;}
     gpu.frameTime /= 1000.0f;
 }
 
-void Photon::render(){
+void Photon::prepareFrame(){
     if(!prepared) return;
     gpu.camera.update(gpu.frameTime); 
     gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)gui.width, (float)gui.height);
     io.DeltaTime = gpu.frameTime;
-    draw();
+    executeFrame();
 }
 
-void Photon::draw(){
-    prepareFrame();
+void Photon::executeFrame(){
+    getFrame();
     if (!prepared) { return; }
+
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
+
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
     VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
+
     submitFrame();
 }
 
-void Photon::prepareFrame(){
+void Photon::getFrame(){
     // Acquire the next image from the swap chain
 	VkResult result = gpu.vulkanSwapchain.acquireNextImage(gpu.vulkanDevice.logicalDevice, gpu.semaphores.presentComplete, &gpu.currentBuffer);
 	if (result == VK_ERROR_SURFACE_LOST_KHR) {
