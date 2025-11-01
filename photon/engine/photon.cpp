@@ -80,8 +80,7 @@ void Photon::renderLoop(){
     while (!gui.quit) {
         xcb_generic_event_t *event;
         while((event = xcb_poll_for_event(gui.connection))){
-            gui.handleEvent(event);
-            free(event);
+            gui.handleEvent(event); free(event);
         }
         nextFrame();
     }
@@ -91,7 +90,6 @@ void Photon::renderLoop(){
 
 void Photon::nextFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
-	if (gui.viewUpdated){ gui.viewUpdated = false; }
 	render();
     gpu.frameCounter++;
     auto tEnd = std::chrono::high_resolution_clock::now();
@@ -99,7 +97,6 @@ void Photon::nextFrame(){
     if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
     gpu.frameTimer = frameTime / 1000.0f;
     gpu.camera.update(gpu.frameTimer); 
-	if (gpu.camera.moving()) { gui.viewUpdated = true; }
     if(!paused){
         gpu.timer += gpu.timerSpeed * gpu.frameTimer;
         if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
@@ -160,7 +157,8 @@ void Photon::windowResize(){
     vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
     gui.width = gui.destWidth;
 	gui.height = gui.destHeight;
-    VkResult swapchainResult = gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
+    VkResult swapchainResult = gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, 
+            gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
     if (swapchainResult == VK_ERROR_SURFACE_LOST_KHR) {
         logs("[!] Swap chain recreation skipped because the surface was lost");
         return;
