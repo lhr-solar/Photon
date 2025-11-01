@@ -341,7 +341,7 @@ void Gpu::updateUniformBuffers(bool animateLight, float lightTimer, float lightS
     uboVS.modelView  = camera.matrices.view * glm::mat4(1.0f);
     // Light source
     if (animateLight) {
-      lightTimer += frameTimer * lightSpeed;
+      lightTimer += frameTime * lightSpeed;
       uboVS.lightPos.x =
           sin(glm::radians(lightTimer * 360.0f)) * 15.0f;
       uboVS.lightPos.z =

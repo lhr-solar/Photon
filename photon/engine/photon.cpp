@@ -92,20 +92,20 @@ void Photon::nextFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
 	    render();
     auto tEnd = std::chrono::high_resolution_clock::now();
-    double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+    gpu.frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
 
     gpu.frameCounter++;
-    if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
-    gpu.frameTimer = frameTime / 1000.0f;
-    gpu.camera.update(gpu.frameTimer); 
+    if(gpu.frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - gpu.frameTime))); gpu.frameTime = gpu.targetFrameTime;}
+    gpu.frameTime /= 1000.0f;
 }
 
 void Photon::render(){
     if(!prepared) return;
+    gpu.camera.update(gpu.frameTime); 
     gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)gui.width, (float)gui.height);
-    io.DeltaTime = gpu.frameTimer;
+    io.DeltaTime = gpu.frameTime;
     draw();
 }
 
