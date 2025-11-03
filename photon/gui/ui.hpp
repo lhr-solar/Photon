@@ -58,6 +58,9 @@ struct UI{
     void customBackground();
     void networkSamplePlot();
     void imuWindow();
+    void defaultPlot(std::vector<std::vector<double>>& data, std::vector<ImVec2>& fx, int canID, const char* windowName, const char* plotName);
+
+
 };
 
 

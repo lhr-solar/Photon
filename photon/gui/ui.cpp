@@ -9,16 +9,30 @@
 
 void UI::build(){
     ImGui::NewFrame();
-
-    static Console console;
     static bool flag = true;
-    console.Draw("Console", &flag);
+    static Console console;
 
     customBackground();
     fpsWindow();
-    customShaderWindow();
-    networkSamplePlot();
+//    console.Draw("Console", &flag);
+//    customShaderWindow();
+//    networkSamplePlot();
     imuWindow();
+
+    static std::vector<std::vector<double>> accX(2, std::vector<double>(1,0));
+    static std::vector<ImVec2> fx1;
+    defaultPlot(accX, fx1, 0x403, "Acceleration X", "AccX");
+
+    static std::vector<std::vector<double>> accY(2, std::vector<double>(1,0));
+    static std::vector<ImVec2> fx2;
+    defaultPlot(accY, fx2, 0x404, "Acceleration Y", "AccY");
+
+    static std::vector<std::vector<double>> accZ(2, std::vector<double>(1,0));
+    static std::vector<ImVec2> fx3;
+    defaultPlot(accZ, fx2, 0x405, "Acceleration Z", "AccZ");
+
+
+
 //    showVideoDisplay();
 //    ImPlot::ShowDemoWindow();
 //    ImPlot3D::ShowDemoWindow();
@@ -28,36 +42,118 @@ void UI::build(){
     ImGui::Render();
 }
 
-void UI::imuWindow(){
-    static std::vector<std::vector<double>> gyrX(2, std::vector<double>(1,0));
+void plotGlow(std::vector<double> xCoords, std::vector<double> yCoords, std::vector<ImVec2>& glowPts){
+    const int glowPasses = 2;
+    glowPts.resize(xCoords.size());
+    for (size_t i = 0; i < xCoords.size(); ++i)
+        glowPts[i] = ImPlot::PlotToPixels(ImPlotPoint(xCoords[i], yCoords[i]));
+
+    ImPlot::PushPlotClipRect();
+    ImDrawList* dl = ImPlot::GetPlotDrawList();
+    for (int pass = glowPasses - 1; pass >= 0; --pass) {
+        float thickness = 3.0f + pass * 2.5f;
+        float alpha     = 0.12f - pass * 0.02f;
+        ImU32 col = ImGui::GetColorU32(ImVec4(0.8f, 0.8f, 0.8f, alpha));
+        dl->AddPolyline(glowPts.data(), (int)glowPts.size(), col, ImDrawFlags_None, thickness);
+    } ImPlot::PopPlotClipRect();
+}
+
+void UI::defaultPlot(std::vector<std::vector<double>>& data, std::vector<ImVec2>& fx, int canID, const char* windowName, const char* plotName){
     int64_t val;
     ImGuiIO &io = ImGui::GetIO();
     float deltaTime = io.DeltaTime;
-    static int count = 0;
-    networkINTF->readSample(0x0403, val);
-    std::cout << val << std::endl;
+    double maxTime = 5.0;
+    auto prune = [maxTime](std::vector<std::vector<double>>& series){
+        while((series[0].size() > 1) && ((series[0].back() - series[0].front()) > maxTime)){
+            series[0].erase(series[0].begin());
+            series[1].erase(series[1].begin());
+        }
+    };
+    networkINTF->readSample(canID, val);
+    prune(data);
+    data[0].push_back(data[0].back() + deltaTime);
+    data[1].push_back((double)val);
+
+    ImGuiWindowFlags flags = 0;
+    ImGui::SetNextWindowSize(ImVec2(600.0f, 350.0f), ImGuiCond_FirstUseEver);
+    if(ImGui::Begin(windowName, NULL, flags)){
+        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, data[0].back() - 5.0), data[0].back(), ImPlotCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, -3000, 3000, ImPlotCond_Always);
+        if(ImPlot::BeginPlot(plotName)){
+            ImPlot::PlotLine(plotName, data[0].data(), data[1].data(), data[0].size());
+            //plotGlow(data[0], data[1], fx);
+            ImPlot::EndPlot();
+        }
+    } 
+    ImGui::End();
+}
+
+void UI::imuWindow(){
+    static std::vector<std::vector<double>> gyrX(2, std::vector<double>(1,0));
+    static std::vector<std::vector<double>> gyrY(2, std::vector<double>(1,0));
+    static std::vector<std::vector<double>> gyrZ(2, std::vector<double>(1,0));
+
+    int64_t val;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    double maxTime = 5.0;
+
+    auto prune = [maxTime](std::vector<std::vector<double>>& series){
+        while((series[0].size() > 1) && ((series[0].back() - series[0].front()) > maxTime)){
+            series[0].erase(series[0].begin());
+            series[1].erase(series[1].begin());
+        }
+    };
+
+    networkINTF->readSample(0x0400, val);
+    prune(gyrX);
     gyrX[0].push_back(gyrX[0].back() + deltaTime);
     gyrX[1].push_back((double)val);
 
-    ImGuiWindowFlags flags = 0;
-    if(ImGui::Begin("IMU Data", NULL, flags)){
-        const double windowStart = gyrX[0].back() - 5.0;
-        while (!gyrX[0].empty() && gyrX[0][1] < windowStart) {
-            gyrX[0].erase(gyrX[0].begin());
-            gyrX[1].erase(gyrX[1].begin());
-        }
-        auto minmax = std::minmax_element(gyrX[1].begin(), gyrX[1].end());
-        double yMin = *minmax.first;
-        double yMax = *minmax.second;
-        if (yMin == yMax) { yMin -= 1.0; yMax += 1.0; }
+    networkINTF->readSample(0x0401, val);
+    prune(gyrY);
+    gyrY[0].push_back(gyrY[0].back() + deltaTime);
+    gyrY[1].push_back((double)val);
 
-        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(windowStart, gyrX[0].front()), gyrX[0].back(), ImGuiCond_Always);
-        ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImGuiCond_Always);
+    networkINTF->readSample(0x0402, val);
+    prune(gyrZ);
+    gyrZ[0].push_back(gyrZ[0].back() + deltaTime);
+    gyrZ[1].push_back((double)val);
+
+    ImGuiWindowFlags flags = 0;
+    ImGui::SetNextWindowSize(ImVec2(600.0f, 350.0f), ImGuiCond_FirstUseEver);
+    if(ImGui::Begin("IMU Data", NULL, flags)){
+
+        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, gyrX[0].back() - 5.0), gyrX[0].back(), ImPlotCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, -300000, 300000, ImPlotCond_Always);
         if(ImPlot::BeginPlot("##Gyro X")){
+            //static std::vector<ImVec2> glowPts;
             ImPlot::PlotLine("Gyro X", gyrX[0].data(), gyrX[1].data(), gyrX[0].size());
+            ImPlot::PlotLine("Gyro Y", gyrY[0].data(), gyrY[1].data(), gyrY[0].size());
+            ImPlot::PlotLine("Gyro Z", gyrZ[0].data(), gyrZ[1].data(), gyrZ[0].size());
+            //plotGlow(gyrX[0], gyrX[1], glowPts);
+            //plotGlow(gyrY[0], gyrY[1], glowPts);
+            //plotGlow(gyrZ[0], gyrZ[1], glowPts);
             ImPlot::EndPlot();
         }
-    } ImGui::End(); 
+
+        /*
+        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, gyrY[0].back() - 5.0), gyrY[0].back(), ImPlotCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, -300000, 300000, ImPlotCond_Always);
+        if(ImPlot::BeginPlot("##Gyro Y")){
+            ImPlot::PlotLine("Gyro Y", gyrY[0].data(), gyrY[1].data(), gyrY[0].size());
+            ImPlot::EndPlot();
+        }
+
+        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, gyrY[0].back() - 5.0), gyrY[0].back(), ImPlotCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, -300000, 300000, ImPlotCond_Always);
+        if(ImPlot::BeginPlot("##Gyro Z")){
+            ImPlot::PlotLine("Gyro Z", gyrZ[0].data(), gyrZ[1].data(), gyrZ[0].size());
+            ImPlot::EndPlot();
+        }
+        */
+    }
+    ImGui::End(); 
 }
 
 void UI::fpsWindow(){
