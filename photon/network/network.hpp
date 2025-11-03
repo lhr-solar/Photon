@@ -1,27 +1,32 @@
 /*[ξ] the photon network interface*/
 #pragma once
 #include <array>
+#include <map>
 #include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <mutex>
 #include <memory>
+#include <vector>
 #include "spsc.hpp"
 
 class Network{
-private:
-
 public:
     Network();
+    ~Network();
     void producer();
     void parser();
+    void uartProducer();
+    void uartConsumer();
 
-    bool readSample(uint16_t canId, uint64_t& outValue);
-    void writeSample(uint16_t canId, uint64_t value);
+    bool readSample(uint16_t canId, int64_t& outValue);
+    void writeSample(uint16_t canId, int64_t value);
 
-    SPSCQueue<uint8_t> spscQueue;
+    SPSCQueue<uint8_t> tcpQueue;
+    SPSCQueue<uint8_t> uartQueue;
     std::string IP ="3.141.38.115";
     unsigned PORT = 8187;
+    std::atomic<bool> running = true;
 
 
 private:
@@ -33,7 +38,7 @@ private:
         sample& operator=(sample&&) = delete;
 
         std::mutex lock;
-        uint64_t point = 0;
+        int64_t point = 0;
     };
 
     sample& ensureSample(uint16_t canId);

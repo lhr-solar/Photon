@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include "console.hpp"
+#include "implot.h"
 
 void UI::build(){
     ImGui::NewFrame();
@@ -14,15 +15,49 @@ void UI::build(){
     console.Draw("Console", &flag);
 
     customBackground();
+    fpsWindow();
+    customShaderWindow();
+    networkSamplePlot();
+    imuWindow();
+//    showVideoDisplay();
 //    ImPlot::ShowDemoWindow();
 //    ImPlot3D::ShowDemoWindow();
 //    ImGui::ShowDemoWindow();
-    fpsWindow();
-    customShaderWindow();
-//    showVideoDisplay();
-    networkSamplePlot();
+
 
     ImGui::Render();
+}
+
+void UI::imuWindow(){
+    static std::vector<std::vector<double>> gyrX(2, std::vector<double>(1,0));
+    int64_t val;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    static int count = 0;
+    networkINTF->readSample(0x0403, val);
+    std::cout << val << std::endl;
+    gyrX[0].push_back(gyrX[0].back() + deltaTime);
+    gyrX[1].push_back((double)val);
+
+    ImGuiWindowFlags flags = 0;
+    if(ImGui::Begin("IMU Data", NULL, flags)){
+        const double windowStart = gyrX[0].back() - 5.0;
+        while (!gyrX[0].empty() && gyrX[0][1] < windowStart) {
+            gyrX[0].erase(gyrX[0].begin());
+            gyrX[1].erase(gyrX[1].begin());
+        }
+        auto minmax = std::minmax_element(gyrX[1].begin(), gyrX[1].end());
+        double yMin = *minmax.first;
+        double yMax = *minmax.second;
+        if (yMin == yMax) { yMin -= 1.0; yMax += 1.0; }
+
+        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(windowStart, gyrX[0].front()), gyrX[0].back(), ImGuiCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImGuiCond_Always);
+        if(ImPlot::BeginPlot("##Gyro X")){
+            ImPlot::PlotLine("Gyro X", gyrX[0].data(), gyrX[1].data(), gyrX[0].size());
+            ImPlot::EndPlot();
+        }
+    } ImGui::End(); 
 }
 
 void UI::fpsWindow(){
@@ -188,7 +223,7 @@ void UI::networkSamplePlot(){
     ImGuiIO &io = ImGui::GetIO();
     accumulatedTime += io.DeltaTime;
 
-    uint64_t rawValue = 0;
+    int64_t rawValue = 0;
     if (networkINTF->readSample(sampleCanId, rawValue)) {
         lastSampleValue = rawValue;
         haveSample = true;
