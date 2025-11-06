@@ -39,10 +39,10 @@ void main() {
     
     // Combine all terms in sine
     vec4 sineArg = firstTerm + fractTerm + positionTerm - colorOffset;
-    vec4 sineResult = sin(sineArg) + 1.5;
+    vec4 sineResult = sin(sineArg + pc.u_time * 0.5) + 1.5;
     
     // Denominator: 2.5 + abs(cos(p.x/0.1))
-    float denominator = 2.5 + abs(cos(p.x / 0.1));
+    float denominator = 2.5 + abs(cos(p.x / 0.1 + pc.u_time));
     
     // Final result
     o = sineResult / denominator;

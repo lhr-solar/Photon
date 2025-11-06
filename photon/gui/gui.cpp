@@ -720,7 +720,8 @@ void Gui::initBackgroundResources(VulkanDevice vulkanDevice, VkExtent2D extent){
 
     std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
     shaderStages[0] = Gpu::loadShader(background_vert_spv, background_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
-    shaderStages[1] = Gpu::loadShader(background_frag_spv, background_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
+    //shaderStages[1] = Gpu::loadShader(background_frag_spv, background_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
+    shaderStages[1] = Gpu::loadShaderFromPath("default.frag", VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1191,7 +1192,8 @@ void Gui::recordCustomShaderPass(VkCommandBuffer commandBuffer){
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
 
-    Gpu::setImageLayout(commandBuffer, customShader.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    Gpu::setImageLayout(commandBuffer, customShader.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+            range, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     customShader.initialized = true;
     customShader.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
@@ -1255,6 +1257,12 @@ void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
 #endif
 }
 
+void Gui::loadModels(){
+    const uint32_t flags = PreTransformVertices | PreMultiplyVertexColors | FlipY;
+    vulkanModel.loadFromFile("NULL", VK_NULL_HANDLE, VK_NULL_HANDLE, 0, 0.0);
+
+};
+
 void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
     VkClearValue clearValues[2];
     clearValues[0].color = {{0.0f, 0.00f, 0.00f, 1.0f}};
@@ -1305,12 +1313,8 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &rect2D);
 
         vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipelineLayout, 0, 1, &guiDescriptorSet, 0, nullptr);
+        vulkanModel.draw(drawCmdBuffers[i], 0, VK_NULL_HANDLE, 1);
 
-        VkDeviceSize offsets[1] = {0};
-
-        // TODO: would likely do 3D rendering here? consider the Sascha Vulkan 3D models
-
-        // TODO: this looks big tbh
         drawFrame(drawCmdBuffers[i]);
         vkCmdEndRenderPass(drawCmdBuffers[i]);
         VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[i]));
@@ -1992,5 +1996,6 @@ LRESULT Gui::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
 
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
+
 
 #endif

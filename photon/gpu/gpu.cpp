@@ -501,7 +501,7 @@ void Gpu::preparePipelines(VkDevice device){
     pipelineCreateInfo.pDynamicState       = &pipelineDynamicStateCreateInfo;
     pipelineCreateInfo.stageCount          = static_cast<uint32_t>(shaderStages.size());
     pipelineCreateInfo.pStages             = shaderStages.data();
-    pipelineCreateInfo.pVertexInputState   = vertex::getPipelineVertexInputState({VertexComponent::Position, VertexComponent::Normal, VertexComponent::Color});
+    pipelineCreateInfo.pVertexInputState   = Vertex::getPipelineVertexInputState({VertexComponent::Position, VertexComponent::Normal, VertexComponent::Color});
 
     shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, device);
     shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
@@ -529,8 +529,38 @@ VkPipelineShaderStageCreateInfo Gpu::loadShader(const uint32_t* code, size_t siz
     shaderStage.stage = stage;
     shaderStage.module = loadShaderFromMemory(code, size, device);
     shaderStage.pName = "main";
-    assert(shaderStage.module != VK_NULL_HANDLE);
-    //shaderModules.push_back(shaderStage.module);
+    return shaderStage;
+};
+
+#include <fstream>
+#include <sstream>
+std::string readFile(const std::string& path) {
+    std::ifstream file(path, std::ios::in | std::ios::binary);
+    if (!file.is_open())
+        throw std::runtime_error("Failed to open file: " + path);
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+VkShaderModule shaderModuleFromPath(std::string name, VkDevice device){
+    std::string code;
+    std::string outPath = "artifacts/kernels/spirv/" + name + ".spv";
+    std::string kernelPath = "kernels/" + name;
+    std::string cmd = "glslc " + kernelPath + " -o " + outPath;
+    std::system(cmd.data());
+    logs("[!] Loaded Shader from Path " << kernelPath);
+    code = readFile(outPath);
+    return loadShaderFromMemory((uint32_t*) code.data(), code.size(), device);
+}
+
+VkPipelineShaderStageCreateInfo Gpu::loadShaderFromPath(std::string path, VkShaderStageFlagBits stage, VkDevice device){
+    VkPipelineShaderStageCreateInfo shaderStage = {};
+    shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStage.stage = stage;
+    shaderStage.pName = "main";
+    shaderStage.module = shaderModuleFromPath(path, device);
+
     return shaderStage;
 };
 

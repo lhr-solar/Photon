@@ -12,11 +12,12 @@ void UI::build(){
     static bool flag = true;
     static Console console;
 
-    customBackground();
     fpsWindow();
-//    console.Draw("Console", &flag);
+    customBackground();
 //    customShaderWindow();
+//    console.Draw("Console", &flag);
 //    networkSamplePlot();
+    /*
     imuWindow();
 
     static std::vector<std::vector<double>> accX(2, std::vector<double>(1,0));
@@ -30,8 +31,7 @@ void UI::build(){
     static std::vector<std::vector<double>> accZ(2, std::vector<double>(1,0));
     static std::vector<ImVec2> fx3;
     defaultPlot(accZ, fx2, 0x405, "Acceleration Z", "AccZ");
-
-
+    */
 
 //    showVideoDisplay();
 //    ImPlot::ShowDemoWindow();

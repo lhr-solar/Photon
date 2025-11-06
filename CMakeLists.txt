@@ -54,7 +54,7 @@ ENDIF()
 IF(WIN32)
 	link_libraries(${Vulkan_LIBRARY})
 ELSE()
-	link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY})
+    link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY})
 ENDIF(WIN32)
 
 add_subdirectory(kernels)

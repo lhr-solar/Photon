@@ -11,6 +11,7 @@
 #include "inputs.hpp"
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/vulkanDevice.hpp"
+#include "../gpu/vulkanGLTF.hpp"
 #include "../engine/include.hpp"
 #include "../network/network.hpp"
 #include "webcam.hpp"
@@ -98,6 +99,8 @@ public:
         bool initialized = false;
     } videoFeed;
 
+    Model vulkanModel;
+
     VulkanBuffer videoStagingBuffer;
     VkDeviceSize videoStagingBufferSize = 0;
     std::vector<uint8_t> videoFrameData;
@@ -143,6 +146,7 @@ public:
     void prepareImGui();
 
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
+    void loadModels();
 
     void initCustomShaderResources(VulkanDevice vulkanDevice, VkExtent2D extent);
     void destroyCustomShaderResources(bool releaseDescriptorSet = false);
