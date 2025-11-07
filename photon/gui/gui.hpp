@@ -12,9 +12,9 @@
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanGLTF.hpp"
+#include "../gpu/vulkanShader.hpp"
 #include "../engine/include.hpp"
 #include "../network/network.hpp"
-#include "webcam.hpp"
 
 
 #ifdef XCB
@@ -51,74 +51,20 @@ public:
         bool transparent = true;
     } settings;
 
-    struct PushConstBlock {
-        glm::vec2 scale;
-        glm::vec2 translate;
-        glm::vec2 invScreenSize;
-        glm::vec2 whitePixel;
-        glm::vec4 gradTop;
-        glm::vec4 gradBottom;
-        float u_time;
-    } imguiPushConst;
-
-    struct CustomShaderResources {
-        VkExtent2D extent{512, 512};
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory memory = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkFramebuffer framebuffer = VK_NULL_HANDLE;
-        VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-        VkPipeline pipeline = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bool initialized = false;
-    } customShader;
-
-    struct BackgroundShaderResources {
-        VkExtent2D extent{0, 0};
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory memory = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkFramebuffer framebuffer = VK_NULL_HANDLE;
-        VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-        VkPipeline pipeline = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bool initialized = false;
-    } backgroundShader;
-
-    struct VideoFeedResources {
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory memory = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-        VkExtent2D extent{0, 0};
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bool initialized = false;
-    } videoFeed;
-
-    Model vulkanModel;
-
-    VulkanBuffer videoStagingBuffer;
-    VkDeviceSize videoStagingBufferSize = 0;
-    std::vector<uint8_t> videoFrameData;
-    WebcamCapture webcam;
     VkDevice deviceHandle = VK_NULL_HANDLE;
-
-    Inputs inputs;
 
     VkImage fontImage = VK_NULL_HANDLE;
     VkDeviceMemory fontMemory = VK_NULL_HANDLE;
     VkImageView fontView = VK_NULL_HANDLE;
+
+    Inputs inputs;
+    Model vulkanModel;
 
     VkSampler sampler = VK_NULL_HANDLE;
 
     VkDescriptorPool guiDescriptorPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout guiDescriptorSetLayout = VK_NULL_HANDLE;
     VkDescriptorSet guiDescriptorSet = VK_NULL_HANDLE;
-
     VkPipelineCache guiPipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout guiPipelineLayout = VK_NULL_HANDLE;
     VkPipeline guiPipeline = VK_NULL_HANDLE;
@@ -130,14 +76,21 @@ public:
 
     bool quit = false;
 
+    struct PushConstBlock {
+        glm::vec2 scale;
+        glm::vec2 translate;
+        glm::vec2 invScreenSize;
+        glm::vec2 whitePixel;
+        glm::vec4 gradTop;
+        glm::vec4 gradBottom;
+        float u_time;
+    } imguiPushConst;
 
     struct alignas(16) PushConstants {
-    glm::vec2 resolution;
-    float     u_time;
-    float     pad;
-    };
-
-    PushConstants pc{};
+        glm::vec2 resolution;
+        float     u_time;
+        float     pad;
+    }pc;
 
     Gui();
     ~Gui();
@@ -146,29 +99,11 @@ public:
     void prepareImGui();
 
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
-    void loadModels();
-
-    void initCustomShaderResources(VulkanDevice vulkanDevice, VkExtent2D extent);
-    void destroyCustomShaderResources(bool releaseDescriptorSet = false);
-    VkExtent2D getCustomShaderExtent() const;
-    void resizeCustomShader(VulkanDevice vulkanDevice, float width, float height);
-    VkExtent2D calculateCustomShaderExtent(float width, float height) const;
-    void recordCustomShaderPass(VkCommandBuffer commandBuffer);
-
-    void initBackgroundResources(VulkanDevice vulkanDevice, VkExtent2D extent);
-    void destroyBackgroundResources(bool releaseDescriptorSet = false);
-    VkExtent2D getBackgroundExtent() const;
-    void resizeBackground(VulkanDevice vulkanDevice, float width, float height);
-    VkExtent2D calculateBackgroundExtent(float width, float height) const;
-    void recordBackgroundPass(VkCommandBuffer commandBuffer);
-
-    void initVideoFeedResources(VulkanDevice vulkanDevice);
-    void updateVideoFeed(VulkanDevice vulkanDevice);
-    void destroyVideoFeedResources(bool releaseDescriptorSet = false);
-
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
     void updateBuffers(VulkanDevice vulkanDevice);
     void drawFrame(VkCommandBuffer commandBuffer);
+
+    void loadModels();
 
 #ifdef XCB
     void initWindow();

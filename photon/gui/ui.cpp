@@ -14,7 +14,7 @@ void UI::build(){
 
     fpsWindow();
     customBackground();
-//    customShaderWindow();
+    customShaderWindow();
 //    console.Draw("Console", &flag);
 //    networkSamplePlot();
     /*
@@ -33,12 +33,11 @@ void UI::build(){
     defaultPlot(accZ, fx2, 0x405, "Acceleration Z", "AccZ");
     */
 
-//    showVideoDisplay();
 //    ImPlot::ShowDemoWindow();
 //    ImPlot3D::ShowDemoWindow();
 //    ImGui::ShowDemoWindow();
 
-
+    showVideoDisplay();
     ImGui::Render();
 }
 
@@ -225,24 +224,24 @@ void UI::fpsWindow(){
 void UI::customShaderWindow(){
     if (!customShader.texture) { return; }
 
-    ImGui::SetNextWindowSize(ImVec2(customShader.x, customShader.y), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(customShader.extent.width, customShader.extent.height), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Custom Shader")) {
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
         if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) {
-            contentSize = ImVec2(customShader.x, customShader.y);
+            contentSize = ImVec2(customShader.extent.width, customShader.extent.height);
         }
 
         const float epsilon = 0.5f;
         if (contentSize.x > 1.0f && contentSize.y > 1.0f) {
-            if (std::fabs(contentSize.x - customShader.x) > epsilon ||
-                std::fabs(contentSize.y - customShader.y) > epsilon) {
-                customShader.x = contentSize.x;
-                customShader.y = contentSize.y;
+            if (std::fabs(contentSize.x - customShader.extent.width) > epsilon ||
+                std::fabs(contentSize.y - customShader.extent.height) > epsilon) {
+                customShader.extent.width = contentSize.x;
+                customShader.extent.height = contentSize.y;
                 customShader.dirty = true;
             }
         }
 
-        ImVec2 drawSize(customShader.x, customShader.y);
+        ImVec2 drawSize(customShader.extent.width, customShader.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
         ImGui::Image(customShader.texture, drawSize);
@@ -251,9 +250,9 @@ void UI::customShaderWindow(){
 }
 
 void UI::showVideoDisplay(){
-    if (!videoTexture) { return; }
+    if (!videoSource.texture) { return; }
     if (ImGui::Begin("Custom Image", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImVec2 size = videoTextureSize;
+        ImVec2 size = ImVec2(videoSource.textureSize.width, videoSource.textureSize.height);
         if (size.x <= 0.0f || size.y <= 0.0f) { size = ImVec2(512.0f, 512.0f); }
         ImVec2 available = ImGui::GetContentRegionAvail();
         ImVec2 drawSize = size;
@@ -266,7 +265,7 @@ void UI::showVideoDisplay(){
                 drawSize.y = size.y * scale;
             }
         }
-        ImGui::Image(videoTexture, drawSize);
+        ImGui::Image(videoSource.texture, drawSize);
     }
     ImGui::End();
 }
@@ -374,15 +373,15 @@ void UI::customBackground(){
     ImVec2 displaySize = io.DisplaySize;
     if (displaySize.x > 0.0f && displaySize.y > 0.0f) {
         const float epsilon = 0.5f;
-        if (std::fabs(background.x - displaySize.x) > epsilon ||
-            std::fabs(background.y - displaySize.y) > epsilon) {
-            background.x = displaySize.x;
-            background.y = displaySize.y;
-            background.dirty = true;
+        if (std::fabs(backgroundShader.extent.width- displaySize.x) > epsilon ||
+            std::fabs(backgroundShader.extent.height - displaySize.y) > epsilon) {
+            backgroundShader.extent.width = displaySize.x;
+            backgroundShader.extent.height = displaySize.y;
+            backgroundShader.dirty = true;
         }
     }
 
-    if (!background.texture) { return; }
+    if (!backgroundShader.texture) { return; }
 
     ImGuiViewport *viewport = ImGui::GetMainViewport();
     if (!viewport) { return; }
@@ -390,7 +389,7 @@ void UI::customBackground(){
     ImDrawList *drawList = ImGui::GetBackgroundDrawList(viewport);
     ImVec2 min = viewport->Pos;
     ImVec2 max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
-    drawList->AddImage(this->background.texture, min, max);
+    drawList->AddImage(this->backgroundShader.texture, min, max);
 }
 
 void UI::setStyle(){

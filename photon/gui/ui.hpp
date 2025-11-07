@@ -1,5 +1,7 @@
 #pragma once
 #include "../network/network.hpp"
+#include "../gpu/vulkanShader.hpp"
+#include "video.hpp"
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
@@ -35,20 +37,10 @@ struct UI{
         int effectType = 0;
     } renderSettings;
 
-    struct CustomShaderPanel : ImVec2 {
-        CustomShaderPanel() : ImVec2(512.0f, 512.0f) {}
-        ImTextureID texture = static_cast<ImTextureID>(0);
-        bool dirty = false;
-    } customShader;
+    VulkanShader customShader;
+    VulkanShader backgroundShader;
 
-    struct BackgroundPanel : ImVec2 {
-        BackgroundPanel() : ImVec2(0.0f, 0.0f) {}
-        ImTextureID texture = static_cast<ImTextureID>(0);
-        bool dirty = false;
-    } background;
-
-    ImTextureID videoTexture = static_cast<ImTextureID>(0);
-    ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
+    Video videoSource;
 
     void setStyle();
     void build();
@@ -59,8 +51,4 @@ struct UI{
     void networkSamplePlot();
     void imuWindow();
     void defaultPlot(std::vector<std::vector<double>>& data, std::vector<ImVec2>& fx, int canID, const char* windowName, const char* plotName);
-
-
 };
-
-
