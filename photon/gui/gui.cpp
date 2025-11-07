@@ -32,7 +32,7 @@ Gui::~Gui(){
 	xcb_disconnect(connection);
 #endif
     ui.backgroundShader.destroyResources(true, deviceHandle, guiDescriptorPool);
-    ui.customShader.destroyResources(true, deviceHandle, guiDescriptorPool);
+    ui.accretionShader.destroyResources(true, deviceHandle, guiDescriptorPool);
     ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
     if (deviceHandle != VK_NULL_HANDLE) {
         if (guiDescriptorPool != VK_NULL_HANDLE) {
@@ -103,7 +103,7 @@ void Gui::prepareImGui(){
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     deviceHandle = vulkanDevice.logicalDevice;
     ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
-    ui.customShader.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
+    ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
     ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
@@ -265,8 +265,8 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
             guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
     
-    ui.customShader.initShader({512, 512}, true, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, NULL, 0, "custom_shader.frag");
-    ui.customShader.createResources(vulkanDevice, ui.customShader.extent, 
+    ui.accretionShader.initShader({512, 512}, true, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, NULL, 0, "custom_shader.frag");
+    ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
             guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
 
     ui.videoSource.initVideoFeedResources(vulkanDevice, guiDescriptorPool, guiDescriptorSetLayout, sampler);
@@ -451,10 +451,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
                 guiDescriptorSetLayout, guiPipelineCache, sampler);
         ui.backgroundShader.dirty = false;
     }
-    if (ui.customShader.dirty) {
-        ui.customShader.createResources(vulkanDevice, ui.customShader.extent, guiDescriptorPool, 
+    if (ui.accretionShader.dirty) {
+        ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, guiDescriptorPool, 
                 guiDescriptorSetLayout, guiPipelineCache, sampler);
-        ui.customShader.dirty = false;
+        ui.accretionShader.dirty = false;
     }
 
     updateBuffers(vulkanDevice);
@@ -465,7 +465,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
         ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
-        ui.customShader.recordShaderPass(drawCmdBuffers[i]);
+        ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};
         viewport.width = width;

@@ -37,7 +37,7 @@ struct UI{
         int effectType = 0;
     } renderSettings;
 
-    VulkanShader customShader;
+    VulkanShader accretionShader;
     VulkanShader backgroundShader;
 
     Video videoSource;

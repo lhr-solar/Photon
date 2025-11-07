@@ -37,7 +37,7 @@ void UI::build(){
 //    ImPlot3D::ShowDemoWindow();
 //    ImGui::ShowDemoWindow();
 
-    showVideoDisplay();
+//    showVideoDisplay();
     ImGui::Render();
 }
 
@@ -222,29 +222,29 @@ void UI::fpsWindow(){
 }
 
 void UI::customShaderWindow(){
-    if (!customShader.texture) { return; }
+    if (!accretionShader.texture) { return; }
 
-    ImGui::SetNextWindowSize(ImVec2(customShader.extent.width, customShader.extent.height), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(accretionShader.extent.width, accretionShader.extent.height), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Custom Shader")) {
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
         if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) {
-            contentSize = ImVec2(customShader.extent.width, customShader.extent.height);
+            contentSize = ImVec2(accretionShader.extent.width, accretionShader.extent.height);
         }
 
         const float epsilon = 0.5f;
         if (contentSize.x > 1.0f && contentSize.y > 1.0f) {
-            if (std::fabs(contentSize.x - customShader.extent.width) > epsilon ||
-                std::fabs(contentSize.y - customShader.extent.height) > epsilon) {
-                customShader.extent.width = contentSize.x;
-                customShader.extent.height = contentSize.y;
-                customShader.dirty = true;
+            if (std::fabs(contentSize.x - accretionShader.extent.width) > epsilon ||
+                std::fabs(contentSize.y - accretionShader.extent.height) > epsilon) {
+                accretionShader.extent.width = contentSize.x;
+                accretionShader.extent.height = contentSize.y;
+                accretionShader.dirty = true;
             }
         }
 
-        ImVec2 drawSize(customShader.extent.width, customShader.extent.height);
+        ImVec2 drawSize(accretionShader.extent.width, accretionShader.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
-        ImGui::Image(customShader.texture, drawSize);
+        ImGui::Image(accretionShader.texture, drawSize);
     }
     ImGui::End();
 }
