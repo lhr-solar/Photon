@@ -171,7 +171,7 @@ void UI::showVideoDisplay()
 void UI::showRenderedFrames()
 {
     ImGui::SetNextWindowSize(ImVec2(800.0f, 600.0f), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Rendered 3D Frame"))
+    if (ImGui::Begin("Car view"))
     {
         ImGuiIO &io = ImGui::GetIO();
         
@@ -191,10 +191,21 @@ void UI::showRenderedFrames()
 
         ImGui::Separator();
 
-        // Add some controls
-        ImGui::Checkbox("Show Wireframe", &renderSettings.showWireframe);
-        ImGui::SliderFloat("Model Rotation", &renderSettings.sceneRotation, 0.0f, 360.0f);
+        ImGui::TextUnformatted("Car pose");
+        ImGui::DragFloat3("Position", (float*)&renderSettings.modelPosition, 0.1f);
+        ImGui::SliderFloat("Yaw", &renderSettings.modelRotation.y, -180.0f, 180.0f);
         ImGui::ColorEdit3("Clear Color", (float *)&renderSettings.sceneClearColor);
+        
+        ImGui::Separator();
+        
+        ImGui::TextUnformatted("OpenStreetMap Data");
+        ImGui::InputDouble("Latitude", &renderSettings.osmLat, 0.001, 0.01, "%.6f");
+        ImGui::InputDouble("Longitude", &renderSettings.osmLon, 0.001, 0.01, "%.6f");
+        ImGui::InputDouble("Radius (m)", &renderSettings.osmRadius, 10.0, 100.0, "%.1f");
+        if (ImGui::Button("Fetch OSM Data")) {
+            renderSettings.osmFetchRequested = true;
+        }
+        ImGui::SameLine();
     }
 
     ImGui::End();

@@ -60,6 +60,16 @@ struct Camera{
 		updateViewMatrix();
 	};
 
+    void setViewTarget(const glm::vec3& target, const glm::vec3& up = glm::vec3(0.0f, 1.0f, 0.0f)) {
+		glm::mat4 previous = matrices.view;
+		matrices.view = glm::lookAt(position, target, up);
+		if (flipY) {
+			matrices.view[1][1] *= -1.0f;
+		}
+		viewPos = glm::vec4(position, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f);
+		if (matrices.view != previous) { updated = true; }
+	};
+
     void updateViewMatrix(){
 		glm::mat4 currentMatrix = matrices.view;
 		glm::mat4 rotM = glm::mat4(1.0f);

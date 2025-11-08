@@ -6,8 +6,11 @@
 #include "../parse/parse.hpp"
 #include "../synth/synth.hpp"
 #include "include.hpp"
+#include "osmLoader.hpp"
 
 #include <chrono>
+#include <thread>
+#include <atomic>
 
 class Photon{
 private:
@@ -18,11 +21,15 @@ public:
     Gui gui;
     Parse parse;
     Synth synth;
+    OSMLoader osmLoader;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTimestamp;
     std::chrono::time_point<std::chrono::high_resolution_clock> tPrevEnd;
     bool paused = false;
     bool prepared = false;
+    
+    std::atomic<bool> osmLoadInProgress{false};
+    std::thread osmLoadThread;
 
     Photon();
     ~Photon();

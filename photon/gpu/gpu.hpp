@@ -33,6 +33,7 @@ public:
     std::vector<Model> models;
     bool useSwapchain = true;
     VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
     std::string title = "Photon";
     std::string name = "Photon";
@@ -44,6 +45,11 @@ public:
     VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo{};
     std::vector<VkFence> waitFences;
+    
+    // OSM models (separate from main GLTF models)
+    std::vector<Model> osmModels;
+    std::string osmStatus = "No OSM data loaded";
+    
     struct
     {
         // Swap chain image presentation
@@ -73,20 +79,18 @@ public:
     Camera camera;
     float frameTimer = 1.0;
     uint32_t frameCounter = 0;
-    const double targetFrameTime = 1000.0 / 144.0; // 60 FPS → ~16.67ms per frame
+    const double targetFrameTime = 1000.0 / 120.0; // 120 FPS → ~16.67ms per frame
     float timerSpeed = 0.25f;
     float timer = 0.0f;
     
-    // Camera control helpers
-    void updateCameraFromInput(class Inputs& inputs, float deltaTime);
     glm::vec2 lastMousePos = glm::vec2(0.0f);
 
     VkDescriptorPool descriptorPool{VK_NULL_HANDLE};
-    // Extra pool for many per-primitive descriptor sets
     VkDescriptorPool primitiveDescriptorPool{VK_NULL_HANDLE};
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkDescriptorSet descriptorSet;
+    VkDescriptorSet osmDescriptorSet{VK_NULL_HANDLE};  
 
     VkPipeline pipeline;
 

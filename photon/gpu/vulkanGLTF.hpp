@@ -80,7 +80,7 @@ struct vertex
     glm::vec4 joint0{};
     glm::vec4 weight0{};
     glm::vec4 tangent{};
-    
+
     bool operator==(const vertex &other) const noexcept
     {
         return pos == other.pos &&
@@ -125,6 +125,36 @@ namespace std
             hash_combine(v.joint0);
             hash_combine(v.weight0);
             hash_combine(v.tangent);
+            return seed;
+        }
+    };
+}
+
+// Key for deduplication by position + UV (Option B)
+struct VertexKeyPU
+{
+    glm::vec3 pos{};
+    glm::vec2 uv{};
+    bool operator==(const VertexKeyPU &other) const noexcept
+    {
+        return pos == other.pos && uv == other.uv;
+    }
+};
+
+namespace std
+{
+    template <>
+    struct hash<VertexKeyPU>
+    {
+        size_t operator()(const VertexKeyPU &k) const noexcept
+        {
+            size_t seed = 0u;
+            auto hash_combine = [&seed](auto const &val)
+            {
+                seed ^= std::hash<std::decay_t<decltype(val)>>{}(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            };
+            hash_combine(k.pos);
+            hash_combine(k.uv);
             return seed;
         }
     };
@@ -195,7 +225,13 @@ struct Model
     std::vector<Node *> nodes;
     std::vector<Mesh> meshes;
     std::vector<vertex> vertices;
-    std::unordered_map<vertex, uint32_t> uniqueVertices{};
+    // Option B: deduplicate by position+UV
+    std::unordered_map<VertexKeyPU, uint32_t> uniqueVertices{};
+    // Accumulators to average normals/tangents over duplicates
+    std::vector<glm::vec3> normalSums;
+    std::vector<uint32_t> normalCounts;
+    std::vector<glm::vec4> tangentSums;
+    std::vector<uint32_t> tangentCounts;
     std::vector<uint32_t> indices;
     std::vector<Image> images;
     std::vector<Texture> textures;
@@ -228,10 +264,12 @@ public:
     void destroyModel(size_t index);
 
 private:
-    void loadVertices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model);
-    // Load indices for a primitive and add a base vertex offset so primitives
-    // appended into a single vertex buffer reference the correct vertex range.
-    void loadIndices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model, uint32_t baseVertex);
+    // Load vertices for a primitive and output mapping from the primitive's
+    // local vertex index to the model's unique vertex index (deduplicated).
+    void loadVertices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model, std::vector<uint32_t> &outLocalToUnique);
+    // Load indices for a primitive, remapping through the provided local->unique
+    // vertex index table (deduplicated indices into model.vertices).
+    void loadIndices(const tinygltf::Model &gltfModel, const tinygltf::Primitive &primitive, Model &model, const std::vector<uint32_t> &localToUnique);
     void loadNode(const tinygltf::Model &gltfModel, const tinygltf::Node &inputNode, Model::Node *parent, Model &model);
     void createBuffers(Model &model);
     void loadMaterials(tinygltf::Model &input, Model &model);

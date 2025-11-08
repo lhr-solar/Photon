@@ -5,6 +5,7 @@
 #include "vulkanDevice.hpp"
 #include <algorithm>
 #include <glm/common.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -146,6 +147,7 @@ int vulkanGLTF::loadglTFFile(std::string filename)
     loadTextures(gltfModel, model);
 
     // Load all meshes
+    size_t totalRawVertices = 0; // count of per-primitive vertex accessor entries processed
     for (const auto &gltfMesh : gltfModel.meshes)
     {
         Model::Mesh mesh;
@@ -155,14 +157,15 @@ int vulkanGLTF::loadglTFFile(std::string filename)
             Primitive prim;
             prim.firstIndex = static_cast<uint32_t>(model.indices.size());
 
-            // Track the starting vertex before appending vertices for this primitive
-            const uint32_t vertexStart = static_cast<uint32_t>(model.vertices.size());
+            // Build deduplicated vertices for this primitive and get the mapping
+            // from local vertex indices to unique model vertex indices.
+            std::vector<uint32_t> localToUnique;
+            loadVertices(gltfModel, primitive, model, localToUnique);
+            totalRawVertices += localToUnique.size();
 
-            loadVertices(gltfModel, primitive, model);
-
-            // Load index data and add baseVertex so indices point to the correct
-            // portion of the unified vertex array
-            loadIndices(gltfModel, primitive, model, vertexStart);
+            // Load indices using the deduped mapping so triangles reference
+            // the unique vertex array directly.
+            loadIndices(gltfModel, primitive, model, localToUnique);
 
             prim.indexCount =
                 static_cast<uint32_t>(model.indices.size()) - prim.firstIndex;
@@ -188,12 +191,55 @@ int vulkanGLTF::loadglTFFile(std::string filename)
         }
     }
 
+    if (!model.vertices.empty())
+    {
+        const size_t n = model.vertices.size();
+        if (model.normalSums.size() == n && model.normalCounts.size() == n)
+        {
+            for (size_t i = 0; i < n; ++i)
+            {
+                if (model.normalCounts[i] > 0)
+                {
+                    glm::vec3 avgN = model.normalSums[i] / static_cast<float>(model.normalCounts[i]);
+                    if (glm::dot(avgN, avgN) > 0.0f)
+                    {
+                        model.vertices[i].normal = glm::normalize(avgN);
+                    }
+                }
+            }
+        }
+        if (model.tangentSums.size() == n && model.tangentCounts.size() == n)
+        {
+            for (size_t i = 0; i < n; ++i)
+            {
+                if (model.tangentCounts[i] > 0)
+                {
+                    glm::vec3 avgT = glm::vec3(model.tangentSums[i]) / static_cast<float>(model.tangentCounts[i]);
+                    if (glm::dot(avgT, avgT) > 0.0f)
+                    {
+                        float w = model.vertices[i].tangent.w; 
+                        model.vertices[i].tangent = glm::vec4(glm::normalize(avgT), w);
+                    }
+                }
+            }
+        }
+        // Free accumulators and map to save memory
+        model.uniqueVertices.clear();
+        model.normalSums.clear();
+        model.normalCounts.clear();
+        model.tangentSums.clear();
+        model.tangentCounts.clear();
+    }
+
     // Create Vulkan buffers
     createBuffers(model);
 
     logs("[+] GLTF model loaded with " << model.vertices.size()
                                        << " vertices and " << model.indices.size()
                                        << " indices");
+    logs("[DEBUG] Dedup summary: raw vertices seen=" << totalRawVertices
+                                                    << ", unique vertices=" << model.vertices.size()
+                                                    << ", reuse ratio=" << (totalRawVertices > 0 ? (static_cast<double>(totalRawVertices) / std::max<size_t>(1, model.vertices.size())) : 0.0));
     logs("[+] GLTF model loaded with " << model.materials.size() << " materials");
 
     // Calculate model bounds for debugging
@@ -231,7 +277,8 @@ int vulkanGLTF::loadglTFFile(std::string filename)
 
 void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
                               const tinygltf::Primitive &primitive,
-                              Model &model)
+                              Model &model,
+                              std::vector<uint32_t> &outLocalToUnique)
 {
     const float *positionBuffer = nullptr;
     const float *normalsBuffer = nullptr;
@@ -305,7 +352,10 @@ void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
     }
 
 
-    // Create vertices
+    outLocalToUnique.clear();
+    outLocalToUnique.reserve(vertexCount);
+
+    // Create vertices (deduplicated by position+UV, averaging normals/tangents)
     for (size_t v = 0; v < vertexCount; v++)
     {
         vertex vert{};
@@ -359,14 +409,66 @@ void vulkanGLTF::loadVertices(const tinygltf::Model &gltfModel,
                           tangentsBuffer[v * 4 + 2], tangentsBuffer[v * 4 + 3]);
         }
 
-        model.vertices.push_back(vert);
+        // Deduplicate on position+UV
+        VertexKeyPU key{vert.pos, vert.uv};
+        auto it = model.uniqueVertices.find(key);
+        if (it == model.uniqueVertices.end())
+        {
+            uint32_t newIndex = static_cast<uint32_t>(model.vertices.size());
+            model.vertices.push_back(vert);
+            model.uniqueVertices[key] = newIndex;
+            // Initialize accumulators if needed
+            if (model.normalSums.size() <= newIndex)
+            {
+                model.normalSums.resize(newIndex + 1, glm::vec3(0.0f));
+                model.normalCounts.resize(newIndex + 1, 0u);
+                model.tangentSums.resize(newIndex + 1, glm::vec4(0.0f));
+                model.tangentCounts.resize(newIndex + 1, 0u);
+            }
+            if (glm::dot(vert.normal, vert.normal) > 0.0f)
+            {
+                model.normalSums[newIndex] += vert.normal;
+                model.normalCounts[newIndex] += 1u;
+            }
+            if (glm::dot(glm::vec3(vert.tangent), glm::vec3(vert.tangent)) > 0.0f)
+            {
+                model.tangentSums[newIndex] += vert.tangent;
+                model.tangentCounts[newIndex] += 1u;
+            }
+            outLocalToUnique.push_back(newIndex);
+        }
+        else
+        {
+            uint32_t idx = it->second;
+            if (glm::dot(vert.normal, vert.normal) > 0.0f)
+            {
+                if (model.normalSums.size() <= idx)
+                {
+                    model.normalSums.resize(idx + 1, glm::vec3(0.0f));
+                    model.normalCounts.resize(idx + 1, 0u);
+                }
+                model.normalSums[idx] += vert.normal;
+                model.normalCounts[idx] += 1u;
+            }
+            if (glm::dot(glm::vec3(vert.tangent), glm::vec3(vert.tangent)) > 0.0f)
+            {
+                if (model.tangentSums.size() <= idx)
+                {
+                    model.tangentSums.resize(idx + 1, glm::vec4(0.0f));
+                    model.tangentCounts.resize(idx + 1, 0u);
+                }
+                model.tangentSums[idx] += vert.tangent;
+                model.tangentCounts[idx] += 1u;
+            }
+            outLocalToUnique.push_back(idx);
+        }
     }
 }
 
 void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
                              const tinygltf::Primitive &primitive,
                              Model &model,
-                             uint32_t baseVertex)
+                             const std::vector<uint32_t> &localToUnique)
 {
     if (primitive.indices >= 0)
     {
@@ -385,7 +487,11 @@ void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
             const uint32_t *buf = static_cast<const uint32_t *>(dataPtr);
             for (size_t index = 0; index < accessor.count; index++)
             {
-                model.indices.push_back(baseVertex + buf[index]);
+                uint32_t local = buf[index];
+                if (local < localToUnique.size())
+                {
+                    model.indices.push_back(localToUnique[local]);
+                }
             }
             break;
         }
@@ -394,7 +500,11 @@ void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
             const uint16_t *buf = static_cast<const uint16_t *>(dataPtr);
             for (size_t index = 0; index < accessor.count; index++)
             {
-                model.indices.push_back(baseVertex + static_cast<uint32_t>(buf[index]));
+                uint32_t local = static_cast<uint32_t>(buf[index]);
+                if (local < localToUnique.size())
+                {
+                    model.indices.push_back(localToUnique[local]);
+                }
             }
             break;
         }
@@ -403,7 +513,11 @@ void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
             const uint8_t *buf = static_cast<const uint8_t *>(dataPtr);
             for (size_t index = 0; index < accessor.count; index++)
             {
-                model.indices.push_back(baseVertex + static_cast<uint32_t>(buf[index]));
+                uint32_t local = static_cast<uint32_t>(buf[index]);
+                if (local < localToUnique.size())
+                {
+                    model.indices.push_back(localToUnique[local]);
+                }
             }
             break;
         }
@@ -411,6 +525,13 @@ void vulkanGLTF::loadIndices(const tinygltf::Model &gltfModel,
             logs("[!] Index component type " << accessor.componentType
                                              << " not supported!");
             return;
+        }
+    }
+    else
+    {
+        for (uint32_t local = 0; local < static_cast<uint32_t>(localToUnique.size()); ++local)
+        {
+            model.indices.push_back(localToUnique[local]);
         }
     }
 }

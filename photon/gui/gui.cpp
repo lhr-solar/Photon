@@ -1925,17 +1925,75 @@ void Gui::record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu){
     scissor.extent = renderedFrame.extent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     
-    // Apply rotation transformation from UI
-    // First rotate upside down (180° around X axis), then apply user rotation around Y
-    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), 
-                                           glm::radians(180.0f), 
-                                           glm::vec3(1.0f, 0.0f, 0.0f)); // Flip upside down
-    rotationMatrix = glm::rotate(rotationMatrix,
-                                 glm::radians(ui.renderSettings.sceneRotation), 
-                                 glm::vec3(0.0f, 1.0f, 0.0f)); // User rotation
+    glm::vec3 pos = ui.renderSettings.modelPosition;
+    glm::vec3 rot = ui.renderSettings.modelRotation;
+    glm::vec3 scl = (ui.renderSettings.modelScale3D == glm::vec3(0.0f))
+                        ? glm::vec3(std::max(0.0001f, ui.renderSettings.modelScale))
+                        : ui.renderSettings.modelScale3D;
+
+    glm::mat4 transform(1.0f);
+    transform = glm::translate(transform, pos);
+    transform = glm::rotate(transform, glm::radians(rot.y), glm::vec3(0.0f, 1.0f, 0.0f));
+    transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    if (rot.x != 0.0f)
+        transform = glm::rotate(transform, glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
+    if (rot.z != 0.0f)
+        transform = glm::rotate(transform, glm::radians(rot.z), glm::vec3(0.0f, 0.0f, 1.0f));
+    transform = glm::scale(transform, scl);
+
+    gpu->renderGLTFModel(commandBuffer, transform, false);
     
-    // Render the GLTF model with rotation and wireframe settings
-    gpu->renderGLTFModel(commandBuffer, rotationMatrix, ui.renderSettings.showWireframe);
+    // Render OSM models with proper scale and position relative to car
+    if (!gpu->osmModels.empty()) {
+        glm::mat4 osmTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0));
+        // Flip Y axis to correct orientation
+        osmTransform = glm::scale(osmTransform, glm::vec3(1.0f, -1.0f, 1.0f));
+        
+        // Bind pipeline for OSM rendering
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline);
+        
+        // Bind OSM descriptor set with default white texture to prevent sampling car textures
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                                gpu->pipelineLayout, 0, 1, &gpu->osmDescriptorSet, 0, nullptr);
+        
+        for (auto& osmModel : gpu->osmModels) {
+            if (osmModel.meshes.empty()) continue;
+            
+            for (auto& mesh : osmModel.meshes) {
+                if (mesh.vertexBuffer.buffer == VK_NULL_HANDLE || mesh.indexBuffer.buffer == VK_NULL_HANDLE) continue;
+                
+                // Bind vertex and index buffers
+                VkDeviceSize offsets[1] = {0};
+                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh.vertexBuffer.buffer, offsets);
+                vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+                
+                // Push constants for transform
+                struct {
+                    glm::mat4 transform;
+                    glm::vec4 effectColor;
+                    glm::vec4 materialColor;
+                    int32_t effectType;
+                } pushConstants;
+                
+                pushConstants.transform = osmTransform;
+                pushConstants.effectColor = glm::vec4(1.0f);
+                pushConstants.materialColor = glm::vec4(1.0f);
+                pushConstants.effectType = 0;
+                
+                vkCmdPushConstants(
+                    commandBuffer,
+                    gpu->pipelineLayout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    0,
+                    sizeof(pushConstants),
+                    &pushConstants);
+                
+                // Draw
+                vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, 0, 0, 0);
+            
+            }
+        }
+    }
     
     vkCmdEndRenderPass(commandBuffer);
 }

@@ -1,4 +1,3 @@
-#/CMakeLists.txt
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/find")
 
@@ -17,10 +16,13 @@ include_directories(.external/stb)
 include_directories(.external/imgui)
 include_directories(${CMAKE_BINARY_DIR}/generated)
 
-# require python
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-# find Vulkan
+find_package(OpenSSL QUIET)
+if(OPENSSL_FOUND)
+    add_definitions(-DCPPHTTPLIB_OPENSSL_SUPPORT)
+endif()
+
 IF(WIN32)
 	IF (NOT Vulkan_FOUND)
 		find_library(Vulkan_LIBRARY NAMES vulkan-1 vulkan PATHS ${CMAKE_SOURCE_DIR}/libs/vulkan)

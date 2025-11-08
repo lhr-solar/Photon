@@ -32,9 +32,13 @@ struct UI{
         float modelScale = 1.0f;
         glm::vec4 effectColor = glm::vec4(1.0f);
         int effectType = 0;
-        bool showWireframe = false;
         float sceneRotation = 0.0f;
         glm::vec4 sceneClearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+        
+        double osmLat = 30.2849; 
+        double osmLon = -97.7341;
+        double osmRadius = 1000.0; 
+        bool osmFetchRequested = false;
     } renderSettings;
 
     struct CustomShaderPanel : ImVec2 {
