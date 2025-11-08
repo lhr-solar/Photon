@@ -57,8 +57,8 @@ ELSE()
     link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY})
 ENDIF(WIN32)
 
-add_subdirectory(kernels)
-add_subdirectory(fonts)
+add_subdirectory(assets/kernels)
+add_subdirectory(assets/fonts)
 add_subdirectory(photon)
 
 if (WIN32)

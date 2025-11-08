@@ -9,7 +9,7 @@ add_subdirectory(synth)
 add_executable(Photon engine/main.cpp)
 
 if (WIN32)
-    target_sources(Photon PRIVATE ../fonts/Photon.rc)
+    target_sources(Photon PRIVATE ../assets/fonts/Photon.rc)
 endif()
 
 target_link_libraries(Photon

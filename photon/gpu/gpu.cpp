@@ -545,8 +545,8 @@ std::string readFile(const std::string& path) {
 
 VkShaderModule shaderModuleFromPath(std::string name, VkDevice device){
     std::string code;
-    std::string outPath = "artifacts/kernels/spirv/" + name + ".spv";
-    std::string kernelPath = "kernels/" + name;
+    std::string outPath = "artifacts/assets/kernels/spirv/" + name + ".spv";
+    std::string kernelPath = "assets/kernels/" + name;
     std::string cmd = "glslc " + kernelPath + " -o " + outPath;
     std::system(cmd.data());
     logs("[!] Loaded Shader from Path " << kernelPath);
