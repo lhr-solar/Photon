@@ -33,7 +33,8 @@ struct VulkanDevice {
     VkQueue transferQueue;
 
     VkResult initDevice(VkPhysicalDevice physicalDevice);
-    VkResult createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, std::vector<const char*> enabledExtensions, void* pNextChain, bool useSwapChain, VkQueueFlags requestedQueueTypes);
+    VkResult createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, std::vector<const char*> enabledExtensions, void* pNextChain, 
+            bool useSwapChain, VkQueueFlags requestedQueueTypes);
     uint32_t getQueueFamilyIndex(VkQueueFlags queueFlags) const;
     bool extensionSupported(std::string extension);
     VkCommandPool createCommandPool(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags createFlags);

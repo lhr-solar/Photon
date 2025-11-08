@@ -14,7 +14,7 @@ void UI::build(){
 
     fpsWindow();
     customBackground();
-    customShaderWindow();
+//    customShaderWindow();
 //    console.Draw("Console", &flag);
 //    networkSamplePlot();
     /*
@@ -37,7 +37,7 @@ void UI::build(){
 //    ImPlot3D::ShowDemoWindow();
 //    ImGui::ShowDemoWindow();
 
-//    showVideoDisplay();
+    showVideoDisplay();
     ImGui::Render();
 }
 

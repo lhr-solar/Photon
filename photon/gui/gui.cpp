@@ -258,7 +258,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &fontWriteDescriptorSet, 0, nullptr);
     io.Fonts->TexID = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(guiDescriptorSet));
 
-    ui.videoSource.texture= static_cast<ImTextureID>(0);
+    ui.videoSource.texture = static_cast<ImTextureID>(0);
     ui.videoSource.textureSize = {0, 0};
 
     ui.backgroundShader.initShader({0, 0}, true, (uint32_t*)background_vert_spv, background_vert_spv_size, NULL, 0, "background.frag");

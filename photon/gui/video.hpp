@@ -23,7 +23,6 @@ struct Video{
 
     void initVideoFeedResources(VulkanDevice vulkanDevice, VkDescriptorPool descriptorPool,  
         VkDescriptorSetLayout descriptorSetLayout, VkSampler sampler);
-
     void updateVideoFeed(VulkanDevice vulkanDevice);
     void destroyVideoFeedResources(bool releaseDescriptorSet, VkDevice deviceHandle, VkDescriptorPool descriptorPool);
 };
