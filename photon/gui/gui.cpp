@@ -261,11 +261,11 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ui.videoSource.texture = static_cast<ImTextureID>(0);
     ui.videoSource.textureSize = {0, 0};
 
-    ui.backgroundShader.initShader({0, 0}, true, (uint32_t*)background_vert_spv, background_vert_spv_size, NULL, 0, "background.frag");
+    ui.backgroundShader.initShader({0, 0}, false, (uint32_t*)background_vert_spv, background_vert_spv_size, (uint32_t*)background_frag_spv, background_frag_spv_size, "background.frag");
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
             guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
     
-    ui.accretionShader.initShader({512, 512}, true, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, NULL, 0, "custom_shader.frag");
+    ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
     ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
             guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
 

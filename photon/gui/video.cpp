@@ -93,8 +93,8 @@ void Video::initVideoFeedResources(VulkanDevice vulkanDevice, VkDescriptorPool d
     logs("[+] Webcam: initialized video feed " << videoSize.width << "x" << videoSize.height);
 #else
     (void)vulkanDevice;
-    ui.videoTexture = static_cast<ImTextureID>(0);
-    ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+    texture = 0;
+    textureSize = {0, 0};
     logs("[!] Webcam: capture is only supported on Linux");
 #endif
 }

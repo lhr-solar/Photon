@@ -5,8 +5,12 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/find")
 set(NAME Photon)
 project(NAME VERSION 1.0)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if (WIN32)
+    add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
+endif()
 
 include_directories(.external)
 include_directories(.external/glm)
@@ -63,5 +67,4 @@ add_subdirectory(photon)
 
 if (WIN32)
     set_target_properties(Photon PROPERTIES WIN32_EXECUTABLE TRUE)
-    add_compile_definitions( WIN32_LEAN_AND_MEAN NOMINMAX _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 endif()

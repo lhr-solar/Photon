@@ -7,7 +7,6 @@
 #include <charconv>
 #include <map>
 #include <thread>
-#include <termios.h>
 #include <vector>
 #include <iostream>
 #include "../engine/include.hpp"
@@ -182,6 +181,8 @@ bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& v
     return true;
 }
 
+#ifndef WIN32
+#include <termios.h>
 void Network::uartProducer(){
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
     int _fd = open("/dev/ttyACM0", O_RDWR | O_NOCTTY);
@@ -259,3 +260,11 @@ void Network::uartConsumer(){
         }
     }
 }
+#else
+void Network::uartConsumer(){
+    return;
+}
+void Network::uartProducer(){
+    return;
+}
+#endif
