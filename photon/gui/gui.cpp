@@ -92,9 +92,41 @@ Gui::~Gui(){
     xcb_destroy_window(connection, window);
 	xcb_disconnect(connection);
 #endif
+    destroyBackgroundResources(true);
+    destroyCustomShaderResources(true);
+    destroyVideoFeedResources(true);
+    destroyRenderedFrameResources(true);
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (guiDescriptorPool != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
+            guiDescriptorPool = VK_NULL_HANDLE;
+        }
+        if (guiDescriptorSetLayout != VK_NULL_HANDLE) {
+            vkDestroyDescriptorSetLayout(deviceHandle, guiDescriptorSetLayout, nullptr);
+            guiDescriptorSetLayout = VK_NULL_HANDLE;
+        }
+        if (sampler != VK_NULL_HANDLE) {
+            vkDestroySampler(deviceHandle, sampler, nullptr);
+            sampler = VK_NULL_HANDLE;
+        }
+        if (fontView != VK_NULL_HANDLE) {
+            vkDestroyImageView(deviceHandle, fontView, nullptr);
+            fontView = VK_NULL_HANDLE;
+        }
+        if (fontImage != VK_NULL_HANDLE) {
+            vkDestroyImage(deviceHandle, fontImage, nullptr);
+            fontImage = VK_NULL_HANDLE;
+        }
+        if (fontMemory != VK_NULL_HANDLE) {
+            vkFreeMemory(deviceHandle, fontMemory, nullptr);
+            fontMemory = VK_NULL_HANDLE;
+        }
+    }
+    ImGui::DestroyContext();
+    ImPlot::DestroyContext();
+    ImPlot3D::DestroyContext();
 };
 
-void Gui::initWindow(){
 #ifdef XCB
 void Gui::initWindow(){
     initxcbConnection();
@@ -281,9 +313,21 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     fontWriteDescriptorSet.pImageInfo = &fontDescriptorImageInfo;
     fontWriteDescriptorSet.descriptorCount = 1;
 
-    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {sceneWriteDescriptorSet, fontWriteDescriptorSet};
+    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &fontWriteDescriptorSet, 0, nullptr);
+    io.Fonts->TexID = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(guiDescriptorSet));
+    ui.customShader.texture = static_cast<ImTextureID>(0);
+    ui.background.texture = static_cast<ImTextureID>(0);
+    ui.background.x = 0.0f;
+    ui.background.y = 0.0f;
+    ui.background.dirty = false;
+    ui.videoTexture = static_cast<ImTextureID>(0);
+    ui.videoTextureSize = ImVec2(0.0f, 0.0f);
 
-    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+    initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
+    initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
+    initVideoFeedResources(vulkanDevice);
+    initRenderedFrameResources(vulkanDevice, {800, 600});
+    ui.renderedFrameTexture = (ImTextureID)renderedFrame.descriptorSet;
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -434,846 +478,6 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
 
     vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
     logs("[+] Created Graphics Gui Pipeline ");
-}
-
-VkExtent2D Gui::getCustomShaderExtent() const {
-    return customShader.extent;
-}
-
-VkExtent2D Gui::getBackgroundExtent() const {
-    return backgroundShader.extent;
-}
-
-VkExtent2D Gui::calculateBackgroundExtent(float width, float height) const {
-    float safeWidth = std::max(1.0f, width);
-    float safeHeight = std::max(1.0f, height);
-
-    VkExtent2D extent{};
-    extent.width = static_cast<uint32_t>(std::round(safeWidth));
-    extent.height = static_cast<uint32_t>(std::round(safeHeight));
-    extent.width = std::max<uint32_t>(extent.width, 1u);
-    extent.height = std::max<uint32_t>(extent.height, 1u);
-    return extent;
-}
-
-void Gui::resizeBackground(VulkanDevice vulkanDevice, float width, float height){
-    VkExtent2D newExtent = calculateBackgroundExtent(width, height);
-
-    bool resourcesMissing = (backgroundShader.image == VK_NULL_HANDLE) ||
-                            (backgroundShader.view == VK_NULL_HANDLE) ||
-                            (backgroundShader.framebuffer == VK_NULL_HANDLE) ||
-                            (backgroundShader.pipeline == VK_NULL_HANDLE);
-
-    if (!resourcesMissing &&
-        newExtent.width == backgroundShader.extent.width &&
-        newExtent.height == backgroundShader.extent.height) {
-        ui.background.x = static_cast<float>(backgroundShader.extent.width);
-        ui.background.y = static_cast<float>(backgroundShader.extent.height);
-        ui.background.dirty = false;
-        return;
-    }
-
-    initBackgroundResources(vulkanDevice, newExtent);
-    ui.background.x = static_cast<float>(backgroundShader.extent.width);
-    ui.background.y = static_cast<float>(backgroundShader.extent.height);
-    ui.background.dirty = false;
-}
-
-void Gui::resizeCustomShader(VulkanDevice vulkanDevice, float width, float height){
-    VkExtent2D newExtent = calculateCustomShaderExtent(width, height);
-
-    bool resourcesMissing = (customShader.image == VK_NULL_HANDLE) ||
-                            (customShader.view == VK_NULL_HANDLE) ||
-                            (customShader.framebuffer == VK_NULL_HANDLE) ||
-                            (customShader.pipeline == VK_NULL_HANDLE);
-
-    if (!resourcesMissing &&
-        newExtent.width == customShader.extent.width &&
-        newExtent.height == customShader.extent.height) {
-        ui.customShader.x = static_cast<float>(customShader.extent.width);
-        ui.customShader.y = static_cast<float>(customShader.extent.height);
-        ui.customShader.dirty = false;
-        return;
-    }
-
-    initCustomShaderResources(vulkanDevice, newExtent);
-    ui.customShader.x = static_cast<float>(customShader.extent.width);
-    ui.customShader.y = static_cast<float>(customShader.extent.height);
-    ui.customShader.dirty = false;
-}
-
-void Gui::destroyBackgroundResources(bool releaseDescriptorSet){
-    if (releaseDescriptorSet && backgroundShader.descriptorSet != VK_NULL_HANDLE && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE) {
-        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &backgroundShader.descriptorSet);
-        backgroundShader.descriptorSet = VK_NULL_HANDLE;
-    }
-
-    if (deviceHandle != VK_NULL_HANDLE) {
-        if (backgroundShader.pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(deviceHandle, backgroundShader.pipeline, nullptr);
-        }
-        if (backgroundShader.pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(deviceHandle, backgroundShader.pipelineLayout, nullptr);
-        }
-        if (backgroundShader.renderPass != VK_NULL_HANDLE) {
-            vkDestroyRenderPass(deviceHandle, backgroundShader.renderPass, nullptr);
-        }
-        if (backgroundShader.framebuffer != VK_NULL_HANDLE) {
-            vkDestroyFramebuffer(deviceHandle, backgroundShader.framebuffer, nullptr);
-        }
-        if (backgroundShader.view != VK_NULL_HANDLE) {
-            vkDestroyImageView(deviceHandle, backgroundShader.view, nullptr);
-        }
-        if (backgroundShader.image != VK_NULL_HANDLE) {
-            vkDestroyImage(deviceHandle, backgroundShader.image, nullptr);
-        }
-        if (backgroundShader.memory != VK_NULL_HANDLE) {
-            vkFreeMemory(deviceHandle, backgroundShader.memory, nullptr);
-        }
-    }
-
-    backgroundShader.extent = {0, 0};
-    backgroundShader.pipeline = VK_NULL_HANDLE;
-    backgroundShader.pipelineLayout = VK_NULL_HANDLE;
-    backgroundShader.renderPass = VK_NULL_HANDLE;
-    backgroundShader.framebuffer = VK_NULL_HANDLE;
-    backgroundShader.view = VK_NULL_HANDLE;
-    backgroundShader.image = VK_NULL_HANDLE;
-    backgroundShader.memory = VK_NULL_HANDLE;
-    backgroundShader.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    backgroundShader.initialized = false;
-    ui.background.texture = static_cast<ImTextureID>(0);
-}
-
-void Gui::destroyCustomShaderResources(bool releaseDescriptorSet){
-    if (releaseDescriptorSet && customShader.descriptorSet != VK_NULL_HANDLE && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE) {
-        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &customShader.descriptorSet);
-        customShader.descriptorSet = VK_NULL_HANDLE;
-    }
-
-    if (deviceHandle != VK_NULL_HANDLE) {
-        if (customShader.pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(deviceHandle, customShader.pipeline, nullptr);
-        }
-        if (customShader.pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(deviceHandle, customShader.pipelineLayout, nullptr);
-        }
-        if (customShader.renderPass != VK_NULL_HANDLE) {
-            vkDestroyRenderPass(deviceHandle, customShader.renderPass, nullptr);
-        }
-        if (customShader.framebuffer != VK_NULL_HANDLE) {
-            vkDestroyFramebuffer(deviceHandle, customShader.framebuffer, nullptr);
-        }
-        if (customShader.view != VK_NULL_HANDLE) {
-            vkDestroyImageView(deviceHandle, customShader.view, nullptr);
-        }
-        if (customShader.image != VK_NULL_HANDLE) {
-            vkDestroyImage(deviceHandle, customShader.image, nullptr);
-        }
-        if (customShader.memory != VK_NULL_HANDLE) {
-            vkFreeMemory(deviceHandle, customShader.memory, nullptr);
-        }
-    }
-
-    customShader.extent = {0, 0};
-    customShader.pipeline = VK_NULL_HANDLE;
-    customShader.pipelineLayout = VK_NULL_HANDLE;
-    customShader.renderPass = VK_NULL_HANDLE;
-    customShader.framebuffer = VK_NULL_HANDLE;
-    customShader.view = VK_NULL_HANDLE;
-    customShader.image = VK_NULL_HANDLE;
-    customShader.memory = VK_NULL_HANDLE;
-    customShader.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    customShader.initialized = false;
-    ui.customShader.texture = static_cast<ImTextureID>(0);
-}
-
-void Gui::initBackgroundResources(VulkanDevice vulkanDevice, VkExtent2D extent){
-    destroyBackgroundResources();
-
-    if (extent.width == 0 || extent.height == 0) {
-        extent = {512, 512};
-    }
-
-    backgroundShader.extent = extent;
-
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.extent.width = extent.width;
-    imageInfo.extent.height = extent.height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageInfo, nullptr, &backgroundShader.image));
-
-    VkMemoryRequirements memReqs{};
-    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, backgroundShader.image, &memReqs);
-    VkMemoryAllocateInfo imageAllocInfo{};
-    imageAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    imageAllocInfo.allocationSize = memReqs.size;
-    imageAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
-    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &imageAllocInfo, nullptr, &backgroundShader.memory));
-    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, backgroundShader.image, backgroundShader.memory, 0));
-    backgroundShader.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    backgroundShader.initialized = false;
-
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = backgroundShader.image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &backgroundShader.view));
-
-    VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
-    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference colorRef{};
-    colorRef.attachment = 0;
-    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colorRef;
-
-    VkSubpassDependency dependency{};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    VkRenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
-    renderPassInfo.subpassCount = 1;
-    renderPassInfo.pSubpasses = &subpass;
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies = &dependency;
-    VK_CHECK(vkCreateRenderPass(vulkanDevice.logicalDevice, &renderPassInfo, nullptr, &backgroundShader.renderPass));
-
-    VkFramebufferCreateInfo framebufferInfo{};
-    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass = backgroundShader.renderPass;
-    framebufferInfo.attachmentCount = 1;
-    framebufferInfo.pAttachments = &backgroundShader.view;
-    framebufferInfo.width = extent.width;
-    framebufferInfo.height = extent.height;
-    framebufferInfo.layers = 1;
-    VK_CHECK(vkCreateFramebuffer(vulkanDevice.logicalDevice, &framebufferInfo, nullptr, &backgroundShader.framebuffer));
-
-    VkPushConstantRange pcRange{};
-    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pcRange.offset = 0;
-    pcRange.size = sizeof(PushConstants);
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pcRange;
-    VK_CHECK(vkCreatePipelineLayout(vulkanDevice.logicalDevice, &pipelineLayoutInfo, nullptr, &backgroundShader.pipelineLayout));
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-    VkPipelineRasterizationStateCreateInfo raster{};
-    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = VK_CULL_MODE_NONE;
-    raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    raster.lineWidth = 1.0f;
-
-    VkPipelineColorBlendAttachmentState blendAttachment{};
-    blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    blendAttachment.blendEnable = VK_FALSE;
-
-    VkPipelineColorBlendStateCreateInfo blend{};
-    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blend.attachmentCount = 1;
-    blend.pAttachments = &blendAttachment;
-
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.scissorCount = 1;
-
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_FALSE;
-    depthStencil.depthWriteEnable = VK_FALSE;
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.stencilTestEnable = VK_FALSE;
-
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    std::vector<VkDynamicState> dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamic{};
-    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic.dynamicStateCount = static_cast<uint32_t>(dynamics.size());
-    dynamic.pDynamicStates = dynamics.data();
-
-    VkPipelineVertexInputStateCreateInfo vertexInput{};
-    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
-    shaderStages[0] = Gpu::loadShader(background_vert_spv, background_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
-    shaderStages[1] = Gpu::loadShader(background_frag_spv, background_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
-
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout = backgroundShader.pipelineLayout;
-    pipelineInfo.renderPass = backgroundShader.renderPass;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
-    pipelineInfo.pStages = shaderStages.data();
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pRasterizationState = &raster;
-    pipelineInfo.pColorBlendState = &blend;
-    pipelineInfo.pMultisampleState = &multisample;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.pDynamicState = &dynamic;
-    pipelineInfo.pVertexInputState = &vertexInput;
-
-    VK_CHECK(vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineInfo, nullptr, &backgroundShader.pipeline));
-
-    if (backgroundShader.descriptorSet == VK_NULL_HANDLE) {
-        VkDescriptorSetAllocateInfo descriptorAlloc{};
-        descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        descriptorAlloc.descriptorPool = guiDescriptorPool;
-        descriptorAlloc.descriptorSetCount = 1;
-        descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
-        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &backgroundShader.descriptorSet));
-    }
-
-    VkDescriptorImageInfo imageDescriptor{};
-    imageDescriptor.sampler = sampler;
-    imageDescriptor.imageView = backgroundShader.view;
-    imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = backgroundShader.descriptorSet;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.pImageInfo = &imageDescriptor;
-    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &write, 0, nullptr);
-
-    ui.background.texture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(backgroundShader.descriptorSet));
-    ui.background.x = static_cast<float>(backgroundShader.extent.width);
-    ui.background.y = static_cast<float>(backgroundShader.extent.height);
-    ui.background.dirty = false;
-}
-
-void Gui::initCustomShaderResources(VulkanDevice vulkanDevice, VkExtent2D extent){
-    destroyCustomShaderResources();
-
-    if (extent.width == 0 || extent.height == 0) {
-        extent = {512, 512};
-    }
-
-    customShader.extent = extent;
-
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.extent.width = extent.width;
-    imageInfo.extent.height = extent.height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageInfo, nullptr, &customShader.image));
-
-    VkMemoryRequirements memReqs{};
-    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, customShader.image, &memReqs);
-    VkMemoryAllocateInfo imageAllocInfo{};
-    imageAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    imageAllocInfo.allocationSize = memReqs.size;
-    imageAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
-    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &imageAllocInfo, nullptr, &customShader.memory));
-    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, customShader.image, customShader.memory, 0));
-    customShader.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    customShader.initialized = false;
-
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = customShader.image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &customShader.view));
-
-    VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
-    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference colorRef{};
-    colorRef.attachment = 0;
-    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colorRef;
-
-    VkSubpassDependency dependency{};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    VkRenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
-    renderPassInfo.subpassCount = 1;
-    renderPassInfo.pSubpasses = &subpass;
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies = &dependency;
-    VK_CHECK(vkCreateRenderPass(vulkanDevice.logicalDevice, &renderPassInfo, nullptr, &customShader.renderPass));
-
-    VkFramebufferCreateInfo framebufferInfo{};
-    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass = customShader.renderPass;
-    framebufferInfo.attachmentCount = 1;
-    framebufferInfo.pAttachments = &customShader.view;
-    framebufferInfo.width = extent.width;
-    framebufferInfo.height = extent.height;
-    framebufferInfo.layers = 1;
-    VK_CHECK(vkCreateFramebuffer(vulkanDevice.logicalDevice, &framebufferInfo, nullptr, &customShader.framebuffer));
-
-    VkPushConstantRange pcRange{};
-    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pcRange.offset = 0;
-    pcRange.size = sizeof(PushConstants);
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pcRange;
-    VK_CHECK(vkCreatePipelineLayout(vulkanDevice.logicalDevice, &pipelineLayoutInfo, nullptr, &customShader.pipelineLayout));
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-    VkPipelineRasterizationStateCreateInfo raster{};
-    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = VK_CULL_MODE_NONE;
-    raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    raster.lineWidth = 1.0f;
-
-    VkPipelineColorBlendAttachmentState blendAttachment{};
-    blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    blendAttachment.blendEnable = VK_FALSE;
-
-    VkPipelineColorBlendStateCreateInfo blend{};
-    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blend.attachmentCount = 1;
-    blend.pAttachments = &blendAttachment;
-
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.scissorCount = 1;
-
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_FALSE;
-    depthStencil.depthWriteEnable = VK_FALSE;
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.stencilTestEnable = VK_FALSE;
-
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    std::vector<VkDynamicState> dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamic{};
-    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic.dynamicStateCount = static_cast<uint32_t>(dynamics.size());
-    dynamic.pDynamicStates = dynamics.data();
-
-    VkPipelineVertexInputStateCreateInfo vertexInput{};
-    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
-    shaderStages[0] = Gpu::loadShader(custom_shader_vert_spv, custom_shader_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
-    shaderStages[1] = Gpu::loadShader(custom_shader_frag_spv, custom_shader_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
-
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout = customShader.pipelineLayout;
-    pipelineInfo.renderPass = customShader.renderPass;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
-    pipelineInfo.pStages = shaderStages.data();
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pRasterizationState = &raster;
-    pipelineInfo.pColorBlendState = &blend;
-    pipelineInfo.pMultisampleState = &multisample;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.pDynamicState = &dynamic;
-    pipelineInfo.pVertexInputState = &vertexInput;
-
-    VK_CHECK(vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineInfo, nullptr, &customShader.pipeline));
-
-    if (customShader.descriptorSet == VK_NULL_HANDLE) {
-        VkDescriptorSetAllocateInfo descriptorAlloc{};
-        descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        descriptorAlloc.descriptorPool = guiDescriptorPool;
-        descriptorAlloc.descriptorSetCount = 1;
-        descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
-        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &customShader.descriptorSet));
-    }
-
-    VkDescriptorImageInfo imageDescriptor{};
-    imageDescriptor.sampler = sampler;
-    imageDescriptor.imageView = customShader.view;
-    imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = customShader.descriptorSet;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.pImageInfo = &imageDescriptor;
-    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &write, 0, nullptr);
-
-    ui.customShader.texture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(customShader.descriptorSet));
-    ui.customShader.x = static_cast<float>(customShader.extent.width);
-    ui.customShader.y = static_cast<float>(customShader.extent.height);
-    ui.customShader.dirty = false;
-}
-
-VkExtent2D Gui::calculateCustomShaderExtent(float width, float height) const {
-    float safeWidth = std::max(1.0f, width);
-    float safeHeight = std::max(1.0f, height);
-
-    VkExtent2D extent{};
-    extent.width = static_cast<uint32_t>(std::round(safeWidth));
-    extent.height = static_cast<uint32_t>(std::round(safeHeight));
-    extent.width = std::max<uint32_t>(extent.width, 1u);
-    extent.height = std::max<uint32_t>(extent.height, 1u);
-    return extent;
-}
-
-void Gui::initVideoFeedResources(VulkanDevice vulkanDevice){
-#if defined(__linux__)
-    if (!webcam.initialize("/dev/video0", 640, 480)) {
-        logs("[!] Webcam: failed to initialize /dev/video0");
-        ui.videoTexture = static_cast<ImTextureID>(0);
-        ui.videoTextureSize = ImVec2(0.0f, 0.0f);
-        return;
-    }
-
-    videoFeed.extent = {webcam.width(), webcam.height()};
-    if (videoFeed.extent.width == 0 || videoFeed.extent.height == 0) {
-        logs("[!] Webcam: invalid extent " << videoFeed.extent.width << "x" << videoFeed.extent.height);
-        webcam.shutdown();
-        ui.videoTexture = static_cast<ImTextureID>(0);
-        ui.videoTextureSize = ImVec2(0.0f, 0.0f);
-        return;
-    }
-
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.extent.width = videoFeed.extent.width;
-    imageInfo.extent.height = videoFeed.extent.height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageInfo, nullptr, &videoFeed.image));
-
-    VkMemoryRequirements memReqs{};
-    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, videoFeed.image, &memReqs);
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memReqs.size;
-    allocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
-    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &allocInfo, nullptr, &videoFeed.memory));
-    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, videoFeed.image, videoFeed.memory, 0));
-    videoFeed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    videoFeed.initialized = false;
-
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = videoFeed.image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &videoFeed.view));
-
-    if (videoFeed.descriptorSet == VK_NULL_HANDLE) {
-        VkDescriptorSetAllocateInfo descriptorAlloc{};
-        descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        descriptorAlloc.descriptorPool = guiDescriptorPool;
-        descriptorAlloc.descriptorSetCount = 1;
-        descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
-        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &videoFeed.descriptorSet));
-    }
-
-    VkDescriptorImageInfo imageDescriptor{};
-    imageDescriptor.sampler = sampler;
-    imageDescriptor.imageView = videoFeed.view;
-    imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = videoFeed.descriptorSet;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.pImageInfo = &imageDescriptor;
-    vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &write, 0, nullptr);
-
-    ui.videoTexture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(videoFeed.descriptorSet));
-    ui.videoTextureSize = ImVec2(static_cast<float>(videoFeed.extent.width), static_cast<float>(videoFeed.extent.height));
-
-    videoStagingBufferSize = 0;
-    videoFrameData.clear();
-    logs("[+] Webcam: initialized video feed " << videoFeed.extent.width << "x" << videoFeed.extent.height);
-#else
-    (void)vulkanDevice;
-    ui.videoTexture = static_cast<ImTextureID>(0);
-    ui.videoTextureSize = ImVec2(0.0f, 0.0f);
-    logs("[!] Webcam: capture is only supported on Linux");
-#endif
-}
-
-void Gui::recordBackgroundPass(VkCommandBuffer commandBuffer){
-    if (backgroundShader.pipeline == VK_NULL_HANDLE) {
-        return;
-    }
-
-    VkExtent2D extent = getBackgroundExtent();
-    if (extent.width == 0 || extent.height == 0) {
-        return;
-    }
-
-    VkImageSubresourceRange range{};
-    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-
-    VkImageLayout oldLayout = backgroundShader.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    VkPipelineStageFlags srcStage = backgroundShader.initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    Gpu::setImageLayout(commandBuffer, backgroundShader.image, oldLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, range, srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-    VkClearValue clearValue{};
-    clearValue.color = {{0.02f, 0.02f, 0.05f, 1.0f}};
-
-    VkRenderPassBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    beginInfo.renderPass = backgroundShader.renderPass;
-    beginInfo.framebuffer = backgroundShader.framebuffer;
-    beginInfo.renderArea.offset = {0, 0};
-    beginInfo.renderArea.extent = extent;
-    beginInfo.clearValueCount = 1;
-    beginInfo.pClearValues = &clearValue;
-
-    vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    VkViewport viewport{};
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.extent = extent;
-    scissor.offset = {0, 0};
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundShader.pipeline);
-    pc.resolution = glm::vec2(static_cast<float>(extent.width), static_cast<float>(extent.height));
-    pc.u_time = static_cast<float>(ImGui::GetTime());
-    pc.pad = 0.0f;
-    vkCmdPushConstants(commandBuffer, backgroundShader.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pc);
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-    vkCmdEndRenderPass(commandBuffer);
-
-    Gpu::setImageLayout(commandBuffer, backgroundShader.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    backgroundShader.initialized = true;
-    backgroundShader.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-}
-
-void Gui::recordCustomShaderPass(VkCommandBuffer commandBuffer){
-    if (customShader.pipeline == VK_NULL_HANDLE) {
-        return;
-    }
-
-    VkExtent2D extent = getCustomShaderExtent();
-    if (extent.width == 0 || extent.height == 0) {
-        return;
-    }
-
-    VkImageSubresourceRange range{};
-    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-
-    VkImageLayout oldLayout = customShader.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    VkPipelineStageFlags srcStage = customShader.initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    Gpu::setImageLayout(commandBuffer, customShader.image, oldLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, range, srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-    VkClearValue clearValue{};
-    clearValue.color = {{0.05f, 0.04f, 0.10f, 1.0f}};
-
-    VkRenderPassBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    beginInfo.renderPass = customShader.renderPass;
-    beginInfo.framebuffer = customShader.framebuffer;
-    beginInfo.renderArea.offset = {0, 0};
-    beginInfo.renderArea.extent = extent;
-    beginInfo.clearValueCount = 1;
-    beginInfo.pClearValues = &clearValue;
-
-    vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    VkViewport viewport{};
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.extent = extent;
-    scissor.offset = {0, 0};
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, customShader.pipeline);
-    //float time = static_cast<float>(ImGui::GetTime());
-    pc.resolution = glm::vec2(static_cast<float>(extent.width), static_cast<float>(extent.height));
-    pc.u_time     = (float)ImGui::GetTime();
-    pc.pad        = 0.0f;
-    vkCmdPushConstants(commandBuffer, customShader.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pc);
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-    vkCmdEndRenderPass(commandBuffer);
-
-    Gpu::setImageLayout(commandBuffer, customShader.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    customShader.initialized = true;
-    customShader.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-}
-
-void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
-#if defined(__linux__)
-    if (!webcam.isAvailable()) { return; }
-    if (videoFeed.image == VK_NULL_HANDLE) {
-        initVideoFeedResources(vulkanDevice);
-        if (videoFeed.image == VK_NULL_HANDLE) { return; }
-    }
-
-    if (!webcam.captureFrame(videoFrameData)) { return; }
-    if (videoFrameData.empty()) { return; }
-
-    VkDeviceSize requiredSize = static_cast<VkDeviceSize>(videoFrameData.size());
-    if ((videoStagingBuffer.buffer == VK_NULL_HANDLE) || (requiredSize > videoStagingBufferSize)) {
-        videoStagingBuffer.unmap();
-        videoStagingBuffer.destroy();
-        VK_CHECK(vulkanDevice.createBuffer(
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            &videoStagingBuffer,
-            requiredSize,
-            nullptr));
-        videoStagingBufferSize = requiredSize;
-    }
-
-    VK_CHECK(videoStagingBuffer.map(requiredSize, 0));
-    memcpy(videoStagingBuffer.mapped, videoFrameData.data(), static_cast<size_t>(requiredSize));
-    videoStagingBuffer.unmap();
-
-    VkCommandBuffer copyCmd = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
-    VkImageSubresourceRange range{};
-    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-
-    VkImageLayout oldLayout = videoFeed.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    VkPipelineStageFlags srcStage = videoFeed.initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    Gpu::setImageLayout(copyCmd, videoFeed.image, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    VkBufferImageCopy region{};
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.layerCount = 1;
-    region.imageExtent.width = videoFeed.extent.width;
-    region.imageExtent.height = videoFeed.extent.height;
-    region.imageExtent.depth = 1;
-    vkCmdCopyBufferToImage(copyCmd, videoStagingBuffer.buffer, videoFeed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-    Gpu::setImageLayout(copyCmd, videoFeed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    vulkanDevice.flushCommandBuffer(copyCmd, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
-
-    videoFeed.initialized = true;
-    videoFeed.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    ui.videoTextureSize = ImVec2(static_cast<float>(videoFeed.extent.width), static_cast<float>(videoFeed.extent.height));
-#else
-    (void)vulkanDevice;
-#endif
 }
 
 VkExtent2D Gui::getCustomShaderExtent() const {
@@ -2149,6 +1353,12 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     for (int32_t i = 0; i < drawCmdBuffers.size(); ++i) {
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
+        
+        // Render 3D scene to off-screen framebuffer first
+        record3DScenePass(drawCmdBuffers[i], gpu);
+        
+        recordBackgroundPass(drawCmdBuffers[i]);
+        recordCustomShaderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};
         viewport.width = width;
@@ -2283,6 +1493,509 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer){
         vertexOffset += cmd_list->VtxBuffer.Size;
       }
     }
+}
+
+void Gui::destroyVideoFeedResources(bool releaseDescriptorSet){
+    webcam.shutdown();
+
+    if (videoStagingBuffer.buffer != VK_NULL_HANDLE) {
+        videoStagingBuffer.unmap();
+        videoStagingBuffer.destroy();
+        videoStagingBufferSize = 0;
+    }
+
+    if (releaseDescriptorSet && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE && videoFeed.descriptorSet != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &videoFeed.descriptorSet);
+        videoFeed.descriptorSet = VK_NULL_HANDLE;
+    }
+
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (videoFeed.view != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, videoFeed.view, nullptr); }
+        if (videoFeed.image != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, videoFeed.image, nullptr); }
+        if (videoFeed.memory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, videoFeed.memory, nullptr); }
+    }
+
+    videoFeed.view = VK_NULL_HANDLE;
+    videoFeed.image = VK_NULL_HANDLE;
+    videoFeed.memory = VK_NULL_HANDLE;
+    videoFeed.extent = {0, 0};
+    videoFeed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    videoFeed.initialized = false;
+
+    videoFrameData.clear();
+    ui.videoTexture = static_cast<ImTextureID>(0);
+    ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+}
+
+void Gui::initRenderedFrameResources(VulkanDevice vulkanDevice, VkExtent2D extent){
+    if (renderedFrame.initialized) { return; }
+    
+    renderedFrame.extent = extent;
+    
+    // Create image
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.extent.width = extent.width;
+    imageInfo.extent.height = extent.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    
+    VK_CHECK(vkCreateImage(deviceHandle, &imageInfo, nullptr, &renderedFrame.image));
+    
+    // Allocate memory
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(deviceHandle, renderedFrame.image, &memReqs);
+    
+    VkMemoryAllocateInfo memAllocInfo{};
+    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memAllocInfo.allocationSize = memReqs.size;
+    VkBool32 memTypeFound = VK_FALSE;
+    memAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memTypeFound);
+    
+    VK_CHECK(vkAllocateMemory(deviceHandle, &memAllocInfo, nullptr, &renderedFrame.memory));
+    VK_CHECK(vkBindImageMemory(deviceHandle, renderedFrame.image, renderedFrame.memory, 0));
+    
+    // Create image view
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = renderedFrame.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    
+    VK_CHECK(vkCreateImageView(deviceHandle, &viewInfo, nullptr, &renderedFrame.view));
+    
+    // Create sampler
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 1.0f;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    
+    VK_CHECK(vkCreateSampler(deviceHandle, &samplerInfo, nullptr, &renderedFrame.sampler));
+    
+    // Transition image layout
+    VkCommandBuffer cmdBuffer = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
+    
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = renderedFrame.image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    vulkanDevice.flushCommandBuffer(cmdBuffer, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
+    
+    renderedFrame.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    
+    // Create descriptor set
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = guiDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &guiDescriptorSetLayout;
+    
+    VK_CHECK(vkAllocateDescriptorSets(deviceHandle, &allocInfo, &renderedFrame.descriptorSet));
+    
+    // Update descriptor set
+    VkDescriptorImageInfo imageDescriptor{};
+    imageDescriptor.sampler = renderedFrame.sampler;
+    imageDescriptor.imageView = renderedFrame.view;
+    imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    
+    VkWriteDescriptorSet writeDescriptor{};
+    writeDescriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptor.dstSet = renderedFrame.descriptorSet;
+    writeDescriptor.dstBinding = 0;
+    writeDescriptor.dstArrayElement = 0;
+    writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDescriptor.descriptorCount = 1;
+    writeDescriptor.pImageInfo = &imageDescriptor;
+    
+    vkUpdateDescriptorSets(deviceHandle, 1, &writeDescriptor, 0, nullptr);
+    
+    // Create render pass for off-screen rendering
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+    
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkAttachmentDescription renderPassAttachments[2] = {colorAttachment, depthAttachment};
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 2;  // Color + Depth
+    renderPassInfo.pAttachments = renderPassAttachments;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+    
+    VK_CHECK(vkCreateRenderPass(deviceHandle, &renderPassInfo, nullptr, &renderedFrame.renderPass));
+
+    // Create depth image
+    VkImageCreateInfo depthImageInfo{};
+    depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
+    depthImageInfo.extent.width = extent.width;
+    depthImageInfo.extent.height = extent.height;
+    depthImageInfo.extent.depth = 1;
+    depthImageInfo.mipLevels = 1;
+    depthImageInfo.arrayLayers = 1;
+    depthImageInfo.format = VK_FORMAT_D32_SFLOAT;
+    depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    depthImageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    depthImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VK_CHECK(vkCreateImage(deviceHandle, &depthImageInfo, nullptr, &renderedFrame.depthImage));
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(deviceHandle, renderedFrame.depthImage, &memRequirements);
+
+    VkMemoryAllocateInfo depthAllocInfo{};
+    depthAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    depthAllocInfo.allocationSize = memRequirements.size;
+    depthAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+
+    VK_CHECK(vkAllocateMemory(deviceHandle, &depthAllocInfo, nullptr, &renderedFrame.depthMemory));
+    VK_CHECK(vkBindImageMemory(deviceHandle, renderedFrame.depthImage, renderedFrame.depthMemory, 0));
+
+    VkImageViewCreateInfo depthViewInfo{};
+    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthViewInfo.image = renderedFrame.depthImage;
+    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthViewInfo.format = VK_FORMAT_D32_SFLOAT;
+    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    depthViewInfo.subresourceRange.baseMipLevel = 0;
+    depthViewInfo.subresourceRange.levelCount = 1;
+    depthViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthViewInfo.subresourceRange.layerCount = 1;
+
+    VK_CHECK(vkCreateImageView(deviceHandle, &depthViewInfo, nullptr, &renderedFrame.depthView));
+
+    // Create framebuffer
+    VkImageView framebufferAttachments[2] = {renderedFrame.view, renderedFrame.depthView};
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = renderedFrame.renderPass;
+    framebufferInfo.attachmentCount = 2;
+    framebufferInfo.pAttachments = framebufferAttachments;
+    framebufferInfo.width = extent.width;
+    framebufferInfo.height = extent.height;
+    framebufferInfo.layers = 1;
+
+    VK_CHECK(vkCreateFramebuffer(deviceHandle, &framebufferInfo, nullptr, &renderedFrame.framebuffer));
+    
+    renderedFrame.initialized = true;
+    logs("[+] Initialized rendered frame resources: " << extent.width << "x" << extent.height);
+}
+
+void Gui::updateRenderedFrame(VulkanDevice vulkanDevice, VkImage sourceImage, VkExtent2D extent){
+    if (!renderedFrame.initialized) {
+        initRenderedFrameResources(vulkanDevice, extent);
+    }
+    
+    // Create command buffer for copying
+    VkCommandBuffer cmdBuffer = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
+    
+    // Transition source image to transfer source
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = sourceImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Transition destination image to transfer destination
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.image = renderedFrame.image;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Blit (copy and scale) image
+    VkImageBlit blit{};
+    blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.srcSubresource.layerCount = 1;
+    blit.srcOffsets[1].x = extent.width;
+    blit.srcOffsets[1].y = extent.height;
+    blit.srcOffsets[1].z = 1;
+    blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.dstSubresource.layerCount = 1;
+    blit.dstOffsets[1].x = renderedFrame.extent.width;
+    blit.dstOffsets[1].y = renderedFrame.extent.height;
+    blit.dstOffsets[1].z = 1;
+    
+    vkCmdBlitImage(cmdBuffer, sourceImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                   renderedFrame.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+    
+    // Transition destination image back to shader read
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.image = renderedFrame.image;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    // Transition source image back to present
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.image = sourceImage;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    
+    vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    vulkanDevice.flushCommandBuffer(cmdBuffer, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
+}
+
+void Gui::destroyRenderedFrameResources(bool releaseDescriptorSet){
+    if (releaseDescriptorSet && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE && renderedFrame.descriptorSet != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &renderedFrame.descriptorSet);
+        renderedFrame.descriptorSet = VK_NULL_HANDLE;
+    }
+    
+    if (deviceHandle != VK_NULL_HANDLE) {
+        if (renderedFrame.framebuffer != VK_NULL_HANDLE) { vkDestroyFramebuffer(deviceHandle, renderedFrame.framebuffer, nullptr); }
+        if (renderedFrame.renderPass != VK_NULL_HANDLE) { vkDestroyRenderPass(deviceHandle, renderedFrame.renderPass, nullptr); }
+        if (renderedFrame.sampler != VK_NULL_HANDLE) { vkDestroySampler(deviceHandle, renderedFrame.sampler, nullptr); }
+        if (renderedFrame.view != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, renderedFrame.view, nullptr); }
+        if (renderedFrame.image != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, renderedFrame.image, nullptr); }
+        if (renderedFrame.memory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, renderedFrame.memory, nullptr); }
+        if (renderedFrame.depthView != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, renderedFrame.depthView, nullptr); }
+        if (renderedFrame.depthImage != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, renderedFrame.depthImage, nullptr); }
+        if (renderedFrame.depthMemory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, renderedFrame.depthMemory, nullptr); }
+    }
+    
+    renderedFrame.framebuffer = VK_NULL_HANDLE;
+    renderedFrame.renderPass = VK_NULL_HANDLE;
+    renderedFrame.sampler = VK_NULL_HANDLE;
+    renderedFrame.view = VK_NULL_HANDLE;
+    renderedFrame.image = VK_NULL_HANDLE;
+    renderedFrame.memory = VK_NULL_HANDLE;
+    renderedFrame.depthView = VK_NULL_HANDLE;
+    renderedFrame.depthImage = VK_NULL_HANDLE;
+    renderedFrame.depthMemory = VK_NULL_HANDLE;
+    renderedFrame.extent = {0, 0};
+    renderedFrame.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    renderedFrame.initialized = false;
+}
+
+void Gui::record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu){
+    if (!renderedFrame.initialized || gpu == nullptr) { return; }
+    
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = renderedFrame.renderPass;
+    renderPassInfo.framebuffer = renderedFrame.framebuffer;
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = renderedFrame.extent;
+    
+    // Use clear color and depth from UI settings
+    std::array<VkClearValue, 2> clearValues;
+    clearValues[0].color = {{ui.renderSettings.sceneClearColor.r,
+                             ui.renderSettings.sceneClearColor.g,
+                             ui.renderSettings.sceneClearColor.b,
+                             ui.renderSettings.sceneClearColor.a}};
+    clearValues[1].depthStencil = {1.0f, 0};
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
+    
+    // Transition depth image layout
+    VkImageMemoryBarrier depthBarrier{};
+    depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    depthBarrier.image = renderedFrame.depthImage;
+    depthBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    depthBarrier.subresourceRange.baseMipLevel = 0;
+    depthBarrier.subresourceRange.levelCount = 1;
+    depthBarrier.subresourceRange.baseArrayLayer = 0;
+    depthBarrier.subresourceRange.layerCount = 1;
+    depthBarrier.srcAccessMask = 0;
+    depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Set viewport and scissor for off-screen rendering
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(renderedFrame.extent.width);
+    viewport.height = static_cast<float>(renderedFrame.extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = renderedFrame.extent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    
+    glm::vec3 pos = ui.renderSettings.modelPosition;
+    glm::vec3 rot = ui.renderSettings.modelRotation;
+    glm::vec3 scl = (ui.renderSettings.modelScale3D == glm::vec3(0.0f))
+                        ? glm::vec3(std::max(0.0001f, ui.renderSettings.modelScale))
+                        : ui.renderSettings.modelScale3D;
+
+    glm::mat4 transform(1.0f);
+    transform = glm::translate(transform, pos);
+    transform = glm::rotate(transform, glm::radians(rot.y), glm::vec3(0.0f, 1.0f, 0.0f));
+    transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    if (rot.x != 0.0f)
+        transform = glm::rotate(transform, glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
+    if (rot.z != 0.0f)
+        transform = glm::rotate(transform, glm::radians(rot.z), glm::vec3(0.0f, 0.0f, 1.0f));
+    transform = glm::scale(transform, scl);
+
+    gpu->renderGLTFModel(commandBuffer, transform, false);
+    
+    // Render OSM models with proper scale and position relative to car
+    if (!gpu->osmModels.empty()) {
+        glm::mat4 osmTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0));
+        // Flip Y axis to correct orientation
+        osmTransform = glm::scale(osmTransform, glm::vec3(1.0f, -1.0f, 1.0f));
+        
+        // Bind pipeline for OSM rendering
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline);
+        
+        // Bind OSM descriptor set with default white texture to prevent sampling car textures
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                                gpu->pipelineLayout, 0, 1, &gpu->osmDescriptorSet, 0, nullptr);
+        
+        for (auto& osmModel : gpu->osmModels) {
+            if (osmModel.meshes.empty()) continue;
+            
+            for (auto& mesh : osmModel.meshes) {
+                if (mesh.vertexBuffer.buffer == VK_NULL_HANDLE || mesh.indexBuffer.buffer == VK_NULL_HANDLE) continue;
+                
+                // Bind vertex and index buffers
+                VkDeviceSize offsets[1] = {0};
+                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh.vertexBuffer.buffer, offsets);
+                vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+                
+                // Push constants for transform
+                struct {
+                    glm::mat4 transform;
+                    glm::vec4 effectColor;
+                    glm::vec4 materialColor;
+                    int32_t effectType;
+                } pushConstants;
+                
+                pushConstants.transform = osmTransform;
+                pushConstants.effectColor = glm::vec4(1.0f);
+                pushConstants.materialColor = glm::vec4(1.0f);
+                pushConstants.effectType = 0;
+                
+                vkCmdPushConstants(
+                    commandBuffer,
+                    gpu->pipelineLayout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    0,
+                    sizeof(pushConstants),
+                    &pushConstants);
+                
+                // Draw
+                vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, 0, 0, 0);
+            
+            }
+        }
+    }
+    
+    vkCmdEndRenderPass(commandBuffer);
 }
 
 #ifdef XCB

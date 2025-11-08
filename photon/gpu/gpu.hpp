@@ -9,7 +9,6 @@
 #include "vulkanSwapchain.hpp"
 #include "vulkanBuffer.hpp"
 #include "vulkanGLTF.hpp"
-#include "vulkanGLTF.hpp"
 #include "camera.hpp"
 
 #define VK_CHECK(x)                                                                                              \
@@ -121,7 +120,6 @@ public:
     void setupLayoutsAndDescriptors(VkDevice device);
     void preparePipelines(VkDevice device);
     bool loadGLTFModel(const std::string &filename);
-    void renderGLTFModel(VkCommandBuffer commandBuffer);
     void renderGLTFModel(VkCommandBuffer commandBuffer, glm::mat4 transform, bool wireframe);
     void setupMeshDescriptors();
     void prepareRenderingPipelines();
