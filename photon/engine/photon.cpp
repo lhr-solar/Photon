@@ -9,31 +9,8 @@
 #include "../gui/gui.hpp"
 #include "imgui.h"
 
-Photon::Photon(){ 
-    logs("[+] Constructing Photon"); 
-    gui.ui.networkINTF = &network;
-};
-Photon::~Photon(){ 
-    logs("[!] Destructuring Photon");
-    
-    // wait for OSM loading thread
-    if (osmLoadThread.joinable()) {
-        osmLoadThread.join();
-    }
-    
-    for (auto& model : gpu.osmModels) {
-        for (auto& mesh : model.meshes) {
-            mesh.vertexBuffer.destroy();
-            mesh.indexBuffer.destroy();
-        }
-    }
-    gpu.osmModels.clear();
-    
-    gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
-    if(gpu.descriptorPool != VK_NULL_HANDLE)
-        vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gpu.descriptorPool, nullptr);
-
-};
+Photon::Photon() { logs("[+] Constructing Photon"); };
+Photon::~Photon(){ logs("[!] Destructuring Photon"); }
 
 void Photon::prepareScene(){
 #ifdef XCB
@@ -54,14 +31,6 @@ void Photon::prepareScene(){
    gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
    gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
    gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
-   
-   // Create default white texture for models without textures
-   gpu.createDefaultWhiteTexture();
-   
-   //gpu.loadGLTFModel("models/untitled.gltf");
-   gpu.loadGLTFModel("models/daybreak.gltf");
-   gpu.setupMeshDescriptors();
-   
    gui.prepareImGui();
    gui.initResources(gpu.vulkanDevice, gpu.renderPass);
    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, &gpu);
@@ -115,90 +84,20 @@ void Photon::renderLoop(){
         nextFrame();
     }
 #endif
-    vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
-}
-
-void Photon::nextFrame(){
-    auto tStart = std::chrono::high_resolution_clock::now();
-	if (gui.viewUpdated){ gui.viewUpdated = false; }
-	
-	// OSM loaded
-	if (gui.ui.renderSettings.osmFetchRequested && !osmLoadInProgress) {
-	    gui.ui.renderSettings.osmFetchRequested = false;
-	    osmLoadInProgress = true;
-	    
-	    // join thread
-	    if (osmLoadThread.joinable()) {
-	        osmLoadThread.join();
-	    }
-	    
-
-	    osmLoadThread = std::thread([this]() {
-	        logs("[OSM] Starting fetch in background thread");
-	        OSMConfig config;
-	        config.centerLat = gui.ui.renderSettings.osmLat;
-	        config.centerLon = gui.ui.renderSettings.osmLon;
-	        config.radiusMeters = gui.ui.renderSettings.osmRadius;
-	        
-	        bool success = osmLoader.fetchAndBuild(config);
-	        
-	        if (success) {
-	            for (auto& model : gpu.osmModels) {
-	                for (auto& mesh : model.meshes) {
-	                    mesh.vertexBuffer.destroy();
-	                    mesh.indexBuffer.destroy();
-	                }
-	            }
-	            gpu.osmModels.clear();
-	            
-	        
-	            osmLoader.uploadToGPU(&gpu.vulkanDevice, gpu.osmModels);
-	            gpu.osmStatus = osmLoader.getStatus();
-	            logs("[+] OSM load complete: " << gpu.osmModels.size() << " models");
-	        } else {
-	            gpu.osmStatus = "OSM fetch failed: " + osmLoader.getStatus();
-	            logs("[!] " << gpu.osmStatus);
-	        }	        osmLoadInProgress = false;
-	    });
-	}
-	
-    // Update camera to follow car and look at it (car position controlled via ImGui sliders)
-    {
-        const float followDistance = 10.0f; // meters behind
-        const float followHeight   = -10.0f;  // meters above car's roof
-
-        glm::vec3 carPos = gui.ui.renderSettings.modelPosition;
-        float yawDeg = gui.ui.renderSettings.modelRotation.y;
-
-        // Build the same rotation stack used for the GLTF draw so our camera basis matches
-        glm::mat4 rotMatrix(1.0f);
-        rotMatrix = glm::rotate(rotMatrix, glm::radians(yawDeg), glm::vec3(0.0f, 1.0f, 0.0f));
-        rotMatrix = glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-
-        // Derive the model-space forward vector after all rotations (Z-forward in GLTF)
-        glm::vec3 forward = glm::normalize(glm::vec3(rotMatrix * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f)));
-        glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
-
-        // Position the camera a fixed distance behind and above the car
-        glm::vec3 camPos = carPos - forward * followDistance + worldUp * followHeight;
-        gpu.camera.position = camPos;
-
-        // Aim the camera at the car using a stable world-up vector to avoid roll
-        gpu.camera.setViewTarget(carPos, worldUp);
-    }
-	
-	render();
-    gpu.frameCounter++;
-    auto tEnd = std::chrono::high_resolution_clock::now();
-    double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-    if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
-    auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-    gpu.frameTimer = frameTime / 1000.0f;
-    
-    if (gpu.camera.moving()) { gui.viewUpdated = true; }
-    if(!paused){
-        gpu.timer += gpu.timerSpeed * gpu.frameTimer;
-        if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
+        render();
+        gpu.frameCounter++;
+        auto tEnd = std::chrono::high_resolution_clock::now();
+        double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+        if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime)));}
+        auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+        gpu.frameTimer = tDiff / 1000.0f;
+        gpu.camera.update(gpu.frameTimer); 
+        if (gpu.camera.moving()) { gui.viewUpdated = true; }
+        if(!paused){
+            gpu.timer += gpu.timerSpeed * gpu.frameTimer;
+			if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
+        }
+        std::cout << "\r" << frameTime << std::flush;
     }
 }
 
@@ -213,8 +112,7 @@ void Photon::render(){
 
 void Photon::draw(){
     prepareFrame();
-    if (!prepared) { return; }
-    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, &gpu);
+    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
     VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));

@@ -9,6 +9,7 @@
 #include "vulkanSwapchain.hpp"
 #include "vulkanBuffer.hpp"
 #include "vulkanGLTF.hpp"
+#include "vulkanGLTF.hpp"
 #include "camera.hpp"
 
 #define VK_CHECK(x)                                                                                              \

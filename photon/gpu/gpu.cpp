@@ -19,6 +19,13 @@
 #include "scene_frag_spv.hpp"
 #include "scene_vert_spv.hpp"
 
+
+namespace tinygltf {
+    class Model;
+    struct Primitive;
+    struct Node;
+}
+
 namespace tinygltf
 {
     class Model;
@@ -74,13 +81,12 @@ bool Gpu::initVulkan()
     return true;
 }
 
-VkResult Gpu::createInstance()
-{
-    std::vector<const char *> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
+VkResult Gpu::createInstance(){
+    std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
 #ifdef XCB
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
-#if defined(VK_KHR_WIN32_SURFACE_EXTENSION_NAME)
+#ifdef _WIN32
     instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #endif
     // grab available extensions
@@ -1348,4 +1354,54 @@ void Gpu::createDefaultWhiteTexture()
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 2, osmWrites, 0, nullptr);
 
     logs("[+] Created OSM descriptor set with default white texture");
+}
+
+bool Gpu::loadGLTFModel(const std::string& filename)
+{
+    // Set the device for the GLTF loader
+    gltfLoader.device = &vulkanDevice;
+    
+    // Load the GLTF model
+    bool success = gltfLoader.loadglTFFile(filename);
+    
+    if (success) {
+        logs("[+] Successfully loaded GLTF model: " << filename);
+        logs("[+] Model contains " << gltfLoader.model.meshes.size() << " meshes");
+        logs("[+] Model contains " << gltfLoader.model.nodes.size() << " nodes");
+    } else {
+        logs("[!] Failed to load GLTF model: " << filename);
+    }
+    
+    return success;
+}
+
+void Gpu::renderGLTFModel(VkCommandBuffer commandBuffer)
+{
+    if (gltfLoader.model.meshes.empty()) {
+        return; // No model loaded
+    }
+    
+    // Bind the pipeline
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    
+    // Bind descriptor sets
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    
+    // Render all meshes
+    for (const auto& mesh : gltfLoader.model.meshes) {
+        if (mesh.vertexCount == 0) continue;
+        
+        // Bind vertex buffer
+        VkBuffer vertexBuffers[] = {mesh.vertexBuffer.buffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        
+        // Bind index buffer and draw
+        if (mesh.indexCount > 0) {
+            vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, 0, 0, 0);
+        } else {
+            vkCmdDraw(commandBuffer, mesh.vertexCount, 1, 0, 0);
+        }
+    }
 }

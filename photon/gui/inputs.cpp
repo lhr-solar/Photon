@@ -3,7 +3,6 @@
 #include "../engine/include.hpp"
 
 void Inputs::handleMouseMove(int32_t x, int32_t y){
-    mouseState.lastPosition = mouseState.position;
     mouseState.position = glm::vec2(static_cast<float>(x), static_cast<float>(y));
     if (ImGui::GetCurrentContext()) {
         ImGuiIO& io = ImGui::GetIO();
@@ -131,3 +130,4 @@ ImGuiKey Inputs::translateWin32Key(uint32_t key){
     return ImGuiKey_None;
 }
 #endif
+

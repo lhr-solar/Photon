@@ -6,7 +6,10 @@
 #include <glm/glm.hpp>
 #include <array>
 #include <vector>
+#include <vector>
 #include <vulkan/vulkan.h>
+#include "ui.hpp"
+#include "inputs.hpp"
 #include "ui.hpp"
 #include "inputs.hpp"
 #include "../gpu/vulkanBuffer.hpp"
@@ -35,6 +38,11 @@ public:
     HWND window;
 #endif
     UI ui;
+#ifdef WIN
+    HINSTANCE windowInstance;
+    HWND window;
+#endif
+    UI ui;
 
     uint32_t width = 1280;
     uint32_t height = 720;
@@ -50,6 +58,7 @@ public:
     struct{
         bool fullscreen = false;
         bool vsync = false;
+        bool transparent = true;
         bool transparent = true;
     } settings;
 
@@ -130,7 +139,11 @@ public:
     VkImageView fontView = VK_NULL_HANDLE;
 
     VkSampler sampler = VK_NULL_HANDLE;
+    VkSampler sampler = VK_NULL_HANDLE;
 
+    VkDescriptorPool guiDescriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout guiDescriptorSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSet guiDescriptorSet = VK_NULL_HANDLE;
     VkDescriptorPool guiDescriptorPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout guiDescriptorSetLayout = VK_NULL_HANDLE;
     VkDescriptorSet guiDescriptorSet = VK_NULL_HANDLE;
@@ -138,13 +151,27 @@ public:
     VkPipelineCache guiPipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout guiPipelineLayout = VK_NULL_HANDLE;
     VkPipeline guiPipeline = VK_NULL_HANDLE;
+    VkPipelineCache guiPipelineCache = VK_NULL_HANDLE;
+    VkPipelineLayout guiPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline guiPipeline = VK_NULL_HANDLE;
 
     VulkanBuffer vertexBuffer;
     int32_t vertexCount = 0;
+    int32_t vertexCount = 0;
     VulkanBuffer indexBuffer;
+    int32_t indexCount = 0;
     int32_t indexCount = 0;
 
     bool quit = false;
+
+
+    struct alignas(16) PushConstants {
+    glm::vec2 resolution;
+    float     u_time;
+    float     pad;
+    };
+
+    PushConstants pc{};
 
 
     struct alignas(16) PushConstants {
@@ -160,6 +187,7 @@ public:
 
     std::string getWindowTitle()const;
     void prepareImGui();
+
 
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
 
@@ -189,6 +217,19 @@ public:
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, Gpu* gpu);
     void updateBuffers(VulkanDevice vulkanDevice);
     void drawFrame(VkCommandBuffer commandBuffer);
+
+#ifdef XCB
+    void initWindow();
+    void initxcbConnection();
+    void setupWindow();
+    void handleEvent(const xcb_generic_event_t *event);
+#endif
+#ifdef WIN
+    void initWindow(HINSTANCE hInstance);
+    LRESULT handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+#endif
+
 
 #ifdef XCB
     void initWindow();
