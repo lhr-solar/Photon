@@ -8,6 +8,7 @@
 #include "gpu.hpp"
 #include "vulkanGLTF.hpp"
 #include "../engine/include.hpp"
+#include "vulkanShader.hpp"
 
 #include "scene_frag_spv.hpp"
 #include "scene_vert_spv.hpp"
@@ -120,10 +121,9 @@ VkResult Gpu::setupGPU(){
     vulkanDevice.initDevice(physicalDevice);
 
     // TODO if we want to run headless, add interfaces for these, also consider your queues and extensions
-    useSwapchain = true;
     requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT; 
     // TODO if we want a dedicated transfer queue + better queue selection, improve the queue selection in the following
-    VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, useSwapchain, requestedQueueTypes));
+    VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, requestedQueueTypes));
 
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.graphics, 0, &vulkanDevice.graphicsQueue);
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.compute, 1, &vulkanDevice.computeQueue);
@@ -503,66 +503,12 @@ void Gpu::preparePipelines(VkDevice device){
     pipelineCreateInfo.pStages             = shaderStages.data();
     pipelineCreateInfo.pVertexInputState   = Vertex::getPipelineVertexInputState({VertexComponent::Position, VertexComponent::Normal, VertexComponent::Color});
 
-    shaderStages[0] = loadShader(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, device);
-    shaderStages[1] = loadShader(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
+    shaderStages[0] = VulkanShader::loadShaderFromMemory(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, device);
+    shaderStages[1] = VulkanShader::loadShaderFromMemory(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
 
     VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
     logs("[+] Prepared pipelines with stage count " << pipelineCreateInfo.stageCount);
 }
-
-VkShaderModule loadShaderFromMemory(const uint32_t* code, size_t size, VkDevice device){
-    VkShaderModule shaderModule;
-    VkShaderModuleCreateInfo moduleCreateInfo{};
-    moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    moduleCreateInfo.pNext = nullptr;
-    moduleCreateInfo.flags = 0;
-    moduleCreateInfo.codeSize = size;
-    moduleCreateInfo.pCode = code;
-    VK_CHECK(vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &shaderModule));
-    return shaderModule;
-}
-
-// TODO: refactor this to retain shader modules in memory, so we don't have to re-load at runtime
-VkPipelineShaderStageCreateInfo Gpu::loadShader(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device){
-    VkPipelineShaderStageCreateInfo shaderStage = {};
-    shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStage.stage = stage;
-    shaderStage.module = loadShaderFromMemory(code, size, device);
-    shaderStage.pName = "main";
-    return shaderStage;
-};
-
-#include <fstream>
-#include <sstream>
-std::string readFile(const std::string& path) {
-    std::ifstream file(path, std::ios::in | std::ios::binary);
-    if (!file.is_open())
-        throw std::runtime_error("Failed to open file: " + path);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
-
-VkShaderModule shaderModuleFromPath(std::string name, VkDevice device){
-    std::string code;
-    std::string outPath = "artifacts/assets/kernels/spirv/" + name + ".spv";
-    std::string kernelPath = "assets/kernels/" + name;
-    std::string cmd = "glslc " + kernelPath + " -o " + outPath;
-    std::system(cmd.data());
-    logs("[!] Loaded Shader from Path " << kernelPath);
-    code = readFile(outPath);
-    return loadShaderFromMemory((uint32_t*) code.data(), code.size(), device);
-}
-
-VkPipelineShaderStageCreateInfo Gpu::loadShaderFromPath(std::string path, VkShaderStageFlagBits stage, VkDevice device){
-    VkPipelineShaderStageCreateInfo shaderStage = {};
-    shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStage.stage = stage;
-    shaderStage.pName = "main";
-    shaderStage.module = shaderModuleFromPath(path, device);
-
-    return shaderStage;
-};
 
 // Create an image memory barrier for changing the layout of
 // an image and put it into an active command buffer

@@ -58,7 +58,6 @@ public:
     VkImageView fontView = VK_NULL_HANDLE;
 
     Inputs inputs;
-    Model vulkanModel;
 
     VkSampler sampler = VK_NULL_HANDLE;
 
@@ -102,8 +101,6 @@ public:
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
     void updateBuffers(VulkanDevice vulkanDevice);
     void drawFrame(VkCommandBuffer commandBuffer);
-
-    void loadModels();
 
 #ifdef XCB
     void initWindow();

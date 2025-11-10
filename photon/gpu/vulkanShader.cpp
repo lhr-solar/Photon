@@ -3,6 +3,17 @@
 #include "imgui.h"
 #include <array>
 #include <string>
+#include <fstream>
+#include <sstream>
+
+std::string VulkanShader::readFile(const std::string& path) {
+    std::ifstream file(path, std::ios::in | std::ios::binary);
+    if (!file.is_open())
+        throw std::runtime_error("Failed to open file: " + path);
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
 
 void VulkanShader::initShader(VkExtent2D extent, bool runtimeFrag, 
             uint32_t* vertexShader, size_t vertexShaderSize, 
@@ -164,11 +175,11 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
-    shaderStages[0] = Gpu::loadShader(vertexShader, vertexShaderSize, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
+    shaderStages[0] = loadShaderFromMemory(vertexShader, vertexShaderSize, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
     if(runtimeFrag == false){
-        shaderStages[1] = Gpu::loadShader(fragmentShader, fragmentShaderSize, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
+        shaderStages[1] = loadShaderFromMemory(fragmentShader, fragmentShaderSize, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
     } else {
-        shaderStages[1] = Gpu::loadShaderFromPath(fragmentShaderName, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
+        shaderStages[1] = loadShaderFromPath(fragmentShaderName, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
     }
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -273,7 +284,7 @@ void VulkanShader::recordShaderPass(VkCommandBuffer commandBuffer){
     Gpu::setImageLayout(commandBuffer, image, oldLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, range, srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     VkClearValue clearValue{};
-    clearValue.color = {{0.05f, 0.04f, 0.10f, 1.0f}};
+    clearValue.color = {{0.00f, 0.00f, 0.00f, 1.0f}};
 
     VkRenderPassBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -310,3 +321,45 @@ void VulkanShader::recordShaderPass(VkCommandBuffer commandBuffer){
     initialized = true;
     layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
+
+VkShaderModule shaderModuleFromMemory(const uint32_t* code, size_t size, VkDevice device){
+    VkShaderModule shaderModule;
+    VkShaderModuleCreateInfo moduleCreateInfo{};
+    moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    moduleCreateInfo.pNext = nullptr;
+    moduleCreateInfo.flags = 0;
+    moduleCreateInfo.codeSize = size;
+    moduleCreateInfo.pCode = code;
+    VK_CHECK(vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &shaderModule));
+    return shaderModule;
+}
+
+VkPipelineShaderStageCreateInfo VulkanShader::loadShaderFromMemory(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device){
+    VkPipelineShaderStageCreateInfo shaderStage = {};
+    shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStage.stage = stage;
+    shaderStage.module = shaderModuleFromMemory(code, size, device);
+    shaderStage.pName = "main";
+    return shaderStage;
+};
+
+VkShaderModule shaderModuleFromPath(std::string name, VkDevice device){
+    std::string code;
+    std::string outPath = "artifacts/assets/kernels/spirv/" + name + ".spv";
+    std::string kernelPath = "assets/kernels/" + name;
+    std::string cmd = "glslc " + kernelPath + " -o " + outPath;
+    std::system(cmd.data());
+    logs("[!] Loaded Shader from Path " << kernelPath);
+    code = VulkanShader::readFile(outPath);
+    return shaderModuleFromMemory((uint32_t*) code.data(), code.size(), device);
+}
+
+VkPipelineShaderStageCreateInfo VulkanShader::loadShaderFromPath(std::string path, VkShaderStageFlagBits stage, VkDevice device){
+    VkPipelineShaderStageCreateInfo shaderStage = {};
+    shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStage.stage = stage;
+    shaderStage.pName = "main";
+    shaderStage.module = shaderModuleFromPath(path, device);
+
+    return shaderStage;
+};

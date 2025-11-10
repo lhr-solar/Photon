@@ -109,6 +109,7 @@ bool Network::readSample(uint16_t canId, int64_t& outValue) {
     std::unique_lock<std::mutex> mapLock(sampleMapMutex);
     auto it = sampleMap.find(canId);
     if (it == sampleMap.end()) {
+        outValue = 0;
         return false;
     }
     sample* entry = it->second.get();

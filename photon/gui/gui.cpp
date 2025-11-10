@@ -23,6 +23,8 @@
 #include "custom_shader_vert_spv.hpp"
 #include "background_frag_spv.hpp"
 #include "background_vert_spv.hpp"
+#include "obj_frag_spv.hpp"
+#include "obj_vert_spv.hpp"
 #include "Satoshi_Medium_ttf.hpp"
 
 Gui::Gui(){};
@@ -33,6 +35,7 @@ Gui::~Gui(){
 #endif
     ui.backgroundShader.destroyResources(true, deviceHandle, guiDescriptorPool);
     ui.accretionShader.destroyResources(true, deviceHandle, guiDescriptorPool);
+    ui.triangle.destroyResources(true, deviceHandle, guiDescriptorPool);
     ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
     if (deviceHandle != VK_NULL_HANDLE) {
         if (guiDescriptorPool != VK_NULL_HANDLE) {
@@ -104,6 +107,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     deviceHandle = vulkanDevice.logicalDevice;
     ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
     ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
+    ui.triangle.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
     ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
@@ -269,6 +273,10 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
             guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
 
+    ui.triangle.initShader({512, 512}, false, (uint32_t *)obj_vert_spv, obj_vert_spv_size, (uint32_t*)obj_frag_spv, obj_frag_spv_size, "obj.frag");
+    ui.triangle.createResources(vulkanDevice, ui.triangle.extent, 
+            guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
+
     ui.videoSource.initVideoFeedResources(vulkanDevice, guiDescriptorPool, guiDescriptorSetLayout, sampler);
     logs("[+] Updated Gui Descriptor Sets ");
 
@@ -415,18 +423,12 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     /*... []*/
     pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
 
-    shaderStages[0] = Gpu::loadShader(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
-    shaderStages[1] = Gpu::loadShader(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
+    shaderStages[0] = VulkanShader::loadShaderFromMemory(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
+    shaderStages[1] = VulkanShader::loadShaderFromMemory(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
 
     vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
     logs("[+] Created Graphics Gui Pipeline ");
 }
-
-void Gui::loadModels(){
-    const uint32_t flags = PreTransformVertices | PreMultiplyVertexColors | FlipY;
-    vulkanModel.loadFromFile("NULL", VK_NULL_HANDLE, VK_NULL_HANDLE, 0, 0.0);
-
-};
 
 void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
     VkClearValue clearValues[2];
@@ -456,6 +458,12 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
                 guiDescriptorSetLayout, guiPipelineCache, sampler);
         ui.accretionShader.dirty = false;
     }
+    if (ui.triangle.dirty) {
+        ui.triangle.createResources(vulkanDevice, ui.triangle.extent, guiDescriptorPool, 
+                guiDescriptorSetLayout, guiPipelineCache, sampler);
+        ui.triangle.dirty = false;
+    }
+
 
     updateBuffers(vulkanDevice);
 
@@ -466,6 +474,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
         ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
         ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
+        ui.triangle.recordShaderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};
         viewport.width = width;
@@ -482,7 +491,6 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &rect2D);
 
         vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipelineLayout, 0, 1, &guiDescriptorSet, 0, nullptr);
-        vulkanModel.draw(drawCmdBuffers[i], 0, VK_NULL_HANDLE, 1);
 
         drawFrame(drawCmdBuffers[i]);
         vkCmdEndRenderPass(drawCmdBuffers[i]);
@@ -1133,6 +1141,4 @@ LRESULT Gui::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
 
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
-
-
 #endif

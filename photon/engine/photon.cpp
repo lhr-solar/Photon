@@ -36,7 +36,6 @@ void Photon::prepareScene(){
    gpu.setupRenderPass(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceFormat);
    gpu.createPipelineCache(gpu.vulkanDevice.logicalDevice);
    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.buffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
-   gui.loadModels();
    gpu.prepareUniformBuffers();
    gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
    gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);

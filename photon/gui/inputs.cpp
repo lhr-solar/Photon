@@ -1,4 +1,7 @@
 #include "inputs.hpp"
+#ifdef XCB
+#include <xcb/xcb.h>
+#endif
 
 #include "../engine/include.hpp"
 

@@ -60,7 +60,7 @@ VkResult VulkanDevice::initDevice(VkPhysicalDevice physicalDevice){
 };
 
 VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, std::vector<const char*> enabledExtensions, void* pNextChain, 
-                                            bool useSwapChain, VkQueueFlags requestedQueueTypes){
+                                            VkQueueFlags requestedQueueTypes){
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
     const float defaultQueuePriority(0.0f);
@@ -109,7 +109,7 @@ VkResult VulkanDevice::createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatu
 
     // create logical device representation
     std::vector<const char*> deviceExtensions(enabledExtensions); 
-    if (useSwapChain) deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
     VkDeviceCreateInfo deviceCreateInfo = {};
     deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

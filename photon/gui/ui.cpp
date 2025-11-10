@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include "console.hpp"
+#include "imgui_internal.h"
 #include "implot.h"
 
 void UI::build(){
@@ -12,147 +13,70 @@ void UI::build(){
     static bool flag = true;
     static Console console;
 
+
+    static Plot gyrX(0x400, "Gyroscope X", "GyrX");
+    static Plot gyrY(0x401, "Gyroscope Y", "GyrY");
+    static Plot gyrZ(0x402, "Gyroscope Z", "GyrZ");
+    static Plot accX(0x403, "Acceleration X", "AccX");
+    static Plot accY(0x404, "Acceleration Y", "AccY");
+    static Plot accZ(0x405, "Acceleration Z", "AccZ");
+    static Plot net(0x7ff, "network", "aws");
+
+
+    std::vector<Plot*> plots = {
+        &gyrX, &gyrY, &gyrZ,
+        &accX, &accY, &accZ, &net};
+
+    background();
+    basePlate();
     fpsWindow();
-    customBackground();
-//    customShaderWindow();
-//    console.Draw("Console", &flag);
-//    networkSamplePlot();
-    /*
-    imuWindow();
+    shaderWindow(accretionShader, "accretion window");
+    shaderWindow(triangle, "triangle window");
 
-    static std::vector<std::vector<double>> accX(2, std::vector<double>(1,0));
-    static std::vector<ImVec2> fx1;
-    defaultPlot(accX, fx1, 0x403, "Acceleration X", "AccX");
-
-    static std::vector<std::vector<double>> accY(2, std::vector<double>(1,0));
-    static std::vector<ImVec2> fx2;
-    defaultPlot(accY, fx2, 0x404, "Acceleration Y", "AccY");
-
-    static std::vector<std::vector<double>> accZ(2, std::vector<double>(1,0));
-    static std::vector<ImVec2> fx3;
-    defaultPlot(accZ, fx2, 0x405, "Acceleration Z", "AccZ");
-    */
-
-//    ImPlot::ShowDemoWindow();
-//    ImPlot3D::ShowDemoWindow();
-//    ImGui::ShowDemoWindow();
-
-    showVideoDisplay();
+    //procedural(plots);
     ImGui::Render();
 }
 
-void plotGlow(std::vector<double> xCoords, std::vector<double> yCoords, std::vector<ImVec2>& glowPts){
-    const int glowPasses = 2;
-    glowPts.resize(xCoords.size());
-    for (size_t i = 0; i < xCoords.size(); ++i)
-        glowPts[i] = ImPlot::PlotToPixels(ImPlotPoint(xCoords[i], yCoords[i]));
-
-    ImPlot::PushPlotClipRect();
-    ImDrawList* dl = ImPlot::GetPlotDrawList();
-    for (int pass = glowPasses - 1; pass >= 0; --pass) {
-        float thickness = 3.0f + pass * 2.5f;
-        float alpha     = 0.12f - pass * 0.02f;
-        ImU32 col = ImGui::GetColorU32(ImVec4(0.8f, 0.8f, 0.8f, alpha));
-        dl->AddPolyline(glowPts.data(), (int)glowPts.size(), col, ImDrawFlags_None, thickness);
-    } ImPlot::PopPlotClipRect();
-}
-
-void UI::defaultPlot(std::vector<std::vector<double>>& data, std::vector<ImVec2>& fx, int canID, const char* windowName, const char* plotName){
-    int64_t val;
+void UI::procedural(std::vector<Plot*> plots){
     ImGuiIO &io = ImGui::GetIO();
-    float deltaTime = io.DeltaTime;
-    double maxTime = 5.0;
-    auto prune = [maxTime](std::vector<std::vector<double>>& series){
-        while((series[0].size() > 1) && ((series[0].back() - series[0].front()) > maxTime)){
-            series[0].erase(series[0].begin());
-            series[1].erase(series[1].begin());
+    ImVec2 displaySize = io.DisplaySize;
+    ImVec2 windowSize = ImVec2(displaySize.x / 3.0, displaySize.y / 3.0);
+    ImVec2 pos = ImVec2(0,0);
+    for(int i = 0; i < plots.size(); i++){
+        ImGui::SetNextWindowSize(windowSize, ImGuiCond_Always);
+        if(pos.x > (displaySize.x - windowSize.x + 1.0)){
+            pos.x = 0.0;
+            pos.y = pos.y + windowSize.y;
         }
-    };
-    networkINTF->readSample(canID, val);
-    prune(data);
-    data[0].push_back(data[0].back() + deltaTime);
-    data[1].push_back((double)val);
-
-    ImGuiWindowFlags flags = 0;
-    ImGui::SetNextWindowSize(ImVec2(600.0f, 350.0f), ImGuiCond_FirstUseEver);
-    if(ImGui::Begin(windowName, NULL, flags)){
-        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, data[0].back() - 5.0), data[0].back(), ImPlotCond_Always);
-        ImPlot::SetNextAxisLimits(ImAxis_Y1, -3000, 3000, ImPlotCond_Always);
-        if(ImPlot::BeginPlot(plotName)){
-            ImPlot::PlotLine(plotName, data[0].data(), data[1].data(), data[0].size());
-            //plotGlow(data[0], data[1], fx);
-            ImPlot::EndPlot();
-        }
-    } 
-    ImGui::End();
-}
-
-void UI::imuWindow(){
-    static std::vector<std::vector<double>> gyrX(2, std::vector<double>(1,0));
-    static std::vector<std::vector<double>> gyrY(2, std::vector<double>(1,0));
-    static std::vector<std::vector<double>> gyrZ(2, std::vector<double>(1,0));
-
-    int64_t val;
-    ImGuiIO &io = ImGui::GetIO();
-    float deltaTime = io.DeltaTime;
-    double maxTime = 5.0;
-
-    auto prune = [maxTime](std::vector<std::vector<double>>& series){
-        while((series[0].size() > 1) && ((series[0].back() - series[0].front()) > maxTime)){
-            series[0].erase(series[0].begin());
-            series[1].erase(series[1].begin());
-        }
-    };
-
-    networkINTF->readSample(0x0400, val);
-    prune(gyrX);
-    gyrX[0].push_back(gyrX[0].back() + deltaTime);
-    gyrX[1].push_back((double)val);
-
-    networkINTF->readSample(0x0401, val);
-    prune(gyrY);
-    gyrY[0].push_back(gyrY[0].back() + deltaTime);
-    gyrY[1].push_back((double)val);
-
-    networkINTF->readSample(0x0402, val);
-    prune(gyrZ);
-    gyrZ[0].push_back(gyrZ[0].back() + deltaTime);
-    gyrZ[1].push_back((double)val);
-
-    ImGuiWindowFlags flags = 0;
-    ImGui::SetNextWindowSize(ImVec2(600.0f, 350.0f), ImGuiCond_FirstUseEver);
-    if(ImGui::Begin("IMU Data", NULL, flags)){
-
-        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, gyrX[0].back() - 5.0), gyrX[0].back(), ImPlotCond_Always);
-        ImPlot::SetNextAxisLimits(ImAxis_Y1, -300000, 300000, ImPlotCond_Always);
-        if(ImPlot::BeginPlot("##Gyro X")){
-            //static std::vector<ImVec2> glowPts;
-            ImPlot::PlotLine("Gyro X", gyrX[0].data(), gyrX[1].data(), gyrX[0].size());
-            ImPlot::PlotLine("Gyro Y", gyrY[0].data(), gyrY[1].data(), gyrY[0].size());
-            ImPlot::PlotLine("Gyro Z", gyrZ[0].data(), gyrZ[1].data(), gyrZ[0].size());
-            //plotGlow(gyrX[0], gyrX[1], glowPts);
-            //plotGlow(gyrY[0], gyrY[1], glowPts);
-            //plotGlow(gyrZ[0], gyrZ[1], glowPts);
-            ImPlot::EndPlot();
-        }
-
-        /*
-        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, gyrY[0].back() - 5.0), gyrY[0].back(), ImPlotCond_Always);
-        ImPlot::SetNextAxisLimits(ImAxis_Y1, -300000, 300000, ImPlotCond_Always);
-        if(ImPlot::BeginPlot("##Gyro Y")){
-            ImPlot::PlotLine("Gyro Y", gyrY[0].data(), gyrY[1].data(), gyrY[0].size());
-            ImPlot::EndPlot();
-        }
-
-        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, gyrY[0].back() - 5.0), gyrY[0].back(), ImPlotCond_Always);
-        ImPlot::SetNextAxisLimits(ImAxis_Y1, -300000, 300000, ImPlotCond_Always);
-        if(ImPlot::BeginPlot("##Gyro Z")){
-            ImPlot::PlotLine("Gyro Z", gyrZ[0].data(), gyrZ[1].data(), gyrZ[0].size());
-            ImPlot::EndPlot();
-        }
-        */
+        ImGui::SetNextWindowPos(pos);
+        plots[i]->draw(networkINTF);
+        pos.x = pos.x + windowSize.x;
     }
-    ImGui::End(); 
+}
+
+void UI::basePlate(){
+    ImGuiIO &io = ImGui::GetIO();
+    ImVec2 displaySize = io.DisplaySize;
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+
+    ImGui::SetNextWindowSize({displaySize.x, displaySize.y}, ImGuiCond_Always);
+    ImGui::SetNextWindowPos({0, 0});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0,0,0,0));
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove |
+         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
+    if(ImGui::Begin("##base", NULL, flags)){
+
+    }
+    ImGui::End();
+    ImGui::PopStyleColor();
+}
+
+void UI::defaultWindow(std::string name){
+    ImGui::SetNextWindowSize({200, 400}, ImGuiCond_Once);
+    if(ImGui::Begin(name.data(), NULL, 0)){
+
+    }
+    ImGui::End();
 }
 
 void UI::fpsWindow(){
@@ -180,7 +104,8 @@ void UI::fpsWindow(){
                                    ImGuiWindowFlags_NoSavedSettings |
                                    ImGuiWindowFlags_NoNav |
                                    ImGuiWindowFlags_NoFocusOnAppearing |
-                                   ImGuiWindowFlags_NoBackground;
+                                   ImGuiWindowFlags_NoBackground |
+                                   ImGuiWindowFlags_NoDocking;
 
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -188,7 +113,7 @@ void UI::fpsWindow(){
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
     // Stats window
-    if (ImGui::Begin("Photon Stats", nullptr, windowFlags)) {
+    if (ImGui::Begin("Photon Stats", NULL, windowFlags)) {
         ImGuiIO &io = ImGui::GetIO();
         float fps = io.Framerate;
         float ft_ms = (io.DeltaTime > 0.0f) ? (io.DeltaTime * 1000.0f) : 0.0f;
@@ -214,44 +139,42 @@ void UI::fpsWindow(){
         ImGui::Separator();
         ImGui::Text("Frametime (last %zu):", renderSettings.frameTimes.size());
         ImGui::PlotLines("##ft", renderSettings.frameTimes.data(), (int)renderSettings.frameTimes.size(), 0,
-                         nullptr, renderSettings.frameTimeMin, renderSettings.frameTimeMax,
+                         NULL, renderSettings.frameTimeMin, renderSettings.frameTimeMax,
                          ImVec2(240, 80));
     }
     ImGui::End();
     ImGui::PopStyleColor(4);
 }
 
-void UI::customShaderWindow(){
-    if (!accretionShader.texture) { return; }
-
-    ImGui::SetNextWindowSize(ImVec2(accretionShader.extent.width, accretionShader.extent.height), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Custom Shader")) {
+void UI::shaderWindow(VulkanShader& shader, std::string windowName){
+    if(!shader.texture) {return;}
+    ImGui::SetNextWindowSize(ImVec2(shader.extent.width, shader.extent.height), ImGuiCond_FirstUseEver);
+    ImGuiWindowFlags flags = 0;//ImGuiWindowFlags_NoDecoration;
+    if(ImGui::Begin(windowName.data(), NULL, flags)){
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
-        if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) {
-            contentSize = ImVec2(accretionShader.extent.width, accretionShader.extent.height);
+        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
+            contentSize = ImVec2(shader.extent.width, shader.extent.height);
         }
-
-        const float epsilon = 0.5f;
-        if (contentSize.x > 1.0f && contentSize.y > 1.0f) {
-            if (std::fabs(contentSize.x - accretionShader.extent.width) > epsilon ||
-                std::fabs(contentSize.y - accretionShader.extent.height) > epsilon) {
-                accretionShader.extent.width = contentSize.x;
-                accretionShader.extent.height = contentSize.y;
-                accretionShader.dirty = true;
+        const float delta = 0.5f;
+        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
+            if(std::fabs(contentSize.x - shader.extent.width) > delta ||
+               std::fabs(contentSize.y - shader.extent.height) > delta){
+                shader.extent.width = contentSize.x;
+                shader.extent.height = contentSize.y;
+                shader.dirty = true;
             }
         }
-
-        ImVec2 drawSize(accretionShader.extent.width, accretionShader.extent.height);
+        ImVec2 drawSize(shader.extent.width, shader.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
-        ImGui::Image(accretionShader.texture, drawSize);
+        ImGui::Image(shader.texture, drawSize);
     }
     ImGui::End();
 }
 
 void UI::showVideoDisplay(){
     if (!videoSource.texture) { return; }
-    if (ImGui::Begin("Custom Image", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::Begin("Custom Image", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImVec2 size = ImVec2(videoSource.textureSize.width, videoSource.textureSize.height);
         if (size.x <= 0.0f || size.y <= 0.0f) { size = ImVec2(512.0f, 512.0f); }
         ImVec2 available = ImGui::GetContentRegionAvail();
@@ -270,105 +193,7 @@ void UI::showVideoDisplay(){
     ImGui::End();
 }
 
-void UI::networkSamplePlot(){
-    ImGui::SetNextWindowSize(ImVec2(460.0f, 300.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Network Samples")) {
-        ImGui::End();
-        return;
-    }
-
-    if (!networkINTF) {
-        ImGui::TextUnformatted("Network interface unavailable.");
-        ImGui::End();
-        return;
-    }
-
-    const uint16_t sampleCanId = 0x07FF;
-
-    struct ScrollingBuffer {
-        int MaxSize;
-        int Offset;
-        ImVector<ImVec2> Data;
-        ScrollingBuffer(int maxSize = 2400) : MaxSize(maxSize), Offset(0) {
-            Data.reserve(MaxSize);
-        }
-        void AddPoint(float x, float y) {
-            if (Data.size() < static_cast<size_t>(MaxSize)) {
-                Data.push_back(ImVec2(x, y));
-            } else {
-                Data[Offset] = ImVec2(x, y);
-                Offset = (Offset + 1) % MaxSize;
-            }
-        }
-        void Clear() {
-            Data.shrink(0);
-            Offset = 0;
-        }
-    };
-
-    static ScrollingBuffer sampleHistory;
-    static uint64_t lastSampleValue = 0;
-    static bool haveSample = false;
-    static float historySeconds = 10.0f;
-    static float accumulatedTime = 0.0f;
-
-    ImGui::Text("CAN 0x%03X", sampleCanId);
-    ImGui::SliderFloat("History", &historySeconds, 1.0f, 60.0f, "%.1f s");
-
-    ImGuiIO &io = ImGui::GetIO();
-    accumulatedTime += io.DeltaTime;
-
-    int64_t rawValue = 0;
-    if (networkINTF->readSample(sampleCanId, rawValue)) {
-        lastSampleValue = rawValue;
-        haveSample = true;
-    }
-
-    if (haveSample) {
-        sampleHistory.AddPoint(accumulatedTime, static_cast<float>(lastSampleValue));
-    }
-
-    if (!haveSample || sampleHistory.Data.empty()) {
-        ImGui::Text("Waiting for samples...");
-        ImGui::End();
-        return;
-    }
-
-    ImGui::Text("Last value: 0x%016llX (%llu)",
-                static_cast<unsigned long long>(lastSampleValue),
-                static_cast<unsigned long long>(lastSampleValue));
-
-    float yMin = sampleHistory.Data[0].y;
-    float yMax = sampleHistory.Data[0].y;
-    for (const ImVec2& point : sampleHistory.Data) {
-        yMin = std::min(yMin, point.y);
-        yMax = std::max(yMax, point.y);
-    }
-    if (yMin == yMax) {
-        yMax = yMin + 1.0f;
-        yMin = yMin - 1.0f;
-    } else {
-        const float padding = (yMax - yMin) * 0.05f;
-        yMin -= padding;
-        yMax += padding;
-    }
-
-    const float plotStartTime = std::max(accumulatedTime - historySeconds, 0.0f);
-
-    if (ImPlot::BeginPlot("##network_samples", ImVec2(-1, -1))) {
-        ImPlot::SetupAxes("Time (s)", "Value", ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_None);
-        ImPlot::SetupAxisLimits(ImAxis_X1, plotStartTime, accumulatedTime, ImGuiCond_Always);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, yMin, yMax, ImGuiCond_Always);
-        ImPlot::SetNextLineStyle(ImGui::GetStyle().Colors[ImGuiCol_PlotLines], 2.0f);
-        ImPlot::PlotLine("Sample", &sampleHistory.Data[0].x, &sampleHistory.Data[0].y,
-                         static_cast<int>(sampleHistory.Data.size()), 0, sampleHistory.Offset, sizeof(ImVec2));
-        ImPlot::EndPlot();
-    }
-
-    ImGui::End();
-}
-
-void UI::customBackground(){
+void UI::background(){
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 displaySize = io.DisplaySize;
     if (displaySize.x > 0.0f && displaySize.y > 0.0f) {
@@ -393,17 +218,19 @@ void UI::customBackground(){
 }
 
 void UI::setStyle(){
-    ImGuiStyle UIstyle = ImGui::GetStyle();
-    // pointer to store style, do not modify directly
-    ImGuiStyle &setStyle = ImGui::GetStyle();     
-
+    ImGuiStyle &UIstyle = ImGui::GetStyle();
     ImVec4* colors = UIstyle.Colors;
+
+    UIstyle.WindowRounding = 12.0f;
+    UIstyle.ChildRounding = 12.0f;
+    UIstyle.PopupRounding = 12.0f;
+
     colors[ImGuiCol_WindowBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.9f); 
+        ImVec4(0.0f, 0.0f, 0.0f, 0.5f); 
     colors[ImGuiCol_ChildBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.9f);
+        ImVec4(0.0f, 0.0f, 0.0f, 0.5f);
     colors[ImGuiCol_PopupBg] =
-        ImVec4(0.05f, 0.05f, 0.05f, 0.9f);
+        ImVec4(0.05f, 0.05f, 0.05f, 0.5f);
 
     // Borders and separators
     colors[ImGuiCol_Border] =
@@ -472,9 +299,62 @@ void UI::setStyle(){
     colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
 
     // Transparency handling
-    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.8f);
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.5f);
 
     colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    setStyle = UIstyle;
-    setStyle.ScaleAllSizes(1.0f);
+
+    UIstyle.ScaleAllSizes(1.0f);
+    ImPlotStyle &plotStyle = ImPlot::GetStyle();
+}
+
+Plot::Plot(int canID, const char* windowName, const char* plotName)
+    : data{std::vector<double>{0.0}, std::vector<double>{0.0}},
+      canID(canID),
+      windowName(windowName),
+      plotName(plotName) {}
+
+void Plot::draw(Network* networkSource){
+    int64_t val = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    double maxTime = 5.0;
+    auto prune = [maxTime](std::vector<std::vector<double>>& series){
+        while((series[0].size() > 1) && ((series[0].back() - series[0].front()) > maxTime)){
+            series[0].erase(series[0].begin());
+            series[1].erase(series[1].begin());
+        }
+    };
+    networkSource->readSample(canID, val);
+    prune(data);
+    data[0].push_back(data[0].back() + deltaTime);
+    data[1].push_back((double)val);
+
+    double currentMin = data[1].front();
+    double currentMax = data[1].front();
+    for (double sample : data[1]) {
+        currentMin = std::min(currentMin, sample);
+        currentMax = std::max(currentMax, sample);
+    }
+
+    if (currentMax - currentMin < 1e-3) {
+        double span = std::max(1.0, std::abs(currentMax));
+        currentMin -= span * 0.5;
+        currentMax += span * 0.5;
+    }
+
+    double padding = (currentMax - currentMin) * 0.1;
+    minValue = currentMin - padding;
+    maxValue = currentMax + padding;
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize |
+                            ImGuiWindowFlags_NoDecoration;
+    if(ImGui::Begin(windowName.data(), NULL, flags)){
+        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, data[0].back() - 5.0), data[0].back(), ImPlotCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, minValue, maxValue, ImPlotCond_Always);
+        if(ImPlot::BeginPlot(plotName.data())){
+            ImPlot::PlotLine(plotName.data(), data[0].data(), data[1].data(), data[0].size());
+            ImPlot::EndPlot();
+        }
+    } 
+    ImGui::End();
 }

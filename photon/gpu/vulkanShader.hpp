@@ -37,4 +37,7 @@ struct VulkanShader{
     void destroyResources(bool releaseDescriptor, VkDevice deviceHandle, 
             VkDescriptorPool descriptorPool);
     void recordShaderPass(VkCommandBuffer commandBuffer);
+    static VkPipelineShaderStageCreateInfo loadShaderFromMemory(const uint32_t* code, size_t size, VkShaderStageFlagBits stage, VkDevice device);
+    static VkPipelineShaderStageCreateInfo loadShaderFromPath(std::string name, VkShaderStageFlagBits stage, VkDevice device);
+    static std::string readFile(const std::string& path);
  };
