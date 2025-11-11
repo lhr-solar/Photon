@@ -4,9 +4,11 @@
 #include "vulkanDevice.hpp"
 #include "vulkanShader.hpp"
 
-
-struct OBJ{
-    OBJ();
-    ~OBJ();
-    void init(VulkanDevice);
+// at a minimum, what do we need?
+// we need a shader that can bind to our ui as a descriptor
+struct VulkanObj{
+    bool dirty = false;
+    void initObj();
+    void createResources();
+    void recordRenderPass();
 };

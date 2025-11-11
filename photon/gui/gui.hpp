@@ -53,20 +53,15 @@ public:
 
     VkDevice deviceHandle = VK_NULL_HANDLE;
 
+    VkPipelineLayout imguiPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline imguiGraphicsPipeline = VK_NULL_HANDLE;
+
     VkImage fontImage = VK_NULL_HANDLE;
     VkDeviceMemory fontMemory = VK_NULL_HANDLE;
     VkImageView fontView = VK_NULL_HANDLE;
+    VkSampler fontSampler = VK_NULL_HANDLE;
 
     Inputs inputs;
-
-    VkSampler sampler = VK_NULL_HANDLE;
-
-    VkDescriptorPool guiDescriptorPool = VK_NULL_HANDLE;
-    VkDescriptorSetLayout guiDescriptorSetLayout = VK_NULL_HANDLE;
-    VkDescriptorSet guiDescriptorSet = VK_NULL_HANDLE;
-    VkPipelineCache guiPipelineCache = VK_NULL_HANDLE;
-    VkPipelineLayout guiPipelineLayout = VK_NULL_HANDLE;
-    VkPipeline guiPipeline = VK_NULL_HANDLE;
 
     VulkanBuffer vertexBuffer;
     int32_t vertexCount = 0;
@@ -97,10 +92,11 @@ public:
     std::string getWindowTitle()const;
     void prepareImGui();
 
-    void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
-    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
+    void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet);
+    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet,
+            std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
     void updateBuffers(VulkanDevice vulkanDevice);
-    void drawFrame(VkCommandBuffer commandBuffer);
+    void drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet);
 
 #ifdef XCB
     void initWindow();

@@ -7,12 +7,13 @@ struct VulkanShader{
     VkImage image = VK_NULL_HANDLE;
     VkImageView view = VK_NULL_HANDLE;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkDeviceMemory imageMemory = VK_NULL_HANDLE;
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
     VkRenderPass renderPass = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkSampler sampler;
     bool initialized = false;
     struct alignas(16) PushConstants {
         glm::vec2 resolution;
@@ -33,7 +34,7 @@ struct VulkanShader{
             uint32_t* fragmentShader, size_t fragmentShaderSize, std::string fragName);
 
     void createResources(VulkanDevice vulkanDevice, VkExtent2D extent, VkDescriptorPool descriptorPool, 
-            VkDescriptorSetLayout descriptorSetLayout, VkPipelineCache pipelineCache, VkSampler sampler);
+            VkDescriptorSetLayout descriptorSetLayout);
     void destroyResources(bool releaseDescriptor, VkDevice deviceHandle, 
             VkDescriptorPool descriptorPool);
     void recordShaderPass(VkCommandBuffer commandBuffer);

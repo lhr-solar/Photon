@@ -33,22 +33,22 @@ Gui::~Gui(){
     xcb_destroy_window(connection, window);
 	xcb_disconnect(connection);
 #endif
-    ui.backgroundShader.destroyResources(true, deviceHandle, guiDescriptorPool);
-    ui.accretionShader.destroyResources(true, deviceHandle, guiDescriptorPool);
-    ui.triangle.destroyResources(true, deviceHandle, guiDescriptorPool);
-    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
+//    ui.backgroundShader.destroyResources(true, deviceHandle, guiDescriptorPool);
+//    ui.accretionShader.destroyResources(true, deviceHandle, guiDescriptorPool);
+//    ui.triangle.destroyResources(true, deviceHandle, guiDescriptorPool);
+//    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
     if (deviceHandle != VK_NULL_HANDLE) {
-        if (guiDescriptorPool != VK_NULL_HANDLE) {
-            vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
-            guiDescriptorPool = VK_NULL_HANDLE;
-        }
-        if (guiDescriptorSetLayout != VK_NULL_HANDLE) {
-            vkDestroyDescriptorSetLayout(deviceHandle, guiDescriptorSetLayout, nullptr);
-            guiDescriptorSetLayout = VK_NULL_HANDLE;
-        }
-        if (sampler != VK_NULL_HANDLE) {
-            vkDestroySampler(deviceHandle, sampler, nullptr);
-            sampler = VK_NULL_HANDLE;
+//        if (guiDescriptorPool != VK_NULL_HANDLE) {
+//            vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
+//            guiDescriptorPool = VK_NULL_HANDLE;
+//        }
+//        if (guiDescriptorSetLayout != VK_NULL_HANDLE) {
+//            vkDestroyDescriptorSetLayout(deviceHandle, guiDescriptorSetLayout, nullptr);
+//            guiDescriptorSetLayout = VK_NULL_HANDLE;
+//        }
+        if (fontSampler != VK_NULL_HANDLE) {
+            vkDestroySampler(deviceHandle, fontSampler, nullptr);
+            fontSampler = VK_NULL_HANDLE;
         }
         if (fontView != VK_NULL_HANDLE) {
             vkDestroyImageView(deviceHandle, fontView, nullptr);
@@ -76,9 +76,7 @@ void Gui::initWindow(){
 #endif
 
 std::string Gui::getWindowTitle() const {
-    // TODO: accelerator + fps
-	std::string windowTitle =  title ; //+ deviceProperties.deviceName };
-    //windowTitle += " - " + std::to_string(frameCounter) + " fps";
+	std::string windowTitle =  title; 
 	return windowTitle;
 }
 
@@ -103,12 +101,12 @@ void Gui::prepareImGui(){
 }
 
 // initialize all vulkan resources used by the UI
-void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
+void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet){
     deviceHandle = vulkanDevice.logicalDevice;
-    ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
-    ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
-    ui.triangle.destroyResources(true, vulkanDevice.logicalDevice, guiDescriptorPool);
-    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
+    ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.triangle.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, descriptorPool);
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
     ui.vendorID = vulkanDevice.deviceProperties.vendorID;
@@ -204,87 +202,43 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    vkCreateSampler(vulkanDevice.logicalDevice, &samplerCreateInfo, nullptr, &sampler);
+    vkCreateSampler(vulkanDevice.logicalDevice, &samplerCreateInfo, nullptr, &fontSampler);
     logs("[+] Created Gui Sampler");
 
-    // Descriptor Pool
-    VkDescriptorPoolSize descriptorPoolSize {};
-    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorPoolSize.descriptorCount = 8;
-    std::vector<VkDescriptorPoolSize> poolSizes = { descriptorPoolSize };
-
-    VkDescriptorPoolCreateInfo descriptorPoolInfo{};
-    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    descriptorPoolInfo.pPoolSizes = poolSizes.data();
-    descriptorPoolInfo.maxSets = 8;
-    VK_CHECK(vkCreateDescriptorPool(vulkanDevice.logicalDevice, &descriptorPoolInfo, nullptr, &guiDescriptorPool));
-    logs("[+] Created Gui Descriptor Pool");
-
-    // Descriptor set Layout
-    VkDescriptorSetLayoutBinding setLayoutBinding0 {};
-    setLayoutBinding0.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    setLayoutBinding0.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    setLayoutBinding0.binding = 0;
-    setLayoutBinding0.descriptorCount = 1;
-
-    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {setLayoutBinding0};
-
-    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
-    descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorSetLayoutCreateInfo.pBindings = setLayoutBindings.data();
-    descriptorSetLayoutCreateInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-    VK_CHECK(vkCreateDescriptorSetLayout(vulkanDevice.logicalDevice, &descriptorSetLayoutCreateInfo, nullptr, &guiDescriptorSetLayout));
-    logs("[+] Created Gui Descriptor Set Layout");
-
-    // Descriptor Set
-    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
-    descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descriptorSetAllocateInfo.descriptorPool = guiDescriptorPool;
-    descriptorSetAllocateInfo.pSetLayouts = &guiDescriptorSetLayout;
-    descriptorSetAllocateInfo.descriptorSetCount = 1;
-    VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorSetAllocateInfo, &guiDescriptorSet));
-    logs("[+] Allocated Gui Descriptor Set ");
-
     VkDescriptorImageInfo fontDescriptorImageInfo {};
-    fontDescriptorImageInfo.sampler = sampler;
+    fontDescriptorImageInfo.sampler = fontSampler;
     fontDescriptorImageInfo.imageView = fontView;
     fontDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet fontWriteDescriptorSet {};
     fontWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    fontWriteDescriptorSet.dstSet = guiDescriptorSet;
+    fontWriteDescriptorSet.dstSet = descriptorSet;
     fontWriteDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     fontWriteDescriptorSet.dstBinding = 0;
     fontWriteDescriptorSet.pImageInfo = &fontDescriptorImageInfo;
     fontWriteDescriptorSet.descriptorCount = 1;
 
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &fontWriteDescriptorSet, 0, nullptr);
-    io.Fonts->TexID = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(guiDescriptorSet));
+    io.Fonts->TexID = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(descriptorSet));
 
     ui.videoSource.texture = static_cast<ImTextureID>(0);
     ui.videoSource.textureSize = {0, 0};
 
-    ui.backgroundShader.initShader({0, 0}, false, (uint32_t*)background_vert_spv, background_vert_spv_size, (uint32_t*)background_frag_spv, background_frag_spv_size, "background.frag");
+    ui.backgroundShader.initShader({0, 0}, false, (uint32_t*)background_vert_spv, background_vert_spv_size, 
+            (uint32_t*)background_frag_spv, background_frag_spv_size, "background.frag");
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
-            guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
+            descriptorPool, descriptorSetLayout);
     
-    ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
+    ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
+            (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
     ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
-            guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
+            descriptorPool, descriptorSetLayout);
 
     ui.triangle.initShader({512, 512}, false, (uint32_t *)obj_vert_spv, obj_vert_spv_size, (uint32_t*)obj_frag_spv, obj_frag_spv_size, "obj.frag");
     ui.triangle.createResources(vulkanDevice, ui.triangle.extent, 
-            guiDescriptorPool, guiDescriptorSetLayout, guiPipelineCache, sampler);
+            descriptorPool, descriptorSetLayout);
 
-    ui.videoSource.initVideoFeedResources(vulkanDevice, guiDescriptorPool, guiDescriptorSetLayout, sampler);
-    logs("[+] Updated Gui Descriptor Sets ");
-
-    // Pipeline cache
-    VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
-    pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    VK_CHECK(vkCreatePipelineCache(vulkanDevice.logicalDevice, &pipelineCacheCreateInfo, nullptr, &guiPipelineCache));
-    logs("[+] Create Gui Pipeline Cache");
+    ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
 
     // Pipeline layout & Push constants for UI rendering
     VkPushConstantRange pushConstantRange {};
@@ -295,10 +249,10 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.setLayoutCount = 1;
-    pipelineLayoutCreateInfo.pSetLayouts = &guiDescriptorSetLayout;
+    pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
     pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
     pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
-    VK_CHECK(vkCreatePipelineLayout(vulkanDevice.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &guiPipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(vulkanDevice.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &imguiPipelineLayout));
     logs("[+] Created Gui Pipeline Layout ");
 
     VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo {};
@@ -366,14 +320,12 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo {};
     pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineCreateInfo.layout = guiPipelineLayout;
+    pipelineCreateInfo.layout = imguiPipelineLayout;
     pipelineCreateInfo.renderPass = renderPass;
     pipelineCreateInfo.flags = 0;
     pipelineCreateInfo.basePipelineIndex = -1;
     pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; 
 
-    /*...[]__
-             --[    ]*/
     pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
     pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
@@ -420,17 +372,17 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     pipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributes.size());
     pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexInputAttributes.data();
 
-    /*... []*/
     pipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
 
     shaderStages[0] = VulkanShader::loadShaderFromMemory(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
     shaderStages[1] = VulkanShader::loadShaderFromMemory(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
 
-    vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
+    vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, NULL, 1, &pipelineCreateInfo, nullptr, &imguiGraphicsPipeline);
     logs("[+] Created Graphics Gui Pipeline ");
 }
 
-void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
+void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet,
+        std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
     VkClearValue clearValues[2];
     clearValues[0].color = {{0.0f, 0.00f, 0.00f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -449,21 +401,20 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     ui.build();
 
     if (ui.backgroundShader.dirty) {
-        ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, guiDescriptorPool, 
-                guiDescriptorSetLayout, guiPipelineCache, sampler);
+        ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, descriptorPool, 
+                descriptorSetLayout);
         ui.backgroundShader.dirty = false;
     }
     if (ui.accretionShader.dirty) {
-        ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, guiDescriptorPool, 
-                guiDescriptorSetLayout, guiPipelineCache, sampler);
+        ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, descriptorPool, 
+                descriptorSetLayout);
         ui.accretionShader.dirty = false;
     }
     if (ui.triangle.dirty) {
-        ui.triangle.createResources(vulkanDevice, ui.triangle.extent, guiDescriptorPool, 
-                guiDescriptorSetLayout, guiPipelineCache, sampler);
+        ui.triangle.createResources(vulkanDevice, ui.triangle.extent, descriptorPool, 
+                descriptorSetLayout);
         ui.triangle.dirty = false;
     }
-
 
     updateBuffers(vulkanDevice);
 
@@ -490,9 +441,9 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
 	    rect2D.offset.y = 0;
         vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &rect2D);
 
-        vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipelineLayout, 0, 1, &guiDescriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-        drawFrame(drawCmdBuffers[i]);
+        drawFrame(drawCmdBuffers[i], descriptorSet);
         vkCmdEndRenderPass(drawCmdBuffers[i]);
         VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[i]));
     };
@@ -542,13 +493,11 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
     }
     vertexBuffer.flush(VK_WHOLE_SIZE, 0);
     indexBuffer.flush(VK_WHOLE_SIZE, 0);
-
 }
 
-void Gui::drawFrame(VkCommandBuffer commandBuffer){
+void Gui::drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet){
     ImGuiIO &io = ImGui::GetIO();
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipeline);
-    // TODO: isn't this duplicated setup?
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiGraphicsPipeline);
     VkViewport viewport {};
     viewport.width = width;
     viewport.height = height;
@@ -562,15 +511,13 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer){
     imguiPushConst.gradTop = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
     imguiPushConst.gradBottom = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
     imguiPushConst.u_time = (float)ImGui::GetTime();
-    // TODO cross reference pipline layout(?), i don't think this is all getting pushed
-    vkCmdPushConstants(commandBuffer, guiPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock), &imguiPushConst);
+    vkCmdPushConstants(commandBuffer, imguiPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock), &imguiPushConst);
 
     // Render commands
     ImDrawData *imDrawData = ImGui::GetDrawData();
     int32_t vertexOffset = 0;
     int32_t indexOffset = 0;
 
-    // TODO look at this runtime holy f*ck
     if (imDrawData->CmdListsCount > 0) {
       VkDeviceSize offsets[1] = {0};
       vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offsets);
@@ -580,15 +527,15 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer){
         const ImDrawList *cmd_list = imDrawData->CmdLists[i];
         for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++) {
           const ImDrawCmd *pcmd = &cmd_list->CmdBuffer[j];
-          VkDescriptorSet textureSet = guiDescriptorSet;
+          VkDescriptorSet textureSet = descriptorSet;
           if (pcmd->TextureId != 0) {
               textureSet = reinterpret_cast<VkDescriptorSet>(static_cast<uintptr_t>(pcmd->TextureId));
           }
           if (textureSet == VK_NULL_HANDLE) {
-              textureSet = guiDescriptorSet;
+              textureSet = descriptorSet;
           }
           if (textureSet != boundSet) {
-              vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipelineLayout, 0, 1, &textureSet, 0, nullptr);
+              vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &textureSet, 0, nullptr);
               boundSet = textureSet;
           }
           VkRect2D scissorRect;
@@ -718,133 +665,13 @@ void Gui::setupWindow(){
 }
 
 void Gui::handleEvent(const xcb_generic_event_t *event){
-	switch (event->response_type & 0x7f){
-	case XCB_CLIENT_MESSAGE:
-		if ((*(xcb_client_message_event_t*)event).data.data32[0] ==
-			(*atom_wm_delete_window).atom) {
-			quit = true;
-		}
-		break;
-	case XCB_MOTION_NOTIFY:{
-		xcb_motion_notify_event_t *motion = (xcb_motion_notify_event_t *)event;
-        inputs.handleMouseMove((int32_t)motion->event_x, (int32_t)motion->event_y);
-		break;
-	}
-	break;
-    case XCB_BUTTON_PRESS:{
-        xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
-        if (press->detail == XCB_BUTTON_INDEX_1){
-            ImGui::GetIO().AddMouseButtonEvent(0, true);
-            inputs.mouseState.buttons.left = true;
-        }
-        if (press->detail == XCB_BUTTON_INDEX_2){
-            ImGui::GetIO().AddMouseButtonEvent(2, true);
-            inputs.mouseState.buttons.middle = true;
-        }
-        if (press->detail == XCB_BUTTON_INDEX_3){
-            ImGui::GetIO().AddMouseButtonEvent(1, true);
-            inputs.mouseState.buttons.right = true;
-        }
-    }
-	break;
-    case XCB_BUTTON_RELEASE:{
-        xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
-        if (press->detail == XCB_BUTTON_INDEX_1){
-            ImGui::GetIO().AddMouseButtonEvent(0, false);
-            inputs.mouseState.buttons.left = false;
-        }
-        if (press->detail == XCB_BUTTON_INDEX_2){
-            ImGui::GetIO().AddMouseButtonEvent(2, false);
-            inputs.mouseState.buttons.middle = false;
-        }
-        if (press->detail == XCB_BUTTON_INDEX_3){
-            ImGui::GetIO().AddMouseButtonEvent(1, false);
-            inputs.mouseState.buttons.right = false;
-        }
-    }
-    break;
-	case XCB_KEY_PRESS:{
-        const xcb_key_release_event_t *keyEvent = (const xcb_key_release_event_t *)event;
-        ImGuiIO& io = ImGui::GetIO();
-        if (io.WantCaptureKeyboard) {
-        ImGuiKey key = inputs.translateKey(keyEvent->detail);
-        if (key != ImGuiKey_None) { io.AddKeyEvent(key, true); }
-        uint8_t kc = keyEvent->detail;
-        bool shift = keyEvent->state & XCB_MOD_MASK_SHIFT;
-        char c = 0;
-        switch (kc) {
-        case KEY_A: c = shift ? 'A' : 'a'; break;
-        case KEY_B: c = shift ? 'B' : 'b'; break;
-        case KEY_C: c = shift ? 'C' : 'c'; break;
-        case KEY_D: c = shift ? 'D' : 'd'; break;
-        case KEY_E: c = shift ? 'E' : 'e'; break;
-        case KEY_F: c = shift ? 'F' : 'f'; break;
-        case KEY_G: c = shift ? 'G' : 'g'; break;
-        case KEY_H: c = shift ? 'H' : 'h'; break;
-        case KEY_I: c = shift ? 'I' : 'i'; break;
-        case KEY_J: c = shift ? 'J' : 'j'; break;
-        case KEY_K: c = shift ? 'K' : 'k'; break;
-        case KEY_L: c = shift ? 'L' : 'l'; break;
-        case KEY_M: c = shift ? 'M' : 'm'; break;
-        case KEY_N: c = shift ? 'N' : 'n'; break;
-        case KEY_O: c = shift ? 'O' : 'o'; break;
-        case KEY_P: c = shift ? 'P' : 'p'; break;
-        case KEY_Q: c = shift ? 'Q' : 'q'; break;
-        case KEY_R: c = shift ? 'R' : 'r'; break;
-        case KEY_S: c = shift ? 'S' : 's'; break;
-        case KEY_T: c = shift ? 'T' : 't'; break;
-        case KEY_U: c = shift ? 'U' : 'u'; break;
-        case KEY_V: c = shift ? 'V' : 'v'; break;
-        case KEY_W: c = shift ? 'W' : 'w'; break;
-        case KEY_X: c = shift ? 'X' : 'x'; break;
-        case KEY_Y: c = shift ? 'Y' : 'y'; break;
-        case KEY_Z: c = shift ? 'Z' : 'z'; break;
-
-        // — Digits (with shifted symbols) —
-        case KEY_1: c = shift ? '!' : '1'; break;
-        case KEY_2: c = shift ? '@' : '2'; break;
-        case KEY_3: c = shift ? '#' : '3'; break;
-        case KEY_4: c = shift ? '$' : '4'; break;
-        case KEY_5: c = shift ? '%' : '5'; break;
-        case KEY_6: c = shift ? '^' : '6'; break;
-        case KEY_7: c = shift ? '&' : '7'; break;
-        case KEY_8: c = shift ? '*' : '8'; break;
-        case KEY_9: c = shift ? '(' : '9'; break;
-        case KEY_0: c = shift ? ')' : '0'; break;
-
-        case KEY_SLASH:       c = shift ? '?' : '/'; break;
-        case KEY_PERIOD:      c = shift ? '>' : '.'; break;
-
-        // — Whitespace & controls —
-        case KEY_SPACE:       c = ' ';  break;
-        case KEY_ENTER:       c = '\n'; break;
-        case KEY_TAB:         c = '\t'; break;
-        }
-        if (c) { io.AddInputCharacter(c); }
-        }
-	}
-	break;
-	case XCB_KEY_RELEASE:{
-		const xcb_key_release_event_t *keyEvent = (const xcb_key_release_event_t *)event;
-        ImGuiIO& io = ImGui::GetIO();
-        if (io.WantCaptureKeyboard) {
-            ImGuiKey key = inputs.translateKey(keyEvent->detail);
-            if (key != ImGuiKey_None) { io.AddKeyEvent(key, false); }
-        }
-	}
-	break;
-	case XCB_DESTROY_NOTIFY:
-		quit = true;
-		break;
-	default:
-		break;
-	}
+    xcb_atom_t deleteAtom = (atom_wm_delete_window != nullptr) ? (*atom_wm_delete_window).atom : XCB_ATOM_NONE;
+    inputs.handleXcbEvent(event, quit, deleteAtom);
 }
 #endif
 
 #ifdef WIN
 
-#include <windowsx.h>
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE
 #define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE ((DPI_AWARENESS_CONTEXT)-3)
 #endif
@@ -1031,114 +858,6 @@ void Gui::initWindow(HINSTANCE hInstance){
 }
 
 LRESULT Gui::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
-    ImGuiContext* context = ImGui::GetCurrentContext();
-    ImGuiIO* io = context ? &ImGui::GetIO() : nullptr;
-
-    switch (uMsg) {
-    case WM_CLOSE:
-        quit = true;
-        DestroyWindow(hWnd);
-        return 0;
-    case WM_DESTROY:
-        quit = true;
-        PostQuitMessage(0);
-        return 0;
-    case WM_SIZE:
-        if (wParam != SIZE_MINIMIZED) {
-            destWidth = static_cast<uint32_t>(LOWORD(lParam));
-            destHeight = static_cast<uint32_t>(HIWORD(lParam));
-        }
-        return 0;
-    case WM_MOUSEMOVE: {
-        int32_t x = GET_X_LPARAM(lParam);
-        int32_t y = GET_Y_LPARAM(lParam);
-        inputs.handleMouseMove(x, y);
-        return 0;
-    }
-    case WM_LBUTTONDOWN:
-    case WM_LBUTTONUP:
-    case WM_RBUTTONDOWN:
-    case WM_RBUTTONUP:
-    case WM_MBUTTONDOWN:
-    case WM_MBUTTONUP: {
-        const bool pressed = (uMsg == WM_LBUTTONDOWN) || (uMsg == WM_RBUTTONDOWN) || (uMsg == WM_MBUTTONDOWN);
-        const int buttonIndex = (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONUP) ? 0 :
-                                (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONUP) ? 1 : 2;
-
-        if (pressed) {
-            SetCapture(hWnd);
-        } else {
-            ReleaseCapture();
-        }
-
-        if (buttonIndex == 0) {
-            inputs.mouseState.buttons.left = pressed;
-        } else if (buttonIndex == 1) {
-            inputs.mouseState.buttons.right = pressed;
-        } else {
-            inputs.mouseState.buttons.middle = pressed;
-        }
-
-        if (io) {
-            io->AddMouseButtonEvent(buttonIndex, pressed);
-        }
-        return 0;
-    }
-    case WM_MOUSEWHEEL:
-        if (io) {
-            const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
-            io->AddMouseWheelEvent(0.0f, wheelDelta);
-        }
-        return 0;
-    case WM_MOUSEHWHEEL:
-        if (io) {
-            const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
-            io->AddMouseWheelEvent(wheelDelta, 0.0f);
-        }
-        return 0;
-    case WM_KEYDOWN:
-    case WM_SYSKEYDOWN:
-    case WM_KEYUP:
-    case WM_SYSKEYUP: {
-        const bool pressed = (uMsg == WM_KEYDOWN) || (uMsg == WM_SYSKEYDOWN);
-        if (io) {
-            ImGuiKey key = inputs.translateWin32Key(static_cast<uint32_t>(wParam));
-            if (key != ImGuiKey_None) {
-                io->AddKeyEvent(key, pressed);
-            }
-
-            const bool leftShiftDown  = (GetKeyState(VK_LSHIFT) & 0x8000) != 0;
-            const bool rightShiftDown = (GetKeyState(VK_RSHIFT) & 0x8000) != 0;
-            const bool leftCtrlDown   = (GetKeyState(VK_LCONTROL) & 0x8000) != 0;
-            const bool rightCtrlDown  = (GetKeyState(VK_RCONTROL) & 0x8000) != 0;
-            const bool leftAltDown    = (GetKeyState(VK_LMENU) & 0x8000) != 0;
-            const bool rightAltDown   = (GetKeyState(VK_RMENU) & 0x8000) != 0;
-            const bool leftSuperDown  = (GetKeyState(VK_LWIN) & 0x8000) != 0;
-            const bool rightSuperDown = (GetKeyState(VK_RWIN) & 0x8000) != 0;
-
-            io->AddKeyEvent(ImGuiKey_LeftShift, leftShiftDown);
-            io->AddKeyEvent(ImGuiKey_RightShift, rightShiftDown);
-            io->AddKeyEvent(ImGuiKey_LeftCtrl, leftCtrlDown);
-            io->AddKeyEvent(ImGuiKey_RightCtrl, rightCtrlDown);
-            io->AddKeyEvent(ImGuiKey_LeftAlt, leftAltDown);
-            io->AddKeyEvent(ImGuiKey_RightAlt, rightAltDown);
-            io->AddKeyEvent(ImGuiKey_LeftSuper, leftSuperDown);
-            io->AddKeyEvent(ImGuiKey_RightSuper, rightSuperDown);
-
-            io->AddKeyEvent(ImGuiMod_Shift, leftShiftDown || rightShiftDown);
-            io->AddKeyEvent(ImGuiMod_Ctrl, leftCtrlDown || rightCtrlDown);
-            io->AddKeyEvent(ImGuiMod_Alt, leftAltDown || rightAltDown);
-            io->AddKeyEvent(ImGuiMod_Super, leftSuperDown || rightSuperDown);
-        }
-        return 0;
-    }
-    case WM_CHAR:
-        if (io && wParam > 0 && wParam < 0x10000) {
-            io->AddInputCharacterUTF16(static_cast<unsigned short>(wParam));
-        }
-        return 0;
-    }
-
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+    return inputs.handleWin32Message(hWnd, uMsg, wParam, lParam, quit, destWidth, destHeight);
 }
 #endif
