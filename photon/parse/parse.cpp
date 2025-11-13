@@ -7,11 +7,12 @@
 // layout(local_size_x = 4) in; // 4 threads, one per row
 
 // // Input 
-// layout(binding = 0) buffer InputMatrix {
+// la
+// layoutt(binding = 0) buffer InputMatrix {
 //     float A[16];
 // };
 
-// layout(binding = 1) buffer OutputMatrix {
+// layout(binding = 1) buffer OutpPutMatrix {
 //     float L[16];
 // };
 
@@ -37,4 +38,4 @@
 //         }
 //         barrier(); // Synchronize? threads in this workgroup
 //     }
-// }
+// } womp womp
