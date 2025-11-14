@@ -6,7 +6,7 @@
 
 #include "vulkan/vulkan_core.h"
 #include "gpu.hpp"
-#include "vulkanGLTF.hpp"
+//#include "vulkanGLTF.hpp"
 #include "../engine/include.hpp"
 #include "vulkanShader.hpp"
 

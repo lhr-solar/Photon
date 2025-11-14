@@ -114,7 +114,8 @@ void Photon::executeFrame(){
     getFrame();
     if (!prepared) { return; }
 
-    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
+    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
+            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
 
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];

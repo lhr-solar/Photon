@@ -1,5 +1,5 @@
 /*[μ] the photon graphical user interface*/
-#pragma once
+#pragma once 
 #include <assert.h>
 #include <string>
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 #include "inputs.hpp"
 #include "../gpu/vulkanBuffer.hpp"
 #include "../gpu/vulkanDevice.hpp"
-#include "../gpu/vulkanGLTF.hpp"
+//#include "../gpu/vulkanGLTF.hpp"
 #include "../gpu/vulkanShader.hpp"
 #include "../engine/include.hpp"
 #include "../network/network.hpp"

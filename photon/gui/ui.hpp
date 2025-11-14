@@ -55,4 +55,6 @@ struct UI{
     void defaultWindow(std::string name);
     void orderedWindows(void(*functionArray[])(std::vector<std::vector<double>>&, int, const char*, const char*), size_t count);
     void shaderWindow(VulkanShader& shader, std::string windowName);
+    void objWindow(VulkanObj& obj, std::string windowName);
+
 };

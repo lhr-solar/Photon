@@ -15,9 +15,10 @@ set(KERNEL_SOURCES
     ${KERNEL_DIR}/custom_shader.frag
     ${KERNEL_DIR}/background.vert
     ${KERNEL_DIR}/background.frag
-
-    ${KERNEL_DIR}/obj.vert
-    ${KERNEL_DIR}/obj.frag
+    ${KERNEL_DIR}/triangle.vert
+    ${KERNEL_DIR}/triangle.frag
+    ${KERNEL_DIR}/viking.vert
+    ${KERNEL_DIR}/viking.frag
 )
 
 # convert GLSL to SPIR-V
