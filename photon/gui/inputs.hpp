@@ -5,7 +5,7 @@
 #include "glm/glm.hpp"
 
 #ifdef XCB
-<<<<<<< HEAD
+#include <xcb/xcb.h>
 struct xcb_generic_event_t;
 #endif
 
@@ -14,9 +14,6 @@ struct xcb_generic_event_t;
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-=======
-#include <xcb/xcb.h>
->>>>>>> d0e932c7e39266f55844622eaaf378c8f1bae2b2
 #endif
 
 struct Inputs{
