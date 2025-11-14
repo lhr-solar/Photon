@@ -21,19 +21,21 @@ void UI::build(){
     static Plot accY(0x404, "Acceleration Y", "AccY");
     static Plot accZ(0x405, "Acceleration Z", "AccZ");
     static Plot net(0x7ff, "network", "aws");
-
+    static Plot test(0x455, "test", "test");
 
     std::vector<Plot*> plots = {
-        &gyrX, &gyrY, &gyrZ,
-        &accX, &accY, &accZ, &net};
+    //    &gyrX, &gyrY, &gyrZ,
+    //    &accX, &accY, &accZ, &net, &test};
+    &net};
 
     background();
     basePlate();
     fpsWindow();
     shaderWindow(accretionShader, "accretion window");
     shaderWindow(triangle, "triangle window");
+    objWindow(viking, "obj window");
 
-    //procedural(plots);
+    procedural(plots);
     ImGui::Render();
 }
 
@@ -144,6 +146,32 @@ void UI::fpsWindow(){
     }
     ImGui::End();
     ImGui::PopStyleColor(4);
+}
+
+void UI::objWindow(VulkanObj& obj, std::string windowName){
+    if(!obj.outTexture) {return;}
+    ImGui::SetNextWindowSize(ImVec2(obj.extent.width, obj.extent.height), ImGuiCond_FirstUseEver);
+    ImGuiWindowFlags flags = 0;//ImGuiWindowFlags_NoDecoration;
+    if(ImGui::Begin(windowName.data(), NULL, flags)){
+        ImVec2 contentSize = ImGui::GetContentRegionAvail();
+        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
+            contentSize = ImVec2(obj.extent.width, obj.extent.height);
+        }
+        const float delta = 0.5f;
+        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
+            if(std::fabs(contentSize.x - obj.extent.width) > delta ||
+               std::fabs(contentSize.y - obj.extent.height) > delta){
+                obj.extent.width = contentSize.x;
+                obj.extent.height = contentSize.y;
+                obj.dirty = true;
+            }
+        }
+        ImVec2 drawSize(obj.extent.width, obj.extent.height);
+        drawSize.x = std::max(drawSize.x, 1.0f);
+        drawSize.y = std::max(drawSize.y, 1.0f);
+        ImGui::Image(obj.outTexture, drawSize);
+    }
+    ImGui::End();
 }
 
 void UI::shaderWindow(VulkanShader& shader, std::string windowName){

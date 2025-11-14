@@ -1,9 +1,11 @@
 #pragma once
 #include <stdint.h>
+#include "../engine/include.hpp"
 #include "imgui.h"
 #include "glm/glm.hpp"
 
 #ifdef XCB
+<<<<<<< HEAD
 struct xcb_generic_event_t;
 #endif
 
@@ -12,6 +14,9 @@ struct xcb_generic_event_t;
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+=======
+#include <xcb/xcb.h>
+>>>>>>> d0e932c7e39266f55844622eaaf378c8f1bae2b2
 #endif
 
 struct Inputs{
@@ -28,7 +33,7 @@ struct Inputs{
     ImGuiKey translateKey(uint32_t key);
 
 #ifdef XCB
-    void handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag);
+    void handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xcb_atom_t deleteAtom);
 #endif
 
 #if defined(_WIN32) 

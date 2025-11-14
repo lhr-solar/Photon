@@ -3,6 +3,10 @@
 #include <xcb/xcb.h>
 #endif
 
+#ifdef WIN
+#include <windowsx.h>
+#endif
+
 #include "../engine/include.hpp"
 
 void Inputs::handleMouseMove(int32_t x, int32_t y){
@@ -73,6 +77,127 @@ ImGuiKey Inputs::translateKey(uint32_t key){
     return ImGuiKey_None;
 }
 
+#ifdef XCB
+void Inputs::handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xcb_atom_t deleteAtom){
+    switch (event->response_type & 0x7f){
+    case XCB_CLIENT_MESSAGE:{
+        auto *msg = reinterpret_cast<const xcb_client_message_event_t*>(event);
+        if (deleteAtom != XCB_ATOM_NONE && msg->data.data32[0] == deleteAtom) {
+            quitFlag = true;
+        }
+        break;
+    }
+    case XCB_MOTION_NOTIFY:{
+        auto *motion = reinterpret_cast<const xcb_motion_notify_event_t*>(event);
+        handleMouseMove(static_cast<int32_t>(motion->event_x), static_cast<int32_t>(motion->event_y));
+        break;
+    }
+    case XCB_BUTTON_PRESS:{
+        auto *press = reinterpret_cast<const xcb_button_press_event_t*>(event);
+        if (press->detail == XCB_BUTTON_INDEX_1){
+            ImGui::GetIO().AddMouseButtonEvent(0, true);
+            mouseState.buttons.left = true;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_2){
+            ImGui::GetIO().AddMouseButtonEvent(2, true);
+            mouseState.buttons.middle = true;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_3){
+            ImGui::GetIO().AddMouseButtonEvent(1, true);
+            mouseState.buttons.right = true;
+        }
+        break;
+    }
+    case XCB_BUTTON_RELEASE:{
+        auto *press = reinterpret_cast<const xcb_button_press_event_t*>(event);
+        if (press->detail == XCB_BUTTON_INDEX_1){
+            ImGui::GetIO().AddMouseButtonEvent(0, false);
+            mouseState.buttons.left = false;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_2){
+            ImGui::GetIO().AddMouseButtonEvent(2, false);
+            mouseState.buttons.middle = false;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_3){
+            ImGui::GetIO().AddMouseButtonEvent(1, false);
+            mouseState.buttons.right = false;
+        }
+        break;
+    }
+    case XCB_KEY_PRESS:{
+        const auto *keyEvent = reinterpret_cast<const xcb_key_release_event_t *>(event);
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureKeyboard) {
+            ImGuiKey key = translateKey(keyEvent->detail);
+            if (key != ImGuiKey_None) { io.AddKeyEvent(key, true); }
+            uint8_t kc = keyEvent->detail;
+            bool shift = keyEvent->state & XCB_MOD_MASK_SHIFT;
+            char c = 0;
+            switch (kc) {
+            case KEY_A: c = shift ? 'A' : 'a'; break;
+            case KEY_B: c = shift ? 'B' : 'b'; break;
+            case KEY_C: c = shift ? 'C' : 'c'; break;
+            case KEY_D: c = shift ? 'D' : 'd'; break;
+            case KEY_E: c = shift ? 'E' : 'e'; break;
+            case KEY_F: c = shift ? 'F' : 'f'; break;
+            case KEY_G: c = shift ? 'G' : 'g'; break;
+            case KEY_H: c = shift ? 'H' : 'h'; break;
+            case KEY_I: c = shift ? 'I' : 'i'; break;
+            case KEY_J: c = shift ? 'J' : 'j'; break;
+            case KEY_K: c = shift ? 'K' : 'k'; break;
+            case KEY_L: c = shift ? 'L' : 'l'; break;
+            case KEY_M: c = shift ? 'M' : 'm'; break;
+            case KEY_N: c = shift ? 'N' : 'n'; break;
+            case KEY_O: c = shift ? 'O' : 'o'; break;
+            case KEY_P: c = shift ? 'P' : 'p'; break;
+            case KEY_Q: c = shift ? 'Q' : 'q'; break;
+            case KEY_R: c = shift ? 'R' : 'r'; break;
+            case KEY_S: c = shift ? 'S' : 's'; break;
+            case KEY_T: c = shift ? 'T' : 't'; break;
+            case KEY_U: c = shift ? 'U' : 'u'; break;
+            case KEY_V: c = shift ? 'V' : 'v'; break;
+            case KEY_W: c = shift ? 'W' : 'w'; break;
+            case KEY_X: c = shift ? 'X' : 'x'; break;
+            case KEY_Y: c = shift ? 'Y' : 'y'; break;
+            case KEY_Z: c = shift ? 'Z' : 'z'; break;
+            case KEY_1: c = shift ? '!' : '1'; break;
+            case KEY_2: c = shift ? '@' : '2'; break;
+            case KEY_3: c = shift ? '#' : '3'; break;
+            case KEY_4: c = shift ? '$' : '4'; break;
+            case KEY_5: c = shift ? '%' : '5'; break;
+            case KEY_6: c = shift ? '^' : '6'; break;
+            case KEY_7: c = shift ? '&' : '7'; break;
+            case KEY_8: c = shift ? '*' : '8'; break;
+            case KEY_9: c = shift ? '(' : '9'; break;
+            case KEY_0: c = shift ? ')' : '0'; break;
+            case KEY_SLASH:       c = shift ? '?' : '/'; break;
+            case KEY_PERIOD:      c = shift ? '>' : '.'; break;
+            case KEY_SPACE:       c = ' ';  break;
+            case KEY_ENTER:       c = '\n'; break;
+            case KEY_TAB:         c = '\t'; break;
+            }
+            if (c) { io.AddInputCharacter(c); }
+        }
+        break;
+    }
+    case XCB_KEY_RELEASE:{
+        const auto *keyEvent = reinterpret_cast<const xcb_key_release_event_t *>(event);
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureKeyboard) {
+            ImGuiKey key = translateKey(keyEvent->detail);
+            if (key != ImGuiKey_None) { io.AddKeyEvent(key, false); }
+        }
+        break;
+    }
+    case XCB_DESTROY_NOTIFY:
+        quitFlag = true;
+        break;
+    default:
+        break;
+    }
+}
+#endif
+
 #if defined(_WIN32)
 ImGuiKey Inputs::translateWin32Key(uint32_t key){
     if (key >= '0' && key <= '9') {
@@ -131,5 +256,119 @@ ImGuiKey Inputs::translateWin32Key(uint32_t key){
     }
 
     return ImGuiKey_None;
+}
+#endif
+
+#ifdef WIN
+LRESULT Inputs::handleWin32Message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool &quitFlag, uint32_t &destWidth, uint32_t &destHeight){
+    ImGuiContext* context = ImGui::GetCurrentContext();
+    ImGuiIO* io = context ? &ImGui::GetIO() : nullptr;
+
+    switch (uMsg) {
+    case WM_CLOSE:
+        quitFlag = true;
+        DestroyWindow(hWnd);
+        return 0;
+    case WM_DESTROY:
+        quitFlag = true;
+        PostQuitMessage(0);
+        return 0;
+    case WM_SIZE:
+        if (wParam != SIZE_MINIMIZED) {
+            destWidth = static_cast<uint32_t>(LOWORD(lParam));
+            destHeight = static_cast<uint32_t>(HIWORD(lParam));
+        }
+        return 0;
+    case WM_MOUSEMOVE: {
+        int32_t x = GET_X_LPARAM(lParam);
+        int32_t y = GET_Y_LPARAM(lParam);
+        handleMouseMove(x, y);
+        return 0;
+    }
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP: {
+        const bool pressed = (uMsg == WM_LBUTTONDOWN) || (uMsg == WM_RBUTTONDOWN) || (uMsg == WM_MBUTTONDOWN);
+        const int buttonIndex = (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONUP) ? 0 :
+                                (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONUP) ? 1 : 2;
+
+        if (pressed) {
+            SetCapture(hWnd);
+        } else {
+            ReleaseCapture();
+        }
+
+        if (buttonIndex == 0) {
+            mouseState.buttons.left = pressed;
+        } else if (buttonIndex == 1) {
+            mouseState.buttons.right = pressed;
+        } else {
+            mouseState.buttons.middle = pressed;
+        }
+
+        if (io) {
+            io->AddMouseButtonEvent(buttonIndex, pressed);
+        }
+        return 0;
+    }
+    case WM_MOUSEWHEEL:
+        if (io) {
+            const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
+            io->AddMouseWheelEvent(0.0f, wheelDelta);
+        }
+        return 0;
+    case WM_MOUSEHWHEEL:
+        if (io) {
+            const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
+            io->AddMouseWheelEvent(wheelDelta, 0.0f);
+        }
+        return 0;
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+    case WM_KEYUP:
+    case WM_SYSKEYUP: {
+        const bool pressed = (uMsg == WM_KEYDOWN) || (uMsg == WM_SYSKEYDOWN);
+        if (io) {
+            ImGuiKey key = translateWin32Key(static_cast<uint32_t>(wParam));
+            if (key != ImGuiKey_None) {
+                io->AddKeyEvent(key, pressed);
+            }
+
+            const bool leftShiftDown  = (GetKeyState(VK_LSHIFT) & 0x8000) != 0;
+            const bool rightShiftDown = (GetKeyState(VK_RSHIFT) & 0x8000) != 0;
+            const bool leftCtrlDown   = (GetKeyState(VK_LCONTROL) & 0x8000) != 0;
+            const bool rightCtrlDown  = (GetKeyState(VK_RCONTROL) & 0x8000) != 0;
+            const bool leftAltDown    = (GetKeyState(VK_LMENU) & 0x8000) != 0;
+            const bool rightAltDown   = (GetKeyState(VK_RMENU) & 0x8000) != 0;
+            const bool leftSuperDown  = (GetKeyState(VK_LWIN) & 0x8000) != 0;
+            const bool rightSuperDown = (GetKeyState(VK_RWIN) & 0x8000) != 0;
+
+            io->AddKeyEvent(ImGuiKey_LeftShift, leftShiftDown);
+            io->AddKeyEvent(ImGuiKey_RightShift, rightShiftDown);
+            io->AddKeyEvent(ImGuiKey_LeftCtrl, leftCtrlDown);
+            io->AddKeyEvent(ImGuiKey_RightCtrl, rightCtrlDown);
+            io->AddKeyEvent(ImGuiKey_LeftAlt, leftAltDown);
+            io->AddKeyEvent(ImGuiKey_RightAlt, rightAltDown);
+            io->AddKeyEvent(ImGuiKey_LeftSuper, leftSuperDown);
+            io->AddKeyEvent(ImGuiKey_RightSuper, rightSuperDown);
+
+            io->AddKeyEvent(ImGuiMod_Shift, leftShiftDown || rightShiftDown);
+            io->AddKeyEvent(ImGuiMod_Ctrl, leftCtrlDown || rightCtrlDown);
+            io->AddKeyEvent(ImGuiMod_Alt, leftAltDown || rightAltDown);
+            io->AddKeyEvent(ImGuiMod_Super, leftSuperDown || rightSuperDown);
+        }
+        return 0;
+    }
+    case WM_CHAR:
+        if (io && wParam > 0 && wParam < 0x10000) {
+            io->AddInputCharacterUTF16(static_cast<unsigned short>(wParam));
+        }
+        return 0;
+    }
+
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 #endif

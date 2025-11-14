@@ -31,24 +31,23 @@ public:
     std::vector<VkPhysicalDevice> physicalDevices;
 
     VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-    VkRenderPass renderPass{ VK_NULL_HANDLE };
-    std::vector<VkFramebuffer> frameBuffers;
     VkFormat depthFormat;
     struct {
         VkImage image;
         VkDeviceMemory memory;
         VkImageView view;
     } depthStencil{};
+    VkRenderPass renderPass{ VK_NULL_HANDLE };
+    std::vector<VkFramebuffer> frameBuffers;
 
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSet descriptorSet;
     VkDescriptorPool descriptorPool { VK_NULL_HANDLE };
 
-    VkPipeline pipeline;
-    VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkPipelineCache pipelineCache{ VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
 
+    VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo {};
     uint32_t currentBuffer = 0;
     std::vector<VkFence> waitFences;
@@ -62,7 +61,6 @@ public:
     uint64_t frameCounter = 0;
     const double targetFrameTime = 1000.0 / 144.0; // e.g. if you want 60 FPS → ~16.67ms per frame
     float timerSpeed = 0.25f;
-
     struct UBOVS{
         glm::mat4 projection;
         glm::mat4 modelView;
@@ -73,17 +71,16 @@ public:
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
     VkResult createInstance();
-    VkResult setupGPU();
+    VkResult setupVulkanDevice();
 
     bool initVulkan();
     void createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers);
     void setupDepthStencil(uint32_t width, uint32_t height);
     void setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat);
-    void createPipelineCache(VkDevice device);
     void setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height);
     void prepareUniformBuffers();
     void updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed);
-    void setupLayoutsAndDescriptors(VkDevice device);
+    void setupDescriptors(VkDevice device);
     void preparePipelines(VkDevice device);
     static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, 
             VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);

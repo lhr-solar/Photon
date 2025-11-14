@@ -31,7 +31,7 @@ void VulkanShader::initShader(VkExtent2D extent, bool runtimeFrag,
 }
 
 void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent, VkDescriptorPool descriptorPool, 
-            VkDescriptorSetLayout descriptorSetLayout, VkPipelineCache pipelineCache, VkSampler sampler){
+            VkDescriptorSetLayout descriptorSetLayout){
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -54,8 +54,8 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
     imageAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     imageAllocInfo.allocationSize = memReqs.size;
     imageAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
-    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &imageAllocInfo, nullptr, &memory));
-    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, image, memory, 0));
+    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &imageAllocInfo, nullptr, &imageMemory));
+    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, image, imageMemory, 0));
     layout = VK_IMAGE_LAYOUT_UNDEFINED;
     initialized = false;
 
@@ -70,7 +70,6 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
     VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &view));
-
 
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
@@ -129,7 +128,8 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pcRange;
     VK_CHECK(vkCreatePipelineLayout(vulkanDevice.logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout));
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
@@ -198,7 +198,7 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
     pipelineInfo.pDynamicState = &dynamic;
     pipelineInfo.pVertexInputState = &vertexInput;
 
-    VK_CHECK(vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, pipelineCache, 1, &pipelineInfo, nullptr, &pipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, NULL, 1, &pipelineInfo, nullptr, &pipeline));
 
     if (descriptorSet == VK_NULL_HANDLE) {
         VkDescriptorSetAllocateInfo descriptorAlloc{};
@@ -208,6 +208,18 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
         descriptorAlloc.pSetLayouts = &descriptorSetLayout;
         VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &descriptorSet));
     }
+
+    VkSamplerCreateInfo samplerCreateInfo {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.maxAnisotropy = 1.0f;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    vkCreateSampler(vulkanDevice.logicalDevice, &samplerCreateInfo, nullptr, &sampler);
 
     VkDescriptorImageInfo imageDescriptor{};
     imageDescriptor.sampler = sampler;
@@ -251,8 +263,8 @@ void VulkanShader::destroyResources(bool releaseDescriptor, VkDevice deviceHandl
         if (image != VK_NULL_HANDLE) {
             vkDestroyImage(deviceHandle, image, nullptr);
         }
-        if (memory != VK_NULL_HANDLE) {
-            vkFreeMemory(deviceHandle, memory, nullptr);
+        if (imageMemory != VK_NULL_HANDLE) {
+            vkFreeMemory(deviceHandle, imageMemory, nullptr);
         }
     }
 
@@ -263,7 +275,7 @@ void VulkanShader::destroyResources(bool releaseDescriptor, VkDevice deviceHandl
     framebuffer = VK_NULL_HANDLE;
     view = VK_NULL_HANDLE;
     image = VK_NULL_HANDLE;
-    memory = VK_NULL_HANDLE;
+    imageMemory = VK_NULL_HANDLE;
     layout = VK_IMAGE_LAYOUT_UNDEFINED;
     initialized = false;
 }

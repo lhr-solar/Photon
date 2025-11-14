@@ -6,7 +6,7 @@
 
 #include "vulkan/vulkan_core.h"
 #include "gpu.hpp"
-#include "vulkanGLTF.hpp"
+//#include "vulkanGLTF.hpp"
 #include "../engine/include.hpp"
 #include "vulkanShader.hpp"
 
@@ -20,7 +20,7 @@ bool Gpu::initVulkan(){
     if (result != VK_SUCCESS)
         fatal("[!] Failed to initialize vulkan", result);
 
-    result = setupGPU();
+    result = setupVulkanDevice();
     if(result != VK_SUCCESS)
         fatal("[!] Failed to setup GPU", result);
 
@@ -28,20 +28,6 @@ bool Gpu::initVulkan(){
     validFormat = getSupportedDepthFormat(vulkanDevice.physicalDevice, &depthFormat);
     logs("[+] Using Depth Format : " << depthFormat);
     assert(validFormat);
-
-    // create sync objects
-    VkSemaphoreCreateInfo semaphoreCreateInfo {};
-    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    VK_CHECK(vkCreateSemaphore(vulkanDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &semaphores.presentComplete));
-    VK_CHECK(vkCreateSemaphore(vulkanDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &semaphores.renderComplete));
-
-    // submit info only valid for graphics atm
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.pWaitDstStageMask = &submitPipelineStages;
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &semaphores.presentComplete;
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &semaphores.renderComplete;
 
     return true;
 }
@@ -105,7 +91,7 @@ VkResult Gpu::createInstance(){
     return VK_SUCCESS;
 }
 
-VkResult Gpu::setupGPU(){
+VkResult Gpu::setupVulkanDevice(){
     logs("[+] Constructing GPU");
     uint32_t gpuCount = 0;
     VK_CHECK(vkEnumeratePhysicalDevices(instance, &gpuCount, nullptr));
@@ -139,6 +125,17 @@ void Gpu::createSynchronizationPrimitives(VkDevice device, std::vector<VkCommand
         vkCreateFence(device, &fenceCreateInfo, nullptr, &fence);
     }
     logs("[+] Created " << waitFences.size() << " Synchronization Primitives");
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo {};
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    VK_CHECK(vkCreateSemaphore(vulkanDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &semaphores.presentComplete));
+    VK_CHECK(vkCreateSemaphore(vulkanDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &semaphores.renderComplete));
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.pWaitDstStageMask = &submitPipelineStages;
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &semaphores.presentComplete;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &semaphores.renderComplete;
 }
 
 VkBool32 Gpu::getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat){
@@ -297,21 +294,12 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
     logs("[+] Created Render Pass ");
 }
 
-void Gpu::createPipelineCache(VkDevice device){
-    VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
-    pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &pipelineCache);
-
-    logs("[+] Created Pipeline Cache");
-}
-
 void Gpu::setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height){
     frameBuffers.resize(imageCount);
 	for (uint32_t i = 0; i < frameBuffers.size(); i++)
 	{
 		const VkImageView attachments[2] = {
 			swapChainBuffers[i].view,
-			// Depth/Stencil attachment is the same for all frame buffers
 			depthStencil.view
 		};
 		VkFramebufferCreateInfo frameBufferCreateInfo{};
@@ -353,166 +341,46 @@ void Gpu::updateUniformBuffers(bool animateLight, float lightTimer, float lightS
 }
 
 // TODO: make this modular
-void Gpu::setupLayoutsAndDescriptors(VkDevice device){
-    // TODO what is all this man? look at modern examples! 
-    // Descriptor Pool
-    VkDescriptorPoolSize uniformPoolSize = {};
-    uniformPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformPoolSize.descriptorCount = 2;
-    VkDescriptorPoolSize imageSamplerPoolSize = {};
-    imageSamplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    imageSamplerPoolSize.descriptorCount = 1;
-    std::vector<VkDescriptorPoolSize> poolSizes {uniformPoolSize, imageSamplerPoolSize};
+void Gpu::setupDescriptors(VkDevice device){
+    VkDescriptorPoolSize descriptorPoolSize {};
+    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorPoolSize.descriptorCount = 8;
+    std::vector<VkDescriptorPoolSize> poolSizes = { descriptorPoolSize };
 
-    VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
+    VkDescriptorPoolCreateInfo descriptorPoolInfo{};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
-    descriptorPoolInfo.maxSets = 2;
+    descriptorPoolInfo.maxSets = 8;
 
     VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
     logs("[+] Created Descriptor Pool of count " << descriptorPoolInfo.poolSizeCount);
 
-    // Set Layout
-    VkDescriptorSetLayoutBinding uniformLayoutBinding = {};
-    uniformLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uniformLayoutBinding.binding = 0;
-    uniformLayoutBinding.descriptorCount  = 1;
+    VkDescriptorSetLayoutBinding setLayoutBinding0 {};
+    setLayoutBinding0.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    setLayoutBinding0.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    setLayoutBinding0.binding = 0;
+    setLayoutBinding0.descriptorCount = 1;
 
-    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {uniformLayoutBinding};
-    VkDescriptorSetLayoutCreateInfo descriptorLayout {};
-    descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorLayout.pBindings = setLayoutBindings.data();
-    descriptorLayout.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-    VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &descriptorSetLayout));
-    logs("[+] Created Layout Binding of count " << descriptorLayout.bindingCount);
-    
-    // Pipeline layout TODO: rewrite this in the modern style found in the newer vulkan examples ... 
-    // see examples/imgui/main.cpp :: setupDescriptors() & preparePipelines()
-    VkPushConstantRange pushConstantRange{};
-    pushConstantRange.stageFlags =
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(int); // TODO why the hardcode?? should be sizeof(pushconstblock)
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {setLayoutBinding0};
 
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
-    pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutCreateInfo.setLayoutCount = 1;
-    pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
-    pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-    pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
-    VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout));
-    logs("[?] Created Pipeline Layout");
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+    descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCreateInfo.pBindings = setLayoutBindings.data();
+    descriptorSetLayoutCreateInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    VK_CHECK(vkCreateDescriptorSetLayout(vulkanDevice.logicalDevice, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout));
 
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
     descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     descriptorSetAllocateInfo.descriptorPool = descriptorPool;
     descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
     descriptorSetAllocateInfo.descriptorSetCount = 1;
-    VK_CHECK(vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet));
-    logs("[+] Allocated Descriptor Set ");
-
-    VkWriteDescriptorSet writeDescriptorSet {};
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.dstSet = descriptorSet;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.pBufferInfo = &uniformBufferVS.descriptor;
-    writeDescriptorSet.descriptorCount = 1;
-    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {writeDescriptorSet};
-    vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
-    logs("[+] Updated Descriptor Sets ");
+    VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorSetAllocateInfo, &descriptorSet));
 }
 
 void Gpu::preparePipelines(VkDevice device){
-    // TODO I do not like this
-    VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo {};
-    pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    pipelineInputAssemblyStateCreateInfo.flags = 0;
-    pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
-
-
-    VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo {};
-    pipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
-    pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-    pipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    pipelineRasterizationStateCreateInfo.flags = 0;
-    pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
-    pipelineRasterizationStateCreateInfo.lineWidth = 1.0f;
-
-
-    VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState {};
-    pipelineColorBlendAttachmentState.colorWriteMask = 0xf;
-    pipelineColorBlendAttachmentState.blendEnable = VK_FALSE;
-
-    VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo {};
-    pipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    pipelineColorBlendStateCreateInfo.attachmentCount = 1;
-    pipelineColorBlendStateCreateInfo.pAttachments = &pipelineColorBlendAttachmentState;
-
-    VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo {};
-    pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    pipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
-    pipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE;
-    pipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    pipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
-
-    VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo {};
-    pipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    pipelineViewportStateCreateInfo.viewportCount = 1;
-    pipelineViewportStateCreateInfo.scissorCount = 1;
-    pipelineViewportStateCreateInfo.flags = 0;
-
-    VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo {};
-    pipelineMultisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    pipelineMultisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    pipelineMultisampleStateCreateInfo.flags = 0;
-
-    std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-
-    VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
-	pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	pipelineDynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
-	pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
-	pipelineDynamicStateCreateInfo.flags = 0;
-
-    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
-
-    /* Notice how this is the point we actually create the pipeline */
-    
-    // TODO: Consider how we set up the pipeline layout and render pass in earlier code...
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo {};
-    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineCreateInfo.layout = pipelineLayout;
-    pipelineCreateInfo.renderPass = renderPass;
-    pipelineCreateInfo.flags = 0;
-    pipelineCreateInfo.basePipelineIndex = -1;
-    pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
-    pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
-    pipelineCreateInfo.pColorBlendState    = &pipelineColorBlendStateCreateInfo;
-    pipelineCreateInfo.pMultisampleState   = &pipelineMultisampleStateCreateInfo;
-    pipelineCreateInfo.pViewportState      = &pipelineViewportStateCreateInfo;
-    pipelineCreateInfo.pDepthStencilState  = &pipelineDepthStencilStateCreateInfo;
-    pipelineCreateInfo.pDynamicState       = &pipelineDynamicStateCreateInfo;
-    pipelineCreateInfo.stageCount          = static_cast<uint32_t>(shaderStages.size());
-    pipelineCreateInfo.pStages             = shaderStages.data();
-    pipelineCreateInfo.pVertexInputState   = Vertex::getPipelineVertexInputState({VertexComponent::Position, VertexComponent::Normal, VertexComponent::Color});
-
-    shaderStages[0] = VulkanShader::loadShaderFromMemory(scene_vert_spv, scene_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, device);
-    shaderStages[1] = VulkanShader::loadShaderFromMemory(scene_frag_spv, scene_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, device);
-
-    VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
-    logs("[+] Prepared pipelines with stage count " << pipelineCreateInfo.stageCount);
 }
 
-// Create an image memory barrier for changing the layout of
-// an image and put it into an active command buffer
-// See chapter 11.4 "Image Layout" for details
 void Gpu::setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, 
                           VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask){
     // Create an image barrier object
@@ -525,97 +393,63 @@ void Gpu::setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayou
     imageMemoryBarrier.image = image;
     imageMemoryBarrier.subresourceRange = subresourceRange;
 
-    // Source layouts (old)
-    // Source access mask controls actions that have to be finished on the old layout
-    // before it will be transitioned to the new layout
     switch (oldImageLayout) {
         case VK_IMAGE_LAYOUT_UNDEFINED:
-        // Image layout is undefined (or does not matter)
-	    // Only valid as initial layout
-	    // No flags required, listed only for completeness
 	    imageMemoryBarrier.srcAccessMask = 0;
 	    break;
 
 	    case VK_IMAGE_LAYOUT_PREINITIALIZED:
-        // Image is preinitialized
-        // Only valid as initial layout for linear images, preserves memory contents
-        // Make sure host writes have been finished
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-        // Image is a color attachment
-        // Make sure any writes to the color buffer have been finished
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-        // Image is a depth/stencil attachment
-        // Make sure any writes to the depth/stencil buffer have been finished
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        // Image is a transfer source
-        // Make sure any reads from the image have been finished
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        // Image is a transfer destination
-        // Make sure any writes to the image have been finished
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-        // Image is read by a shader
-        // Make sure any shader reads from the image have been finished
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
         break;
         default:
-        // Other source layouts aren't handled (yet)
         break;
     }
 
-    // Target layouts (new)
-    // Destination access mask controls the dependency for the new image layout
     switch (newImageLayout) {
         case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        // Image will be used as a transfer destination
-        // Make sure any writes to the image have been finished
         imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        // Image will be used as a transfer source
-        // Make sure any reads from the image have been finished
         imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-        // Image will be used as a color attachment
-        // Make sure any writes to the color buffer have been finished
         imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-        // Image layout will be used as a depth/stencil attachment
-        // Make sure any writes to depth/stencil buffer have been finished
         imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         break;
 
         case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-        // Image will be read in a shader (sampler, input attachment)
-        // Make sure any writes to the image have been finished
         if (imageMemoryBarrier.srcAccessMask == 0)
             imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
         imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         break;
         default:
-        // Other source layouts aren't handled (yet)
         break;
     }
 
-    // Put barrier inside setup command buffer
     vkCmdPipelineBarrier( cmdbuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
