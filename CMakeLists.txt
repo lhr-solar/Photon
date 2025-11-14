@@ -86,9 +86,9 @@ foreach(component ${FFMPEG_COMPONENTS})
 
     if(FFMPEG_${component}_LIBRARY)
         list(APPEND FFMPEG_LIBRARIES ${FFMPEG_${component}_LIBRARY})
-        message(STATUS "✅ Found FFmpeg ${component}: ${FFMPEG_${component}_LIBRARY}")
+        message(STATUS "[+] Found FFmpeg ${component}: ${FFMPEG_${component}_LIBRARY}")
     else()
-        message(FATAL_ERROR "❌ FFmpeg library '${component}' not found!")
+        message(FATAL_ERROR "[!] FFmpeg library '${component}' not found!")
     endif()
 endforeach()
 
@@ -100,9 +100,9 @@ find_path(FFMPEG_INCLUDE_DIR
         ${CMAKE_SOURCE_DIR}/libs/ffmpeg/include
 )
 if(NOT FFMPEG_INCLUDE_DIR)
-    message(FATAL_ERROR "❌ FFmpeg headers not found!")
+    message(FATAL_ERROR "[!] FFmpeg headers not found!")
 else()
-    message(STATUS "✅ Found FFmpeg headers at: ${FFMPEG_INCLUDE_DIR}")
+    message(STATUS "[+] Found FFmpeg headers at: ${FFMPEG_INCLUDE_DIR}")
     include_directories(${FFMPEG_INCLUDE_DIR})
 endif()
 

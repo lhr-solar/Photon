@@ -313,14 +313,7 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "synth::@4cc3f628e895ca9b569d"
-		},
-		{
-			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "gpu::@639c691ed8fe00215672"
+			"id" : "engine::@094849aa84dc83bc757b"
 		},
 		{
 			"backtrace" : 2,
@@ -328,15 +321,22 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "network::@0ba1bf266af7f50e8e09"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "engine::@094849aa84dc83bc757b"
+			"id" : "gpu::@639c691ed8fe00215672"
 		},
 		{
 			"backtrace" : 2,
 			"id" : "parse::@c2fcf3a84381047cb015"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "synth::@4cc3f628e895ca9b569d"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "network::@0ba1bf266af7f50e8e09"
+		},
+		{
+			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
 		}
 	],
 	"id" : "Photon::@14bc0c096ae1d1635d0d",

@@ -1,28 +1,31 @@
 #pragma once
-#include <stdint.h>
-#include <stdlib.h>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
-struct frame {
-    uint8_t* data;          // RGB24)
+class frame {
+public:
+    uint8_t* data;
     int width;
     int height;
-    int stride;             // Bytes/row
+    int stride;
     double timestamp;
-    size_t dataSize;        // Total size of data buffer in bytes
+    size_t dataSize;
+    int bytesPerPixel;
 
     frame();
     ~frame();
 
-    frame(const frame&) = delete;
-    frame& operator=(const frame&) = delete;
+    // Move semantics
     frame(frame&& other) noexcept;
     frame& operator=(frame&& other) noexcept;
 
+    // Delete copy semantics
+    frame(const frame&) = delete;
+    frame& operator=(const frame&) = delete;
+
     bool allocate(int w, int h, int s);
     void free();
-
     bool isValid() const;
 
     uint8_t* getPixel(int x, int y);

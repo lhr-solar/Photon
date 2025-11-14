@@ -1,44 +1,46 @@
 #pragma once
-
-#include <stdint.h>
-#include <cstdint>
-#include <string.h>
 #include <string>
 #include "frame.hpp"
 
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswscale/swscale.h>
-#include <libavutil/frame.h>
-#include <libavutil/avutil.h>
-#include <libavutil/imgutils.h>
-}
+struct AVFormatContext;
+struct AVCodecContext;
+struct AVFrame;
+struct AVPacket;
+struct SwsContext;
 
 class videoDecoder {
 public:
     videoDecoder();
     ~videoDecoder();
 
+    // Initialize FFmpeg (call once)
+    static void ffmpeg_init_once();
+
+    // Open video file
     bool open(const std::string& filePath);
-    bool decodeNextFrame(frame& outputFrame);
+    
+    // Decode next frame
+    bool decodeNextFrame(frame& outFrame);
+    
+    // Close and cleanup
     void close();
 
-    int getWidth() const { return m_width; }
-    int getHeight() const { return m_height; }
-    double getFrameDuration() const { return m_duration; }
-    void ffmpeg_init_once();
+    // Video properties
+    uint32_t width() const { return m_width; }
+    uint32_t height() const { return m_height; }
+    double duration() const { return m_duration; }
+    bool isOpen() const { return formatContext != nullptr; }
 
 private:
     AVFormatContext* formatContext = nullptr;
     AVCodecContext* codecContext = nullptr;
-    AVFrame* avFrame = nullptr;        // <-- renamed from 'frame'
+    AVFrame* avFrame = nullptr;
     AVFrame* rgbFrame = nullptr;
     AVPacket* packet = nullptr;
     SwsContext* swsContext = nullptr;
-
+    
     int vidStreamIdx = -1;
-    int m_width = 0;
-    int m_height = 0;
+    uint32_t m_width = 0;
+    uint32_t m_height = 0;
     double m_duration = 0.0;
 };

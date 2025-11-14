@@ -2,10 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "photon/MinSizeRel/Photon.exe"
+			"path" : "photon/RelWithDebInfo/Photon.exe"
 		},
 		{
-			"path" : "photon/MinSizeRel/Photon.pdb"
+			"path" : "photon/RelWithDebInfo/Photon.pdb"
 		}
 	],
 	"backtrace" : 1,
@@ -148,7 +148,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /GR /EHsc -DVK_USE_PLATFORM_WIN32_KHR /O1 /Ob1 /DNDEBUG -std:c++17"
+					"fragment" : "/DWIN32 /D_WINDOWS /GR /EHsc -DVK_USE_PLATFORM_WIN32_KHR /Zi /O2 /Ob1 /DNDEBUG -std:c++17"
 				}
 			],
 			"includes" : 
@@ -313,14 +313,7 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "synth::@4cc3f628e895ca9b569d"
-		},
-		{
-			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "gpu::@639c691ed8fe00215672"
+			"id" : "engine::@094849aa84dc83bc757b"
 		},
 		{
 			"backtrace" : 2,
@@ -328,15 +321,22 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "network::@0ba1bf266af7f50e8e09"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "engine::@094849aa84dc83bc757b"
+			"id" : "gpu::@639c691ed8fe00215672"
 		},
 		{
 			"backtrace" : 2,
 			"id" : "parse::@c2fcf3a84381047cb015"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "synth::@4cc3f628e895ca9b569d"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "network::@0ba1bf266af7f50e8e09"
+		},
+		{
+			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
 		}
 	],
 	"id" : "Photon::@14bc0c096ae1d1635d0d",
@@ -345,11 +345,11 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /GR /EHsc -DVK_USE_PLATFORM_WIN32_KHR /O1 /Ob1 /DNDEBUG",
+				"fragment" : "/DWIN32 /D_WINDOWS /GR /EHsc -DVK_USE_PLATFORM_WIN32_KHR /Zi /O2 /Ob1 /DNDEBUG",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "/machine:x64 /INCREMENTAL:NO /subsystem:windows",
+				"fragment" : "/machine:x64 /debug /INCREMENTAL /subsystem:windows",
 				"role" : "flags"
 			},
 			{
@@ -359,7 +359,7 @@
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "engine\\MinSizeRel\\engine.lib",
+				"fragment" : "engine\\RelWithDebInfo\\engine.lib",
 				"role" : "libraries"
 			},
 			{
@@ -389,17 +389,17 @@
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "gpu\\MinSizeRel\\gpu.lib",
+				"fragment" : "gpu\\RelWithDebInfo\\gpu.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "gui\\MinSizeRel\\gui.lib",
+				"fragment" : "gui\\RelWithDebInfo\\gui.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "network\\MinSizeRel\\network.lib",
+				"fragment" : "network\\RelWithDebInfo\\network.lib",
 				"role" : "libraries"
 			},
 			{
@@ -409,12 +409,12 @@
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "parse\\MinSizeRel\\parse.lib",
+				"fragment" : "parse\\RelWithDebInfo\\parse.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "synth\\MinSizeRel\\synth.lib",
+				"fragment" : "synth\\RelWithDebInfo\\synth.lib",
 				"role" : "libraries"
 			},
 			{

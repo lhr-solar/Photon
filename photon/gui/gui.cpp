@@ -162,6 +162,10 @@ void Gui::prepareImGui(){
 // initialize all vulkan resources used by the UI
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     deviceHandle = vulkanDevice.logicalDevice;
+    ui.device = vulkanDevice.logicalDevice;
+    ui.physicalDevice = vulkanDevice.physicalDevice;
+    ui.commandPool = vulkanDevice.graphicsCommandPool;
+    ui.graphicsQueue = vulkanDevice.graphicsQueue;
     destroyCustomShaderResources(true);
     destroyVideoFeedResources(true);
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
@@ -289,6 +293,9 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     VK_CHECK(vkCreateDescriptorSetLayout(vulkanDevice.logicalDevice, &descriptorSetLayoutCreateInfo, nullptr, &guiDescriptorSetLayout));
     logs("[+] Created Gui Descriptor Set Layout");
 
+    ui.imguiDescriptorPool = guiDescriptorPool;
+    ui.imguiDescriptorSetLayout = guiDescriptorSetLayout;
+    logs("[+] Set descriptor pool and layout for UI texture selection");
     // Descriptor Set
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
     descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -418,8 +425,6 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     pipelineCreateInfo.basePipelineIndex = -1;
     pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    /*...[]__
-             --[    ]*/
     pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
     pipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
@@ -472,8 +477,13 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     shaderStages[0] = Gpu::loadShader(ui_vert_spv, ui_vert_spv_size, VK_SHADER_STAGE_VERTEX_BIT, vulkanDevice.logicalDevice);
     shaderStages[1] = Gpu::loadShader(ui_frag_spv, ui_frag_spv_size, VK_SHADER_STAGE_FRAGMENT_BIT, vulkanDevice.logicalDevice);
 
-    vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
-    logs("[+] Created Graphics Gui Pipeline ");
+    VkResult _res_gui_pipeline = vkCreateGraphicsPipelines(vulkanDevice.logicalDevice, guiPipelineCache, 1, &pipelineCreateInfo, nullptr, &guiPipeline);
+    if (_res_gui_pipeline != VK_SUCCESS) {
+        logs("[-] vkCreateGraphicsPipelines FAILED: " << _res_gui_pipeline);
+        throw std::runtime_error("Failed to create GUI graphics pipeline");
+    } else {
+        logs("[+] Created Graphics Gui Pipeline (result=" << _res_gui_pipeline << ")");
+    }
 }
 
 VkExtent2D Gui::getCustomShaderExtent() const {

@@ -20,25 +20,10 @@
 			"id" : "GenerateKernelHeaders::@b85b5e8d2ed61bca781d"
 		},
 		{
-			"id" : "compile_kernels::@b85b5e8d2ed61bca781d"
-		},
-		{
 			"id" : "GenerateFontHeaders::@28540453289e944cb2e9"
 		},
 		{
-			"id" : "synth::@4cc3f628e895ca9b569d"
-		},
-		{
-			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
-		},
-		{
-			"id" : "gpu::@639c691ed8fe00215672"
-		},
-		{
-			"id" : "gui::@9bbf4b0247a3806d05b0"
-		},
-		{
-			"id" : "network::@0ba1bf266af7f50e8e09"
+			"id" : "compile_kernels::@b85b5e8d2ed61bca781d"
 		},
 		{
 			"id" : "Photon::@14bc0c096ae1d1635d0d"
@@ -47,7 +32,22 @@
 			"id" : "engine::@094849aa84dc83bc757b"
 		},
 		{
+			"id" : "gui::@9bbf4b0247a3806d05b0"
+		},
+		{
+			"id" : "gpu::@639c691ed8fe00215672"
+		},
+		{
 			"id" : "parse::@c2fcf3a84381047cb015"
+		},
+		{
+			"id" : "synth::@4cc3f628e895ca9b569d"
+		},
+		{
+			"id" : "network::@0ba1bf266af7f50e8e09"
+		},
+		{
+			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
 		}
 	],
 	"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",

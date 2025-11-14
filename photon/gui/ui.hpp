@@ -3,10 +3,11 @@
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include <array>
 #include "videoDecoder.hpp"
+#include "frame.hpp"
 
 struct UI{
     Network *networkINTF;
@@ -16,6 +17,15 @@ struct UI{
     VkPhysicalDeviceType deviceType = VK_PHYSICAL_DEVICE_TYPE_OTHER;
     uint32_t driverVersion = 0;
     uint32_t apiVersion = 0;
+
+    // Vulkan handles needed for video texture operations
+    VkDevice device = VK_NULL_HANDLE;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    VkQueue graphicsQueue = VK_NULL_HANDLE;
+    VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout imguiDescriptorSetLayout = VK_NULL_HANDLE;
+    VkFormat videoTextureFormat = VK_FORMAT_UNDEFINED;
 
     struct {
         bool displayModels = false;
@@ -51,6 +61,7 @@ struct UI{
     ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
     videoDecoder videoDecoder;
 
+    // UI methods
     void setStyle();
     void build();
     void fpsWindow();
@@ -59,4 +70,29 @@ struct UI{
     void customBackground();
     void networkSamplePlot();
     void showVideoWindow();
+
+    // Vulkan helper methods for video texture management
+    void createVideoTexture(uint32_t width, uint32_t height,
+                           VkImage& outImage, VkDeviceMemory& outMemory,
+                           VkImageView& outView, VkSampler& outSampler);
+    
+    void uploadVideoFrameToTexture(const frame& videoFrame, VkImage image,
+                                   uint32_t width, uint32_t height);
+    
+    void copyBufferToImage(VkBuffer buffer, VkImage image,
+                          uint32_t width, uint32_t height);
+    
+    void transitionImageLayout(VkImage image, VkFormat format,
+                              VkImageLayout oldLayout, VkImageLayout newLayout);
+    
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                     VkMemoryPropertyFlags properties,
+                     VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    
+    VkCommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+    
+    VkDescriptorSet createDescriptorSetForTexture(VkSampler sampler, VkImageView imageView);
 };
