@@ -1,9 +1,5 @@
-/* [ξ] Photon Network Interface
-   Handles real-time SLCAN (CAN over TCP) parsing and DBC mapping.
-   Designed for thread-safe CAN streaming and modular DBC integration.
-*/
-
 #pragma once
+
 #include <array>
 #include <cstdint>
 #include <string>
@@ -11,10 +7,11 @@
 #include <mutex>
 #include <vector>
 #include "spsc.hpp"
+#include "dbc_manager.hpp"
+#include <deque>
 
 // forward declaration
 class TcpSocket;
-class DbcConnector;
 
 class Network {
 public:
@@ -26,6 +23,8 @@ public:
 
     // --- Debug / DBC ---
     void printDBCMap();
+    DbcManager dbcManager;
+    DbcManager& getDbcManager() { return dbcManager; }
     bool loadDBC(const std::string& path);
 
     // --- CAN sample interface ---
@@ -33,9 +32,19 @@ public:
     void writeSample(uint16_t canId, uint64_t value);
 
     // --- Network configuration ---
-    std::string IP = "3.141.38.115";
+    std::string IP = "127.0.0.1";
     unsigned PORT = 8187;
     SPSCQueue<uint8_t> spscQueue;
+
+        struct DecodedEntry {
+        uint16_t canId;
+        uint64_t rawValue;
+        std::vector<std::string> lines;   // e.g. "Temp=25°C, Mode=3, Enabled=1"
+    };
+
+    static constexpr size_t MAX_HISTORY = 100;
+    std::mutex decodedHistoryMutex;
+    std::deque<DecodedEntry> decodedHistory;
 
 private:
     struct sample {
@@ -43,36 +52,17 @@ private:
         uint64_t point = 0;
     };
 
-    struct DbcSignal {
-        std::string name;
-        int startBit = 0;
-        int length = 0;
-        int byteOrder = 0;
-        bool isSigned = false;
-        double scale = 1.0;
-        double offset = 0.0;
-        double minVal = 0.0;
-        double maxVal = 0.0;
-    };
 
-    struct DbcMessage {
-        std::string name;
-        uint8_t dlc = 0;
-        std::string sender;
-        std::vector<DbcSignal> signals;
-    };
+    
 
     // --- Maps ---
     std::unordered_map<uint16_t, sample> sampleMap;
-    std::unordered_map<uint32_t, DbcMessage> dbcMap;
-
-    std::mutex sampleMapMutex;
-    std::mutex dbcMapMutex;
-
-    uint32_t currentCanId = 0;
-
+    std::mutex sampleMapMutex;;
     // --- Helpers ---
     sample& ensureSample(uint16_t canId);
-    bool decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value);
+    bool decodeFrame(const std::string& frame,
+                     uint16_t& canId,
+                     uint64_t& value);
     void handleFrame(const std::string& frame);
+    void interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc);
 };

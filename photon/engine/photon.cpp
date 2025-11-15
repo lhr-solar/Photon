@@ -54,6 +54,9 @@ void Photon::initThreads(){
     logs("[?] Cache line size (constructive): " << std::hardware_constructive_interference_size);
     logs("[?] Usable Hardware Threads: " << std::thread::hardware_concurrency());
 #endif
+    DbcWatcher watcher(network.getDbcManager(), "dbc", 3);
+    watcher.start();
+    network.printDBCMap();
     std::thread producer_t(&Network::producer, &network);
     producer_t.detach();
     std::thread parser_t(&Network::parser, &network);
