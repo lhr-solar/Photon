@@ -18,24 +18,13 @@ void UI::build(){
     showVideoDisplay();
     showVideoWindow();
     networkSamplePlot();
-
     ImGui::Render();
 }
 
 static Video* gVideoPlayer = nullptr;
 
 void UI::showVideoWindow() {
-    // Static resources for video texture
-    static bool videoInitialized = false;
-    static VkDescriptorSet videoTextureDescriptor = VK_NULL_HANDLE;
-    static VkImageView videoImageView = VK_NULL_HANDLE;
-    static VkImage videoImage = VK_NULL_HANDLE;
-    static VkDeviceMemory videoMemory = VK_NULL_HANDLE;
-    static VkSampler videoSampler = VK_NULL_HANDLE;
-    static uint32_t lastWidth = 0;
-    static uint32_t lastHeight = 0;
-    
-    // Track display size like customShaderWindow does
+    // Track display size for resizing detection
     static float displayWidth = 800.0f;
     static float displayHeight = 600.0f;
     
@@ -46,89 +35,53 @@ void UI::showVideoWindow() {
         return;
     }
     
-    // Initialize video player once
-    if (!videoInitialized) {
-        if (gVideoPlayer == nullptr) {
-            gVideoPlayer = new Video();
-        }
-        
-        if (gVideoPlayer->open("./mp4Videos/F1POV.mp4")) {
-            videoInitialized = true;
-            logs("[+] Video player initialized successfully\n");
+    // Load video on first run
+    static bool videoLoaded = false;
+    if (!videoLoaded) {
+        if (videoPlayer.loadVideo("./mp4Videos/F1POV.mp4", MP4_VIDEO_AUTOPLAY | MP4_VIDEO_LOOP)) {
+            videoLoaded = true;
+            logs("[+] Video loaded successfully");
         } else {
-            ImGui::Text("Failed to open video: ./mp4Videos/F1POV.mp4");
-            ImGui::Text("Check that the file exists and is a valid video format");
+            ImGui::Text("Failed to load video");
             ImGui::End();
             return;
         }
     }
     
-    // Update frame (decode next frame)
-    if (!gVideoPlayer->updateFrame()) {
-        ImGui::Text("End of video or decode error");
-        ImGui::End();
-        return;
+    // Update video (decode next frame if playing)
+    videoPlayer.update();
+    
+    // Playback controls
+    if (ImGui::Button(videoPlayer.isPlaying() ? "Pause" : "Play")) {
+        if (videoPlayer.isPlaying()) {
+            videoPlayer.pausePlayback();
+        } else {
+            videoPlayer.startPlayback();
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Stop")) {
+        videoPlayer.stopPlayback();
     }
     
-    // Draw the current frame
-    const frame& current = gVideoPlayer->getFrame();
-    if (!current.isValid()) {
-        ImGui::Text("No valid frame data");
-        ImGui::End();
-        return;
-    }
+    // Display info
+    ImGui::Text("Resolution: %ux%u", videoPlayer.width(), videoPlayer.height());
+    ImGui::Text("Time: %.2f / %.2f seconds", 
+                videoPlayer.currentTime(), videoPlayer.duration());
     
-    uint32_t width = gVideoPlayer->width();
-    uint32_t height = gVideoPlayer->height();
-    
-    // Recreate texture if dimensions changed or first frame
-    if (videoImage == VK_NULL_HANDLE || lastWidth != width || lastHeight != height) {
-        // Clean up old resources if they exist
-        if (videoImageView != VK_NULL_HANDLE) {
-            vkDestroyImageView(device, videoImageView, nullptr);
-            videoImageView = VK_NULL_HANDLE;
-        }
-        if (videoImage != VK_NULL_HANDLE) {
-            vkDestroyImage(device, videoImage, nullptr);
-            videoImage = VK_NULL_HANDLE;
-        }
-        if (videoMemory != VK_NULL_HANDLE) {
-            vkFreeMemory(device, videoMemory, nullptr);
-            videoMemory = VK_NULL_HANDLE;
-        }
-        if (videoSampler != VK_NULL_HANDLE) {
-            vkDestroySampler(device, videoSampler, nullptr);
-            videoSampler = VK_NULL_HANDLE;
-        }
-        
-        // Create new texture
-        logs("[+] Creating video texture %ux%u\n", width, height);
-        createVideoTexture(width, height, videoImage, videoMemory, videoImageView, videoSampler);
-        
-        // Create descriptor set
-        videoTextureDescriptor = createDescriptorSetForTexture(videoSampler, videoImageView);
-        
-        lastWidth = width;
-        lastHeight = height;
-    }
-    
-    // Upload current frame data to GPU
-    uploadVideoFrameToTexture(current, videoImage, width, height);
-    
-    // Get content region size - EXACTLY like customShaderWindow
+    // Get content region size modeled after customShaderWindow
     ImVec2 contentSize = ImGui::GetContentRegionAvail();
     if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) {
         contentSize = ImVec2(displayWidth, displayHeight);
     }
 
-    // Detect resize with epsilon - EXACTLY like customShaderWindow
+    // Detect resize with epsilon modeled after customShaderWindow
     const float epsilon = 0.5f;
     if (contentSize.x > 1.0f && contentSize.y > 1.0f) {
         if (std::fabs(contentSize.x - displayWidth) > epsilon ||
             std::fabs(contentSize.y - displayHeight) > epsilon) {
             displayWidth = contentSize.x;
             displayHeight = contentSize.y;
-            // Note: customShaderWindow sets dirty flag here, but we just use the size directly
         }
     }
 
@@ -138,12 +91,7 @@ void UI::showVideoWindow() {
     drawSize.y = std::max(drawSize.y, 1.0f);
     
     // Display the video frame
-    if (videoTextureDescriptor != VK_NULL_HANDLE) {
-        ImGui::Image((ImTextureID)(intptr_t)videoTextureDescriptor, drawSize);
-    } else {
-        ImGui::Text("Texture descriptor not ready");
-    }
-    
+    ImGui::Image((ImTextureID)videoPlayer.texture(), drawSize);
     ImGui::End();
 }
 // ============================================================================

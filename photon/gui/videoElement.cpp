@@ -1,5 +1,7 @@
 #include "videoElement.hpp"
+#include "../engine/include.hpp"
 #include <iostream>
+//logs
 
 Video::Video()
     : m_width(0)
@@ -16,7 +18,7 @@ bool Video::open(const std::string& filePath) {
     close();
     
     if (!decoder.open(filePath)) {
-        std::cerr << "[Video] Failed to open video file: " << filePath << std::endl;
+        logs("[!] ERROR: Video Failed to open video file");
         return false;
     }
     
@@ -26,13 +28,13 @@ bool Video::open(const std::string& filePath) {
     
     // Decode first frame immediately
     if (!decoder.decodeNextFrame(currentFrame)) {
-        std::cerr << "[Video] Failed to decode first frame" << std::endl;
+        logs("[!] ERROR: Failed to decode first frame");
         close();
         return false;
     }
     
-    std::cout << "[Video] Successfully loaded video: " << m_width << "x" << m_height 
-              << " (" << m_duration << "s)" << std::endl;
+    logs("[!] Successfully loaded video: " << m_width << "x" << m_height 
+              << " (" << m_duration << "s)");
     
     return true;
 }

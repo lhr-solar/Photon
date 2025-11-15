@@ -123,6 +123,8 @@ Gui::~Gui(){
     ImGui::DestroyContext();
     ImPlot::DestroyContext();
     ImPlot3D::DestroyContext();
+    //destroy video player
+    ui.videoPlayer.cleanup();
 };
 
 #ifdef XCB
@@ -296,6 +298,17 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ui.imguiDescriptorPool = guiDescriptorPool;
     ui.imguiDescriptorSetLayout = guiDescriptorSetLayout;
     logs("[+] Set descriptor pool and layout for UI texture selection");
+    //init video player
+    ui.videoPlayer.init(
+        vulkanDevice.logicalDevice,
+        vulkanDevice.physicalDevice,
+        vulkanDevice.graphicsCommandPool,
+        vulkanDevice.graphicsQueue,
+        guiDescriptorPool,
+        guiDescriptorSetLayout,
+        sampler
+    );
+    logs("[+] Initialized video player for UI video textures");
     // Descriptor Set
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
     descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

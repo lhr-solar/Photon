@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <array>
 #include "videoDecoder.hpp"
+#include "mp4Video.hpp"
 #include "frame.hpp"
 
 struct UI{
@@ -60,7 +61,7 @@ struct UI{
     ImTextureID videoTexture = static_cast<ImTextureID>(0);
     ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
     videoDecoder videoDecoder;
-
+    mp4Video videoPlayer;
     // UI methods
     void setStyle();
     void build();
