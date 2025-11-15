@@ -6,6 +6,14 @@
 
 #ifdef XCB
 #include <xcb/xcb.h>
+struct xcb_generic_event_t;
+#endif
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #endif
 
 struct Inputs{
@@ -25,7 +33,7 @@ struct Inputs{
     void handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xcb_atom_t deleteAtom);
 #endif
 
-#ifdef WIN
+#if defined(_WIN32) 
     ImGuiKey translateWin32Key(uint32_t key);
     LRESULT handleWin32Message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool &quitFlag, uint32_t &destWidth, uint32_t &destHeight);
 #endif
