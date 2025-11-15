@@ -265,7 +265,7 @@ void UI::slcanWindow() {
 
             // CAN ID
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("0x%03X", entry.canId);
+            ImGui::Text("%u (0x%X)", entry.canId, entry.canId);
 
             // Raw Value
             ImGui::TableSetColumnIndex(1);

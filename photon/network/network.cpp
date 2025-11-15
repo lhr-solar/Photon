@@ -146,9 +146,12 @@ void Network::handleFrame(const std::string& frame) {
         entry.point = value;
     }
 
-    std::cerr << "[SLCAN] ID=" << canId
-        << " Value=0x" << std::hex << value
-        << std::dec << "\n";
+    std::cerr << "[SLCAN] CAN ID = " << canId
+            << "  (0x" << std::uppercase << std::hex << canId << std::dec << ")"
+            << " | DLC = " << int(frame[4] - '0')
+            << " | DATA = 0x" << std::uppercase << std::hex << value << std::dec
+            << "\n";
+
 
     // Interpret using DBC if available
     if (dbcManager.hasMessages()) {

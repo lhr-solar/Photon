@@ -32,7 +32,7 @@ public:
     void writeSample(uint16_t canId, uint64_t value);
 
     // --- Network configuration ---
-    std::string IP = "127.0.0.1";
+    std::string IP = "127.0.0.1";//"3.141.38.115";
     unsigned PORT = 8187;
     SPSCQueue<uint8_t> spscQueue;
 
