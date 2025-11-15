@@ -121,7 +121,7 @@ bool Network::readSample(uint16_t canId, int64_t& outValue) {
 }
 
 void Network::handleFrame(const std::string& frame) {
-    std::cout << frame << std::endl;
+//    std::cout << frame << std::endl;
     uint16_t canId = 0;
     uint64_t value = 0;
     if (!decodeFrame(frame, canId, value)) {

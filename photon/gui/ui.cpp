@@ -23,20 +23,17 @@ void UI::build(){
     static Plot net(0x7ff, "network", "aws");
     static Plot test(0x455, "test", "test");
 
-
     std::vector<Plot*> plots = {
-    //    &gyrX, &gyrY, &gyrZ,
-    //    &accX, &accY, &accZ, &net, &test};
-    &net};
+    &net, &test};
 
     background();
     basePlate();
     fpsWindow();
-    shaderWindow(accretionShader, "accretion window");
-    shaderWindow(triangle, "triangle window");
-    objWindow(viking, "obj window");
-
+//    shaderWindow(accretionShader, "accretion window");
+//    shaderWindow(triangle, "triangle window");
+//    objWindow(viking, "obj window");
     procedural(plots);
+    debugWindow();
     ImGui::Render();
 }
 
@@ -54,6 +51,21 @@ void UI::procedural(std::vector<Plot*> plots){
         ImGui::SetNextWindowPos(pos);
         plots[i]->draw(networkINTF);
         pos.x = pos.x + windowSize.x;
+    }
+}
+
+void UI::debugWindow(){
+    if (ImGui::BeginTable("myTable", 3)) {
+    ImGui::TableSetupColumn("A");
+    ImGui::TableSetupColumn("B");
+    ImGui::TableSetupColumn("C");
+    ImGui::TableHeadersRow();
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn(); ImGui::Text("1");
+    ImGui::TableNextColumn(); ImGui::Text("2");
+    ImGui::TableNextColumn(); ImGui::Text("3");
+    ImGui::EndTable();
     }
 }
 

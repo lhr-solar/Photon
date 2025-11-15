@@ -15,6 +15,7 @@ void VulkanObj::initObj(VkExtent2D extent, uint32_t* vertShader, size_t vertShad
     this->vertShaderSize = vertShaderSize;
     this->fragShader = fragShader;
     this->fragShaderSize = fragShaderSize;
+
 }
 
 void VulkanObj::updateBuffers(VulkanDevice device){
@@ -308,11 +309,6 @@ void VulkanObj::recordRenderPass(VkCommandBuffer commandBuffer){
     pushConstants.pad        = 0.0f;
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushConstants);
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-    VkBuffer vertBuffers[] = {vertexBuffer.buffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertBuffers, offsets);
-    vkCmdDraw(commandBuffer, vertices.size(), 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 

@@ -91,7 +91,7 @@ void Gui::prepareImGui(){
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-    io.IniFilename = nullptr;
+    io.IniFilename = "config.ini";
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
     ImFont *satoshi = io.Fonts->AddFontFromMemoryTTF((void *)Satoshi_Medium_ttf, 
@@ -243,6 +243,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
 
     ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size);
+    ui.viking.updateBuffers(vulkanDevice);
     ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);;
 
     // Pipeline layout & Push constants for UI rendering
