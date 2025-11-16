@@ -6,7 +6,6 @@
 
 #ifdef XCB
 #include <xcb/xcb.h>
-struct xcb_generic_event_t;
 #endif
 
 #if defined(_WIN32)

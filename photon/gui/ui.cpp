@@ -7,35 +7,69 @@
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
+#include "dbc.hpp"
 
 void UI::build(){
     ImGui::NewFrame();
     static bool flag = true;
     static Console console;
 
-
-    static Plot gyrX(0x400, "Gyroscope X", "GyrX");
-    static Plot gyrY(0x401, "Gyroscope Y", "GyrY");
-    static Plot gyrZ(0x402, "Gyroscope Z", "GyrZ");
-    static Plot accX(0x403, "Acceleration X", "AccX");
-    static Plot accY(0x404, "Acceleration Y", "AccY");
-    static Plot accZ(0x405, "Acceleration Z", "AccZ");
-    static Plot net(0x7ff, "network", "aws");
-    static Plot test(0x455, "test", "test");
-
-    std::vector<Plot*> plots = {
-    &net, &test};
+    // 581 IO state, 585 Pedals raw, 781
+    // 782
+    // 783
+    static IO_State iostate;
+    iostate.updateSignals(networkINTF);
+    GenericPlot(iostate.Brake_Percentage, iostate.time, "brake percentage");
+    GenericPlot(iostate.Cruz_EN, iostate.time, "cruise enable");
 
     background();
     basePlate();
-    fpsWindow();
-//    shaderWindow(accretionShader, "accretion window");
-//    shaderWindow(triangle, "triangle window");
-//    objWindow(viking, "obj window");
-    procedural(plots);
-    debugWindow();
+
+//    debugWindow(plots);
     ImGui::Render();
 }
+
+void UI::GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name){
+    if (xAxis.size() < 2 || yAxis.size() != xAxis.size()) { return; }
+
+    constexpr double maxTime = 5.0;
+    const double windowStart = std::max(0.0, xAxis.back() - maxTime);
+    auto startIt = std::lower_bound(xAxis.begin(), xAxis.end(), windowStart);
+    const std::size_t startIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), startIt));
+    if (startIdx >= xAxis.size()) { return; }
+
+    // Compute dynamic Y limits over the windowed slice
+    double currentMin = yAxis[startIdx];
+    double currentMax = yAxis[startIdx];
+    for (std::size_t i = startIdx; i < yAxis.size(); ++i) {
+        currentMin = std::min(currentMin, yAxis[i]);
+        currentMax = std::max(currentMax, yAxis[i]);
+    }
+    if (std::abs(currentMax - currentMin) < 1e-3) {
+        double span = std::max(1.0, std::abs(currentMax));
+        currentMin -= span * 0.5;
+        currentMax += span * 0.5;
+    }
+    double pad = (currentMax - currentMin) * 0.1;
+    double yMin = currentMin - pad;
+    double yMax = currentMax + pad;
+
+    ImGui::SetNextWindowSize({600, 325});
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDecoration;
+    if(ImGui::Begin(name.c_str(), NULL, flags)){
+        ImPlot::SetNextAxisLimits(ImAxis_X1, windowStart, xAxis.back(), ImPlotCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
+        if(ImPlot::BeginPlot(name.c_str())){
+            const double* xData = xAxis.data() + startIdx;
+            const double* yData = yAxis.data() + startIdx;
+            const int count = static_cast<int>(xAxis.size() - startIdx);
+            ImPlot::PlotLine(name.c_str(), xData, yData, count);
+            ImPlot::EndPlot();
+        }
+    } 
+    ImGui::End();
+}
+
 
 void UI::procedural(std::vector<Plot*> plots){
     ImGuiIO &io = ImGui::GetIO();
@@ -49,23 +83,23 @@ void UI::procedural(std::vector<Plot*> plots){
             pos.y = pos.y + windowSize.y;
         }
         ImGui::SetNextWindowPos(pos);
-        plots[i]->draw(networkINTF);
+        plots[i]->update(networkINTF);
         pos.x = pos.x + windowSize.x;
     }
 }
 
-void UI::debugWindow(){
-    if (ImGui::BeginTable("myTable", 3)) {
-    ImGui::TableSetupColumn("A");
-    ImGui::TableSetupColumn("B");
-    ImGui::TableSetupColumn("C");
-    ImGui::TableHeadersRow();
+void UI::debugWindow(std::vector<Plot*> plot){
+    if (ImGui::BeginTable("myTable", plot.size())) {
+        for(int i = 0; i < plot.size(); i++){
+            ImGui::TableSetupColumn(plot[i]->plotName.data());
+        }
+        ImGui::TableHeadersRow();
 
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn(); ImGui::Text("1");
-    ImGui::TableNextColumn(); ImGui::Text("2");
-    ImGui::TableNextColumn(); ImGui::Text("3");
-    ImGui::EndTable();
+        ImGui::TableNextRow();
+        for(int i = 0; i< plot.size(); i++){
+            ImGui::TableNextColumn(); ImGui::Text("%.6f", plot[i]->data[1].back());
+        }
+        ImGui::EndTable();
     }
 }
 
@@ -346,56 +380,4 @@ void UI::setStyle(){
 
     UIstyle.ScaleAllSizes(1.0f);
     ImPlotStyle &plotStyle = ImPlot::GetStyle();
-}
-
-Plot::Plot(int canID, const char* windowName, const char* plotName)
-    : data{std::vector<double>{0.0}, std::vector<double>{0.0}},
-      canID(canID),
-      windowName(windowName),
-      plotName(plotName) {}
-
-void Plot::draw(Network* networkSource){
-    int64_t val = 0;
-    ImGuiIO &io = ImGui::GetIO();
-    float deltaTime = io.DeltaTime;
-    double maxTime = 5.0;
-    auto prune = [maxTime](std::vector<std::vector<double>>& series){
-        while((series[0].size() > 1) && ((series[0].back() - series[0].front()) > maxTime)){
-            series[0].erase(series[0].begin());
-            series[1].erase(series[1].begin());
-        }
-    };
-    networkSource->readSample(canID, val);
-    prune(data);
-    data[0].push_back(data[0].back() + deltaTime);
-    data[1].push_back((double)val);
-
-    double currentMin = data[1].front();
-    double currentMax = data[1].front();
-    for (double sample : data[1]) {
-        currentMin = std::min(currentMin, sample);
-        currentMax = std::max(currentMax, sample);
-    }
-
-    if (currentMax - currentMin < 1e-3) {
-        double span = std::max(1.0, std::abs(currentMax));
-        currentMin -= span * 0.5;
-        currentMax += span * 0.5;
-    }
-
-    double padding = (currentMax - currentMin) * 0.1;
-    minValue = currentMin - padding;
-    maxValue = currentMax + padding;
-
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize |
-                            ImGuiWindowFlags_NoDecoration;
-    if(ImGui::Begin(windowName.data(), NULL, flags)){
-        ImPlot::SetNextAxisLimits(ImAxis_X1, std::max(0.0, data[0].back() - 5.0), data[0].back(), ImPlotCond_Always);
-        ImPlot::SetNextAxisLimits(ImAxis_Y1, minValue, maxValue, ImPlotCond_Always);
-        if(ImPlot::BeginPlot(plotName.data())){
-            ImPlot::PlotLine(plotName.data(), data[0].data(), data[1].data(), data[0].size());
-            ImPlot::EndPlot();
-        }
-    } 
-    ImGui::End();
 }

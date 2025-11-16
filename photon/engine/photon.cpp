@@ -49,10 +49,10 @@ void Photon::initThreads(){
     producer_t.detach();
     std::thread parser_t(&Network::parser, &network);
     parser_t.detach();
-    std::thread uartProducer_t(&Network::uartProducer, &network);
-    uartProducer_t.detach();
-    std::thread uartConsumer_t(&Network::uartConsumer, &network);
-    uartConsumer_t.detach();
+//    std::thread uartProducer_t(&Network::uartProducer, &network);
+//    uartProducer_t.detach();
+//    std::thread uartConsumer_t(&Network::uartConsumer, &network);
+//    uartConsumer_t.detach();
 }
 
 void Photon::renderLoop(){

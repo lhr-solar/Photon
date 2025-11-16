@@ -11,17 +11,7 @@
 #include <array>
 #include <vector>
 #include "console.hpp"
-
-struct Plot{
-    std::vector<std::vector<double>> data;
-    int canID;
-    std::string windowName;
-    std::string plotName;
-    double minValue = 0;
-    double maxValue = 1;
-    Plot(int canID, const char* windowName, const char* plotName);
-    void draw(Network* networkSource);
-};
+#include "plot.hpp"
 
 struct UI{
     Network *networkINTF;
@@ -56,5 +46,7 @@ struct UI{
     void orderedWindows(void(*functionArray[])(std::vector<std::vector<double>>&, int, const char*, const char*), size_t count);
     void shaderWindow(VulkanShader& shader, std::string windowName);
     void objWindow(VulkanObj& obj, std::string windowName);
-    void debugWindow();
+    void debugWindow(std::vector<Plot*> plots);
+    void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
+
 };

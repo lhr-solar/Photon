@@ -19,8 +19,8 @@ public:
     void uartProducer();
     void uartConsumer();
 
-    bool readSample(uint16_t canId, int64_t& outValue);
-    void writeSample(uint16_t canId, int64_t value);
+    bool readSample(uint16_t canId, uint64_t& outValue);
+    void writeSample(uint16_t canId, uint64_t value);
 
     SPSCQueue<uint8_t> tcpQueue;
     SPSCQueue<uint8_t> uartQueue;

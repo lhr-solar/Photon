@@ -411,6 +411,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
                 descriptorSetLayout);
         ui.backgroundShader.dirty = false;
     }
+    /*
     if (ui.accretionShader.dirty) {
         ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, descriptorPool, 
                 descriptorSetLayout);
@@ -425,6 +426,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
         ui.viking.dirty = false;
     }
+    */
 
     updateBuffers(vulkanDevice);
 
