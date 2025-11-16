@@ -10,8 +10,12 @@ layout(push_constant) uniform PushConstants {
 
 void main()
 {
+    // slow the animation and trim color intensity a bit
+    const float timeScale = 0.25;
+    const float colorScale = 0.65;
+
     // pixel coords (flip Y so origin is top-left)
-    const float yBias = pc.resolution.y * 0.45;
+    const float yBias = pc.resolution.y * 0.50;
     vec2 frag = vec2(gl_FragCoord.x, pc.resolution.y - gl_FragCoord.y + yBias);
 
     // `r` is a 2-lane resolution vector
@@ -29,11 +33,11 @@ void main()
     // cosTerm = cos(p.x + cos(p.x*0.6 - t) + vec4(0,.3,.6,1))
     // the original used a vec4 to create 4 slightly shifted
     // color channels; we’ll compute it as a vec4 directly.
-    vec4 cosTerm = cos(p.x + cos(p.x * 0.6 - pc.u_time) +
+    vec4 cosTerm = cos(p.x + cos(p.x * 0.6 - pc.u_time * timeScale) +
                        vec4(0.0, 0.3, 0.6, 1.0));
 
     // sinTerm = sin(p.x*0.4 - t)
-    float sinTerm = sin(p.x * 0.4 - pc.u_time);
+    float sinTerm = sin(p.x * 0.4 - pc.u_time * timeScale);
 
     // denominator for each channel
     vec4 denom = abs(minTerm / cosTerm / sinTerm);
@@ -41,5 +45,5 @@ void main()
     // Final color
     vec4 o = tanh(0.4 / denom);
 
-    outColor = o;
+    outColor = o * colorScale;
 }
