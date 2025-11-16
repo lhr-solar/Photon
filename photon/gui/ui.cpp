@@ -19,6 +19,7 @@ void UI::build(){
     // 581 IO state, 585 Pedals raw, 781 , 782 , 783
 
     static IO_State iostate;
+    static Controls_Fault controls_fault;
     static Motor_Drive_Command drive_cmd;
     static Motor_Power_Command power_cmd;
     static Pedals_Raw_Voltage pedals_raw;
@@ -32,6 +33,7 @@ void UI::build(){
     static BPS_Temperature_Summary temp_sum;
     
     iostate.updateSignals(networkINTF);
+    controls_fault.updateSignals(networkINTF);
     drive_cmd.updateSignals(networkINTF);
     power_cmd.updateSignals(networkINTF);
     pedals_raw.updateSignals(networkINTF);
@@ -179,7 +181,7 @@ void UI::build(){
         GenericPlotTab(power_cmd.Motor_Power_Setpoint, power_cmd.time, "Motor power setpoint");
         ImGui::EndChild();
 
-        // BPS summaries row (spans all columns, half height)
+        // BPS summaries row (spans all columns, holds summaries + faults)
         ImGui::SetCursorPos(offset(0.0f, (rowH + gap) * 3.0f));
         ImGui::BeginChild("BpsSummary", ImVec2(columnW * 3.0f + gap * 2.0f, summaryH));
         {
@@ -233,6 +235,54 @@ void UI::build(){
                 ImGui::TableNextColumn(); ImGui::Text("Range: %s C", tempRangeStr.c_str());
                 ImGui::TableNextColumn(); ImGui::Text("TS: %s ms", tempTsStr.c_str());
 
+                ImGui::EndTable();
+            }
+
+            // Controls fault flags directly below summary line
+            ImGui::Dummy(ImVec2(0.0f, 6.0f));
+            auto lastBit = [](const std::vector<double>& v) -> int {
+                if (v.empty()) return -1;
+                return static_cast<int>(v.back());
+            };
+            int fault = lastBit(controls_fault.Controls_Fault_Flag);
+            int mcf   = lastBit(controls_fault.Motor_Controller_Fault);
+            int bpsf  = lastBit(controls_fault.BPS_Fault);
+            int pedf  = lastBit(controls_fault.Pedals_Fault);
+            int carf  = lastBit(controls_fault.CarCAN_Fault);
+            int intf  = lastBit(controls_fault.Internal_Controls_Fault);
+            int osf   = lastBit(controls_fault.OS_Fault);
+            int lakf  = lastBit(controls_fault.Lakshay_Fault);
+
+            struct FaultRow { const char* label; int bit; };
+            FaultRow faults[] = {
+                {"Fault", fault}, {"MC Fault", mcf}, {"BPS Fault", bpsf}, {"Pedals Fault", pedf},
+                {"CarCAN Fault", carf}, {"Internal", intf}, {"OS", osf}, {"Lakshay", lakf}
+            };
+
+            const int faultCols = 8;
+            float fAvailW = ImGui::GetContentRegionAvail().x;
+            float fCellW = (fAvailW - 16.0f) / faultCols;
+            float radius = ImGui::GetTextLineHeight() * 0.4f;
+            if (ImGui::BeginTable("ControlsFaultTable", faultCols, ImGuiTableFlags_SizingFixedFit)) {
+                for (int c = 0; c < faultCols; ++c) {
+                    ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, fCellW);
+                }
+                ImGui::TableNextRow();
+
+                auto colorFor = [](int bit) -> ImU32 {
+                    if (bit < 0) return IM_COL32(128, 128, 128, 255);
+                    return (bit == 0) ? IM_COL32(50, 200, 120, 255) : IM_COL32(230, 70, 70, 255);
+                };
+
+                for (const auto& f : faults) {
+                    ImGui::TableNextColumn();
+                    ImVec2 pos = ImGui::GetCursorScreenPos();
+                    ImGui::Dummy(ImVec2(radius * 2.0f, radius * 2.0f));
+                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                    dl->AddCircleFilled(ImVec2(pos.x + radius, pos.y + radius), radius, colorFor(f.bit));
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted(f.label);
+                }
                 ImGui::EndTable();
             }
         }
