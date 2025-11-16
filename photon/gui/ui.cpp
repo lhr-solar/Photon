@@ -11,21 +11,24 @@
 
 void UI::build(){
     ImGui::NewFrame();
-    static bool flag = true;
-    static Console console;
-
-    // 581 IO state, 585 Pedals raw, 781
-    // 782
-    // 783
-    static IO_State iostate;
-    iostate.updateSignals(networkINTF);
-    GenericPlot(iostate.Brake_Percentage, iostate.time, "brake percentage");
-    GenericPlot(iostate.Cruz_EN, iostate.time, "cruise enable");
-
     background();
     basePlate();
+    // 581 IO state, 585 Pedals raw, 781 , 782 , 783
 
-//    debugWindow(plots);
+    static IO_State iostate;
+    static Pedals_Raw_Voltage pedals_raw;
+    static BPS_WDog_Trigger wdog_trigger;
+    iostate.updateSignals(networkINTF);
+    pedals_raw.updateSignals(networkINTF);
+    wdog_trigger.updateSignals(networkINTF);
+
+    GenericPlot(iostate.Brake_Percentage, iostate.time, "brake percentage");
+    GenericPlot(iostate.Cruz_EN, iostate.time, "cruise enable");
+    GenericPlot(wdog_trigger.WDog_Trig, wdog_trigger.time, "WatchDog");
+
+    GenericPlot(pedals_raw.Accel_Raw, pedals_raw.time, "Accel Raw");
+
+    debugWindow();
     ImGui::Render();
 }
 
@@ -38,7 +41,6 @@ void UI::GenericPlot(const std::vector<double>& yAxis, const std::vector<double>
     const std::size_t startIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), startIt));
     if (startIdx >= xAxis.size()) { return; }
 
-    // Compute dynamic Y limits over the windowed slice
     double currentMin = yAxis[startIdx];
     double currentMax = yAxis[startIdx];
     for (std::size_t i = startIdx; i < yAxis.size(); ++i) {
@@ -88,19 +90,7 @@ void UI::procedural(std::vector<Plot*> plots){
     }
 }
 
-void UI::debugWindow(std::vector<Plot*> plot){
-    if (ImGui::BeginTable("myTable", plot.size())) {
-        for(int i = 0; i < plot.size(); i++){
-            ImGui::TableSetupColumn(plot[i]->plotName.data());
-        }
-        ImGui::TableHeadersRow();
-
-        ImGui::TableNextRow();
-        for(int i = 0; i< plot.size(); i++){
-            ImGui::TableNextColumn(); ImGui::Text("%.6f", plot[i]->data[1].back());
-        }
-        ImGui::EndTable();
-    }
+void UI::debugWindow(){
 }
 
 void UI::basePlate(){
@@ -195,31 +185,7 @@ void UI::fpsWindow(){
     ImGui::PopStyleColor(4);
 }
 
-void UI::objWindow(VulkanObj& obj, std::string windowName){
-    if(!obj.outTexture) {return;}
-    ImGui::SetNextWindowSize(ImVec2(obj.extent.width, obj.extent.height), ImGuiCond_FirstUseEver);
-    ImGuiWindowFlags flags = 0;//ImGuiWindowFlags_NoDecoration;
-    if(ImGui::Begin(windowName.data(), NULL, flags)){
-        ImVec2 contentSize = ImGui::GetContentRegionAvail();
-        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
-            contentSize = ImVec2(obj.extent.width, obj.extent.height);
-        }
-        const float delta = 0.5f;
-        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
-            if(std::fabs(contentSize.x - obj.extent.width) > delta ||
-               std::fabs(contentSize.y - obj.extent.height) > delta){
-                obj.extent.width = contentSize.x;
-                obj.extent.height = contentSize.y;
-                obj.dirty = true;
-            }
-        }
-        ImVec2 drawSize(obj.extent.width, obj.extent.height);
-        drawSize.x = std::max(drawSize.x, 1.0f);
-        drawSize.y = std::max(drawSize.y, 1.0f);
-        ImGui::Image(obj.outTexture, drawSize);
-    }
-    ImGui::End();
-}
+// VulkanObj rendering disabled for stability; objWindow stub left commented.
 
 void UI::shaderWindow(VulkanShader& shader, std::string windowName){
     if(!shader.texture) {return;}

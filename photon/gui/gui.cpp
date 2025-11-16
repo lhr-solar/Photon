@@ -25,8 +25,8 @@
 #include "background_vert_spv.hpp"
 #include "triangle_frag_spv.hpp"
 #include "triangle_vert_spv.hpp"
-#include "viking_frag_spv.hpp"
-#include "viking_vert_spv.hpp"
+//#include "viking_frag_spv.hpp"
+//#include "viking_vert_spv.hpp"
 #include "Satoshi_Medium_ttf.hpp"
 
 Gui::Gui(){};
@@ -242,9 +242,9 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
 
     ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
 
-    ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size);
-    ui.viking.updateBuffers(vulkanDevice);
-    ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);;
+//    ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size);
+//    ui.viking.updateBuffers(vulkanDevice);
+//    ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);;
 
     // Pipeline layout & Push constants for UI rendering
     VkPushConstantRange pushConstantRange {};
@@ -422,10 +422,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
                 descriptorSetLayout);
         ui.triangle.dirty = false;
     }
-    if(ui.viking.dirty){
-        ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
-        ui.viking.dirty = false;
-    }
+//    if(ui.viking.dirty){
+//        ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
+//        ui.viking.dirty = false;
+//    }
     */
 
     updateBuffers(vulkanDevice);
@@ -438,7 +438,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
         ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
         ui.triangle.recordShaderPass(drawCmdBuffers[i]);
-        ui.viking.recordRenderPass(drawCmdBuffers[i]);
+//        ui.viking.recordRenderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};
         viewport.width = width;

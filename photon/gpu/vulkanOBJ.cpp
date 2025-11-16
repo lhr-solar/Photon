@@ -46,6 +46,44 @@ void VulkanObj::updateBuffers(VulkanDevice device){
 }
 
 void VulkanObj::createResources(VulkanDevice device, VkExtent2D extent, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout){
+    // If we are recreating (e.g., window resize), tear down old GPU objects first.
+    if (initialized || dirty) {
+        if (device.logicalDevice) {
+            if (pipeline != VK_NULL_HANDLE) {
+                vkDestroyPipeline(device.logicalDevice, pipeline, nullptr);
+                pipeline = VK_NULL_HANDLE;
+            }
+            if (pipelineLayout != VK_NULL_HANDLE) {
+                vkDestroyPipelineLayout(device.logicalDevice, pipelineLayout, nullptr);
+                pipelineLayout = VK_NULL_HANDLE;
+            }
+            if (frameBuffer != VK_NULL_HANDLE) {
+                vkDestroyFramebuffer(device.logicalDevice, frameBuffer, nullptr);
+                frameBuffer = VK_NULL_HANDLE;
+            }
+            if (renderPass != VK_NULL_HANDLE) {
+                vkDestroyRenderPass(device.logicalDevice, renderPass, nullptr);
+                renderPass = VK_NULL_HANDLE;
+            }
+            if (imageView != VK_NULL_HANDLE) {
+                vkDestroyImageView(device.logicalDevice, imageView, nullptr);
+                imageView = VK_NULL_HANDLE;
+            }
+            if (sampler != VK_NULL_HANDLE) {
+                vkDestroySampler(device.logicalDevice, sampler, nullptr);
+                sampler = VK_NULL_HANDLE;
+            }
+            if (image != VK_NULL_HANDLE) {
+                vkDestroyImage(device.logicalDevice, image, nullptr);
+                image = VK_NULL_HANDLE;
+            }
+            if (imageMemory != VK_NULL_HANDLE) {
+                vkFreeMemory(device.logicalDevice, imageMemory, nullptr);
+                imageMemory = VK_NULL_HANDLE;
+            }
+        }
+    }
+
     VkImageCreateInfo imageInfo = {};
     imageInfo.extent.width = extent.width;
     imageInfo.extent.height = extent.height;
@@ -155,7 +193,8 @@ void VulkanObj::createResources(VulkanDevice device, VkExtent2D extent, VkDescri
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pcRange;
-//    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     VK_CHECK(vkCreatePipelineLayout(device.logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout));
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
@@ -239,6 +278,8 @@ void VulkanObj::createResources(VulkanDevice device, VkExtent2D extent, VkDescri
         descriptorAlloc.pSetLayouts = &descriptorSetLayout;
         VK_CHECK(vkAllocateDescriptorSets(device.logicalDevice, &descriptorAlloc, &descriptorSet));
     }
+    // Use same descriptor for binding
+    uniformDescriptorSet = descriptorSet;
 
     VkDescriptorImageInfo imageDescriptor = {};
     imageDescriptor.sampler = sampler;
@@ -300,7 +341,7 @@ void VulkanObj::recordRenderPass(VkCommandBuffer commandBuffer){
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 
-            0, 1, &uniformDescriptorSet, 0, NULL);
+            0, 1, &descriptorSet, 0, NULL);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     pushConstants.resolution = glm::vec2(static_cast<float>(extent.width), static_cast<float>(extent.height));

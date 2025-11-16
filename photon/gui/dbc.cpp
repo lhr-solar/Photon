@@ -29,7 +29,6 @@ void IO_State::updateSignals(Network* networkSource){
     uint64_t encoded = 0;
     ImGuiIO &io = ImGui::GetIO();
     float deltaTime = io.DeltaTime;
-    double maxTime = 5.0;
 
     networkSource->readSample(kId, encoded);
     time.push_back(time.back() + deltaTime);
@@ -47,36 +46,206 @@ void IO_State::updateSignals(Network* networkSource){
     Brake_Light.push_back((flags >> 7) & 0x01);
 }
 
-/*
-void Controls_Fault::updateSignals(std::uint64_t encoded){
+void Controls_Fault::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+
     const uint64_t flags = extractBitsLe(encoded, 0, 8);
-    Controls_Fault_Flag = flags & 0x01;
-    Motor_Controller_Fault = (flags >> 1) & 0x01;
-    BPS_Fault = (flags >> 2) & 0x01;
-    Pedals_Fault = (flags >> 3) & 0x01;
-    CarCAN_Fault = (flags >> 4) & 0x01;
-    Internal_Controls_Fault = (flags >> 5) & 0x01;
-    OS_Fault = (flags >> 6) & 0x01;
-    Lakshay_Fault = (flags >> 7) & 0x01;
+    Controls_Fault_Flag.push_back(flags & 0x01);
+    Motor_Controller_Fault.push_back((flags >> 1) & 0x01);
+    BPS_Fault.push_back((flags >> 2) & 0x01);
+    Pedals_Fault.push_back((flags >> 3) & 0x01);
+    CarCAN_Fault.push_back((flags >> 4) & 0x01);
+    Internal_Controls_Fault.push_back((flags >> 5) & 0x01);
+    OS_Fault.push_back((flags >> 6) & 0x01);
+    Lakshay_Fault.push_back((flags >> 7) & 0x01);
 }
 
-void Motor_Controller_Safe::updateSignals(std::uint64_t encoded){
+void Motor_Controller_Safe::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+
     const uint64_t flags = extractBitsLe(encoded, 0, 8);
-    Motor_Safe = flags & 0x01;
-    Motor_Controller_Error = (flags >> 1) & 0x01;
+    Motor_Safe.push_back(flags & 0x01);
+    Motor_Controller_Error.push_back((flags >> 1) & 0x01);
 }
 
-void Motor_Drive_Command::updateSignals(std::uint64_t encoded){
-    Motor_Velocity_Setpoint = static_cast<std::int32_t>(extractBitsLe(encoded, 0, 32));
-    Motor_Current_Setpoint = static_cast<std::int32_t>(extractBitsLe(encoded, 32, 32));
+void Motor_Drive_Command::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+
+    Motor_Velocity_Setpoint.push_back(static_cast<std::int32_t>(extractBitsLe(encoded, 0, 32)));
+    Motor_Current_Setpoint.push_back(static_cast<std::int32_t>(extractBitsLe(encoded, 32, 32)));
 }
 
-void Motor_Power_Command::updateSignals(std::uint64_t encoded){
-    Motor_Power_Setpoint = static_cast<std::int32_t>(extractBitsLe(encoded, 32, 32));
+void Motor_Power_Command::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+
+    Motor_Power_Setpoint.push_back(static_cast<std::int32_t>(extractBitsLe(encoded, 32, 32)));
 }
 
-void Pedals_Raw_Voltage::updateSignals(std::uint64_t encoded){
-    Brake_Raw = signExtend(extractBitsLe(encoded, 0, 15), 15);
-    Accel_Raw = signExtend(extractBitsLe(encoded, 16, 15), 15);
+void Pedals_Raw_Voltage::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+
+    Brake_Raw.push_back(signExtend(extractBitsLe(encoded, 0, 15), 15));
+    Accel_Raw.push_back(signExtend(extractBitsLe(encoded, 16, 15), 15));
 }
-*/
+
+void BPS_Trip::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    BPS_Trip_Flag.push_back(extractBitsLe(encoded, 0, 1));
+}
+
+void BPS_All_Clear::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    BPS_All_Clear_Flag.push_back(extractBitsLe(encoded, 0, 1));
+}
+
+void BPS_Contactor_State::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Array_Contactor.push_back(extractBitsLe(encoded, 0, 1));
+    HV_Contactor.push_back(extractBitsLe(encoded, 2, 1));
+}
+
+void BPS_Current::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Current_mA.push_back(signExtend(extractBitsLe(encoded, 0, 32), 32));
+}
+
+void BPS_Voltage_Array::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Voltage_idx.push_back(extractBitsLe(encoded, 0, 8));
+    Voltage_Value_mV.push_back(extractBitsLe(encoded, 8, 32));
+}
+
+void BPS_Temperature_Array::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Temperature_idx.push_back(extractBitsLe(encoded, 0, 8));
+    Temperature_Value_mC.push_back(extractBitsLe(encoded, 8, 32));
+}
+
+void BPS_SOC::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    SoC_percent.push_back(extractBitsLe(encoded, 0, 32));
+}
+
+void BPS_WDog_Trigger::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    WDog_Trig.push_back(extractBitsLe(encoded, 0, 1));
+}
+
+void BPS_CAN_Error::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    BPS_CAN_Error_Flag.push_back(extractBitsLe(encoded, 0, 1));
+}
+
+void BPS_Command::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    BPS_Command_Value.push_back(extractBitsLe(encoded, 0, 32));
+}
+
+void BPS_Supplemental_Voltage::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Supplemental_Voltage_mV.push_back(extractBitsLe(encoded, 0, 16));
+}
+
+void BPS_Charge_Enabled::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Charge_Enabled.push_back(extractBitsLe(encoded, 0, 1));
+}
+
+void BPS_Voltage_Summary::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Pack_Voltage_mV.push_back(extractBitsLe(encoded, 0, 24));
+    Voltage_Range_mV.push_back(extractBitsLe(encoded, 24, 24));
+    Voltage_Timestamp_ms.push_back(extractBitsLe(encoded, 48, 16));
+}
+
+void BPS_Temperature_Summary::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    Average_Temp_mC.push_back(extractBitsLe(encoded, 0, 24));
+    Temperature_Range_mC.push_back(extractBitsLe(encoded, 24, 24));
+    Temperature_Timestamp_ms.push_back(extractBitsLe(encoded, 48, 16));
+}
+
+void BPS_Fault_State::updateSignals(Network* networkSource){
+    uint64_t encoded = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(kId, encoded);
+    time.push_back(time.back() + deltaTime);
+    BPS_Fault_State_Value.push_back(extractBitsLe(encoded, 0, 8));
+}
