@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <cfloat>
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
@@ -12,23 +13,74 @@
 void UI::build(){
     ImGui::NewFrame();
     background();
-    basePlate();
     // 581 IO state, 585 Pedals raw, 781 , 782 , 783
 
     static IO_State iostate;
+    static Motor_Drive_Command drive_cmd;
+    static Motor_Power_Command power_cmd;
     static Pedals_Raw_Voltage pedals_raw;
-    static BPS_WDog_Trigger wdog_trigger;
+
+    static BPS_Current bps_current;
+    static BPS_Voltage_Array voltage_arr;
+    static BPS_Temperature_Array temp_arr;
+    static BPS_SOC bps_soc;
+    static BPS_Supplemental_Voltage supp_volt;
+    static BPS_Voltage_Summary volt_sum;
+    static BPS_Temperature_Summary temp_sum;
+    
     iostate.updateSignals(networkINTF);
     pedals_raw.updateSignals(networkINTF);
-    wdog_trigger.updateSignals(networkINTF);
 
-    GenericPlot(iostate.Brake_Percentage, iostate.time, "brake percentage");
-    GenericPlot(iostate.Cruz_EN, iostate.time, "cruise enable");
-    GenericPlot(wdog_trigger.WDog_Trig, wdog_trigger.time, "WatchDog");
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImVec2 size = vp->Size;
+    ImVec2 pos  = vp->Pos;
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(size);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove 
+        | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration;
+    ImGui::Begin("Base", NULL, flags);
+    if (ImGui::BeginTabBar("Tabs")) {
+        if (ImGui::BeginTabItem("Controls")) {
+            // io state:
+            // accel percentage
+            // brake percentage
+            // 
+            // motor drive command:
+            // motor current setpoint
+            // motor velocity setpoint
+            //
+            // motor power command:
+            // motor power setpoint
+            //
+            // pedals raw voltage:
+            // brake raw
+            // accel raw
+            GenericPlotTab(pedals_raw.Accel_Raw, pedals_raw.time, "Accel Raw");
+            ImGui::EndTabItem();
+        }
 
-    GenericPlot(pedals_raw.Accel_Raw, pedals_raw.time, "Accel Raw");
+        if (ImGui::BeginTabItem("BPS")) {
+            // bps current
+            //
+            // bps voltage array
+            // indexed !!
+            // bps tempterature array
+            // indexed !!
+            // bps soc
+            // bps supp voltage
+            //
+            // bps voltage summary
+            // bps temperature summary
+            GenericPlotTab(iostate.Brake_Percentage, iostate.time, "brake percentage");
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
 
-    debugWindow();
+    ImGui::End();
+
+
+    fpsWindow();
     ImGui::Render();
 }
 
@@ -56,7 +108,7 @@ void UI::GenericPlot(const std::vector<double>& yAxis, const std::vector<double>
     double yMin = currentMin - pad;
     double yMax = currentMax + pad;
 
-    ImGui::SetNextWindowSize({600, 325});
+//    ImGui::SetNextWindowSize({600, 325});
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin(name.c_str(), NULL, flags)){
         ImPlot::SetNextAxisLimits(ImAxis_X1, windowStart, xAxis.back(), ImPlotCond_Always);
@@ -70,6 +122,52 @@ void UI::GenericPlot(const std::vector<double>& yAxis, const std::vector<double>
         }
     } 
     ImGui::End();
+}
+
+void UI::GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name){
+    if (xAxis.size() < 2 || yAxis.size() != xAxis.size()) { return; }
+
+    constexpr double maxTime = 5.0;
+    const double windowStart = std::max(0.0, xAxis.back() - maxTime);
+    auto startIt = std::lower_bound(xAxis.begin(), xAxis.end(), windowStart);
+    const std::size_t startIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), startIt));
+    if (startIdx >= xAxis.size()) { return; }
+
+    double currentMin = yAxis[startIdx];
+    double currentMax = yAxis[startIdx];
+    for (std::size_t i = startIdx; i < yAxis.size(); ++i) {
+        currentMin = std::min(currentMin, yAxis[i]);
+        currentMax = std::max(currentMax, yAxis[i]);
+    }
+    if (std::abs(currentMax - currentMin) < 1e-3) {
+        double span = std::max(1.0, std::abs(currentMax));
+        currentMin -= span * 0.5;
+        currentMax += span * 0.5;
+    }
+    double pad = (currentMax - currentMin) * 0.1;
+    double yMin = currentMin - pad;
+    double yMax = currentMax + pad;
+
+    if (ImGui::CollapsingHeader(name, ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImPlot::SetNextAxisLimits(ImAxis_X1, windowStart, xAxis.back(), ImPlotCond_Always);
+        ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
+        std::string plotLabel = std::string(name) + "##plot";
+        std::string lineLabel = std::string(name) + "##line";
+        if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-FLT_MIN, 300.0f))) {
+            const double* xData = xAxis.data() + startIdx;
+            const double* yData = yAxis.data() + startIdx;
+            const int count = static_cast<int>(xAxis.size() - startIdx);
+            ImPlot::PlotLine(lineLabel.c_str(), xData, yData, count);
+            ImPlot::EndPlot();
+        }
+    }
+}
+
+void UI::debugWindowTab(){
+    // Place tab-local debug widgets here; keeps them inside the tab instead of a separate window.
+    ImGui::SeparatorText("Debug");
+    // Existing debugWindow() remains unchanged; call here only if it renders inline content.
+    // debugWindow();
 }
 
 

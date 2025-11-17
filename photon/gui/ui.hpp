@@ -48,5 +48,7 @@ struct UI{
 //    void objWindow(VulkanObj& obj, std::string windowName);
     void debugWindow();
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
+    void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
+    void debugWindowTab();
 
 };

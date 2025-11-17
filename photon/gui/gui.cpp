@@ -231,14 +231,14 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
             descriptorPool, descriptorSetLayout);
     
-    ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
-            (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
-    ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
-            descriptorPool, descriptorSetLayout);
+//    ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
+//            (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
+    //ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
+            //descriptorPool, descriptorSetLayout);
 
-    ui.triangle.initShader({512, 512}, false, (uint32_t *)triangle_vert_spv, triangle_vert_spv_size, (uint32_t*)triangle_frag_spv, triangle_frag_spv_size, "triangle.frag");
-    ui.triangle.createResources(vulkanDevice, ui.triangle.extent, 
-            descriptorPool, descriptorSetLayout);
+    //ui.triangle.initShader({512, 512}, false, (uint32_t *)triangle_vert_spv, triangle_vert_spv_size, (uint32_t*)triangle_frag_spv, triangle_frag_spv_size, "triangle.frag");
+    //ui.triangle.createResources(vulkanDevice, ui.triangle.extent, 
+            //descriptorPool, descriptorSetLayout);
 
     ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
 
@@ -436,8 +436,8 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
         ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
-        ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
-        ui.triangle.recordShaderPass(drawCmdBuffers[i]);
+//        ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
+//        ui.triangle.recordShaderPass(drawCmdBuffers[i]);
 //        ui.viking.recordRenderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};

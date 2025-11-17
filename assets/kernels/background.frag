@@ -11,7 +11,8 @@ layout(push_constant) uniform PushConstants {
 void main()
 {
     // pixel coords (flip Y so origin is top-left)
-    vec2 frag = vec2(gl_FragCoord.x, pc.resolution.y - gl_FragCoord.y);
+    const float yBias = pc.resolution.y * 0.45;
+    vec2 frag = vec2(gl_FragCoord.x, pc.resolution.y - gl_FragCoord.y + yBias);
 
     // `r` is a 2-lane resolution vector
     vec2 r = pc.resolution;
