@@ -16,282 +16,58 @@
 void UI::build(){
     ImGui::NewFrame();
     background();
-    // 581 IO state, 585 Pedals raw, 781 , 782 , 783
-
-    static IO_State iostate;
-    static Controls_Fault controls_fault;
-    static Motor_Drive_Command drive_cmd;
-    static Motor_Power_Command power_cmd;
-    static Pedals_Raw_Voltage pedals_raw;
-    
-    static BPS_Current bps_current;
-    static BPS_Voltage_Array voltage_arr;
-    static BPS_Temperature_Array temp_arr;
-    static BPS_SOC bps_soc;
-    static BPS_Supplemental_Voltage supp_volt;
-    static BPS_Voltage_Summary volt_sum;
-    static BPS_Temperature_Summary temp_sum;
-    
-    iostate.updateSignals(networkINTF);
-    controls_fault.updateSignals(networkINTF);
-    drive_cmd.updateSignals(networkINTF);
-    power_cmd.updateSignals(networkINTF);
-    pedals_raw.updateSignals(networkINTF);
-    voltage_arr.updateSignals(networkINTF);
-    temp_arr.updateSignals(networkINTF);
-    volt_sum.updateSignals(networkINTF);
-    temp_sum.updateSignals(networkINTF);
-
+    //fpsWindow();
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImVec2 size = vp->Size;
-    ImVec2 pos  = vp->Pos;
-    ImGui::SetNextWindowPos(pos);
-    ImGui::SetNextWindowSize(size);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove 
-        | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize; //| ImGuiWindowFlags_NoDecoration;
-    ImGui::Begin("Base", NULL, flags);
-    {
-        ImVec2 tabOrigin = ImGui::GetCursorPos();
-        float columnW = 600;
-        float rowH = 300;
-        float gap = 8.0f;
-        float summaryH = rowH * 0.5f;
+    ImGui::SetNextWindowPos(vp->Pos);
+    ImGui::SetNextWindowSize(vp->Size);
 
-        auto offset = [&](float dx, float dy) {
-          return ImVec2(tabOrigin.x + dx, tabOrigin.y + dy);
-        };
+    ImGui::Begin("RootDockspace",
+        nullptr,
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoNavFocus);
 
-        // Accel panel
-        ImGui::SetCursorPos(offset(0.0f, 0.0f));
-        ImGui::BeginChild("Accel", ImVec2(columnW, rowH));
-        GenericPlotTab(pedals_raw.Accel_Raw, pedals_raw.time, "Accel Raw");
-        ImGui::EndChild();
-
-        // Brake panel to the right
-        ImGui::SetCursorPos(offset(columnW + gap, 0.0f));
-        ImGui::BeginChild("Brake", ImVec2(columnW, rowH));
-        GenericPlotTab(pedals_raw.Brake_Raw, pedals_raw.time, "Brake Raw");
-        ImGui::EndChild();
-
-        // Next row
-        ImGui::SetCursorPos(offset(0.0f, rowH + gap));
-        ImGui::BeginChild("AccelPct", ImVec2(columnW, rowH));
-        GenericPlotTab(iostate.Acceleration_Percentage, iostate.time, "Accel percentage");
-        ImGui::EndChild();
-
-        ImGui::SetCursorPos(offset(columnW + gap, rowH + gap));
-        ImGui::BeginChild("BrakePct", ImVec2(columnW, rowH));
-        GenericPlotTab(iostate.Brake_Percentage, iostate.time, "Brake percentage");
-        ImGui::EndChild();
-
-        const float col3X = (columnW + gap) * 2.0f;
-
-        // Battery modules grid (row 3, spans columns 1-2)
-        ImGui::SetCursorPos(offset(0.0f, (rowH + gap) * 2.0f));
-        ImGui::BeginChild("ModuleGrid", ImVec2(columnW * 2.0f + gap, rowH));
-        {
-            // Collect latest voltage/temp per module index
-            std::vector<double> latestVolt;
-            std::vector<double> latestTemp;
-            auto collectLatest = [](const std::vector<double>& idxVec,
-                                    const std::vector<double>& valueVec,
-                                    std::vector<double>& out,
-                                    double scale){
-                const size_t kMaxModules = 32;
-                out.assign(kMaxModules, 0.0);
-                for (size_t i = 0; i < idxVec.size() && i < valueVec.size(); ++i) {
-                    size_t idx = static_cast<size_t>(idxVec[i]);
-                    if (idx >= kMaxModules) { continue; }
-                    out[idx] = valueVec[i] * scale;
-                }
-            };
-            collectLatest(voltage_arr.Voltage_idx, voltage_arr.Voltage_Value_mV, latestVolt, 0.001); // mV -> V
-            collectLatest(temp_arr.Temperature_idx, temp_arr.Temperature_Value_mC, latestTemp, 0.001); // mC -> C
-
-            const int num_cols = 8;
-            const size_t num_modules = 32;
-            if (ImGui::BeginTable("ModTable", num_cols, ImGuiTableFlags_SizingFixedFit)) {
-                ImGuiStyle& style = ImGui::GetStyle();
-                float avail_height = ImGui::GetContentRegionAvail().y;
-                // Four internal rows: each module takes ~1/4 of the row height
-                float cell_height = std::max(16.0f, (avail_height / 4.0f) - style.CellPadding.y * 2.0f);
-                float avail_width = ImGui::GetContentRegionAvail().x;
-                float cell_width = (avail_width / num_cols) - style.CellPadding.x * 2.0f;
-
-                for (int col = 0; col < num_cols; ++col) {
-                    ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, cell_width);
-                }
-
-                for (size_t pos = 0; pos < num_modules; ++pos) {
-                    ImGui::TableNextColumn();
-                    int row = static_cast<int>(pos / num_cols);
-                    int col = static_cast<int>(pos % num_cols);
-                    int moduleNum = (row % 2 == 0) ? (row * num_cols + (num_cols - col)) : (row * num_cols + col + 1);
-                    size_t dataIdx = static_cast<size_t>(moduleNum - 1);
-
-                    double volt = (dataIdx < latestVolt.size()) ? latestVolt[dataIdx] : std::numeric_limits<double>::quiet_NaN();
-                    double tempC = (dataIdx < latestTemp.size()) ? latestTemp[dataIdx] : std::numeric_limits<double>::quiet_NaN();
-
-                    // Normalize temp for color
-                    double tmin = -20.0, tmax = 60.0;
-                    double norm = (tempC - tmin) / (tmax - tmin);
-                    if (std::isnan(norm)) norm = 0.5;
-                    norm = std::clamp(norm, 0.0, 1.0);
-                    ImVec4 border_col = ImPlot::SampleColormap(static_cast<float>(norm), ImPlotColormap_Viridis);
-
-                    std::ostringstream oss;
-                    oss << "Module " << std::setw(2) << std::setfill('0') << moduleNum << "\n";
-                    oss << std::fixed << std::setprecision(2);
-                    if (!std::isnan(volt)) oss << volt << " V\n"; else oss << "-- V\n";
-                    if (!std::isnan(tempC)) oss << tempC << " C"; else oss << "-- C";
-                    std::string label = oss.str();
-
-                    ImVec4 bg = style.Colors[ImGuiCol_FrameBg];
-                    ImGui::PushStyleColor(ImGuiCol_Button, bg);
-                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg);
-                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg);
-                    ImGui::PushStyleColor(ImGuiCol_Border, border_col);
-                    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-
-                    ImGui::Button(label.c_str(), ImVec2(cell_width, cell_height));
-
-                    ImGui::PopStyleVar();
-                    ImGui::PopStyleColor(4);
-                }
-                ImGui::EndTable();
-            }
-        }
-        ImGui::EndChild();
-
-        // Motor velocity setpoint (row 1, col 3)
-        ImGui::SetCursorPos(offset(col3X, 0.0f));
-        ImGui::BeginChild("MotorVelocity", ImVec2(columnW, rowH));
-        GenericPlotTab(drive_cmd.Motor_Velocity_Setpoint, drive_cmd.time, "Motor velocity setpoint");
-        ImGui::EndChild();
-
-        // Motor current setpoint (row 2, col 3)
-        ImGui::SetCursorPos(offset(col3X, rowH + gap));
-        ImGui::BeginChild("MotorCurrent", ImVec2(columnW, rowH));
-        GenericPlotTab(drive_cmd.Motor_Current_Setpoint, drive_cmd.time, "Motor current setpoint");
-        ImGui::EndChild();
-
-        // Motor power setpoint (row 3, col 3)
-        ImGui::SetCursorPos(offset(col3X, (rowH + gap) * 2.0f));
-        ImGui::BeginChild("MotorPower", ImVec2(columnW, rowH));
-        GenericPlotTab(power_cmd.Motor_Power_Setpoint, power_cmd.time, "Motor power setpoint");
-        ImGui::EndChild();
-
-        // BPS summaries row (spans all columns, holds summaries + faults)
-        ImGui::SetCursorPos(offset(0.0f, (rowH + gap) * 3.0f));
-        ImGui::BeginChild("BpsSummary", ImVec2(columnW * 3.0f + gap * 2.0f, summaryH));
-        {
-            auto lastOrNa = [](const std::vector<double>& v) -> double {
-                if (v.empty()) return std::numeric_limits<double>::quiet_NaN();
-                return v.back();
-            };
-            double packV = lastOrNa(volt_sum.Pack_Voltage_mV) * 0.001; // mV -> V
-            double vRange = lastOrNa(volt_sum.Voltage_Range_mV) * 0.001; // mV -> V
-            double packTs = lastOrNa(volt_sum.Voltage_Timestamp_ms);
-            double avgTemp = lastOrNa(temp_sum.Average_Temp_mC) * 0.001; // mC -> C
-            double tempRange = lastOrNa(temp_sum.Temperature_Range_mC) * 0.001; // mC -> C
-            double tempTs = lastOrNa(temp_sum.Temperature_Timestamp_ms);
-
-            auto fmt = [](double v, int prec) {
-                if (std::isnan(v)) return std::string("--");
-                std::ostringstream oss;
-                oss << std::fixed << std::setprecision(prec) << v;
-                return oss.str();
-            };
-
-            std::string packStr = fmt(packV, 2);
-            std::string vRangeStr = fmt(vRange, 2);
-            std::string packTsStr = fmt(packTs, 0);
-            std::string avgTempStr = fmt(avgTemp, 2);
-            std::string tempRangeStr = fmt(tempRange, 2);
-            std::string tempTsStr = fmt(tempTs, 0);
-
-            const int cols = 9; // Volt label + 3 vals + sep + Temp label + 3 vals
-            float availW = ImGui::GetContentRegionAvail().x;
-            float baseW = (availW - 20.0f) / cols; // leave a bit for separator
-            if (ImGui::BeginTable("BpsSummaryTable", cols, ImGuiTableFlags_SizingFixedFit)) {
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW); // Voltage label
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, 20.0f); // separator
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW); // Temp label
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
-                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn(); ImGui::TextUnformatted("BPS Voltage:");
-                ImGui::TableNextColumn(); ImGui::Text("Pack: %s V", packStr.c_str());
-                ImGui::TableNextColumn(); ImGui::Text("Range: %s V", vRangeStr.c_str());
-                ImGui::TableNextColumn(); ImGui::Text("TS: %s ms", packTsStr.c_str());
-                ImGui::TableNextColumn(); ImGui::TextUnformatted("|");
-                ImGui::TableNextColumn(); ImGui::TextUnformatted("BPS Temp:");
-                ImGui::TableNextColumn(); ImGui::Text("Avg: %s C", avgTempStr.c_str());
-                ImGui::TableNextColumn(); ImGui::Text("Range: %s C", tempRangeStr.c_str());
-                ImGui::TableNextColumn(); ImGui::Text("TS: %s ms", tempTsStr.c_str());
-
-                ImGui::EndTable();
-            }
-
-            // Controls fault flags directly below summary line
-            ImGui::Dummy(ImVec2(0.0f, 6.0f));
-            auto lastBit = [](const std::vector<double>& v) -> int {
-                if (v.empty()) return -1;
-                return static_cast<int>(v.back());
-            };
-            int fault = lastBit(controls_fault.Controls_Fault_Flag);
-            int mcf   = lastBit(controls_fault.Motor_Controller_Fault);
-            int bpsf  = lastBit(controls_fault.BPS_Fault);
-            int pedf  = lastBit(controls_fault.Pedals_Fault);
-            int carf  = lastBit(controls_fault.CarCAN_Fault);
-            int intf  = lastBit(controls_fault.Internal_Controls_Fault);
-            int osf   = lastBit(controls_fault.OS_Fault);
-            int lakf  = lastBit(controls_fault.Lakshay_Fault);
-
-            struct FaultRow { const char* label; int bit; };
-            FaultRow faults[] = {
-                {"Fault", fault}, {"MC Fault", mcf}, {"BPS Fault", bpsf}, {"Pedals Fault", pedf},
-                {"CarCAN Fault", carf}, {"Internal", intf}, {"OS", osf}, {"Lakshay", lakf}
-            };
-
-            const int faultCols = 8;
-            float fAvailW = ImGui::GetContentRegionAvail().x;
-            float fCellW = (fAvailW - 16.0f) / faultCols;
-            float radius = ImGui::GetTextLineHeight() * 0.4f;
-            if (ImGui::BeginTable("ControlsFaultTable", faultCols, ImGuiTableFlags_SizingFixedFit)) {
-                for (int c = 0; c < faultCols; ++c) {
-                    ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, fCellW);
-                }
-                ImGui::TableNextRow();
-
-                auto colorFor = [](int bit) -> ImU32 {
-                    if (bit < 0) return IM_COL32(128, 128, 128, 255);
-                    return (bit == 0) ? IM_COL32(50, 200, 120, 255) : IM_COL32(230, 70, 70, 255);
-                };
-
-                for (const auto& f : faults) {
-                    ImGui::TableNextColumn();
-                    ImVec2 pos = ImGui::GetCursorScreenPos();
-                    ImGui::Dummy(ImVec2(radius * 2.0f, radius * 2.0f));
-                    ImDrawList* dl = ImGui::GetWindowDrawList();
-                    dl->AddCircleFilled(ImVec2(pos.x + radius, pos.y + radius), radius, colorFor(f.bit));
-                    ImGui::SameLine();
-                    ImGui::TextUnformatted(f.label);
-                }
-                ImGui::EndTable();
-            }
-        }
-        ImGui::EndChild();
-    }
-
+    ImGuiID dock_id = ImGui::GetID("MainDockspace");
+    ImGui::DockSpace(dock_id);
     ImGui::End();
 
+    // Docked windows: rely on ImGui native Ctrl+Tab/Tab navigation (no custom handling needed)
+    ImGuiCond dockCond = ImGuiCond_FirstUseEver;
 
+    ImGui::SetNextWindowDockID(dock_id, dockCond);
+    if (ImGui::Begin("Overview")) {
+        ImGui::TextUnformatted("Use Ctrl+Tab or Tab to cycle ImGui windows.");
+        static char projectName[64] = "Project Photon";
+        ImGui::InputText("Project", projectName, IM_ARRAYSIZE(projectName));
+        static bool showStats = true;
+        ImGui::Checkbox("Show stats", &showStats);
+        if (showStats) {
+            ImGui::Text("GPU: %s", deviceName[0] ? deviceName : "Unknown");
+            ImGui::Text("Vendor: 0x%04X  Device: 0x%04X", vendorID, deviceID);
+        }
+    }
+    ImGui::End();
+
+    ImGui::SetNextWindowDockID(dock_id, dockCond);
+    if (ImGui::Begin("Plots")) {
+        ImGui::TextUnformatted("Attach plotting UI here.");
+        ImGui::BulletText("ImPlot placeholders");
+        ImGui::BulletText("Tab across widgets to test navigation");
+        static float value = 0.25f;
+        ImGui::SliderFloat("Scale", &value, 0.0f, 1.0f, "%.2f");
+    }
+    ImGui::End();
+
+    ImGui::SetNextWindowDockID(dock_id, dockCond);
+    if (ImGui::Begin("Debug")) {
+        ImGui::TextUnformatted("Keyboard navigation remains native (Ctrl+Tab cycles windows).");
+        debugWindowTab();
+    }
+    ImGui::End();
+ 
     ImGui::Render();
 }
 
@@ -658,4 +434,279 @@ void UI::setStyle(){
 
     UIstyle.ScaleAllSizes(1.0f);
     ImPlotStyle &plotStyle = ImPlot::GetStyle();
+}
+
+void UI::tempWork(){
+    static IO_State iostate;
+    static Controls_Fault controls_fault;
+    static Motor_Drive_Command drive_cmd;
+    static Motor_Power_Command power_cmd;
+    static Pedals_Raw_Voltage pedals_raw;
+    
+    static BPS_Current bps_current;
+    static BPS_Voltage_Array voltage_arr;
+    static BPS_Temperature_Array temp_arr;
+    static BPS_SOC bps_soc;
+    static BPS_Supplemental_Voltage supp_volt;
+    static BPS_Voltage_Summary volt_sum;
+    static BPS_Temperature_Summary temp_sum;
+    
+    iostate.updateSignals(networkINTF);
+    controls_fault.updateSignals(networkINTF);
+    drive_cmd.updateSignals(networkINTF);
+    power_cmd.updateSignals(networkINTF);
+    pedals_raw.updateSignals(networkINTF);
+    voltage_arr.updateSignals(networkINTF);
+    temp_arr.updateSignals(networkINTF);
+    volt_sum.updateSignals(networkINTF);
+    temp_sum.updateSignals(networkINTF);
+
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImVec2 size = vp->Size;
+    ImVec2 pos  = vp->Pos;
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(size);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove 
+        | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize; //| ImGuiWindowFlags_NoDecoration;
+    ImGui::Begin("Base", NULL, flags);
+    {
+        ImVec2 tabOrigin = ImGui::GetCursorPos();
+        float columnW = 600;
+        float rowH = 300;
+        float gap = 8.0f;
+        float summaryH = rowH * 0.5f;
+
+        auto offset = [&](float dx, float dy) {
+          return ImVec2(tabOrigin.x + dx, tabOrigin.y + dy);
+        };
+
+        // Accel panel
+        ImGui::SetCursorPos(offset(0.0f, 0.0f));
+        ImGui::BeginChild("Accel", ImVec2(columnW, rowH));
+        GenericPlotTab(pedals_raw.Accel_Raw, pedals_raw.time, "Accel Raw");
+        ImGui::EndChild();
+
+        // Brake panel to the right
+        ImGui::SetCursorPos(offset(columnW + gap, 0.0f));
+        ImGui::BeginChild("Brake", ImVec2(columnW, rowH));
+        GenericPlotTab(pedals_raw.Brake_Raw, pedals_raw.time, "Brake Raw");
+        ImGui::EndChild();
+
+        // Next row
+        ImGui::SetCursorPos(offset(0.0f, rowH + gap));
+        ImGui::BeginChild("AccelPct", ImVec2(columnW, rowH));
+        GenericPlotTab(iostate.Acceleration_Percentage, iostate.time, "Accel percentage");
+        ImGui::EndChild();
+
+        ImGui::SetCursorPos(offset(columnW + gap, rowH + gap));
+        ImGui::BeginChild("BrakePct", ImVec2(columnW, rowH));
+        GenericPlotTab(iostate.Brake_Percentage, iostate.time, "Brake percentage");
+        ImGui::EndChild();
+
+        const float col3X = (columnW + gap) * 2.0f;
+
+        // Battery modules grid (row 3, spans columns 1-2)
+        ImGui::SetCursorPos(offset(0.0f, (rowH + gap) * 2.0f));
+        ImGui::BeginChild("ModuleGrid", ImVec2(columnW * 2.0f + gap, rowH));
+        {
+            // Collect latest voltage/temp per module index
+            std::vector<double> latestVolt;
+            std::vector<double> latestTemp;
+            auto collectLatest = [](const std::vector<double>& idxVec,
+                                    const std::vector<double>& valueVec,
+                                    std::vector<double>& out,
+                                    double scale){
+                const size_t kMaxModules = 32;
+                out.assign(kMaxModules, 0.0);
+                for (size_t i = 0; i < idxVec.size() && i < valueVec.size(); ++i) {
+                    size_t idx = static_cast<size_t>(idxVec[i]);
+                    if (idx >= kMaxModules) { continue; }
+                    out[idx] = valueVec[i] * scale;
+                }
+            };
+            collectLatest(voltage_arr.Voltage_idx, voltage_arr.Voltage_Value_mV, latestVolt, 0.001); // mV -> V
+            collectLatest(temp_arr.Temperature_idx, temp_arr.Temperature_Value_mC, latestTemp, 0.001); // mC -> C
+
+            const int num_cols = 8;
+            const size_t num_modules = 32;
+            if (ImGui::BeginTable("ModTable", num_cols, ImGuiTableFlags_SizingFixedFit)) {
+                ImGuiStyle& style = ImGui::GetStyle();
+                float avail_height = ImGui::GetContentRegionAvail().y;
+                // Four internal rows: each module takes ~1/4 of the row height
+                float cell_height = std::max(16.0f, (avail_height / 4.0f) - style.CellPadding.y * 2.0f);
+                float avail_width = ImGui::GetContentRegionAvail().x;
+                float cell_width = (avail_width / num_cols) - style.CellPadding.x * 2.0f;
+
+                for (int col = 0; col < num_cols; ++col) {
+                    ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, cell_width);
+                }
+
+                for (size_t pos = 0; pos < num_modules; ++pos) {
+                    ImGui::TableNextColumn();
+                    int row = static_cast<int>(pos / num_cols);
+                    int col = static_cast<int>(pos % num_cols);
+                    int moduleNum = (row % 2 == 0) ? (row * num_cols + (num_cols - col)) : (row * num_cols + col + 1);
+                    size_t dataIdx = static_cast<size_t>(moduleNum - 1);
+
+                    double volt = (dataIdx < latestVolt.size()) ? latestVolt[dataIdx] : std::numeric_limits<double>::quiet_NaN();
+                    double tempC = (dataIdx < latestTemp.size()) ? latestTemp[dataIdx] : std::numeric_limits<double>::quiet_NaN();
+
+                    // Normalize temp for color
+                    double tmin = -20.0, tmax = 60.0;
+                    double norm = (tempC - tmin) / (tmax - tmin);
+                    if (std::isnan(norm)) norm = 0.5;
+                    norm = std::clamp(norm, 0.0, 1.0);
+                    ImVec4 border_col = ImPlot::SampleColormap(static_cast<float>(norm), ImPlotColormap_Viridis);
+
+                    std::ostringstream oss;
+                    oss << "Module " << std::setw(2) << std::setfill('0') << moduleNum << "\n";
+                    oss << std::fixed << std::setprecision(2);
+                    if (!std::isnan(volt)) oss << volt << " V\n"; else oss << "-- V\n";
+                    if (!std::isnan(tempC)) oss << tempC << " C"; else oss << "-- C";
+                    std::string label = oss.str();
+
+                    ImVec4 bg = style.Colors[ImGuiCol_FrameBg];
+                    ImGui::PushStyleColor(ImGuiCol_Button, bg);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg);
+                    ImGui::PushStyleColor(ImGuiCol_Border, border_col);
+                    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+                    ImGui::Button(label.c_str(), ImVec2(cell_width, cell_height));
+
+                    ImGui::PopStyleVar();
+                    ImGui::PopStyleColor(4);
+                }
+                ImGui::EndTable();
+            }
+        }
+        ImGui::EndChild();
+
+        // Motor velocity setpoint (row 1, col 3)
+        ImGui::SetCursorPos(offset(col3X, 0.0f));
+        ImGui::BeginChild("MotorVelocity", ImVec2(columnW, rowH));
+        GenericPlotTab(drive_cmd.Motor_Velocity_Setpoint, drive_cmd.time, "Motor velocity setpoint");
+        ImGui::EndChild();
+
+        // Motor current setpoint (row 2, col 3)
+        ImGui::SetCursorPos(offset(col3X, rowH + gap));
+        ImGui::BeginChild("MotorCurrent", ImVec2(columnW, rowH));
+        GenericPlotTab(drive_cmd.Motor_Current_Setpoint, drive_cmd.time, "Motor current setpoint");
+        ImGui::EndChild();
+
+        // Motor power setpoint (row 3, col 3)
+        ImGui::SetCursorPos(offset(col3X, (rowH + gap) * 2.0f));
+        ImGui::BeginChild("MotorPower", ImVec2(columnW, rowH));
+        GenericPlotTab(power_cmd.Motor_Power_Setpoint, power_cmd.time, "Motor power setpoint");
+        ImGui::EndChild();
+
+        // BPS summaries row (spans all columns, holds summaries + faults)
+        ImGui::SetCursorPos(offset(0.0f, (rowH + gap) * 3.0f));
+        ImGui::BeginChild("BpsSummary", ImVec2(columnW * 3.0f + gap * 2.0f, summaryH));
+        {
+            auto lastOrNa = [](const std::vector<double>& v) -> double {
+                if (v.empty()) return std::numeric_limits<double>::quiet_NaN();
+                return v.back();
+            };
+            double packV = lastOrNa(volt_sum.Pack_Voltage_mV) * 0.001; // mV -> V
+            double vRange = lastOrNa(volt_sum.Voltage_Range_mV) * 0.001; // mV -> V
+            double packTs = lastOrNa(volt_sum.Voltage_Timestamp_ms);
+            double avgTemp = lastOrNa(temp_sum.Average_Temp_mC) * 0.001; // mC -> C
+            double tempRange = lastOrNa(temp_sum.Temperature_Range_mC) * 0.001; // mC -> C
+            double tempTs = lastOrNa(temp_sum.Temperature_Timestamp_ms);
+
+            auto fmt = [](double v, int prec) {
+                if (std::isnan(v)) return std::string("--");
+                std::ostringstream oss;
+                oss << std::fixed << std::setprecision(prec) << v;
+                return oss.str();
+            };
+
+            std::string packStr = fmt(packV, 2);
+            std::string vRangeStr = fmt(vRange, 2);
+            std::string packTsStr = fmt(packTs, 0);
+            std::string avgTempStr = fmt(avgTemp, 2);
+            std::string tempRangeStr = fmt(tempRange, 2);
+            std::string tempTsStr = fmt(tempTs, 0);
+
+            const int cols = 9; // Volt label + 3 vals + sep + Temp label + 3 vals
+            float availW = ImGui::GetContentRegionAvail().x;
+            float baseW = (availW - 20.0f) / cols; // leave a bit for separator
+            if (ImGui::BeginTable("BpsSummaryTable", cols, ImGuiTableFlags_SizingFixedFit)) {
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW); // Voltage label
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, 20.0f); // separator
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW); // Temp label
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
+                ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, baseW);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn(); ImGui::TextUnformatted("BPS Voltage:");
+                ImGui::TableNextColumn(); ImGui::Text("Pack: %s V", packStr.c_str());
+                ImGui::TableNextColumn(); ImGui::Text("Range: %s V", vRangeStr.c_str());
+                ImGui::TableNextColumn(); ImGui::Text("TS: %s ms", packTsStr.c_str());
+                ImGui::TableNextColumn(); ImGui::TextUnformatted("|");
+                ImGui::TableNextColumn(); ImGui::TextUnformatted("BPS Temp:");
+                ImGui::TableNextColumn(); ImGui::Text("Avg: %s C", avgTempStr.c_str());
+                ImGui::TableNextColumn(); ImGui::Text("Range: %s C", tempRangeStr.c_str());
+                ImGui::TableNextColumn(); ImGui::Text("TS: %s ms", tempTsStr.c_str());
+
+                ImGui::EndTable();
+            }
+
+            // Controls fault flags directly below summary line
+            ImGui::Dummy(ImVec2(0.0f, 6.0f));
+            auto lastBit = [](const std::vector<double>& v) -> int {
+                if (v.empty()) return -1;
+                return static_cast<int>(v.back());
+            };
+            int fault = lastBit(controls_fault.Controls_Fault_Flag);
+            int mcf   = lastBit(controls_fault.Motor_Controller_Fault);
+            int bpsf  = lastBit(controls_fault.BPS_Fault);
+            int pedf  = lastBit(controls_fault.Pedals_Fault);
+            int carf  = lastBit(controls_fault.CarCAN_Fault);
+            int intf  = lastBit(controls_fault.Internal_Controls_Fault);
+            int osf   = lastBit(controls_fault.OS_Fault);
+            int lakf  = lastBit(controls_fault.Lakshay_Fault);
+
+            struct FaultRow { const char* label; int bit; };
+            FaultRow faults[] = {
+                {"Fault", fault}, {"MC Fault", mcf}, {"BPS Fault", bpsf}, {"Pedals Fault", pedf},
+                {"CarCAN Fault", carf}, {"Internal", intf}, {"OS", osf}, {"Lakshay", lakf}
+            };
+
+            const int faultCols = 8;
+            float fAvailW = ImGui::GetContentRegionAvail().x;
+            float fCellW = (fAvailW - 16.0f) / faultCols;
+            float radius = ImGui::GetTextLineHeight() * 0.4f;
+            if (ImGui::BeginTable("ControlsFaultTable", faultCols, ImGuiTableFlags_SizingFixedFit)) {
+                for (int c = 0; c < faultCols; ++c) {
+                    ImGui::TableSetupColumn(NULL, ImGuiTableColumnFlags_WidthFixed, fCellW);
+                }
+                ImGui::TableNextRow();
+
+                auto colorFor = [](int bit) -> ImU32 {
+                    if (bit < 0) return IM_COL32(128, 128, 128, 255);
+                    return (bit == 0) ? IM_COL32(50, 200, 120, 255) : IM_COL32(230, 70, 70, 255);
+                };
+
+                for (const auto& f : faults) {
+                    ImGui::TableNextColumn();
+                    ImVec2 pos = ImGui::GetCursorScreenPos();
+                    ImGui::Dummy(ImVec2(radius * 2.0f, radius * 2.0f));
+                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                    dl->AddCircleFilled(ImVec2(pos.x + radius, pos.y + radius), radius, colorFor(f.bit));
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted(f.label);
+                }
+                ImGui::EndTable();
+            }
+        }
+        ImGui::EndChild();
+    }
+
+    ImGui::End();
 }

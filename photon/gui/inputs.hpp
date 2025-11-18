@@ -44,6 +44,14 @@ struct Inputs{
 #define KEY_BACKSPACE  0x16  // Backspace (scan 0x0E + 8)
 #define KEY_ENTER      0x24  // Enter/Return (scan 0x1C + 8)
 #define KEY_SPACE      0x41  // Space (scan 0x39 + 8)
+#define KEY_LEFT_SHIFT 0x32  // Left Shift (scan 0x2A + 8)
+#define KEY_RIGHT_SHIFT 0x3E // Right Shift (scan 0x36 + 8)
+#define KEY_LEFT_CTRL  0x25  // Left Ctrl (scan 0x1D + 8)
+#define KEY_RIGHT_CTRL 0x69  // Right Ctrl (scan 0x61 + 8)
+#define KEY_LEFT_ALT   0x40  // Left Alt (scan 0x38 + 8)
+#define KEY_RIGHT_ALT  0x6C  // Right Alt/AltGr (scan 0x64 + 8)
+#define KEY_LEFT_SUPER 0x85  // Left Super/Meta (common X11 code)
+#define KEY_RIGHT_SUPER 0x86 // Right Super/Meta (common X11 code)
 
 // — Number row —
 #define KEY_1          0x0A  // '1' (scan 0x02 + 8)

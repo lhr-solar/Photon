@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <charconv>
 #include <map>
+#include <fstream>
 #include <thread>
 #include <vector>
 #include <iostream>
@@ -34,10 +35,27 @@ Network::~Network(){
 #define BUFFER_CAPACITY 1024
 void Network::producer(){
     TcpSocket socket(IP, PORT);
+    std::ifstream logStream("log", std::ios::binary);
+    if (!logStream) {
+        logs("[producer] Unable to open daq.log for replay");
+        return;
+    }
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
 
     while(running){
         auto bytesRead = socket.read(buffer.data(), buffer.size());
+//        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//        logStream.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+//        auto bytesRead = logStream.gcount();
+        if (bytesRead <= 0) {
+            if (logStream.eof()) {
+                logStream.clear();
+                logStream.seekg(0);
+                continue;
+            }
+            logs("[producer] Error while reading daq.log");
+            break;
+        }
         if (bytesRead > 0) {
             for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); ++i) {
                 while (!tcpQueue.try_push(buffer[i])) {

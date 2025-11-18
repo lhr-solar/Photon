@@ -151,8 +151,11 @@ void BPS_Voltage_Array::updateSignals(Network* networkSource){
     float deltaTime = io.DeltaTime;
     networkSource->readSample(kId, encoded);
     time.push_back(time.back() + deltaTime);
-    Voltage_idx.push_back(extractBitsLe(encoded, 0, 8));
-    Voltage_Value_mV.push_back(extractBitsLe(encoded, 8, 32));
+    // Producer builds the 40-bit payload big-endian: first byte is index, next 4 bytes are value (mV)
+    const uint64_t idx = (encoded >> 32) & 0xFF;
+    const uint64_t value = encoded & 0xFFFFFFFFULL;
+    Voltage_idx.push_back(static_cast<double>(idx));
+    Voltage_Value_mV.push_back(static_cast<double>(value));
 }
 
 void BPS_Temperature_Array::updateSignals(Network* networkSource){
@@ -161,8 +164,15 @@ void BPS_Temperature_Array::updateSignals(Network* networkSource){
     float deltaTime = io.DeltaTime;
     networkSource->readSample(kId, encoded);
     time.push_back(time.back() + deltaTime);
-    Temperature_idx.push_back(extractBitsLe(encoded, 0, 8));
-    Temperature_Value_mC.push_back(extractBitsLe(encoded, 8, 32));
+    const uint64_t idx = (encoded >> 40) & 0xFF; // first data byte is the index
+    const uint64_t b1 = (encoded >> 32) & 0xFF;
+    const uint64_t b2 = (encoded >> 24) & 0xFF;
+    const uint64_t b3 = (encoded >> 16) & 0xFF;
+    const uint64_t b4 = (encoded >> 8)  & 0xFF;
+    const uint64_t b5 = encoded & 0xFF;
+    const uint64_t value = b1 | (b2 << 8) | (b3 << 16) | (b4 << 24) | (b5 << 32); // little-endian payload (mC)
+    Temperature_idx.push_back(static_cast<double>(idx));
+    Temperature_Value_mC.push_back(static_cast<double>(value));
 }
 
 void BPS_SOC::updateSignals(Network* networkSource){
