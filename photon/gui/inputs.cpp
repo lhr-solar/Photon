@@ -135,19 +135,20 @@ void Inputs::handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xc
     case XCB_KEY_PRESS:{
         const auto *keyEvent = reinterpret_cast<const xcb_key_release_event_t *>(event);
         ImGuiIO& io = ImGui::GetIO();
-        if (io.WantCaptureKeyboard) {
-            ImGuiKey key = translateKey(keyEvent->detail);
-            if (key != ImGuiKey_None) { io.AddKeyEvent(key, true); }
+        ImGuiKey key = translateKey(keyEvent->detail);
+        if (key != ImGuiKey_None) { io.AddKeyEvent(key, true); }
 
-            const bool shiftDown  = (keyEvent->state & XCB_MOD_MASK_SHIFT) || key == ImGuiKey_LeftShift || key == ImGuiKey_RightShift;
-            const bool ctrlDown   = (keyEvent->state & XCB_MOD_MASK_CONTROL) || key == ImGuiKey_LeftCtrl || key == ImGuiKey_RightCtrl;
-            const bool altDown    = (keyEvent->state & XCB_MOD_MASK_1) || key == ImGuiKey_LeftAlt || key == ImGuiKey_RightAlt;
-            const bool superDown  = (keyEvent->state & XCB_MOD_MASK_4) || key == ImGuiKey_LeftSuper || key == ImGuiKey_RightSuper;
+        const bool shiftDown  = (keyEvent->state & XCB_MOD_MASK_SHIFT) || key == ImGuiKey_LeftShift || key == ImGuiKey_RightShift;
+        const bool ctrlDown   = (keyEvent->state & XCB_MOD_MASK_CONTROL) || key == ImGuiKey_LeftCtrl || key == ImGuiKey_RightCtrl;
+        const bool altDown    = (keyEvent->state & XCB_MOD_MASK_1) || key == ImGuiKey_LeftAlt || key == ImGuiKey_RightAlt;
+        const bool superDown  = (keyEvent->state & XCB_MOD_MASK_4) || key == ImGuiKey_LeftSuper || key == ImGuiKey_RightSuper;
 
-            io.AddKeyEvent(ImGuiMod_Shift, shiftDown);
-            io.AddKeyEvent(ImGuiMod_Ctrl, ctrlDown);
-            io.AddKeyEvent(ImGuiMod_Alt, altDown);
-            io.AddKeyEvent(ImGuiMod_Super, superDown);
+        io.AddKeyEvent(ImGuiMod_Shift, shiftDown);
+        io.AddKeyEvent(ImGuiMod_Ctrl, ctrlDown);
+        io.AddKeyEvent(ImGuiMod_Alt, altDown);
+        io.AddKeyEvent(ImGuiMod_Super, superDown);
+
+        if (io.WantTextInput) {
             uint8_t kc = keyEvent->detail;
             bool shift = keyEvent->state & XCB_MOD_MASK_SHIFT;
             char c = 0;
@@ -201,25 +202,23 @@ void Inputs::handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xc
     case XCB_KEY_RELEASE:{
         const auto *keyEvent = reinterpret_cast<const xcb_key_release_event_t *>(event);
         ImGuiIO& io = ImGui::GetIO();
-        if (io.WantCaptureKeyboard) {
-            ImGuiKey key = translateKey(keyEvent->detail);
-            if (key != ImGuiKey_None) { io.AddKeyEvent(key, false); }
+        ImGuiKey key = translateKey(keyEvent->detail);
+        if (key != ImGuiKey_None) { io.AddKeyEvent(key, false); }
 
-            bool shiftDown  = (keyEvent->state & XCB_MOD_MASK_SHIFT);
-            bool ctrlDown   = (keyEvent->state & XCB_MOD_MASK_CONTROL);
-            bool altDown    = (keyEvent->state & XCB_MOD_MASK_1);
-            bool superDown  = (keyEvent->state & XCB_MOD_MASK_4);
+        bool shiftDown  = (keyEvent->state & XCB_MOD_MASK_SHIFT);
+        bool ctrlDown   = (keyEvent->state & XCB_MOD_MASK_CONTROL);
+        bool altDown    = (keyEvent->state & XCB_MOD_MASK_1);
+        bool superDown  = (keyEvent->state & XCB_MOD_MASK_4);
 
-            if (key == ImGuiKey_LeftShift || key == ImGuiKey_RightShift) shiftDown = false;
-            if (key == ImGuiKey_LeftCtrl || key == ImGuiKey_RightCtrl)   ctrlDown = false;
-            if (key == ImGuiKey_LeftAlt || key == ImGuiKey_RightAlt)     altDown = false;
-            if (key == ImGuiKey_LeftSuper || key == ImGuiKey_RightSuper) superDown = false;
+        if (key == ImGuiKey_LeftShift || key == ImGuiKey_RightShift) shiftDown = false;
+        if (key == ImGuiKey_LeftCtrl || key == ImGuiKey_RightCtrl)   ctrlDown = false;
+        if (key == ImGuiKey_LeftAlt || key == ImGuiKey_RightAlt)     altDown = false;
+        if (key == ImGuiKey_LeftSuper || key == ImGuiKey_RightSuper) superDown = false;
 
-            io.AddKeyEvent(ImGuiMod_Shift, shiftDown);
-            io.AddKeyEvent(ImGuiMod_Ctrl, ctrlDown);
-            io.AddKeyEvent(ImGuiMod_Alt, altDown);
-            io.AddKeyEvent(ImGuiMod_Super, superDown);
-        }
+        io.AddKeyEvent(ImGuiMod_Shift, shiftDown);
+        io.AddKeyEvent(ImGuiMod_Ctrl, ctrlDown);
+        io.AddKeyEvent(ImGuiMod_Alt, altDown);
+        io.AddKeyEvent(ImGuiMod_Super, superDown);
         break;
     }
     case XCB_DESTROY_NOTIFY:
