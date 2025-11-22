@@ -91,7 +91,8 @@ void Gui::prepareImGui(){
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-    io.IniFilename = "config.ini";
+    //io.IniFilename = "config.ini";
+    io.IniFilename = nullptr;
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
     ImFont *satoshi = io.Fonts->AddFontFromMemoryTTF((void *)Satoshi_Medium_ttf, 

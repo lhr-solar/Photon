@@ -77,6 +77,18 @@ ImGuiKey Inputs::translateKey(uint32_t key){
 
         case KEY_SLASH:         return ImGuiKey_Slash;
         case KEY_PERIOD:        return ImGuiKey_Period;
+        case KEY_F1:            return ImGuiKey_F1;
+        case KEY_F2:            return ImGuiKey_F2;
+        case KEY_F3:            return ImGuiKey_F3;
+        case KEY_F4:            return ImGuiKey_F4;
+        case KEY_F5:            return ImGuiKey_F5;
+        case KEY_F6:            return ImGuiKey_F6;
+        case KEY_F7:            return ImGuiKey_F7;
+        case KEY_F8:            return ImGuiKey_F8;
+        case KEY_F9:            return ImGuiKey_F9;
+        case KEY_F10:           return ImGuiKey_F10;
+        case KEY_F11:           return ImGuiKey_F11;
+        case KEY_F12:           return ImGuiKey_F12;
 
         default:
             return ImGuiKey_None;

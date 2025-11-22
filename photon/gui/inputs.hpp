@@ -97,10 +97,18 @@ struct Inputs{
 #define KEY_N          0x39  // N (scan 0x31 + 8)
 #define KEY_M          0x3A  // M (scan 0x32 + 8)
 
-// — Function keys (if you still need more than F1–F4) —
-#define KEY_F1         0x43  // F1 (scan 0x3B + 8)
-#define KEY_F2         0x44  // F2 (scan 0x3C + 8)
-#define KEY_F3         0x45  // F3 (scan 0x3D + 8)
-#define KEY_F4         0x46  // F4 (scan 0x3E + 8)
+// — Function keys —
+#define KEY_F1         0x43  // F1  (scan 0x3B + 8)
+#define KEY_F2         0x44  // F2  (scan 0x3C + 8)
+#define KEY_F3         0x45  // F3  (scan 0x3D + 8)
+#define KEY_F4         0x46  // F4  (scan 0x3E + 8)
+#define KEY_F5         0x47  // F5  (scan 0x3F + 8)
+#define KEY_F6         0x48  // F6  (scan 0x40 + 8)
+#define KEY_F7         0x49  // F7  (scan 0x41 + 8)
+#define KEY_F8         0x4A  // F8  (scan 0x42 + 8)
+#define KEY_F9         0x4B  // F9  (scan 0x43 + 8)
+#define KEY_F10        0x4C  // F10 (scan 0x44 + 8)
+#define KEY_F11        0x5F  // F11 (scan 0x57 + 8)
+#define KEY_F12        0x60  // F12 (scan 0x58 + 8)
 #define KEY_SLASH      0x3D  // '/' key
 #define KEY_PERIOD     0x3C  // '.' key

@@ -14,60 +14,35 @@
 #include "dbc.hpp"
 
 void UI::build(){
+    static bool showFps = false;
     ImGui::NewFrame();
     background();
-    //fpsWindow();
+    if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
+    if(showFps) fpsWindow();
+
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->Pos);
     ImGui::SetNextWindowSize(vp->Size);
 
-    ImGui::Begin("RootDockspace",
-        nullptr,
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus);
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_AlwaysAutoResize |
+                                   ImGuiWindowFlags_NoDecoration |
+                                   ImGuiWindowFlags_NoMove |
+                                   ImGuiWindowFlags_NoBackground |
+                                   ImGuiWindowFlags_NoDocking;
+    if(ImGui::Begin("Debug", NULL, windowFlags)){
+        if(ImGui::IsWindowFocused())
+            ImGui::TextUnformatted("Some different text...");
 
-    ImGuiID dock_id = ImGui::GetID("MainDockspace");
-    ImGui::DockSpace(dock_id);
-    ImGui::End();
+    } ImGui::End();
 
-    // Docked windows: rely on ImGui native Ctrl+Tab/Tab navigation (no custom handling needed)
-    ImGuiCond dockCond = ImGuiCond_FirstUseEver;
+    ImGui::SetNextWindowPos(vp->Pos);
+    ImGui::SetNextWindowSize(vp->Size);
+    if(ImGui::Begin("Main", NULL, windowFlags)){
+        if(ImGui::IsWindowFocused())
+            ImGui::TextUnformatted("words...");
 
-    ImGui::SetNextWindowDockID(dock_id, dockCond);
-    if (ImGui::Begin("Overview")) {
-        ImGui::TextUnformatted("Use Ctrl+Tab or Tab to cycle ImGui windows.");
-        static char projectName[64] = "Project Photon";
-        ImGui::InputText("Project", projectName, IM_ARRAYSIZE(projectName));
-        static bool showStats = true;
-        ImGui::Checkbox("Show stats", &showStats);
-        if (showStats) {
-            ImGui::Text("GPU: %s", deviceName[0] ? deviceName : "Unknown");
-            ImGui::Text("Vendor: 0x%04X  Device: 0x%04X", vendorID, deviceID);
-        }
-    }
-    ImGui::End();
+    } ImGui::End();
 
-    ImGui::SetNextWindowDockID(dock_id, dockCond);
-    if (ImGui::Begin("Plots")) {
-        ImGui::TextUnformatted("Attach plotting UI here.");
-        ImGui::BulletText("ImPlot placeholders");
-        ImGui::BulletText("Tab across widgets to test navigation");
-        static float value = 0.25f;
-        ImGui::SliderFloat("Scale", &value, 0.0f, 1.0f, "%.2f");
-    }
-    ImGui::End();
-
-    ImGui::SetNextWindowDockID(dock_id, dockCond);
-    if (ImGui::Begin("Debug")) {
-        ImGui::TextUnformatted("Keyboard navigation remains native (Ctrl+Tab cycles windows).");
-        debugWindowTab();
-    }
-    ImGui::End();
- 
     ImGui::Render();
 }
 

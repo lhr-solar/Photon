@@ -8,42 +8,34 @@ layout(push_constant) uniform PushConstants {
     float _pad;
 } pc;
 
-void main()
-{
-    // slow the animation and trim color intensity a bit
-    const float timeScale = 0.25;
-    const float colorScale = 0.65;
-
-    // pixel coords (flip Y so origin is top-left)
-    const float yBias = pc.resolution.y * 0.50;
-    vec2 frag = vec2(gl_FragCoord.x, pc.resolution.y - gl_FragCoord.y + yBias);
-
-    // `r` is a 2-lane resolution vector
-    vec2 r = pc.resolution;
-
-    // normalized coordinate system used by the effect
-    // p = ((frag*2 - r) / r.y) / 0.1
-    // -> center origin, aspect-correct, and zoom by 10x
-    vec2 p = (frag * 2.0 - r) / r.y / 0.1;
-
-    // oscillating denominator for the tanh field
-    // we compute minTerm, cosTerm, sinTerm separately
-    float minTerm = min(p.y, p.y / 0.3);
-
-    // cosTerm = cos(p.x + cos(p.x*0.6 - t) + vec4(0,.3,.6,1))
-    // the original used a vec4 to create 4 slightly shifted
-    // color channels; we’ll compute it as a vec4 directly.
-    vec4 cosTerm = cos(p.x + cos(p.x * 0.6 - pc.u_time * timeScale) +
-                       vec4(0.0, 0.3, 0.6, 1.0));
-
-    // sinTerm = sin(p.x*0.4 - t)
-    float sinTerm = sin(p.x * 0.4 - pc.u_time * timeScale);
-
-    // denominator for each channel
-    vec4 denom = abs(minTerm / cosTerm / sinTerm);
-
-    // Final color
-    vec4 o = tanh(0.4 / denom);
-
-    outColor = o * colorScale;
+void main() {
+    vec2 frag = vec2(gl_FragCoord.x, pc.resolution.y - gl_FragCoord.y);
+    vec3 FC = vec3(frag, 0.0);
+    vec3 r = vec3(pc.resolution.x, pc.resolution.y, pc.resolution.x);
+    float t = pc.u_time / 2.0;
+    vec4 o = vec4(0.0);
+    
+    // Normalize coordinates
+    vec2 p = (FC.xy * 2.0 - r.xy) / r.y;
+    
+    // Calculate the dot product term for noise generation
+    vec4 FC4 = vec4(FC, FC.x);  // Extend FC to vec4 for yxyx swizzle
+    float dotTerm = dot(FC4, sin(FC4.yxyx));
+    float noiseTerm = 0.1 * fract(dotTerm);
+    
+    // Calculate the main expression inside absolute value
+    float timeTerm = t + noiseTerm;
+    vec4 positionScale = p.x * vec4(0.7, 1.0, 1.3, 0.0);
+    vec4 colorOffset = vec4(0.0, 2.0, 2.0, 0.0);
+    
+    vec4 cosineArg = timeTerm + positionScale + colorOffset;
+    vec4 cosineResult = 0.3 * cos(cosineArg);
+    
+    vec4 innerExpression = p.y + cosineResult;
+    vec4 absExpression = abs(innerExpression);
+    
+    // Final calculation: tanh(0.2 / abs(...))
+    o = tanh(0.2 / absExpression);
+    
+    outColor = o;
 }
