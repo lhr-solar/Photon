@@ -1,6 +1,5 @@
 name: Sync GitHub to ClickUp
 
-
 on:
   issues:
     types: [opened, closed, reopened, edited]
