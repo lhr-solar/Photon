@@ -27,7 +27,7 @@
 #include "triangle_vert_spv.hpp"
 //#include "viking_frag_spv.hpp"
 //#include "viking_vert_spv.hpp"
-#include "Satoshi_Medium_ttf.hpp"
+#include "berk_ttf.hpp"
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -95,9 +95,10 @@ void Gui::prepareImGui(){
     io.IniFilename = nullptr;
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
-    ImFont *satoshi = io.Fonts->AddFontFromMemoryTTF((void *)Satoshi_Medium_ttf, 
-            static_cast<int>(Satoshi_Medium_ttf_size), 18.0f, &fontConfig);
-    if (satoshi != nullptr) { io.FontDefault = satoshi; }
+    ImFont *font= io.Fonts->AddFontFromMemoryTTF((void *)berk_ttf, 
+            static_cast<int>(berk_ttf_size), 18.0f, &fontConfig);
+
+    if (font != nullptr) { io.FontDefault = font; }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.FontGlobalScale = 1.0f;
     ui.setStyle();
@@ -232,8 +233,8 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
             descriptorPool, descriptorSetLayout);
     
-//    ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
-//            (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
+    //ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
+    //(uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
     //ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
             //descriptorPool, descriptorSetLayout);
 
@@ -243,9 +244,9 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
 
     ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
 
-//    ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size);
-//    ui.viking.updateBuffers(vulkanDevice);
-//    ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);;
+    //ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size);
+    //ui.viking.updateBuffers(vulkanDevice);
+    //ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);;
 
     // Pipeline layout & Push constants for UI rendering
     VkPushConstantRange pushConstantRange {};
@@ -423,10 +424,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
                 descriptorSetLayout);
         ui.triangle.dirty = false;
     }
-//    if(ui.viking.dirty){
-//        ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
-//        ui.viking.dirty = false;
-//    }
+    //if(ui.viking.dirty){
+        //ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
+        //ui.viking.dirty = false;
+    //}
     */
 
     updateBuffers(vulkanDevice);
@@ -437,9 +438,9 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
         ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
-//        ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
-//        ui.triangle.recordShaderPass(drawCmdBuffers[i]);
-//        ui.viking.recordRenderPass(drawCmdBuffers[i]);
+        //ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
+        //ui.triangle.recordShaderPass(drawCmdBuffers[i]);
+        //ui.viking.recordRenderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};
         viewport.width = width;

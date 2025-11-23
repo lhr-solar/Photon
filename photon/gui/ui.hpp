@@ -27,6 +27,11 @@ struct UI{
         float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
     } renderSettings;
 
+    // Command palette-style overlay state
+    bool paletteOpen = false;
+    bool paletteFocusNext = false;
+    char paletteBuffer[128] = {0};
+
     VulkanShader accretionShader;
     VulkanShader backgroundShader;
     VulkanShader triangle;
@@ -38,6 +43,7 @@ struct UI{
     void setStyle();
     void build();
     void fpsWindow();
+    void commandPalette();
     void basePlate();
     void background();
     void showVideoDisplay();

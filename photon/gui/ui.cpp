@@ -16,33 +16,35 @@
 void UI::build(){
     static bool showFps = false;
     ImGui::NewFrame();
-    background();
-    if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
-    if(showFps) fpsWindow();
-
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(vp->Pos);
-    ImGui::SetNextWindowSize(vp->Size);
+    static IO_State ioState;
+    ioState.updateSignals(networkINTF);
 
-    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_AlwaysAutoResize |
-                                   ImGuiWindowFlags_NoDecoration |
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
                                    ImGuiWindowFlags_NoMove |
                                    ImGuiWindowFlags_NoBackground |
                                    ImGuiWindowFlags_NoDocking;
+    background();
+    ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Debug", NULL, windowFlags)){
-        if(ImGui::IsWindowFocused())
+        if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
             ImGui::TextUnformatted("Some different text...");
-
+        }
     } ImGui::End();
 
-    ImGui::SetNextWindowPos(vp->Pos);
-    ImGui::SetNextWindowSize(vp->Size);
+    ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Main", NULL, windowFlags)){
-        if(ImGui::IsWindowFocused())
+        if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
             ImGui::TextUnformatted("words...");
-
+             if(ImPlot::BeginPlot("name")){
+             ImPlot::EndPlot();
+            }
+        }
     } ImGui::End();
 
+    commandPalette();
+    if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
+    if(showFps) fpsWindow();
     ImGui::Render();
 }
 
@@ -70,7 +72,6 @@ void UI::GenericPlot(const std::vector<double>& yAxis, const std::vector<double>
     double yMin = currentMin - pad;
     double yMax = currentMax + pad;
 
-//    ImGui::SetNextWindowSize({600, 325});
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin(name.c_str(), NULL, flags)){
         ImPlot::SetNextAxisLimits(ImAxis_X1, windowStart, xAxis.back(), ImPlotCond_Always);
@@ -248,8 +249,54 @@ void UI::fpsWindow(){
     ImGui::PopStyleColor(4);
 }
 
-// VulkanObj rendering disabled for stability; objWindow stub left commented.
+void UI::commandPalette(){
+    // Toggle overlay when '/' is pressed
+    if (!paletteOpen && ImGui::IsKeyPressed(ImGuiKey_Slash)) {
+        paletteOpen = true;
+        paletteFocusNext = true;
+        paletteBuffer[0] = '\0';
+    }
 
+    if (!paletteOpen) {
+        return;
+    }
+
+    // Close on Enter or Escape
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+        ImGui::IsKeyPressed(ImGuiKey_Enter) ||
+        ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) {
+        paletteOpen = false;
+        return;
+    }
+
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImVec2 center = vp ? vp->GetCenter() : ImVec2(0, 0);
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowBgAlpha(0.85f);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
+                             ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_AlwaysAutoResize |
+                             ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoFocusOnAppearing |
+                             ImGuiWindowFlags_NoNav;
+
+    if (ImGui::Begin("CommandPaletteOverlay", nullptr, flags)) {
+        ImGui::TextUnformatted("Command");
+        ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+        if (paletteFocusNext) {
+            ImGui::SetKeyboardFocusHere();
+            paletteFocusNext = false;
+        }
+        bool submitted = ImGui::InputText("##paletteInput", paletteBuffer, IM_ARRAYSIZE(paletteBuffer), inputFlags);
+        if (submitted) {
+            paletteOpen = false;
+        }
+    }
+    ImGui::End();
+}
+
+// VulkanObj rendering disabled for stability; objWindow stub left commented.
 void UI::shaderWindow(VulkanShader& shader, std::string windowName){
     if(!shader.texture) {return;}
     ImGui::SetNextWindowSize(ImVec2(shader.extent.width, shader.extent.height), ImGuiCond_FirstUseEver);

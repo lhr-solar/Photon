@@ -6,7 +6,7 @@ file(MAKE_DIRECTORY ${FONT_HEADER_OUTPUT_DIR})
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(FONT_FILES
-    ${FONT_DIR}/Satoshi-Medium.ttf
+    ${FONT_DIR}/berk.ttf
 )
 
 set(FONT_HEADERS)
