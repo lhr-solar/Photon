@@ -233,10 +233,10 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
             descriptorPool, descriptorSetLayout);
     
-    //ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
-    //(uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
-    //ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
-            //descriptorPool, descriptorSetLayout);
+    ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
+    (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
+    ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
+            descriptorPool, descriptorSetLayout);
 
     //ui.triangle.initShader({512, 512}, false, (uint32_t *)triangle_vert_spv, triangle_vert_spv_size, (uint32_t*)triangle_frag_spv, triangle_frag_spv_size, "triangle.frag");
     //ui.triangle.createResources(vulkanDevice, ui.triangle.extent, 
@@ -413,12 +413,12 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
                 descriptorSetLayout);
         ui.backgroundShader.dirty = false;
     }
-    /*
     if (ui.accretionShader.dirty) {
         ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, descriptorPool, 
                 descriptorSetLayout);
         ui.accretionShader.dirty = false;
     }
+    /*
     if (ui.triangle.dirty) {
         ui.triangle.createResources(vulkanDevice, ui.triangle.extent, descriptorPool, 
                 descriptorSetLayout);

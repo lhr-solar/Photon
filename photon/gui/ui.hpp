@@ -28,9 +28,9 @@ struct UI{
     } renderSettings;
 
     // Command palette-style overlay state
-    bool paletteOpen = false;
-    bool paletteFocusNext = false;
-    char paletteBuffer[128] = {0};
+    bool cmdOpen = false;
+    bool cmdFF = false;
+    char cmdBuffer[128] = {0};
 
     VulkanShader accretionShader;
     VulkanShader backgroundShader;
@@ -43,7 +43,7 @@ struct UI{
     void setStyle();
     void build();
     void fpsWindow();
-    void commandPalette();
+    void cmdPrompt();
     void basePlate();
     void background();
     void showVideoDisplay();
@@ -52,10 +52,8 @@ struct UI{
     void orderedWindows(void(*functionArray[])(std::vector<std::vector<double>>&, int, const char*, const char*), size_t count);
     void shaderWindow(VulkanShader& shader, std::string windowName);
 //    void objWindow(VulkanObj& obj, std::string windowName);
-    void debugWindow();
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
-    void debugWindowTab();
     void tempWork();
-
+    void fuzzySearch();
 };

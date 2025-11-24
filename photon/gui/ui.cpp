@@ -36,13 +36,13 @@ void UI::build(){
     if(ImGui::Begin("Main", NULL, windowFlags)){
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
             ImGui::TextUnformatted("words...");
-             if(ImPlot::BeginPlot("name")){
-             ImPlot::EndPlot();
-            }
+             //if(ImPlot::BeginPlot("name")){
+             //ImPlot::EndPlot();
+             //}
         }
     } ImGui::End();
 
-    commandPalette();
+    cmdPrompt();
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
     ImGui::Render();
@@ -129,14 +129,6 @@ void UI::GenericPlotTab(const std::vector<double>& yAxis, const std::vector<doub
         }
 }
 
-void UI::debugWindowTab(){
-    // Place tab-local debug widgets here; keeps them inside the tab instead of a separate window.
-    ImGui::SeparatorText("Debug");
-    // Existing debugWindow() remains unchanged; call here only if it renders inline content.
-    // debugWindow();
-}
-
-
 void UI::procedural(std::vector<Plot*> plots){
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 displaySize = io.DisplaySize;
@@ -154,9 +146,6 @@ void UI::procedural(std::vector<Plot*> plots){
     }
 }
 
-void UI::debugWindow(){
-}
-
 void UI::basePlate(){
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 displaySize = io.DisplaySize;
@@ -164,14 +153,13 @@ void UI::basePlate(){
 
     ImGui::SetNextWindowSize({displaySize.x, displaySize.y}, ImGuiCond_Always);
     ImGui::SetNextWindowPos({0, 0});
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0,0,0,0));
+    ImGui::SetNextWindowBgAlpha(0.0);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove |
          ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
     if(ImGui::Begin("##base", NULL, flags)){
 
     }
     ImGui::End();
-    ImGui::PopStyleColor();
 }
 
 void UI::defaultWindow(std::string name){
@@ -249,23 +237,19 @@ void UI::fpsWindow(){
     ImGui::PopStyleColor(4);
 }
 
-void UI::commandPalette(){
-    // Toggle overlay when '/' is pressed
-    if (!paletteOpen && ImGui::IsKeyPressed(ImGuiKey_Slash)) {
-        paletteOpen = true;
-        paletteFocusNext = true;
-        paletteBuffer[0] = '\0';
+void UI::cmdPrompt(){
+    if(!cmdOpen && ImGui::IsKeyPressed(ImGuiKey_Slash)){
+        cmdOpen = true;
+        cmdFF = true;
+        cmdBuffer[0] = '\0';
     }
 
-    if (!paletteOpen) {
-        return;
-    }
+    if(!cmdOpen) { return; }
 
-    // Close on Enter or Escape
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+    if(ImGui::IsKeyPressed(ImGuiKey_Escape) ||
         ImGui::IsKeyPressed(ImGuiKey_Enter) ||
-        ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) {
-        paletteOpen = false;
+        ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)){
+        cmdOpen = false;
         return;
     }
 
@@ -275,28 +259,52 @@ void UI::commandPalette(){
     ImGui::SetNextWindowBgAlpha(0.85f);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
-                             ImGuiWindowFlags_NoSavedSettings |
                              ImGuiWindowFlags_AlwaysAutoResize |
                              ImGuiWindowFlags_NoMove |
                              ImGuiWindowFlags_NoFocusOnAppearing |
                              ImGuiWindowFlags_NoNav;
 
-    if (ImGui::Begin("CommandPaletteOverlay", nullptr, flags)) {
-        ImGui::TextUnformatted("Command");
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
+    ImGui::SetNextWindowBgAlpha(0.25);
+    if(ImGui::Begin("CommandPrompt", nullptr, flags)){
         ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
-        if (paletteFocusNext) {
-            ImGui::SetKeyboardFocusHere();
-            paletteFocusNext = false;
-        }
-        bool submitted = ImGui::InputText("##paletteInput", paletteBuffer, IM_ARRAYSIZE(paletteBuffer), inputFlags);
-        if (submitted) {
-            paletteOpen = false;
-        }
-    }
-    ImGui::End();
+        if(cmdFF){ ImGui::SetKeyboardFocusHere(); }
+        bool submitted = ImGui::InputText("##cmdInput", cmdBuffer, IM_ARRAYSIZE(cmdBuffer), inputFlags);
+        if(cmdFF){ cmdFF = false;}
+        else{ if(submitted || !ImGui::IsItemActive()) cmdOpen = false; }
+        fuzzySearch();
+    } ImGui::End();
+    ImGui::PopStyleColor(2);
 }
 
-// VulkanObj rendering disabled for stability; objWindow stub left commented.
+int levenshtein(const std::string& a, const std::string& b) {
+    const int n = a.size();
+    const int m = b.size();
+
+    std::vector<int> prev(m+1), cur(m+1);
+    for (int j = 0; j <= m; j++) prev[j] = j; // prev. consists of index of prev.
+    for (int i = 1; i <= n; i++) {
+        cur[0] = i;
+        for(int j = 1; j <= m; j++){
+            int cost = (a[i-1] == b[j-1]) ? 0 : 1;
+            cur[j] = std::min({
+                prev[j] + 1,      // deletion
+                cur[j-1] + 1,     // insertion
+                prev[j-1] + cost  // substitution
+            });
+        }
+        prev.swap(cur);
+    }
+    return prev[m];
+}
+
+void UI::fuzzySearch(){
+    if(cmdBuffer[0] != '\0'){
+        ImGui::Text("score: %i", levenshtein("test string", cmdBuffer));
+    }
+}
+
 void UI::shaderWindow(VulkanShader& shader, std::string windowName){
     if(!shader.texture) {return;}
     ImGui::SetNextWindowSize(ImVec2(shader.extent.width, shader.extent.height), ImGuiCond_FirstUseEver);
