@@ -28,6 +28,7 @@
 //#include "viking_frag_spv.hpp"
 //#include "viking_vert_spv.hpp"
 #include "berk_ttf.hpp"
+#include "openSans_ttf.hpp"
 
 Gui::Gui(){};
 Gui::~Gui(){

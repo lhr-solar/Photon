@@ -12,7 +12,7 @@ void main() {
     vec2 frag = vec2(gl_FragCoord.x, pc.resolution.y - gl_FragCoord.y);
     vec3 FC = vec3(frag, 0.0);
     vec3 r = vec3(pc.resolution.x, pc.resolution.y, pc.resolution.x);
-    float t = pc.u_time / 2.0;
+    float t = pc.u_time / 10.0;
     vec4 o = vec4(0.0);
     
     // Normalize coordinates

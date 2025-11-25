@@ -1,13 +1,53 @@
 #pragma once
 #include <cstdint>
+#include <chrono>
 #include <vector>
-#include "plot.hpp"
-#include "../network/network.hpp"
+#include "../gui/plot.hpp"
+#include "network.hpp"
 
 // Simple PODs mirroring assets/dbc/controls.dbc. Each struct exposes an
 // updateSignals() helper that decodes a pre-parsed 64-bit payload for its CAN ID.
 
 // Controls
+// at a high level, every CAN DBC entry has
+struct CanSignal {
+    int startBit = 0;
+    int length = 0;
+    int endianness = 0;
+    bool isSigned = false;
+    double scale = 1.0;
+    double offset = 0.0;
+    double min = 0.0;
+    double max = 0.0;
+    std::string name;
+    std::string unit;
+    std::string receiver;
+    std::chrono::system_clock::time_point lastTimeMutated;
+    std::chrono::milliseconds timeSinceMutation;
+};
+
+struct CanMessage{
+    int canId = 0;
+    int dlc = 0;
+    std::string name;
+    std::string transmitter;
+    std::chrono::system_clock::time_point lastTimeUpdated;
+    std::chrono::milliseconds timeSinceUpdate;
+    double dataRate;
+    double storageSize; // sum of all 
+    double bandwidthPercentage; // percentage of total data sent
+    std::vector<double> time {0.0};
+    std::vector<CanSignal> signals;
+    void updateMessage(Network* networkSource);
+};
+
+struct CanStore{
+    std::map<int,CanMessage> canMessages;
+    double totalBandwidth; // total data stored
+    bool loadStateFromFile(std::string filePath);
+    void dump();
+};
+
 struct IO_State{
     static constexpr uint32_t kId = 0x581;
     std::vector<double> time {0.0};
@@ -21,7 +61,6 @@ struct IO_State{
     std::vector<double> Cruz_EN {0};
     std::vector<double> Cruz_Set {0};
     std::vector<double> Brake_Light {0};
-
     void updateSignals(Network* networkSource);
 };
 

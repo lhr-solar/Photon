@@ -148,7 +148,6 @@ void Network::handleFrame(const std::string& frame) {
     }
 
     writeSample(canId, value);
-    //logs("[parser] CAN 0x" << std::hex << canId << " value 0x" << value << std::dec);
 }
 
 bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {

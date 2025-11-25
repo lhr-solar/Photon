@@ -11,9 +11,10 @@
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
-#include "dbc.hpp"
+#include "../network/dbc.hpp"
 
 void UI::build(){
+    CanMessage msg;
     static bool showFps = false;
     ImGui::NewFrame();
     ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -28,17 +29,14 @@ void UI::build(){
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Debug", NULL, windowFlags)){
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
-            ImGui::TextUnformatted("Some different text...");
+            ImGui::TextUnformatted("This is the Debug window...");
         }
     } ImGui::End();
 
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Main", NULL, windowFlags)){
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
-            ImGui::TextUnformatted("words...");
-             //if(ImPlot::BeginPlot("name")){
-             //ImPlot::EndPlot();
-             //}
+            ImGui::TextUnformatted("This is the Main window...");
         }
     } ImGui::End();
 

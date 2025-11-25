@@ -1,8 +1,9 @@
 #include "dbc.hpp"
 #include "imgui.h"
 #include "../network/network.hpp"
-
 #include <cstdint>
+#include <fstream>
+#include <iostream>
 
 namespace {
 
@@ -24,6 +25,183 @@ int32_t signExtend(uint64_t raw, uint8_t bits){
 }
 
 }  // namespace
+
+void CanMessage::updateMessage(Network* networkSource){
+    uint64_t encoded;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(canId, encoded);
+    time.push_back(time.back() + deltaTime);
+
+}
+
+bool CanStore::loadStateFromFile(std::string filePath){
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "[DBC Loader] Failed to open " << filePath << "\n";
+        return false;
+    }
+
+    std::string line;
+    uint32_t currentId = 0;
+    int messageCountLocal = 0;
+    int signalCountLocal = 0;
+
+    // === Main parsing loop ===
+    while (std::getline(file, line)) {
+        // trim leading spaces/tabs
+        line.erase(0, line.find_first_not_of(" \t\r\n"));
+        if (line.empty()) continue;
+
+        // --- Parse BO_ lines ---
+        if (line.rfind("BO_", 0) == 0) {
+            uint32_t canId = 0;
+            std::string name, sender;
+            uint8_t dlc = 0;
+
+            std::istringstream iss(line);
+            std::string tag;
+            iss >> tag >> canId;
+
+            std::string tmp;
+            iss >> tmp;
+            auto colon = tmp.find(':');
+            if (colon == std::string::npos)
+                continue;
+            name = tmp.substr(0, colon);
+
+            std::string dlcStr;
+            iss >> dlcStr;
+            try {
+                dlc = static_cast<uint8_t>(std::stoi(dlcStr));
+            } catch (...) {
+                continue;
+            }
+
+            iss >> sender;
+
+            // at this point, we have accumulated enough data to populate 1 can message
+            // we should go about populating it
+            {
+                //std::lock_guard<std::mutex> lock(mapMutex);
+                CanMessage& msg = canMessages[static_cast<int>(canId)];
+                msg.canId = static_cast<int>(canId);
+                msg.name = name;
+                msg.dlc = dlc;
+                msg.transmitter = sender;
+                msg.signals.clear();
+            }
+
+            currentId = canId;
+            messageCountLocal++;
+            std::cerr << "[DBC] Registered message: " << name
+                      << " (ID=" << canId << ")\n";
+        }
+
+        // --- Parse SG_ lines ---
+        else if (line.find("SG_") != std::string::npos && currentId != 0) {
+            std::istringstream iss(line);
+            std::string tag, sigName;
+            iss >> tag >> sigName; // SG_ <name>
+
+            CanSignal sig{};
+            char c = 0;
+
+            // find the colon
+            while (iss >> c) {
+                if (c == ':') break;
+            }
+            if (c != ':') continue;
+
+            // parse 0|32@1+
+            iss >> sig.startBit;
+            iss.ignore(1, '|');
+            iss >> sig.length;
+            iss.ignore(1, '@');
+            iss >> sig.endianness;
+            iss >> c;
+            sig.isSigned = (c == '-');
+
+            // parse (scale,offset)
+            if (iss >> c && c == '(') {
+                iss >> sig.scale;
+                iss.ignore(1, ',');
+                iss >> sig.offset;
+                iss.ignore(1, ')');
+            }
+
+            // parse [min|max]
+            if (iss >> c && c == '[') {
+                iss >> sig.min;
+                iss.ignore(1, '|');
+                iss >> sig.max;
+                iss.ignore(1, ']');
+            }
+
+            // parse "unit"
+            if (iss >> std::ws && iss.peek() == '"') {
+                iss.get(); // consume "
+                std::getline(iss, sig.unit, '"');
+            }
+
+            // receiver (may or may not be in brackets)
+            std::string receiver;
+            if (iss >> std::ws) {
+                if (iss.peek() == '[') {
+                    iss.get(); // [
+                    std::getline(iss, receiver, ']');
+                } else {
+                    iss >> receiver; // plain token (Vector__XXX)
+                }
+                sig.receiver = receiver;
+            }
+
+            {
+                //std::lock_guard<std::mutex> lock(mapMutex);
+                auto it = canMessages.find(static_cast<int>(currentId));
+                if (it != canMessages.end())
+                    it->second.signals.push_back(sig);
+            }
+
+            signalCountLocal++;
+            std::cerr << "[DBC] Registered signal: " << sigName
+                      << " (ID=" << currentId << ")\n";
+        }
+    }
+
+    // --- Summary + dump ---
+    {
+        //std::lock_guard<std::mutex> lock(mapMutex);
+        std::cerr << "[DBC Loader] Parsed " << messageCountLocal
+                  << " messages and " << signalCountLocal
+                  << " signals from " << filePath << "\n";
+        std::cerr << "[DBC Loader] Current total messages in map: "
+                  << canMessages.size() << "\n";
+    }
+
+    //dump();
+    return (messageCountLocal > 0);
+}
+
+void CanStore::dump() {
+    //std::lock_guard<std::mutex> lock(mapMutex);
+    std::cout << "========== DBC MAP ==========\n";
+    for (const auto& [id, msg] : canMessages) {
+        std::cout << "CAN ID: " << id
+                  << " | Name: " << msg.name
+                  << " | DLC: " << msg.dlc
+                  << " | Sender: " << msg.transmitter << "\n";
+        for (const auto& sigName : msg.signals) {
+            std::cout << "   SG_ " << sigName.name
+                      << " start=" << sigName.startBit
+                      << " len=" << sigName.length
+                      << " endian=" << sigName.endianness
+                      << (sigName.isSigned ? " signed" : " unsigned")
+                      << "\n";
+        }
+    }
+    std::cout << "=============================\n";
+}
 
 void IO_State::updateSignals(Network* networkSource){
     uint64_t encoded = 0;
