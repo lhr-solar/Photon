@@ -45,6 +45,7 @@ void Photon::prepareScene(){
 };
 
 void Photon::initThreads(){
+    network.canStore.loadStateFromFile("./assets/dbc/daybreak-master.dbc");
     std::thread producer_t(&Network::producer, &network);
     producer_t.detach();
     std::thread parser_t(&Network::parser, &network);

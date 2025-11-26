@@ -2,8 +2,8 @@
 #include <cstdint>
 #include <chrono>
 #include <vector>
+#include <map>
 #include "../gui/plot.hpp"
-#include "network.hpp"
 
 // Simple PODs mirroring assets/dbc/controls.dbc. Each struct exposes an
 // updateSignals() helper that decodes a pre-parsed 64-bit payload for its CAN ID.
@@ -34,7 +34,7 @@ struct CanMessage{
     std::chrono::system_clock::time_point lastTimeUpdated;
     std::chrono::milliseconds timeSinceUpdate;
     double dataRate;
-    double storageSize; // sum of all 
+    double storageSize; // sum of all signals
     double bandwidthPercentage; // percentage of total data sent
     std::vector<double> time {0.0};
     std::vector<CanSignal> signals;
@@ -42,8 +42,8 @@ struct CanMessage{
 };
 
 struct CanStore{
-    std::map<int,CanMessage> canMessages;
     double totalBandwidth; // total data stored
+    std::map<int, CanMessage> canMessages;
     bool loadStateFromFile(std::string filePath);
     void dump();
 };

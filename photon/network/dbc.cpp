@@ -1,6 +1,6 @@
 #include "dbc.hpp"
 #include "imgui.h"
-#include "../network/network.hpp"
+#include "network.hpp"
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -32,7 +32,6 @@ void CanMessage::updateMessage(Network* networkSource){
     float deltaTime = io.DeltaTime;
     networkSource->readSample(canId, encoded);
     time.push_back(time.back() + deltaTime);
-
 }
 
 bool CanStore::loadStateFromFile(std::string filePath){
@@ -105,6 +104,7 @@ bool CanStore::loadStateFromFile(std::string filePath){
             iss >> tag >> sigName; // SG_ <name>
 
             CanSignal sig{};
+            sig.name = sigName;
             char c = 0;
 
             // find the colon
@@ -179,7 +179,7 @@ bool CanStore::loadStateFromFile(std::string filePath){
                   << canMessages.size() << "\n";
     }
 
-    //dump();
+    dump();
     return (messageCountLocal > 0);
 }
 
@@ -197,6 +197,7 @@ void CanStore::dump() {
                       << " len=" << sigName.length
                       << " endian=" << sigName.endianness
                       << (sigName.isSigned ? " signed" : " unsigned")
+                      << " offset,scale=" << sigName.offset << " " << sigName.scale
                       << "\n";
         }
     }

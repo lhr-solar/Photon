@@ -59,7 +59,7 @@ public:
     Camera camera;
     float frameTime = 1.0;
     uint64_t frameCounter = 0;
-    const double targetFrameTime = 1000.0 / 144.0; // e.g. if you want 60 FPS → ~16.67ms per frame
+    const double targetFrameTime = 1000.0 / 1000.0; // e.g. if you want 60 FPS → ~16.67ms per frame
     float timerSpeed = 0.25f;
     struct UBOVS{
         glm::mat4 projection;

@@ -14,13 +14,30 @@
 #include "../network/dbc.hpp"
 
 void UI::build(){
-    CanMessage msg;
+    // this exists here to measure the performance of accessing the can data
+    for(auto& [id, msg] : networkINTF->canStore.canMessages){
+        logs(msg.canId);
+        logs(msg.dlc);
+        logs(msg.name);
+        logs(msg.transmitter);
+        for(auto& sg: msg.signals){
+            logs(sg.name);
+            logs(sg.startBit);
+            logs(sg.length);
+            logs(sg.endianness);
+            logs(sg.isSigned);
+            logs(sg.scale);
+            logs(sg.offset);
+            logs(sg.min);
+            logs(sg.max);
+            logs(sg.name);
+            logs(sg.unit);
+            logs(sg.receiver);
+        }
+    }
     static bool showFps = false;
     ImGui::NewFrame();
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    static IO_State ioState;
-    ioState.updateSignals(networkINTF);
-
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
                                    ImGuiWindowFlags_NoMove |
                                    ImGuiWindowFlags_NoBackground |
@@ -209,7 +226,7 @@ void UI::fpsWindow(){
         ImGui::Text("FPS: %.1f", fps);
         ImGui::Text("Frame time: %.3f ms", ft_ms);
         ImGui::Separator();
-        ImGui::Text("Renderer: %s", deviceName[0] ? deviceName : "Unknown");
+        ImGui::Text("Device Name: %s", deviceName[0] ? deviceName : "Unknown");
         ImGui::Text("VendorID: 0x%04X  DeviceID: 0x%04X", vendorID, deviceID);
         const char* typeStr = "Other";
         switch (deviceType) {
@@ -299,7 +316,8 @@ int levenshtein(const std::string& a, const std::string& b) {
 
 void UI::fuzzySearch(){
     if(cmdBuffer[0] != '\0'){
-        ImGui::Text("score: %i", levenshtein("test string", cmdBuffer));
+        CanMessage msg = networkINTF->canStore.canMessages[1409];
+        ImGui::Text("score: %i", levenshtein(msg.name, cmdBuffer));
     }
 }
 

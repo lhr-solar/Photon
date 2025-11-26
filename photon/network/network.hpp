@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 #include "spsc.hpp"
+#include "dbc.hpp"
 
 class Network{
 public:
@@ -26,8 +27,8 @@ public:
     SPSCQueue<uint8_t> uartQueue;
     std::string IP ="3.141.38.115";
     unsigned PORT = 8187;
+    CanStore canStore;
     std::atomic<bool> running = true;
-
 
 private:
     struct sample {
