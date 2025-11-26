@@ -32,7 +32,7 @@ struct UI{
     bool cmdOpen = false;
     bool cmdFF = false;
     char cmdBuffer[128] = {0};
-    struct CmdResult { std::string name; int distance = 0; };
+    struct CmdResult { std::string name; int distance = 0; int canID;};
     std::vector<CmdResult> cmdResults;
     CmdResult activeCmdResult{};
     int cmdSelected = -1;
@@ -62,4 +62,5 @@ struct UI{
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
     void tempWork();
     void search();
+    bool popupWindow();
 };

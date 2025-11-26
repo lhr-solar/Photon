@@ -27,14 +27,6 @@ int32_t signExtend(uint64_t raw, uint8_t bits){
 
 }  // namespace
 
-void CanMessage::updateMessage(Network* networkSource){
-    uint64_t encoded;
-    ImGuiIO &io = ImGui::GetIO();
-    float deltaTime = io.DeltaTime;
-    networkSource->readSample(canId, encoded);
-    time.push_back(time.back() + deltaTime);
-}
-
 bool CanStore::loadStateFromFile(std::string filePath){
     std::ifstream file(filePath);
     if (!file.is_open()) {
@@ -202,6 +194,14 @@ void CanStore::dump() {
         }
     }
         logs("=============================");
+}
+
+void CanMessage::updateMessage(Network* networkSource){
+    uint64_t encoded;
+    ImGuiIO &io = ImGui::GetIO();
+    float deltaTime = io.DeltaTime;
+    networkSource->readSample(canId, encoded);
+    time.push_back(time.back() + deltaTime);
 }
 
 void IO_State::updateSignals(Network* networkSource){

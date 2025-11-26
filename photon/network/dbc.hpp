@@ -7,9 +7,6 @@
 
 // Simple PODs mirroring assets/dbc/controls.dbc. Each struct exposes an
 // updateSignals() helper that decodes a pre-parsed 64-bit payload for its CAN ID.
-
-// Controls
-// at a high level, every CAN DBC entry has
 struct CanSignal {
     int startBit = 0;
     int length = 0;
