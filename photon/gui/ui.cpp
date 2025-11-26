@@ -15,6 +15,7 @@
 
 void UI::build(){
     // this exists here to measure the performance of accessing the can data
+    /*
     for(auto& [id, msg] : networkINTF->canStore.canMessages){
         logs(msg.canId);
         logs(msg.dlc);
@@ -35,6 +36,8 @@ void UI::build(){
             logs(sg.receiver);
         }
     }
+    */ 
+    // 6 fps on windows W
     static bool showFps = false;
     ImGui::NewFrame();
     ImGuiViewport* vp = ImGui::GetMainViewport();
