@@ -37,5 +37,5 @@ void main() {
     // Final calculation: tanh(0.2 / abs(...))
     o = tanh(0.2 / absExpression);
     
-    outColor = o;
+    outColor = o ;//- vec4(0.5,0.5,0.5,0.0);
 }

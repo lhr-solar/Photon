@@ -332,8 +332,31 @@ bool UI::popupWindow(){
     const CanMessage& msg = networkINTF->canStore.canMessages[activeCmdResult.canID];
     if(ImGui::Begin("Command Result", &cmdShowPopup, flags)){
         focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-        ImGui::Text("Selected: %s", msg.name.c_str());
-        ImGui::Text("Selected: %s", msg.name.c_str());
+        ImGui::Text("Message Name: %s", msg.name.c_str());
+        ImGui::Text("CanID: 0x%X", msg.canId);
+        ImGui::Text("DLC: %d", msg.dlc);
+        ImGui::Text("Transmitter: %s", msg.transmitter.c_str());
+        ImGui::Text("DataRate: %.3f", msg.dataRate);
+        ImGui::Text("StorageSize: %.3f", msg.storageSize);
+        ImGui::Text("BandwidthPct: %.3f", msg.bandwidthPercentage);
+        ImGui::Text("TimeSinceUpdate(ms): %lld", (long long)msg.timeSinceUpdate.count());
+
+        for(const auto& s : msg.signals){
+            ImGui::Separator();
+            ImGui::Text("Signal: %s", s.name.c_str());
+            ImGui::Text("StartBit: %d", s.startBit);
+            ImGui::Text("Length: %d", s.length);
+            ImGui::Text("Endianness: %d", s.endianness);
+            ImGui::Text("Signed: %s", s.isSigned ? "true" : "false");
+            ImGui::Text("Scale: %.6f", s.scale);
+            ImGui::Text("Offset: %.6f", s.offset);
+            ImGui::Text("Min: %.6f", s.min);
+            ImGui::Text("Max: %.6f", s.max);
+            ImGui::Text("Unit: %s", s.unit.c_str());
+            ImGui::Text("Receiver: %s", s.receiver.c_str());
+            ImGui::Text("TimeSinceMutation(ms): %lld", (long long)s.timeSinceMutation.count());
+        }
+
         if(ImGui::Button("Close")){
             cmdShowPopup = false;
         }
@@ -487,6 +510,8 @@ void UI::background(){
     ImVec2 min = viewport->Pos;
     ImVec2 max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
     drawList->AddImage(this->backgroundShader.texture, min, max);
+    static float alpha = 80;
+    drawList->AddRectFilled(min, max, IM_COL32(0,0,0,alpha));
 }
 
 void UI::setStyle(){
