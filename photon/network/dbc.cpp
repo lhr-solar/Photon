@@ -1,6 +1,7 @@
 #include "dbc.hpp"
 #include "imgui.h"
 #include "network.hpp"
+#include "../engine/include.hpp"
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -37,7 +38,7 @@ void CanMessage::updateMessage(Network* networkSource){
 bool CanStore::loadStateFromFile(std::string filePath){
     std::ifstream file(filePath);
     if (!file.is_open()) {
-        std::cerr << "[DBC Loader] Failed to open " << filePath << "\n";
+        logs("[DBC Loader] Failed to open " << filePath);
         return false;
     }
 
@@ -93,8 +94,8 @@ bool CanStore::loadStateFromFile(std::string filePath){
 
             currentId = canId;
             messageCountLocal++;
-            std::cerr << "[DBC] Registered message: " << name
-                      << " (ID=" << canId << ")\n";
+            logs("[DBC] Registered message: " << name
+                      << " (ID=" << canId << ")");
         }
 
         // --- Parse SG_ lines ---
@@ -164,19 +165,19 @@ bool CanStore::loadStateFromFile(std::string filePath){
             }
 
             signalCountLocal++;
-            std::cerr << "[DBC] Registered signal: " << sigName
-                      << " (ID=" << currentId << ")\n";
+            logs("[DBC] Registered signal: " << sigName
+                      << " (ID=" << currentId << ")");
         }
     }
 
     // --- Summary + dump ---
     {
         //std::lock_guard<std::mutex> lock(mapMutex);
-        std::cerr << "[DBC Loader] Parsed " << messageCountLocal
+            logs("[DBC Loader] Parsed " << messageCountLocal
                   << " messages and " << signalCountLocal
-                  << " signals from " << filePath << "\n";
-        std::cerr << "[DBC Loader] Current total messages in map: "
-                  << canMessages.size() << "\n";
+                  << " signals from " << filePath);
+            logs("[DBC Loader] Current total messages in map: "
+                  << canMessages.size());
     }
 
     dump();
@@ -185,23 +186,22 @@ bool CanStore::loadStateFromFile(std::string filePath){
 
 void CanStore::dump() {
     //std::lock_guard<std::mutex> lock(mapMutex);
-    std::cout << "========== DBC MAP ==========\n";
+    logs("========== DBC MAP ==========");
     for (const auto& [id, msg] : canMessages) {
-        std::cout << "CAN ID: " << id
+                logs("CAN ID: " << id
                   << " | Name: " << msg.name
                   << " | DLC: " << msg.dlc
-                  << " | Sender: " << msg.transmitter << "\n";
+                  << " | Sender: " << msg.transmitter);
         for (const auto& sigName : msg.signals) {
-            std::cout << "   SG_ " << sigName.name
+                logs("   SG_ " << sigName.name
                       << " start=" << sigName.startBit
                       << " len=" << sigName.length
                       << " endian=" << sigName.endianness
                       << (sigName.isSigned ? " signed" : " unsigned")
-                      << " offset,scale=" << sigName.offset << " " << sigName.scale
-                      << "\n";
+                      << " offset,scale=" << sigName.offset << " " << sigName.scale);
         }
     }
-    std::cout << "=============================\n";
+        logs("=============================");
 }
 
 void IO_State::updateSignals(Network* networkSource){

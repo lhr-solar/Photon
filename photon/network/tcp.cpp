@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
+#include "../engine/include.hpp"
 
 TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
 #ifdef _WIN32
@@ -122,7 +123,7 @@ TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
             _fd = accept(_listen, nullptr, nullptr);
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
-        std::cout << "[+] Initialized connection on: " << _listen << std::endl;
+            logs("[+] Initialized connection on: " << _listen);
     }
 }
 
@@ -180,10 +181,10 @@ void TcpSocket::reconnect(){
     }
 
     while(_fd < 0){
-        std::cout << "[!] Attempting reconnect on: " << _listen << std::endl;
+        logs("[!] Attempting reconnect on: " << _listen);
         _fd = accept(_listen, nullptr, nullptr);
         sleep(1);
     }
-    std::cout << "[+] reconnect on: " << _listen << std::endl;
+        logs("[+] reconnect on: " << _listen);
 #endif
 }

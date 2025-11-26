@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cfloat>
+#include <cwctype>
 #include <sstream>
 #include <iomanip>
 #include <limits>
@@ -37,7 +38,7 @@ void UI::build(){
         }
     }
     */ 
-    // 6 fps on windows W
+
     static bool showFps = false;
     ImGui::NewFrame();
     ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -297,19 +298,25 @@ void UI::cmdPrompt(){
 }
 
 int levenshtein(const std::string& a, const std::string& b) {
-    const int n = a.size();
-    const int m = b.size();
+    std::string x, y;
+    x.resize(a.size());
+    y.resize(b.size());
+    std::transform(a.begin(), a.end(), x.begin(), ::tolower);
+    std::transform(b.begin(), b.end(), y.begin(), ::tolower);
+
+    const int n = x.size();
+    const int m = y.size();
 
     std::vector<int> prev(m+1), cur(m+1);
-    for (int j = 0; j <= m; j++) prev[j] = j; // prev. consists of index of prev.
+    for (int j = 0; j <= m; j++) prev[j] = j;
     for (int i = 1; i <= n; i++) {
         cur[0] = i;
         for(int j = 1; j <= m; j++){
-            int cost = (a[i-1] == b[j-1]) ? 0 : 1;
+            int cost = (x[i-1] == y[j-1]) ? 0 : 1;
             cur[j] = std::min({
-                prev[j] + 1,      // deletion
-                cur[j-1] + 1,     // insertion
-                prev[j-1] + cost  // substitution
+                prev[j] + 1,
+                cur[j-1] + 1,
+                prev[j-1] + cost
             });
         }
         prev.swap(cur);
@@ -319,8 +326,9 @@ int levenshtein(const std::string& a, const std::string& b) {
 
 void UI::fuzzySearch(){
     if(cmdBuffer[0] != '\0'){
-        CanMessage msg = networkINTF->canStore.canMessages[1409];
-        ImGui::Text("score: %i", levenshtein(msg.name, cmdBuffer));
+        for(auto [id, msg] : networkINTF->canStore.canMessages){
+            ImGui::Text("%s: %i", msg.name.data(), levenshtein(msg.name, cmdBuffer));
+        }
     }
 }
 
