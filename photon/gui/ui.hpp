@@ -55,5 +55,5 @@ struct UI{
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
     void tempWork();
-    void fuzzySearch();
+    void search();
 };

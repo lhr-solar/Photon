@@ -292,27 +292,21 @@ void UI::cmdPrompt(){
         bool submitted = ImGui::InputText("##cmdInput", cmdBuffer, IM_ARRAYSIZE(cmdBuffer), inputFlags);
         if(cmdFF){ cmdFF = false;}
         else{ if(submitted || !ImGui::IsItemActive()) cmdOpen = false; }
-        fuzzySearch();
+        search();
     } ImGui::End();
     ImGui::PopStyleColor(2);
 }
 
 int levenshtein(const std::string& a, const std::string& b) {
-    std::string x, y;
-    x.resize(a.size());
-    y.resize(b.size());
-    std::transform(a.begin(), a.end(), x.begin(), ::tolower);
-    std::transform(b.begin(), b.end(), y.begin(), ::tolower);
-
-    const int n = x.size();
-    const int m = y.size();
+    const int n = a.size();
+    const int m = b.size();
 
     std::vector<int> prev(m+1), cur(m+1);
     for (int j = 0; j <= m; j++) prev[j] = j;
     for (int i = 1; i <= n; i++) {
         cur[0] = i;
         for(int j = 1; j <= m; j++){
-            int cost = (x[i-1] == y[j-1]) ? 0 : 1;
+            int cost = (a[i-1] == b[j-1]) ? 0 : 1;
             cur[j] = std::min({
                 prev[j] + 1,
                 cur[j-1] + 1,
@@ -324,11 +318,38 @@ int levenshtein(const std::string& a, const std::string& b) {
     return prev[m];
 }
 
-void UI::fuzzySearch(){
-    if(cmdBuffer[0] != '\0'){
-        for(auto [id, msg] : networkINTF->canStore.canMessages){
-            ImGui::Text("%s: %i", msg.name.data(), levenshtein(msg.name, cmdBuffer));
-        }
+int distance(std::string a, std::string b) {
+    std::transform(a.begin(), a.end(), a.begin(), ::tolower);
+    std::transform(b.begin(), b.end(), b.begin(), ::tolower);
+
+    if (a.size() >= b.size())
+        return levenshtein(a, b);
+
+    int best = INT_MAX;
+    for (size_t i = 0; i + a.size() <= b.size(); i++) {
+        int d = levenshtein(a, b.substr(i, a.size()));
+        if (d < best) best = d;
+    }
+    return best;
+}
+
+void UI::search(){
+        if (cmdBuffer[0] == '\0') return;
+
+    std::vector<std::pair<std::string,int>> results;
+    results.reserve(networkINTF->canStore.canMessages.size());
+
+    for (auto& [id, msg] : networkINTF->canStore.canMessages) {
+        int d = distance(cmdBuffer, msg.name);
+        results.emplace_back(msg.name, d);
+    }
+
+    std::partial_sort(results.begin(), results.begin() + std::min<size_t>(5, results.size()), results.end(),
+        [](auto& a, auto& b){ return a.second < b.second; });
+
+    size_t limit = std::min<size_t>(5, results.size());
+    for (size_t i = 0; i < limit; i++) {
+        ImGui::Text("%s: %i", results[i].first.c_str(), results[i].second);
     }
 }
 
