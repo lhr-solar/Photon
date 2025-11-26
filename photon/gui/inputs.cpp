@@ -89,6 +89,10 @@ ImGuiKey Inputs::translateKey(uint32_t key){
         case KEY_F10:           return ImGuiKey_F10;
         case KEY_F11:           return ImGuiKey_F11;
         case KEY_F12:           return ImGuiKey_F12;
+        case KEY_UP_ARROW:      return ImGuiKey_UpArrow;
+        case KEY_DOWN_ARROW:    return ImGuiKey_DownArrow;
+        case KEY_LEFT_ARROW:    return ImGuiKey_LeftArrow;
+        case KEY_RIGHT_ARROW:   return ImGuiKey_RightArrow;
 
         default:
             return ImGuiKey_None;
