@@ -15,30 +15,6 @@
 #include "../network/dbc.hpp"
 
 void UI::build(){
-    // this exists here to measure the performance of accessing the can data
-    /*
-    for(auto& [id, msg] : networkINTF->canStore.canMessages){
-        logs(msg.canId);
-        logs(msg.dlc);
-        logs(msg.name);
-        logs(msg.transmitter);
-        for(auto& sg: msg.signals){
-            logs(sg.name);
-            logs(sg.startBit);
-            logs(sg.length);
-            logs(sg.endianness);
-            logs(sg.isSigned);
-            logs(sg.scale);
-            logs(sg.offset);
-            logs(sg.min);
-            logs(sg.max);
-            logs(sg.name);
-            logs(sg.unit);
-            logs(sg.receiver);
-        }
-    }
-    */ 
-
     static bool showFps = false;
     ImGui::NewFrame();
     ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -261,14 +237,16 @@ void UI::cmdPrompt(){
         cmdOpen = true;
         cmdFF = true;
         cmdBuffer[0] = '\0';
+        cmdResults.clear();
+        cmdSelected = -1;
+        cmdShowPopup = false;
     }
 
     if(!cmdOpen) { return; }
 
-    if(ImGui::IsKeyPressed(ImGuiKey_Escape) ||
-        ImGui::IsKeyPressed(ImGuiKey_Enter) ||
-        ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)){
+    if(ImGui::IsKeyPressed(ImGuiKey_Escape)){
         cmdOpen = false;
+        cmdShowPopup = false;
         return;
     }
 
@@ -290,9 +268,68 @@ void UI::cmdPrompt(){
         ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
         if(cmdFF){ ImGui::SetKeyboardFocusHere(); }
         bool submitted = ImGui::InputText("##cmdInput", cmdBuffer, IM_ARRAYSIZE(cmdBuffer), inputFlags);
-        if(cmdFF){ cmdFF = false;}
-        else{ if(submitted || !ImGui::IsItemActive()) cmdOpen = false; }
+        if(cmdFF){ cmdFF = false; }
         search();
+
+        const int resultCount = static_cast<int>(cmdResults.size());
+        const bool hasResults = resultCount > 0;
+
+        if(hasResults){
+            if(cmdSelected < 0) { cmdSelected = 0; }
+            if(ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+                cmdSelected = (cmdSelected + 1) % resultCount;
+            }
+            if(ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+                cmdSelected = (cmdSelected - 1 + resultCount) % resultCount;
+            }
+            if(ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+                cmdSelected = (cmdSelected + 1) % resultCount;
+            }
+
+            float rowHeight = ImGui::GetTextLineHeightWithSpacing();
+            ImVec2 listSize(ImGui::GetContentRegionAvail().x, rowHeight * resultCount + ImGui::GetStyle().FramePadding.y);
+            if(ImGui::BeginListBox("##cmdResults", listSize)){
+                for(int i = 0; i < resultCount; i++){
+                    bool isSelected = (i == cmdSelected);
+                    std::string label = cmdResults[i].name + " : " + std::to_string(cmdResults[i].distance);
+                    if(ImGui::Selectable(label.c_str(), isSelected)){
+                        cmdSelected = i;
+                        activeCmdResult = cmdResults[i];
+                        cmdShowPopup = true;
+                        ImGui::OpenPopup("CommandResultPopup");
+                    }
+                    if(isSelected){
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndListBox();
+            }
+
+            bool activateSelection = (submitted || ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter));
+            if(activateSelection && cmdSelected >= 0 && cmdSelected < resultCount){
+                activeCmdResult = cmdResults[cmdSelected];
+                cmdShowPopup = true;
+                ImGui::OpenPopup("CommandResultPopup");
+            }
+        } else {
+            cmdSelected = -1;
+        }
+
+        bool windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        bool inputActive = ImGui::IsItemActive();
+        if(!windowFocused && !inputActive && !cmdShowPopup){
+            cmdOpen = false;
+        }
+
+        if(cmdShowPopup && ImGui::BeginPopupModal("CommandResultPopup", NULL, ImGuiWindowFlags_AlwaysAutoResize)){
+            ImGui::Text("Selected: %s", activeCmdResult.name.c_str());
+            ImGui::Text("Distance: %d", activeCmdResult.distance);
+            if(ImGui::Button("Close")){
+                ImGui::CloseCurrentPopup();
+                cmdShowPopup = false;
+            }
+            ImGui::EndPopup();
+        }
     } ImGui::End();
     ImGui::PopStyleColor(2);
 }
@@ -334,9 +371,13 @@ int distance(std::string a, std::string b) {
 }
 
 void UI::search(){
-        if (cmdBuffer[0] == '\0') return;
+    cmdResults.clear();
+    if (cmdBuffer[0] == '\0') {
+        cmdSelected = -1;
+        return;
+    }
 
-    std::vector<std::pair<std::string,int>> results;
+    std::vector<std::pair<std::string, int>> results;
     results.reserve(networkINTF->canStore.canMessages.size());
 
     for (auto& [id, msg] : networkINTF->canStore.canMessages) {
@@ -344,12 +385,27 @@ void UI::search(){
         results.emplace_back(msg.name, d);
     }
 
-    std::partial_sort(results.begin(), results.begin() + std::min<size_t>(5, results.size()), results.end(),
-        [](auto& a, auto& b){ return a.second < b.second; });
-
     size_t limit = std::min<size_t>(5, results.size());
+    if (limit == 0) {
+        cmdSelected = -1;
+        return;
+    }
+
+    std::partial_sort(
+        results.begin(),
+        results.begin() + limit,
+        results.end(),
+        [](auto& a, auto& b) { return a.second < b.second; });
+
+    cmdResults.reserve(limit);
     for (size_t i = 0; i < limit; i++) {
-        ImGui::Text("%s: %i", results[i].first.c_str(), results[i].second);
+        cmdResults.push_back({results[i].first, results[i].second});
+    }
+
+    if (cmdSelected >= static_cast<int>(cmdResults.size())) {
+        cmdSelected = cmdResults.empty() ? -1 : 0;
+    } else if (cmdSelected == -1 && !cmdResults.empty()) {
+        cmdSelected = 0;
     }
 }
 

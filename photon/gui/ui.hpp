@@ -9,6 +9,7 @@
 #include <vulkan.h>
 #include <glm/glm.hpp>
 #include <array>
+#include <string>
 #include <vector>
 #include "console.hpp"
 #include "plot.hpp"
@@ -31,6 +32,11 @@ struct UI{
     bool cmdOpen = false;
     bool cmdFF = false;
     char cmdBuffer[128] = {0};
+    struct CmdResult { std::string name; int distance = 0; };
+    std::vector<CmdResult> cmdResults;
+    CmdResult activeCmdResult{};
+    int cmdSelected = -1;
+    bool cmdShowPopup = false;
 
     VulkanShader accretionShader;
     VulkanShader backgroundShader;
