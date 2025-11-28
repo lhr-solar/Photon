@@ -19,8 +19,9 @@ struct CanSignal {
     std::string name;
     std::string unit;
     std::string receiver;
-    std::chrono::system_clock::time_point lastTimeMutated;
+    std::chrono::system_clock::time_point lastTimeMutated = std::chrono::system_clock::now();
     std::chrono::milliseconds timeSinceMutation;
+    std::vector<double> data;
 };
 
 struct CanMessage{
@@ -28,18 +29,19 @@ struct CanMessage{
     int dlc = 0;
     std::string name;
     std::string transmitter;
-    std::chrono::system_clock::time_point lastTimeUpdated;
+    std::chrono::system_clock::time_point lastTimeUpdated = std::chrono::system_clock::now();
     std::chrono::milliseconds timeSinceUpdate;
-    double dataRate;
-    double storageSize; // sum of all signals
-    double bandwidthPercentage; // percentage of total data sent
+    double dataRate = 0;
+    double storageSize = 0; // sum of all signals
+    double dataTransfer = 0;
+    double bandwidthPercentage = 0; // percentage of total data sent
     std::vector<double> time {0.0};
     std::vector<CanSignal> signals;
     void updateMessage(Network* networkSource);
 };
 
 struct CanStore{
-    double totalBandwidth; // total data stored
+    double totalBandwidth = 0.0; // total data stored
     std::map<int, CanMessage> canMessages;
     bool loadStateFromFile(std::string filePath);
     void dump();

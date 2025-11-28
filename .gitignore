@@ -9,3 +9,4 @@ Photon.exe
 assets/video/*
 config.ini
 perf/
+runtime/

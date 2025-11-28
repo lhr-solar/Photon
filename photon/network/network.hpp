@@ -40,6 +40,7 @@ private:
 
         std::mutex lock;
         int64_t point = 0;
+        bool hasNew = false;
     };
 
     sample& ensureSample(uint16_t canId);

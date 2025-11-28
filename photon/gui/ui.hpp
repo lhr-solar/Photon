@@ -63,4 +63,5 @@ struct UI{
     void tempWork();
     void search();
     bool popupWindow();
+    bool popupWide(const CanSignal& signal, ImVec2 pos);
 };

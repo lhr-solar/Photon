@@ -101,6 +101,7 @@ void Gui::prepareImGui(){
 
     if (font != nullptr) { io.FontDefault = font; }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.FontGlobalScale = 1.0f;
     ui.setStyle();
 }

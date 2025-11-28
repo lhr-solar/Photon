@@ -20,10 +20,14 @@ void Plot::update(Network* networkSource){
             series[1].erase(series[1].begin());
         }
     };
-    networkSource->readSample(canID, val);
+    const bool hasNew = networkSource->readSample(canID, val);
     prune(data);
     data[0].push_back(data[0].back() + deltaTime);
-    data[1].push_back((double)val);
+    if (!hasNew && !data[1].empty()) {
+        data[1].push_back(data[1].back());
+    } else {
+        data[1].push_back((double)val);
+    }
 
     double currentMin = data[1].front();
     double currentMax = data[1].front();

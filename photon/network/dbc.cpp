@@ -3,6 +3,7 @@
 #include "network.hpp"
 #include "../engine/include.hpp"
 #include <cstdint>
+#include <array>
 #include <fstream>
 #include <iostream>
 
@@ -23,6 +24,47 @@ int32_t signExtend(uint64_t raw, uint8_t bits){
         v |= ~mask;
     }
     return static_cast<int32_t>(v);
+}
+
+std::array<uint8_t, 8> unpackBytes(uint64_t value, int dlc){
+    std::array<uint8_t, 8> bytes{};
+    if (dlc <= 0) { return bytes; }
+    const int byteCount = dlc > 8 ? 8 : dlc;
+    for (int i = 0; i < byteCount; ++i) {
+        const int shift = 8 * (byteCount - 1 - i);
+        bytes[i] = static_cast<uint8_t>((value >> shift) & 0xFF);
+    }
+    return bytes;
+}
+
+uint64_t buildLittleEndianPayload(const std::array<uint8_t, 8>& bytes, int dlc){
+    uint64_t payload = 0;
+    const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
+    for (int i = 0; i < byteCount; ++i) {
+        payload |= static_cast<uint64_t>(bytes[i]) << (i * 8);
+    }
+    return payload;
+}
+
+// Extract Motorola (big-endian) bits using DBC numbering where startBit is the signal MSB.
+uint64_t extractBitsBe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitCount){
+    if (bitCount <= 0) { return 0; }
+    uint64_t result = 0;
+    const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
+    int bitIndex = startBit;
+    for (int i = 0; i < bitCount; ++i) {
+        const int byteIndex = bitIndex / 8;
+        if (byteIndex < 0 || byteIndex >= byteCount) { break; }
+        const int bitInByte = 7 - (bitIndex % 8);
+        const uint64_t bit = (bytes[byteIndex] >> bitInByte) & 0x1ULL;
+        result = (result << 1) | bit;
+        if (bitIndex % 8 == 0) {
+            bitIndex += 15; // wrap to MSB of next byte
+        } else {
+            --bitIndex;
+        }
+    }
+    return result;
 }
 
 }  // namespace
@@ -200,8 +242,58 @@ void CanMessage::updateMessage(Network* networkSource){
     uint64_t encoded;
     ImGuiIO &io = ImGui::GetIO();
     float deltaTime = io.DeltaTime;
-    networkSource->readSample(canId, encoded);
+    const bool hasNewData = networkSource->readSample(canId, encoded);
     time.push_back(time.back() + deltaTime);
+    const auto now = std::chrono::system_clock::now();
+    if (!hasNewData) {
+        for (auto& sg : signals) { 
+            sg.data.push_back(encoded); 
+            sg.timeSinceMutation = std::chrono::duration_cast<std::chrono::milliseconds>(now-sg.lastTimeMutated);
+        }
+        timeSinceUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeUpdated);
+        return;
+    }
+
+    timeSinceUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeUpdated);
+    lastTimeUpdated = now;
+
+    const auto bytes = unpackBytes(encoded, dlc);
+    const uint64_t littlePayload = buildLittleEndianPayload(bytes, dlc);
+    const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
+
+    for(auto& sg : signals){
+        uint64_t raw = 0;
+        if (sg.endianness == 0) {
+            raw = extractBitsBe(bytes, byteCount, sg.startBit, sg.length);
+        } else {
+            raw = extractBitsLe(littlePayload,
+                                static_cast<uint8_t>(sg.startBit),
+                                static_cast<uint8_t>(sg.length));
+        }
+
+        int64_t signedRaw = sg.isSigned ? signExtend(raw, static_cast<uint8_t>(sg.length))
+                                        : static_cast<int64_t>(raw);
+        double physical = static_cast<double>(signedRaw) * sg.scale + sg.offset;
+
+        sg.data.push_back(physical);
+        sg.timeSinceMutation = std::chrono::duration_cast<std::chrono::milliseconds>(now - sg.lastTimeMutated);
+        sg.lastTimeMutated = now;
+    }
+
+    double totalBytes = static_cast<double>(time.size()) * sizeof(double);
+    for (const auto& sg : signals) {
+        totalBytes += static_cast<double>(sg.data.size()) * sizeof(double);
+    }
+    storageSize = totalBytes / (1024.0 * 1024.0); // MiB
+
+    double amtThisUpdate = 5 + (dlc*2);
+    dataTransfer = dataTransfer + amtThisUpdate; // # of bytes of a slcan packet for this message
+
+    double dt = std::chrono::duration<double>(timeSinceUpdate).count();
+    dt = dt > 0.0 ? (5 + 2 * dlc) / dt : 0.0;
+    dataRate = (dataRate + dt)/2;
+    networkSource->canStore.totalBandwidth = networkSource->canStore.totalBandwidth + amtThisUpdate;
+    bandwidthPercentage = dataTransfer/networkSource->canStore.totalBandwidth;
 }
 
 void IO_State::updateSignals(Network* networkSource){

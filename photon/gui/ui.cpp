@@ -23,13 +23,13 @@ void UI::build(){
                                    ImGuiWindowFlags_NoBackground |
                                    ImGuiWindowFlags_NoDocking;
     background();
+    for (auto& [id, msg] : networkINTF->canStore.canMessages) msg.updateMessage(networkINTF);
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Debug", NULL, windowFlags)){
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
             ImGui::TextUnformatted("This is the Debug window...");
         }
     } ImGui::End();
-
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Main", NULL, windowFlags)){
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
@@ -38,6 +38,7 @@ void UI::build(){
     } ImGui::End();
 
     cmdPrompt();
+
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
     ImGui::Render();
@@ -317,49 +318,75 @@ void UI::cmdPrompt(){
 }
 
 bool UI::popupWindow(){
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
-                             ImGuiWindowFlags_AlwaysAutoResize |
-                             ImGuiWindowFlags_NoNav |
-                             ImGuiWindowFlags_NoSavedSettings;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | 
+                             ImGuiWindowFlags_NoSavedSettings  | 
+                             ImGuiWindowFlags_NoTitleBar | 
+                             ImGuiWindowFlags_NoCollapse |
+                             ImGuiWindowFlags_NoMove;
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImGui::SetNextWindowBgAlpha(0.25);
+    ImGui::SetNextWindowBgAlpha(0.75);
 
     bool focused = false;
+    bool childFocused = false;
+    static int selected = 0;
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(280, 120), ImGuiCond_FirstUseEver);
     const CanMessage& msg = networkINTF->canStore.canMessages[activeCmdResult.canID];
+    if (msg.signals.empty()) {
+        ImGui::Text("No signals available");
+        ImGui::PopStyleColor(2);
+        return focused;
+    }
+    selected = std::clamp(selected, 0, static_cast<int>(msg.signals.size()) - 1);
     if(ImGui::Begin("Command Result", &cmdShowPopup, flags)){
         focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         ImGui::Text("Message Name: %s", msg.name.c_str());
-        ImGui::Text("CanID: 0x%X", msg.canId);
+        ImGui::Text("CanID: %#04x", msg.canId);
         ImGui::Text("DLC: %d", msg.dlc);
         ImGui::Text("Transmitter: %s", msg.transmitter.c_str());
-        ImGui::Text("DataRate: %.3f", msg.dataRate);
-        ImGui::Text("StorageSize: %.3f", msg.storageSize);
-        ImGui::Text("BandwidthPct: %.3f", msg.bandwidthPercentage);
-        ImGui::Text("TimeSinceUpdate(ms): %lld", (long long)msg.timeSinceUpdate.count());
-
-        for(const auto& s : msg.signals){
-            ImGui::Separator();
-            ImGui::Text("Signal: %s", s.name.c_str());
-            ImGui::Text("StartBit: %d", s.startBit);
-            ImGui::Text("Length: %d", s.length);
-            ImGui::Text("Endianness: %d", s.endianness);
-            ImGui::Text("Signed: %s", s.isSigned ? "true" : "false");
-            ImGui::Text("Scale: %.6f", s.scale);
-            ImGui::Text("Offset: %.6f", s.offset);
-            ImGui::Text("Min: %.6f", s.min);
-            ImGui::Text("Max: %.6f", s.max);
-            ImGui::Text("Unit: %s", s.unit.c_str());
-            ImGui::Text("Receiver: %s", s.receiver.c_str());
-            ImGui::Text("TimeSinceMutation(ms): %lld", (long long)s.timeSinceMutation.count());
+        ImGui::Text("Data Rate: %.0f B/s", msg.dataRate);
+        ImGui::Text("Storage Size: %.3f MiB", msg.storageSize);
+        ImGui::Text("Bandwidth Percentage: %.3f", msg.bandwidthPercentage * 100.0);
+        ImGui::Text("Time Since Last Update: %.3lf (s)", (long long)msg.timeSinceUpdate.count()/1000.0);
+        float rowHeight = ImGui::GetTextLineHeightWithSpacing() + 4.0;
+        ImVec2 listSize(ImGui::GetContentRegionAvail().x, rowHeight * msg.signals.size() + ImGui::GetStyle().FramePadding.y);
+        ImGui::Separator();
+        if(ImGui::BeginListBox("##popupList", listSize)){
+            if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+                for(size_t idx = 0; idx < msg.signals.size(); ++idx){
+                    bool isSelected = (idx == selected);
+                    if (ImGui::Selectable(msg.signals[idx].name.c_str(), isSelected, ImGuiSelectableFlags_SelectOnNav))
+                        selected = (int)idx;
+                    if (ImGui::IsItemFocused()) selected = static_cast<int>(idx);
+                    if (isSelected){
+                        ImGui::SetItemDefaultFocus();
+                        childFocused = popupWide(msg.signals[idx], {ImGui::GetWindowWidth() + 10,0});
+                    }
+                }
+            ImGui::EndListBox();
         }
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    return (focused || childFocused);
+}
 
-        if(ImGui::Button("Close")){
-            cmdShowPopup = false;
-        }
+bool UI::popupWide(const CanSignal& sig, ImVec2 pos){
+    bool focused = false;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | 
+                             ImGuiWindowFlags_NoSavedSettings  | 
+                             ImGuiWindowFlags_NoTitleBar | 
+                             ImGuiWindowFlags_NoCollapse |
+                             ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoFocusOnAppearing;
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
+    ImGui::SetNextWindowBgAlpha(0.75);
+    ImGui::SetNextWindowPos(pos);
+    if(ImGui::Begin((sig.name + "wide##").data(), NULL, flags)){
+        focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        ImGui::Text("This text is based on the selected signal: %s", sig.name.data());
     }
     ImGui::End();
     ImGui::PopStyleColor(2);

@@ -122,6 +122,7 @@ void Network::writeSample(uint16_t canId, uint64_t value) {
     sample& entry = ensureSample(canId);
     std::lock_guard<std::mutex> valueGuard(entry.lock);
     entry.point = value;
+    entry.hasNew = true;
 }
 
 bool Network::readSample(uint16_t canId, uint64_t& outValue) {
@@ -135,7 +136,12 @@ bool Network::readSample(uint16_t canId, uint64_t& outValue) {
     mapLock.unlock();
 
     std::lock_guard<std::mutex> valueGuard(entry->lock);
+    if (!entry->hasNew) {
+        outValue = 0;
+        return false;
+    }
     outValue = entry->point;
+    entry->hasNew = false;
     return true;
 }
 
