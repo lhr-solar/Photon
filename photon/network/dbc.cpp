@@ -250,14 +250,26 @@ void CanMessage::updateMessage(Network* networkSource){
             sg.timeSinceMutation = std::chrono::duration_cast<std::chrono::milliseconds>(now-sg.lastTimeMutated);
         }
         timeSinceUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeUpdated);
-    }
+    } else {
+        for(auto& sg : signals){
+            sg.timeSinceMutation = std::chrono::duration_cast<std::chrono::milliseconds>(now - sg.lastTimeMutated);
+            sg.lastTimeMutated = now;
+        }
+        timeSinceUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeUpdated);
+        lastTimeUpdated = now;
+        double dt = std::chrono::duration<double>(timeSinceUpdate).count();
+        dt = dt > 0.0 ? (5 + 2 * dlc) / dt : 0.0;
+        dataRate = (dataRate + dt)/2;
+        double amtThisUpdate = 5 + (dlc*2);
+        dataTransfer = dataTransfer + amtThisUpdate; // # of bytes of a slcan packet for this message
 
-    timeSinceUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeUpdated);
-    lastTimeUpdated = now;
+        networkSource->canStore.totalBandwidth = networkSource->canStore.totalBandwidth + amtThisUpdate;
+    }
 
     const auto bytes = unpackBytes(encoded, dlc);
     const uint64_t littlePayload = buildLittleEndianPayload(bytes, dlc);
     const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
+    double totalBytes = static_cast<double>(time.size()) * sizeof(double);
 
     for(auto& sg : signals){
         uint64_t raw = 0;
@@ -274,22 +286,9 @@ void CanMessage::updateMessage(Network* networkSource){
         double physical = static_cast<double>(signedRaw) * sg.scale + sg.offset;
 
         sg.data.push_back(physical);
-        sg.timeSinceMutation = std::chrono::duration_cast<std::chrono::milliseconds>(now - sg.lastTimeMutated);
-        sg.lastTimeMutated = now;
-    }
-
-    double totalBytes = static_cast<double>(time.size()) * sizeof(double);
-    for (const auto& sg : signals) {
         totalBytes += static_cast<double>(sg.data.size()) * sizeof(double);
     }
+
     storageSize = totalBytes / (1024.0 * 1024.0); // MiB
-
-    double amtThisUpdate = 5 + (dlc*2);
-    dataTransfer = dataTransfer + amtThisUpdate; // # of bytes of a slcan packet for this message
-
-    double dt = std::chrono::duration<double>(timeSinceUpdate).count();
-    dt = dt > 0.0 ? (5 + 2 * dlc) / dt : 0.0;
-    dataRate = (dataRate + dt)/2;
-    networkSource->canStore.totalBandwidth = networkSource->canStore.totalBandwidth + amtThisUpdate;
     bandwidthPercentage = dataTransfer/networkSource->canStore.totalBandwidth;
 }
