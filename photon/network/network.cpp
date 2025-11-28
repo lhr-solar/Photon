@@ -137,7 +137,7 @@ bool Network::readSample(uint16_t canId, uint64_t& outValue) {
 
     std::lock_guard<std::mutex> valueGuard(entry->lock);
     if (!entry->hasNew) {
-        outValue = 0;
+        outValue = entry->point;
         return false;
     }
     outValue = entry->point;

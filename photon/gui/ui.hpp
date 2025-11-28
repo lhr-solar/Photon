@@ -60,8 +60,9 @@ struct UI{
 //    void objWindow(VulkanObj& obj, std::string windowName);
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
+    void genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
     void tempWork();
     void search();
     bool popupWindow();
-    bool popupWide(const CanSignal& signal, ImVec2 pos);
+    bool popupWide(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos);
 };
