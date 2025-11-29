@@ -12,7 +12,7 @@ void main() {
     vec2 frag = vec2(gl_FragCoord.x, pc.resolution.y - gl_FragCoord.y);
     vec3 FC = vec3(frag, 0.0);
     vec3 r = vec3(pc.resolution.x, pc.resolution.y, pc.resolution.x);
-    float t = pc.u_time;
+    float t = pc.u_time / 5.0;
     vec4 o = vec4(0.0);
     
     // Normalize coordinates
@@ -26,7 +26,7 @@ void main() {
     // Calculate the main expression inside absolute value
     float timeTerm = t + noiseTerm;
     vec4 positionScale = p.x * vec4(0.7, 1.0, 1.3, 0.0);
-    vec4 colorOffset = vec4(0.0, 1.0, 2.0, 0.0);
+    vec4 colorOffset = vec4(0.0, 2.0, 2.0, 0.0);
     
     vec4 cosineArg = timeTerm + positionScale + colorOffset;
     vec4 cosineResult = 0.3 * cos(cosineArg);
@@ -37,5 +37,5 @@ void main() {
     // Final calculation: tanh(0.2 / abs(...))
     o = tanh(0.2 / absExpression);
     
-    outColor = o;
+    outColor = o ;//- vec4(0.5,0.5,0.5,0.0);
 }

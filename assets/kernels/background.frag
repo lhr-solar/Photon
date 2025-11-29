@@ -26,7 +26,7 @@ void main() {
     // Calculate the main expression inside absolute value
     float timeTerm = t + noiseTerm;
     vec4 positionScale = p.x * vec4(0.7, 1.0, 1.3, 0.0);
-    vec4 colorOffset = vec4(0.0, 2.0, 2.0, 0.0);
+    vec4 colorOffset = vec4(0.0, 0.1, 0.1, 0.0);
     
     vec4 cosineArg = timeTerm + positionScale + colorOffset;
     vec4 cosineResult = 0.3 * cos(cosineArg);

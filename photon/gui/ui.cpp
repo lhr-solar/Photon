@@ -363,12 +363,15 @@ bool UI::popupWindow(){
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImGui::SetNextWindowBgAlpha(0.75);
+    ImGui::SetNextWindowBgAlpha(0.25);
 
     bool focused = false;
     bool childFocused = false;
     static int selected = 0;
-    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImVec2 center = vp->GetCenter();
+    ImVec2 position = ImVec2(vp->Size.x * 0.10, vp->Size.y * 0.25);
+    ImGui::SetNextWindowPos(position, ImGuiCond_FirstUseEver);
     const CanMessage& msg = networkINTF->canStore.canMessages[activeCmdResult.canID];
     if (msg.signals.empty()) {
         ImGui::Text("No signals available");
@@ -400,7 +403,7 @@ bool UI::popupWindow(){
                         ImGui::SetItemDefaultFocus();
                         // I lied.
                         // it is actually this guy
-                        childFocused = popupWide(msg.signals[idx], msg.time, {ImGui::GetWindowWidth() + 20,0});
+                        childFocused = popupWide(msg.signals[idx], msg.time, {position.x + ImGui::GetWindowWidth() + 20, position.y});
                     }
                 }
             ImGui::EndListBox();
@@ -421,7 +424,8 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
                              ImGuiWindowFlags_NoFocusOnAppearing;
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImGui::SetNextWindowBgAlpha(0.75);
+    ImGui::SetNextWindowBgAlpha(0.25);
+    ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(pos);
     if(ImGui::Begin((sig.name + "wide##").data(), NULL, flags)){
         focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
