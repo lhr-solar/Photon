@@ -371,7 +371,7 @@ bool UI::popupWindow(){
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImVec2 center = vp->GetCenter();
     ImVec2 position = ImVec2(vp->Size.x * 0.10, vp->Size.y * 0.25);
-    ImGui::SetNextWindowPos(position, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(position);
     const CanMessage& msg = networkINTF->canStore.canMessages[activeCmdResult.canID];
     if (msg.signals.empty()) {
         ImGui::Text("No signals available");
@@ -403,7 +403,7 @@ bool UI::popupWindow(){
                         ImGui::SetItemDefaultFocus();
                         // I lied.
                         // it is actually this guy
-                        childFocused = popupWide(msg.signals[idx], msg.time, {position.x + ImGui::GetWindowWidth() + 20, position.y});
+                        childFocused = popupWide(msg.signals[idx], msg.time, {position.x + ImGui::GetWindowWidth() + 20, position.y + ImGui::GetWindowHeight()/2});
                     }
                 }
             ImGui::EndListBox();
@@ -439,13 +439,13 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
         ImGui::SameLine();
         ImGui::Text("Signed: %s", sig.isSigned ? "true" : "false");
         ImGui::SameLine();
-        ImGui::Text("Scale: %.6f", sig.scale);
+        ImGui::Text("Scale: %.3f", sig.scale);
         ImGui::SameLine();
-        ImGui::Text("Offset: %.6f", sig.offset);
+        ImGui::Text("Offset: %.3f", sig.offset);
 
-        ImGui::Text("Min: %.6f", sig.min);
+        ImGui::Text("Min: %.3f", sig.min);
         ImGui::SameLine();
-        ImGui::Text("Max: %.6f", sig.max);
+        ImGui::Text("Max: %.3f", sig.max);
         ImGui::SameLine();
         ImGui::Text("Unit: %s", sig.unit.c_str());
         ImGui::SameLine();
