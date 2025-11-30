@@ -8,6 +8,9 @@ int main(){
     photon.gpu.initVulkan();
     photon.gui.initWindow();
     photon.prepareScene();
+    photon.parse.initKalmanFilter(photon.gpu.vulkanDevice.logicalDevice, photon.gpu.vulkanDevice.physicalDevice, 
+                                  photon.gpu.vulkanDevice.computeQueue, photon.gpu.vulkanDevice.queueFamilyIndices.compute);
+    photon.parse.initThreads();
     photon.initThreads();
     photon.renderLoop();
     return 0;
@@ -20,6 +23,9 @@ int APIENTRY WinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hPrevInstance,
     photon.gpu.initVulkan();
     photon.gui.initWindow(hinstance);
     photon.prepareScene();
+    photon.parse.initKalmanFilter(photon.gpu.vulkanDevice.logicalDevice, photon.gpu.vulkanDevice.physicalDevice, 
+                                  photon.gpu.vulkanDevice.computeQueue, photon.gpu.vulkanDevice.queueFamilyIndices.compute);
+    photon.parse.initThreads();
     photon.initThreads();
     photon.renderLoop();
     return 0;

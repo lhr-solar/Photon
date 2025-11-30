@@ -1,0 +1,252 @@
+﻿#version 450 core
+
+layout(std430, binding = 0) buffer StateBuffer {
+    vec4 State;
+};
+
+layout(std430, binding = 1) buffer OutputBuffer {
+    mat4 LArray;   // single mat4
+};
+
+layout(std430, binding = 2) buffer SigmaBuffer {
+    vec4 Sigmas[];
+};
+
+layout(std430, binding = 3) buffer CovBuffer{
+    mat4 Cov;
+};
+
+layout(std430, binding = 4) buffer ZSigmasBuffer{
+   vec2 ZSigmas[];
+};
+
+layout(local_size_x = 16) in;
+
+shared mat4 Local_Cov[9];
+shared mat4 sharedL;
+shared vec4 sharedStateContrib[9];
+shared vec2 Zest;
+shared mat2 Pz[9];
+shared mat2 Pzc;
+shared mat2x4 PxzContrib[9];
+shared mat2x4 Pxz;
+shared mat2x4 K;
+
+const float g = 9.81;
+
+void main() {
+    mat4 A_Cov = mat4(
+        1.38, 0.97, 0.71, 0.46,
+        0.97, 1.77, 0.91, 0.60,
+        0.71, 0.91, 1.54, 0.61,
+        0.46, 0.60, 0.61, 0.30
+    );
+
+    mat4 F = mat4(1, 0, -.10, 0,
+                  0, 1, 0, -.10,
+                  0, 0, 1, 0,
+                  0, 0, 0, 1);
+
+    mat2 R = mat2(1.5, 1.5,
+                  1.5, 1.5);
+
+    float gyror = 5.0;
+    float gyrop = 6.0;
+    float wm8 = 2.0;
+    float wm = 1.5;
+    float wc8 = 1.5;
+
+    vec2 measurement = vec2(3.0,4.0);
+
+    int sigma_const = 4;
+    uint tid = gl_GlobalInvocationID.x; // 0..15
+
+    // Thread 0 computes full Cholesky (lower-triangular) into sharedL
+    if (tid == 0u) {
+        for (int c = 0; c < 4; ++c)
+            for (int r = 0; r < 4; ++r)
+                sharedL[c][r] = 0.0;
+
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j <= i; ++j) {
+                float sum = 0.0;
+                for (int k = 0; k < j; ++k) {
+                    sum += sharedL[k][i] * sharedL[k][j];
+                }
+                float a = A_Cov[j][i];
+                if (i == j) {
+                    float val = a - sum;
+                    if (val < 0.0) val = 0.0;
+                    sharedL[i][i] = sqrt(val);
+                } else {
+                    sharedL[j][i] = (a - sum) / sharedL[j][j];
+                }
+            }
+        }
+
+        float scl = sqrt(float(sigma_const));
+        for (int c = 0; c < 4; ++c)
+            for (int r = 0; r < 4; ++r)
+                sharedL[c][r] *= scl;
+
+        LArray = sharedL;
+    }
+
+    barrier();
+
+    // Create sigma points
+    if (tid < 4u) {
+        Sigmas[tid] = LArray[tid] + State;
+        Sigmas[tid + 4u] = State - LArray[tid];
+    }
+    if (tid == 0u) {
+        Sigmas[8] = State;
+    }
+
+    barrier();
+
+    // Propagate sigma points through nonlinear model (attitude kinematics)
+    if (tid < 9u) {
+        float phi = Sigmas[tid].x;
+        float theta = Sigmas[tid].y;
+        float b1 = Sigmas[tid].z;
+        float b2 = Sigmas[tid].w;
+
+        float w_x_c = gyror - b1;
+        float w_y_c = gyrop - b2;
+        float w_z_c = 0.0;
+
+        float cos_phi = cos(phi);
+        float sin_phi = sin(phi);
+        float tan_theta = tan(theta);
+
+        float dot_phi = w_x_c + (w_y_c * sin_phi + w_z_c * cos_phi) * tan_theta;
+        float dot_theta = w_y_c * cos_phi - w_z_c * sin_phi;
+
+        Sigmas[tid].x = phi + dot_phi * 0.01;
+        Sigmas[tid].y = theta + dot_theta * 0.01;
+    }
+
+    barrier();
+
+    // Compute weighted contributions to the state
+    if (tid < 4u) {
+        sharedStateContrib[tid] = Sigmas[tid] * wm;
+        sharedStateContrib[tid + 4u] = Sigmas[tid + 4u] * wm;
+    }
+    if (tid == 0u) {
+        sharedStateContrib[8] = Sigmas[8] * wm8;
+    }
+
+    barrier();
+
+    // Combine into global State (only thread 0)
+    if (tid == 0u) {
+        vec4 newState = vec4(0.0);
+        for (int i = 0; i < 9; ++i) {
+            newState += sharedStateContrib[i];
+        }
+        State = newState;
+    }
+
+    barrier();
+
+    // Covariance: each of first 9 threads computes one outer product
+    if (tid < 9u) {
+        vec4 Residual = Sigmas[tid] - State;
+        float weight = (tid == 8u) ? wc8 : wm;
+        Local_Cov[tid] = weight * outerProduct(Residual, Residual);
+    }
+
+    barrier();
+    memoryBarrierShared();
+    barrier();
+
+    // Thread 0 reduces to global Cov
+    if (tid == 0u) {
+        Cov = mat4(0.0);
+        for (int i = 0; i < 9; ++i) {
+            Cov += Local_Cov[i];
+        }
+    }
+
+    barrier();
+
+    // Measurement function H(t) = nonlinear mapping to accelerometer
+    if (tid < 9u) {
+        float phi = Sigmas[tid].x;
+        float theta = Sigmas[tid].y;
+        float ax = g * sin(theta) * cos(phi);
+        float ay = g * sin(phi) * cos(theta);
+        ZSigmas[tid] = vec2(ax, ay);
+    }
+
+    barrier();
+
+    // Compute predicted measurement mean Zest (thread 0)
+    if (tid == 0u) {
+        Zest = vec2(0.0);
+        for (int i = 0; i < 9; ++i) {
+            if (i == 8) Zest += ZSigmas[i] * wm8;
+            else Zest += ZSigmas[i] * wm;
+        }
+    }
+
+    barrier();
+
+    // Measurement covariance Pz
+    if (tid < 9u) {
+        vec2 ResidualZP = ZSigmas[tid] - Zest;
+        float w = (tid == 8u) ? wc8 : wm;
+        Pz[tid] = w * outerProduct(ResidualZP, ResidualZP);
+    }
+
+    barrier();
+
+    if (tid == 0u) {
+        Pzc = mat2(0.0);
+        for (int i = 0; i < 9; ++i) {
+            Pzc += Pz[i];
+        }
+        Pzc += R; // add measurement noise
+    }
+
+    barrier();
+
+    // Cross-covariance Pxz contributions
+    if (tid < 9u) {
+        vec4 X_Residual = Sigmas[tid] - State;
+        vec2 Z_Residual = ZSigmas[tid] - Zest;
+        float weight_c = (tid == 8u) ? wc8 : wm;
+        PxzContrib[tid] = weight_c * outerProduct(X_Residual, Z_Residual);
+    }
+
+    barrier();
+
+    if (tid == 0u) {
+        Pxz = mat2x4(0.0);
+        for (int i = 0; i < 9; ++i) {
+            Pxz += PxzContrib[i];
+        }
+    }
+
+    barrier();
+
+    // Kalman gain and update (thread 0)
+    if (tid == 0u) {
+        mat2 Pzc_inv = inverse(Pzc);
+        K = Pxz * Pzc_inv; // mat4x2
+
+        vec2 ResidualZ = measurement - Zest;
+
+        // State update
+        State += K * ResidualZ; // mat4x2 * vec2 -> vec4
+
+        // Covariance update
+        mat2x4 K_Pzz = K * Pzc; // mat4x2
+        mat4 K_Pzz_KT = K_Pzz * transpose(K); // (4x2)*(2x4) -> 4x4
+        Cov -= K_Pzz_KT;
+    }
+
+    barrier();
+}

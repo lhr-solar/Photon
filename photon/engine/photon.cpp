@@ -47,7 +47,6 @@ void Photon::prepareScene(){
 };
 
 void Photon::initThreads(){
-    // lowkey consider moving this really early?
 #ifdef XCB
     logs("[+] Initializing Threads ");
     logs("[?] Cache line size (destructive) : " << std::hardware_destructive_interference_size);
