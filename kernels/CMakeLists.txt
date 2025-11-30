@@ -15,6 +15,7 @@ set(KERNEL_SOURCES
     ${KERNEL_DIR}/custom_shader.frag
     ${KERNEL_DIR}/background.vert
     ${KERNEL_DIR}/background.frag
+    ${KERNEL_DIR}/kalman_filter.comp
 )
 
 # convert GLSL to SPIR-V
