@@ -16,6 +16,9 @@ Photon::Photon(){
 Photon::~Photon(){ 
     logs("[!] Destructuring Photon");
     
+    // Signal cancellation to OSM loader
+    osmLoader.cancel();
+
     // wait for OSM loading thread
     if (osmLoadThread.joinable()) {
         osmLoadThread.join();
@@ -132,7 +135,7 @@ void Photon::nextFrame(){
 	        osmLoadThread.join();
 	    }
 	    
-
+        osmLoader.resetCancel();
 	    osmLoadThread = std::thread([this]() {
 	        logs("[OSM] Starting fetch in background thread");
 	        OSMConfig config;

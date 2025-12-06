@@ -166,6 +166,32 @@ VkResult Gpu::setupGPU()
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.compute, 0, &vulkanDevice.computeQueue);
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.transfer, 0, &vulkanDevice.transferQueue);
 
+    VkSampleCountFlags counts = vulkanDevice.deviceProperties.limits.framebufferColorSampleCounts & vulkanDevice.deviceProperties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_64_BIT)
+    {
+        msaaSamples = VK_SAMPLE_COUNT_64_BIT;
+    }
+    else if (counts & VK_SAMPLE_COUNT_32_BIT)
+    {
+        msaaSamples = VK_SAMPLE_COUNT_32_BIT;
+    }
+    else if (counts & VK_SAMPLE_COUNT_16_BIT)
+    {
+        msaaSamples = VK_SAMPLE_COUNT_16_BIT;
+    }
+    else if (counts & VK_SAMPLE_COUNT_8_BIT)
+    {
+        msaaSamples = VK_SAMPLE_COUNT_8_BIT;
+    }
+    else if (counts & VK_SAMPLE_COUNT_4_BIT)
+    {
+        msaaSamples = VK_SAMPLE_COUNT_4_BIT;
+    }
+    else if (counts & VK_SAMPLE_COUNT_2_BIT)
+    {
+        msaaSamples = VK_SAMPLE_COUNT_2_BIT;
+    }
+
     return VK_SUCCESS;
 }
 void Gpu::createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers)

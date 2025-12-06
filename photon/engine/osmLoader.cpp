@@ -17,8 +17,17 @@
 #include <fstream>
 #include <cmath>
 #include <algorithm>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <iomanip>
+#include <locale>
+#include <cstdlib>
+#include "secrets.h"
 
 #include "../../.external/tinygltf/json.hpp"
+
+namespace fs = std::filesystem;
 
 OSMLoader::OSMLoader()
 {
@@ -50,6 +59,29 @@ glm::vec2 OSMLoader::latLonToMeters(double lat, double lon, double centerLat, do
 
 bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &outXML)
 {
+    if (cancelRequest) return false;
+
+    // Check cache
+    if (!fs::exists("cache")) {
+        fs::create_directory("cache");
+    }
+
+    std::ostringstream cacheName;
+    cacheName << "cache/osm_" << std::fixed << std::setprecision(4) << lat << "_" << lon << "_" << static_cast<int>(radius) << ".json";
+    std::string cachePath = cacheName.str();
+
+    if (fs::exists(cachePath)) {
+        logs("[OSM] Loading from cache: " << cachePath);
+        std::ifstream t(cachePath);
+        std::stringstream buffer;
+        buffer << t.rdbuf();
+        outXML = buffer.str();
+        if (!outXML.empty()) {
+            return true;
+        }
+        logs("[!] Cache file empty or invalid, re-downloading...");
+    }
+
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
     httplib::SSLClient cli("https://overpass-api.de");
     logs("[OSM] Using HTTPS (OpenSSL available)");
@@ -57,8 +89,8 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
     httplib::Client cli("http://overpass-api.de");
     logs("[OSM] Using HTTP (OpenSSL not available)");
 #endif
-    cli.set_connection_timeout(30);
-    cli.set_read_timeout(60);
+    cli.set_connection_timeout(60);
+    cli.set_read_timeout(300);
 
     double latDelta = radius / 111000.0;
     double lonDelta = radius / (111000.0 * cos(glm::radians(lat)));
@@ -69,7 +101,7 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
     double maxLon = lon + lonDelta;
 
     std::ostringstream query;
-    query << "[out:json][timeout:60];\n"
+    query << "[out:json][timeout:300];\n"
           << "(\n"
           << "  node(" << minLat << "," << minLon << "," << maxLat << "," << maxLon << ");\n"
           << "  way(" << minLat << "," << minLon << "," << maxLat << "," << maxLon << ");\n"
@@ -85,10 +117,22 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
     httplib::Params form;
     form.emplace("data", queryStr);
 
-    auto res = cli.Post("/api/interpreter", headers, form);
+    outXML.clear();
+    auto res = cli.Get("/api/interpreter", form, headers, 
+        [&](const char *data, size_t data_length) {
+            if (cancelRequest) return false;
+            outXML.append(data, data_length);
+            return true;
+        }
+    );
 
     if (!res)
     {
+        if (cancelRequest) {
+             statusMessage = "Cancelled";
+             logs("[OSM] Download cancelled");
+             return false;
+        }
         statusMessage = "HTTP error: connection failed";
         logs("[!] OSM download failed: " << statusMessage);
         return false;
@@ -97,24 +141,318 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
     if (res->status != 200)
     {
         statusMessage = "HTTP error: " + std::to_string(res->status);
-        std::string body_preview = res->body.size() > 300 ? res->body.substr(0, 300) + "..." : res->body;
+        std::string body_preview = outXML.size() > 300 ? outXML.substr(0, 300) + "..." : outXML;
         logs("[!] OSM download failed: " << statusMessage << "\n[OSM] Response: " << body_preview);
         return false;
     }
 
-    outXML = res->body;
+    // Cache the result
+    if (!outXML.empty()) {
+        std::ofstream out(cachePath);
+        out << outXML;
+        out.close();
+        logs("[OSM] Cached to: " << cachePath);
+    }
+
     logs("[+] OSM data downloaded: " << outXML.size() << " bytes");
     return true;
 }
 
-bool OSMLoader::parseAndBuild(const std::string &osmXML, double centerLat, double centerLon)
+bool OSMLoader::fetchElevations(const std::vector<std::pair<double, double>> &locations, std::vector<float> &outElevations)
+{
+    if (locations.empty()) return true;
+    outElevations.resize(locations.size(), 0.0f);
+
+    // 1. Calculate Bounding Box
+    double minLat = 1000.0, maxLat = -1000.0;
+    double minLon = 1000.0, maxLon = -1000.0;
+    for(const auto& loc : locations) {
+        if(loc.first < minLat) minLat = loc.first;
+        if(loc.first > maxLat) maxLat = loc.first;
+        if(loc.second < minLon) minLon = loc.second;
+        if(loc.second > maxLon) maxLon = loc.second;
+    }
+    
+    // Expand slightly to ensure coverage and valid query
+    minLat -= 0.005; maxLat += 0.005;
+    minLon -= 0.005; maxLon += 0.005;
+
+    if (!fs::exists("cache")) {
+        fs::create_directory("cache");
+    }
+
+    // 2. Check Cache (AAIGrid file)
+    std::ostringstream cacheName;
+    // Include API type in cache name to avoid conflicts if switching back
+    cacheName << "cache/elev_ot_" << std::fixed << std::setprecision(5) 
+              << minLat << "_" << minLon << "_" << maxLat << "_" << maxLon << ".asc";
+    std::string cachePath = cacheName.str();
+    
+    std::string gridData;
+    bool loadedFromCache = false;
+    
+    if (fs::exists(cachePath)) {
+        logs("[OSM] Loading elevation raster from cache: " << cachePath);
+        std::ifstream t(cachePath);
+        std::stringstream buffer;
+        buffer << t.rdbuf();
+        gridData = buffer.str();
+        if (!gridData.empty()) {
+            loadedFromCache = true;
+        }
+    }
+
+    // 3. Fetch from OpenTopography if not cached
+    if (!loadedFromCache) {
+        logs("[OSM] Fetching elevation raster from OpenTopography...");
+        statusMessage = "Fetching elevation raster...";
+
+        // API Key provided by user
+        std::string apiKey = OPENTOPOLOGY_API_KEY;
+        
+        #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+            // httplib::SSLClient constructor expects host, not URL scheme
+            httplib::SSLClient cli("portal.opentopography.org");
+            
+            cli.set_connection_timeout(30);
+            cli.set_read_timeout(120); // Raster generation can take time
+
+            // Construct Query
+            std::stringstream pathSs;
+            pathSs.imbue(std::locale::classic());
+            pathSs << "/API/globaldem?demtype=SRTMGL3" 
+                   << "&south=" << minLat 
+                   << "&north=" << maxLat 
+                   << "&west=" << minLon 
+                   << "&east=" << maxLon 
+                   << "&outputFormat=AAIGrid" 
+                   << "&API_Key=" << apiKey;
+            
+            std::string path = pathSs.str();
+            
+            logs("[OSM] GET " << path); // Debug log
+            
+            auto res = cli.Get(path.c_str());
+            
+            if (res && res->status == 200) {
+                gridData = res->body;
+                
+                if (gridData.find("ncols") != std::string::npos) {
+                    std::ofstream out(cachePath);
+                    out << gridData;
+                    out.close();
+                    logs("[OSM] Cached raster to " << cachePath);
+                    loadedFromCache = true;
+                } else {
+                    logs("[!] OpenTopography returned unexpected data: " << gridData.substr(0, 200));
+                }
+            } else {
+                 logs("[!] OpenTopography request failed: " << (res ? std::to_string(res->status) : "Connection Failed"));
+                 if (res) {
+                     logs("[!] Response: " << res->body);
+                 }
+                 return true; 
+            }
+        #else
+            // Fallback to system curl for HTTPS support since OpenSSL is missing
+            logs("[OSM] OpenSSL not linked. Falling back to system curl for HTTPS request.");
+            
+            std::ostringstream urlSs;
+            urlSs.imbue(std::locale::classic());
+            urlSs << "https://portal.opentopography.org/API/globaldem?demtype=SRTMGL3";
+            urlSs << "&south=" << minLat;
+            urlSs << "&north=" << maxLat;
+            urlSs << "&west=" << minLon;
+            urlSs << "&east=" << maxLon;
+            urlSs << "&outputFormat=AAIGrid";
+            urlSs << "&API_Key=" << apiKey;
+            
+            std::string url = urlSs.str();
+            std::string cmd = "curl -s -o \"" + cachePath + "\" \"" + url + "\"";
+            
+            logs("[OSM] Executing: " << cmd);
+            int ret = system(cmd.c_str());
+            
+            if (ret == 0 && fs::exists(cachePath) && fs::file_size(cachePath) > 0) {
+                 std::ifstream t(cachePath);
+                 std::stringstream buffer;
+                 buffer << t.rdbuf();
+                 gridData = buffer.str();
+                 
+                 if (gridData.find("ncols") != std::string::npos) {
+                     loadedFromCache = true;
+                     logs("[OSM] Downloaded and cached raster via curl.");
+                 } else {
+                     logs("[!] Downloaded data appears invalid (not AAIGrid).");
+                     logs("[!] Content preview: " << gridData.substr(0, 200));
+                     // Remove invalid file
+                     t.close();
+                     fs::remove(cachePath);
+                 }
+            } else {
+                logs("[!] Curl failed or file empty. Return code: " << ret);
+            }
+            
+            if (!loadedFromCache) return true; // Continue without elevation
+        #endif
+    }
+
+    if (!loadedFromCache) {
+        return false; // Failed to load or download
+    }
+
+    // 4. Parse AAIGrid
+    // Format:
+    // ncols        123
+    // nrows        123
+    // xllcorner    -123.456
+    // yllcorner    12.345
+    // cellsize     0.000833
+    // NODATA_value -9999
+    // ... data ...
+    
+    std::stringstream ss(gridData);
+    std::string key;
+    int ncols = 0, nrows = 0;
+    double xllcorner = 0.0, yllcorner = 0.0, cellsize = 0.0;
+    float nodata = -9999.0f;
+    
+    // Parse header
+    for(int i=0; i<6; ++i) {
+        ss >> key;
+        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        if (key == "ncols") ss >> ncols;
+        else if (key == "nrows") ss >> nrows;
+        else if (key == "xllcorner") ss >> xllcorner;
+        else if (key == "yllcorner") ss >> yllcorner;
+        else if (key == "cellsize") ss >> cellsize;
+        else if (key == "nodata_value") ss >> nodata;
+    }
+
+    if (ncols <= 0 || nrows <= 0 || cellsize <= 0.0) {
+        logs("[!] Invalid AAIGrid header.");
+        return false;
+    }
+
+    std::vector<float> rasterData;
+    rasterData.reserve(ncols * nrows);
+    float val;
+    while(ss >> val) {
+        rasterData.push_back(val);
+    }
+    
+    if (rasterData.size() != static_cast<size_t>(ncols * nrows)) {
+        logs("[!] AAIGrid data size mismatch. Expected " << (ncols*nrows) << ", got " << rasterData.size());
+    }
+
+    // 5. Interpolate for each location
+    for (size_t i = 0; i < locations.size(); ++i) {
+        double lat = locations[i].first;
+        double lon = locations[i].second;
+
+        // AAIGrid starts from Top-Left usually? NO.
+        // AAIGrid standard:
+        // Data starts at top-left (North-West).
+        // yllcorner is the Bottom-Left latitude (South).
+        // xllcorner is the Left longitude (West).
+        
+        // Map lat/lon to grid coordinates (col, row)
+        // col = (lon - xllcorner) / cellsize
+        // row = (lat - yllcorner) / cellsize -- WAIT.
+        // Standard AAIGrid stores data row by row from Top to Bottom.
+        // So row 0 is the Northernmost row (yllcorner + nrows*cellsize).
+        
+        double colF = (lon - xllcorner) / cellsize;
+        double rowF = (lat - yllcorner) / cellsize; 
+        
+        // Invert row because data is stored Top-to-Bottom
+        // Top latitude = yllcorner + nrows * cellsize
+        // Row index = (TopLat - lat) / cellsize
+        //           = (yllcorner + nrows*cellsize - lat) / cellsize
+        //           = nrows - (lat - yllcorner)/cellsize
+        
+        // Let's verify.
+        // If lat = yllcorner (bottom), (lat - yllcorner)/cellsize = 0.
+        // nrows - 0 = nrows. This is out of bounds.
+        // Correct: Row 0 corresponds to Y = yllcorner + (nrows-1)*cellsize? No.
+        // Usually row 0 is Y = yllcorner + nrows*cellsize (top edge).
+        // Let's stick to standard:
+        // row_index = nrows - 1 - floor((lat - yllcorner) / cellsize)
+        
+        double gridX = colF;
+        double gridY = (double)nrows - 1.0 - rowF; // Inverted Y for array indexing
+        
+        // But for interpolation we need fractional parts.
+        // Let's define u, v in array space (0..ncols-1, 0..nrows-1)
+        // where (0,0) is Top-Left of the array.
+        
+        double u = colF;
+        double v = (double)nrows - rowF; // Top is 0, Bottom is nrows
+        
+        // Adjust v range to 0..nrows-1
+        // If lat is max (top), rowF is approx nrows. v is 0.
+        // If lat is min (bottom), rowF is 0. v is nrows.
+        
+        // Clamp
+        if (u < 0) u = 0;
+        if (u > ncols - 1.001) u = ncols - 1.001;
+        if (v < 0) v = 0;
+        if (v > nrows - 1.001) v = nrows - 1.001;
+        
+        int c0 = static_cast<int>(floor(u));
+        int r0 = static_cast<int>(floor(v));
+        int c1 = c0 + 1;
+        int r1 = r0 + 1;
+        
+        if (c1 >= ncols) c1 = ncols - 1;
+        if (r1 >= nrows) r1 = nrows - 1;
+        
+        double tx = u - c0;
+        double ty = v - r0;
+        
+        // Indices in rasterData
+        int i00 = r0 * ncols + c0;
+        int i10 = r0 * ncols + c1;
+        int i01 = r1 * ncols + c0;
+        int i11 = r1 * ncols + c1;
+        
+        // Handle nodata
+        auto getVal = [&](int idx) {
+            float val = rasterData[idx];
+            return (val == nodata) ? 0.0f : val;
+        };
+        
+        float h00 = getVal(i00);
+        float h10 = getVal(i10);
+        float h01 = getVal(i01);
+        float h11 = getVal(i11);
+        
+        // Bilinear
+        float hTop = h00 * (1.0f - (float)tx) + h10 * (float)tx;
+        float hBot = h01 * (1.0f - (float)tx) + h11 * (float)tx;
+        
+        float h = hTop * (1.0f - (float)ty) + hBot * (float)ty;
+        
+        outElevations[i] = h;
+    }
+
+    float minEl = 10000.0f, maxEl = -10000.0f;
+    for(float e : outElevations) {
+        if(e < minEl) minEl = e;
+        if(e > maxEl) maxEl = e;
+    }
+    logs("[+] Elevation complete via OpenTopography (Range: " << minEl << "m to " << maxEl << "m)");
+    return true;
+}
+
+bool OSMLoader::parseAndBuild(const std::string &osmXML, double centerLat, double centerLon, bool useElevation)
 {
     try
     {
         using nlohmann::json;
         json j = json::parse(osmXML);
 
-        std::map<int64_t, glm::vec2> nodes;
+        std::map<int64_t, glm::vec3> nodes;
         std::vector<std::pair<int64_t, std::vector<int64_t>>> buildingWays; // map wayid, nodelist
         std::vector<std::vector<int64_t>> roadWays;
         std::vector<std::vector<int64_t>> parkWays;
@@ -129,6 +467,9 @@ bool OSMLoader::parseAndBuild(const std::string &osmXML, double centerLat, doubl
         }
 
         // find nodes
+        std::vector<std::pair<double, double>> nodeCoords;
+        std::vector<int64_t> nodeIds;
+
         for (const auto &el : j["elements"])
         {
             if (el.find("type") == el.end() || !el["type"].is_string())
@@ -140,7 +481,31 @@ bool OSMLoader::parseAndBuild(const std::string &osmXML, double centerLat, doubl
                 int64_t id = el["id"].get<int64_t>();
                 double lat = el["lat"].get<double>();
                 double lon = el["lon"].get<double>();
-                nodes[id] = latLonToMeters(lat, lon, centerLat, centerLon);
+                glm::vec2 m = latLonToMeters(lat, lon, centerLat, centerLon);
+                nodes[id] = glm::vec3(m.x, 0.0f, m.y);
+
+                if (useElevation)
+                {
+                    nodeCoords.push_back({lat, lon});
+                    nodeIds.push_back(id);
+                }
+            }
+        }
+
+        if (useElevation && !nodeCoords.empty())
+        {
+            std::vector<float> elevations;
+            fetchElevations(nodeCoords, elevations);
+
+            if (cancelRequest)
+            {
+                logs("[OSM] Cancelled during elevation fetch");
+                return false;
+            }
+
+            for (size_t i = 0; i < nodeIds.size(); ++i)
+            {
+                nodes[nodeIds[i]].y = elevations[i];
             }
         }
 
@@ -296,7 +661,7 @@ bool OSMLoader::parseAndBuild(const std::string &osmXML, double centerLat, doubl
     }
 }
 
-void OSMLoader::buildBuildings(const std::map<int64_t, glm::vec2> &nodes,
+void OSMLoader::buildBuildings(const std::map<int64_t, glm::vec3> &nodes,
                                const std::vector<std::pair<int64_t, std::vector<int64_t>>> &ways,
                                const std::map<int64_t, float> &buildingHeights)
 {
@@ -307,7 +672,7 @@ void OSMLoader::buildBuildings(const std::map<int64_t, glm::vec2> &nodes,
         if (way.size() < 3)
             continue;
 
-        std::vector<glm::vec2> outline;
+        std::vector<glm::vec3> outline;
         for (auto nodeId : way)
         {
             auto it = nodes.find(nodeId);
@@ -347,7 +712,7 @@ void OSMLoader::buildBuildings(const std::map<int64_t, glm::vec2> &nodes,
     }
 }
 
-void OSMLoader::buildRoads(const std::map<int64_t, glm::vec2> &nodes,
+void OSMLoader::buildRoads(const std::map<int64_t, glm::vec3> &nodes,
                            const std::vector<std::vector<int64_t>> &ways)
 {
     for (const auto &way : ways)
@@ -355,7 +720,7 @@ void OSMLoader::buildRoads(const std::map<int64_t, glm::vec2> &nodes,
         if (way.size() < 2)
             continue;
 
-        std::vector<glm::vec2> line;
+        std::vector<glm::vec3> line;
         for (auto nodeId : way)
         {
             auto it = nodes.find(nodeId);
@@ -376,7 +741,7 @@ void OSMLoader::buildRoads(const std::map<int64_t, glm::vec2> &nodes,
     }
 }
 
-void OSMLoader::buildParks(const std::map<int64_t, glm::vec2> &nodes,
+void OSMLoader::buildParks(const std::map<int64_t, glm::vec3> &nodes,
                            const std::vector<std::vector<int64_t>> &ways)
 {
     for (const auto &way : ways)
@@ -384,7 +749,7 @@ void OSMLoader::buildParks(const std::map<int64_t, glm::vec2> &nodes,
         if (way.size() < 3)
             continue;
 
-        std::vector<glm::vec2> outline;
+        std::vector<glm::vec3> outline;
         for (auto nodeId : way)
         {
             auto it = nodes.find(nodeId);
@@ -407,7 +772,7 @@ void OSMLoader::buildParks(const std::map<int64_t, glm::vec2> &nodes,
     }
 }
 
-void OSMLoader::buildWater(const std::map<int64_t, glm::vec2> &nodes,
+void OSMLoader::buildWater(const std::map<int64_t, glm::vec3> &nodes,
                            const std::vector<std::vector<int64_t>> &ways)
 {
     for (const auto &way : ways)
@@ -415,7 +780,7 @@ void OSMLoader::buildWater(const std::map<int64_t, glm::vec2> &nodes,
         if (way.size() < 3)
             continue;
 
-        std::vector<glm::vec2> outline;
+        std::vector<glm::vec3> outline;
         for (auto nodeId : way)
         {
             auto it = nodes.find(nodeId);
@@ -483,7 +848,7 @@ void OSMLoader::buildGroundPlane()
     geometries.push_back(geom);
 }
 
-void OSMLoader::extrudePolygon(const std::vector<glm::vec2> &outline, float height,
+void OSMLoader::extrudePolygon(const std::vector<glm::vec3> &outline, float height,
                                glm::vec4 color, const std::string &name)
 {
     if (outline.size() < 3)
@@ -502,7 +867,8 @@ void OSMLoader::extrudePolygon(const std::vector<glm::vec2> &outline, float heig
     for (const auto &p : outline)
     {
         vertex v;
-        v.pos = glm::vec3(p.x, 0.0f, p.y);
+        // p.y is elevation, p.z is z-coordinate
+        v.pos = glm::vec3(p.x, p.y, p.z);
         v.normal = glm::vec3(0.0f, -1.0f, 0.0f);
         v.uv = glm::vec2(0.0f);
         v.color = color;
@@ -521,7 +887,8 @@ void OSMLoader::extrudePolygon(const std::vector<glm::vec2> &outline, float heig
     for (const auto &p : outline)
     {
         vertex v;
-        v.pos = glm::vec3(p.x, height, p.y);
+        // p.y is elevation, p.z is z-coordinate
+        v.pos = glm::vec3(p.x, p.y + height, p.z);
         v.normal = glm::vec3(0.0f, 1.0f, 0.0f);
         v.uv = glm::vec2(0.0f);
         v.color = color;
@@ -556,7 +923,7 @@ void OSMLoader::extrudePolygon(const std::vector<glm::vec2> &outline, float heig
     geometries.push_back(geom);
 }
 
-void OSMLoader::bufferLine(const std::vector<glm::vec2> &line, float width,
+void OSMLoader::bufferLine(const std::vector<glm::vec3> &line, float width,
                            glm::vec4 color, const std::string &name)
 {
     if (line.size() < 2)
@@ -568,12 +935,12 @@ void OSMLoader::bufferLine(const std::vector<glm::vec2> &line, float width,
 
     float halfWidth = width * 0.5f;
 
-    float height = (name == "road_crown") ? 1.02f : 1.0f; // offset road pavements
+    float heightOffset = (name == "road_crown") ? 0.02f : 0.0f; // offset road pavements
 
     for (size_t i = 0; i < line.size(); ++i)
     {
-        glm::vec2 p = line[i];
-        glm::vec2 dir(0.0f);
+        glm::vec3 p = line[i];
+        glm::vec3 dir(0.0f);
 
         if (i == 0)
         {
@@ -588,17 +955,25 @@ void OSMLoader::bufferLine(const std::vector<glm::vec2> &line, float width,
             dir = glm::normalize(line[i + 1] - line[i - 1]);
         }
 
-        glm::vec2 perp(-dir.y, dir.x);
-        glm::vec2 left = p + perp * halfWidth;
-        glm::vec2 right = p - perp * halfWidth;
+        // Project direction to XZ plane for width calculation
+        glm::vec2 dir2D = glm::normalize(glm::vec2(dir.x, dir.z));
+        glm::vec2 perp(-dir2D.y, dir2D.x);
+        
+        glm::vec3 left = p;
+        left.x += perp.x * halfWidth;
+        left.z += perp.y * halfWidth;
+        
+        glm::vec3 right = p;
+        right.x -= perp.x * halfWidth;
+        right.z -= perp.y * halfWidth;
 
         vertex vl, vr;
-        vl.pos = glm::vec3(left.x, height, left.y);
+        vl.pos = glm::vec3(left.x, left.y + heightOffset, left.z);
         vl.normal = glm::vec3(0.0f, 1.0f, 0.0f);
         vl.uv = glm::vec2(0.0f);
         vl.color = color;
 
-        vr.pos = glm::vec3(right.x, height, right.y);
+        vr.pos = glm::vec3(right.x, right.y + heightOffset, right.z);
         vr.normal = glm::vec3(0.0f, 1.0f, 0.0f);
         vr.uv = glm::vec2(0.0f);
         vr.color = color;
@@ -628,7 +1003,7 @@ void OSMLoader::bufferLine(const std::vector<glm::vec2> &line, float width,
     geometries.push_back(geom);
 }
 
-std::vector<uint32_t> OSMLoader::triangulatePolygon(const std::vector<glm::vec2> &outline)
+std::vector<uint32_t> OSMLoader::triangulatePolygon(const std::vector<glm::vec3> &outline)
 {
     std::vector<uint32_t> indices;
     if (outline.size() < 3)
@@ -639,7 +1014,8 @@ std::vector<uint32_t> OSMLoader::triangulatePolygon(const std::vector<glm::vec2>
 
     for (const auto &p : outline)
     {
-        ring.push_back({static_cast<double>(p.x), static_cast<double>(p.y)});
+        // Project to XZ plane for triangulation
+        ring.push_back({static_cast<double>(p.x), static_cast<double>(p.z)});
     }
 
     polygon.push_back(ring);
@@ -652,6 +1028,7 @@ std::vector<uint32_t> OSMLoader::triangulatePolygon(const std::vector<glm::vec2>
 bool OSMLoader::fetchAndBuild(const OSMConfig &config)
 {
     loading = true;
+    // cancelRequest = false; // Handled by caller
     statusMessage = "Fetching OSM data...";
     clear();
 
@@ -662,8 +1039,15 @@ bool OSMLoader::fetchAndBuild(const OSMConfig &config)
         return false;
     }
 
+    if (cancelRequest)
+    {
+        statusMessage = "Cancelled";
+        loading = false;
+        return false;
+    }
+
     statusMessage = "Parsing and building geometry...";
-    if (!parseAndBuild(osmXML, config.centerLat, config.centerLon))
+    if (!parseAndBuild(osmXML, config.centerLat, config.centerLon, config.useElevation))
     {
         loading = false;
         return false;

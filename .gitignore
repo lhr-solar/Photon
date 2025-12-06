@@ -6,4 +6,6 @@ imgui.ini
 perf.data
 perf.data.old
 Photon.exe
+photon/engine/secrets.h
 out/
+cache/
