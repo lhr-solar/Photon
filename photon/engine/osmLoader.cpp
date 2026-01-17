@@ -1,4 +1,8 @@
-#ifdef WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -21,17 +25,26 @@
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
-#include <locale>
-#include <cstdlib>
-#include "secrets.h"
 
 #include "../../.external/tinygltf/json.hpp"
+
+#include "osmChunkFormat.hpp"
 
 namespace fs = std::filesystem;
 
 OSMLoader::OSMLoader()
 {
-    statusMessage = "Ready";
+    const char *apiKey = std::getenv("OSM_KEY");
+
+    if (!apiKey)
+    {
+        statusMessage = "API key not set";
+    }
+    else {
+        statusMessage = "Ready";
+        OSM_KEY = apiKey;
+    }
+    logs("[OSM] Status Message: " << statusMessage);
 }
 
 OSMLoader::~OSMLoader()
@@ -47,22 +60,400 @@ void OSMLoader::clear()
 
 glm::vec2 OSMLoader::latLonToMeters(double lat, double lon, double centerLat, double centerLon)
 {
-    const double R = 6371000.0; // Earth radius in meters
-    double latRad = glm::radians(lat);
-    double centerLatRad = glm::radians(centerLat);
+    glm::dvec2 p = latLonToMercatorMeters(lat, lon);
+    glm::dvec2 c = latLonToMercatorMeters(centerLat, centerLon);
+    return glm::vec2(static_cast<float>(p.x - c.x), static_cast<float>(p.y - c.y));
+}
 
-    double x = glm::radians(lon - centerLon) * R * cos(centerLatRad);
-    double y = glm::radians(lat - centerLat) * R;
+glm::dvec2 OSMLoader::latLonToMercatorMeters(double lat, double lon)
+{
+    // Web Mercator (EPSG:3857) using WGS84 sphere radius.
+    // Clamp latitude to avoid infinity at the poles.
+    const double maxLat = 85.05112878;
+    if (lat > maxLat) {
+        lat = maxLat;
+    } else if (lat < -maxLat) {
+        lat = -maxLat;
+    }
 
-    return glm::vec2(static_cast<float>(x), static_cast<float>(y));
+    const double R = 6378137.0;
+    const double latRad = glm::radians(lat);
+    const double lonRad = glm::radians(lon);
+
+    const double x = R * lonRad;
+    const double y = R * std::log(std::tan((glm::pi<double>() / 4.0) + (latRad / 2.0)));
+    return glm::dvec2{x, y};
+}
+
+glm::dvec2 OSMLoader::mercatorMetersToLatLon(double x, double y)
+{
+    const double R = 6378137.0;
+    const double lonRad = x / R;
+    const double latRad = 2.0 * std::atan(std::exp(y / R)) - (glm::pi<double>() / 2.0);
+    const double lat = glm::degrees(latRad);
+    const double lon = glm::degrees(lonRad);
+    return glm::dvec2{lat, lon};
+}
+
+bool OSMLoader::downloadOSMBBox(double minLat, double minLon, double maxLat, double maxLon, const std::string& cacheKey, std::string &outJSON)
+{
+    if (cancelRequest)
+        return false;
+
+    if (!fs::exists("cache")) {
+        fs::create_directory("cache");
+    }
+
+    const std::string cachePath = "cache/osm_chunk_" + cacheKey + ".json";
+    if (fs::exists(cachePath)) {
+        std::ifstream t(cachePath);
+        std::stringstream buffer;
+        buffer << t.rdbuf();
+        outJSON = buffer.str();
+        if (!outJSON.empty()) {
+            return true;
+        }
+    }
+
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+    httplib::SSLClient cli("https://overpass-api.de");
+#else
+    httplib::Client cli("http://overpass-api.de");
+#endif
+    cli.set_connection_timeout(60);
+    cli.set_read_timeout(300);
+
+    std::ostringstream query;
+    query << std::setprecision(10);
+    query << "[out:json][timeout:300];\n"
+          << "(\n"
+          << "  node(" << minLat << "," << minLon << "," << maxLat << "," << maxLon << ");\n"
+          << "  way("  << minLat << "," << minLon << "," << maxLat << "," << maxLon << ");\n"
+          << ");\n"
+          << "out body;\n"
+          << ">;\n"
+          << "out skel qt;";
+
+    httplib::Headers headers = { {"Accept", "application/json"} };
+    httplib::Params form;
+    form.emplace("data", query.str());
+
+    outJSON.clear();
+    auto res = cli.Get("/api/interpreter", form, headers,
+        [&](const char *data, size_t data_length)
+        {
+            if (cancelRequest)
+                return false;
+            outJSON.append(data, data_length);
+            return true;
+        });
+
+    if (!res) {
+        statusMessage = cancelRequest ? "Cancelled" : "HTTP error: connection failed";
+        return false;
+    }
+    if (res->status != 200) {
+        statusMessage = "HTTP error: " + std::to_string(res->status);
+        return false;
+    }
+    if (outJSON.empty()) {
+        statusMessage = "Empty response";
+        return false;
+    }
+
+    try {
+        std::ofstream o(cachePath, std::ios::binary | std::ios::trunc);
+        o.write(outJSON.data(), static_cast<std::streamsize>(outJSON.size()));
+    } catch (...) {
+        // ignore cache write errors
+    }
+    return true;
+}
+
+bool OSMLoader::fetchChunkToDisk(const std::string& outDir, double originLat, double originLon, ChunkId chunkId, double chunkSizeMeters)
+{
+    if (chunkSizeMeters <= 1.0) {
+        statusMessage = "Invalid chunkSizeMeters";
+        return false;
+    }
+
+    // Fetch larger tiles (4x4 chunks = 512m at 128m chunks) to reduce Overpass redundancy.
+    constexpr int kTileChunks = 4;
+    const int32_t tileX = (chunkId.x >= 0) ? (chunkId.x / kTileChunks) : ((chunkId.x - kTileChunks + 1) / kTileChunks);
+    const int32_t tileZ = (chunkId.z >= 0) ? (chunkId.z / kTileChunks) : ((chunkId.z - kTileChunks + 1) / kTileChunks);
+
+    const double tileX0 = static_cast<double>(tileX * kTileChunks) * chunkSizeMeters;
+    const double tileX1 = static_cast<double>((tileX + 1) * kTileChunks) * chunkSizeMeters;
+    const double tileZ0 = static_cast<double>(tileZ * kTileChunks) * chunkSizeMeters;
+    const double tileZ1 = static_cast<double>((tileZ + 1) * kTileChunks) * chunkSizeMeters;
+
+    glm::dvec2 ll0 = mercatorMetersToLatLon(tileX0, tileZ0);
+    glm::dvec2 ll1 = mercatorMetersToLatLon(tileX1, tileZ1);
+    double minLat = ll0.x, maxLat = ll1.x;
+    double minLon = ll0.y, maxLon = ll1.y;
+    if (minLat > maxLat) { double t = minLat; minLat = maxLat; maxLat = t; }
+    if (minLon > maxLon) { double t = minLon; minLon = maxLon; maxLon = t; }
+
+    // Download tile JSON (cache key is tile coords, not chunk coords)
+    std::string json;
+    const std::string cacheKey = "tile_" + std::to_string(tileX) + "_" + std::to_string(tileZ);
+    if (!downloadOSMBBox(minLat, minLon, maxLat, maxLon, cacheKey, json)) {
+        return false;
+    }
+
+    // global bounds for this specific chunk
+    const double x0 = static_cast<double>(chunkId.x) * chunkSizeMeters;
+    const double x1 = static_cast<double>(chunkId.x + 1) * chunkSizeMeters;
+    const double y0 = static_cast<double>(chunkId.z) * chunkSizeMeters;
+    const double y1 = static_cast<double>(chunkId.z + 1) * chunkSizeMeters;
+
+    // Build geometry in local meters relative to originLat/Lon
+    geometries.clear();
+    statusMessage = "Parsing and building chunk...";
+    if (!parseAndBuild(json, originLat, originLon, true)) {
+        return false;
+    }
+
+    // Chunk elevation fallback: sample at chunk center. Used to lift geometry when per-node
+    // elevation data is missing (common if OpenTopography fails or returns nodata).
+    const glm::dvec2 centerLL = mercatorMetersToLatLon((x0 + x1) * 0.5, (y0 + y1) * 0.5);
+    float chunkCenterElev = 0.0f;
+    (void)getElevationAt(centerLL.x, centerLL.y, chunkCenterElev);
+
+    float originElev = 0.0f;
+    (void)getElevationAt(originLat, originLon, originElev);
+    if (std::abs(chunkCenterElev) < 0.01f && std::abs(originElev) >= 0.01f) {
+        chunkCenterElev = originElev;
+    }
+
+    // Extract only triangles belonging to this chunk
+    glm::dvec2 originMerc = latLonToMercatorMeters(originLat, originLon);
+
+    std::vector<vertex> outVerts;
+    std::vector<uint32_t> outInds;
+
+    auto toChunkId = [&](double globalX, double globalZ) -> ChunkId {
+        const double inv = 1.0 / chunkSizeMeters;
+        int32_t cx = static_cast<int32_t>(std::floor(globalX * inv));
+        int32_t cz = static_cast<int32_t>(std::floor(globalZ * inv));
+        return ChunkId{cx, cz};
+    };
+
+    for (const auto& geom : geometries) {
+        const size_t triCount = geom.indices.size() / 3;
+        for (size_t t = 0; t < triCount; ++t) {
+            uint32_t i0 = geom.indices[t * 3 + 0];
+            uint32_t i1 = geom.indices[t * 3 + 1];
+            uint32_t i2 = geom.indices[t * 3 + 2];
+            if (i0 >= geom.vertices.size() || i1 >= geom.vertices.size() || i2 >= geom.vertices.size()) {
+                continue;
+            }
+            vertex v0 = geom.vertices[i0];
+            vertex v1 = geom.vertices[i1];
+            vertex v2 = geom.vertices[i2];
+
+            // Ensure the ground plane is lifted to the chunk's elevation.
+            if (geom.name == "ground") {
+                v0.pos.y = chunkCenterElev - 0.5f;
+                v1.pos.y = chunkCenterElev - 0.5f;
+                v2.pos.y = chunkCenterElev - 0.5f;
+            } else {
+                // If elevation is missing (0), lift by chunkCenterElev (preserves building extrusions).
+                auto maybeLift = [&](vertex& v) {
+                    if (std::abs(v.pos.y) < 0.01f) {
+                        v.pos.y += chunkCenterElev;
+                    }
+                };
+                maybeLift(v0);
+                maybeLift(v1);
+                maybeLift(v2);
+            }
+
+            const glm::vec3 cLocal = (v0.pos + v1.pos + v2.pos) * (1.0f / 3.0f);
+            const double globalX = originMerc.x + static_cast<double>(cLocal.x);
+            const double globalZ = originMerc.y + static_cast<double>(cLocal.z);
+            if (!(toChunkId(globalX, globalZ) == chunkId)) {
+                continue;
+            }
+            const uint32_t base = static_cast<uint32_t>(outVerts.size());
+            outVerts.push_back(v0);
+            outVerts.push_back(v1);
+            outVerts.push_back(v2);
+            outInds.push_back(base + 0);
+            outInds.push_back(base + 1);
+            outInds.push_back(base + 2);
+        }
+    }
+
+    if (outVerts.empty() || outInds.empty()) {
+        statusMessage = "Chunk has no triangles";
+        return false;
+    }
+
+    try {
+        fs::create_directories(fs::path(outDir));
+    } catch (...) {
+        statusMessage = "Failed to create chunk output directory";
+        return false;
+    }
+
+    OSMChunkFileHeader hdr{};
+    hdr.magic[0] = 'O'; hdr.magic[1] = 'S'; hdr.magic[2] = 'M'; hdr.magic[3] = 'C';
+    hdr.chunkX = chunkId.x;
+    hdr.chunkZ = chunkId.z;
+    hdr.vertexCount = static_cast<uint32_t>(outVerts.size());
+    hdr.indexCount = static_cast<uint32_t>(outInds.size());
+
+    const std::string path = outDir + "/chunk_" + std::to_string(chunkId.x) + "_" + std::to_string(chunkId.z) + ".bin";
+    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    f.write(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
+    f.write(reinterpret_cast<const char*>(outVerts.data()), static_cast<std::streamsize>(outVerts.size() * sizeof(vertex)));
+    f.write(reinterpret_cast<const char*>(outInds.data()), static_cast<std::streamsize>(outInds.size() * sizeof(uint32_t)));
+
+    statusMessage = "Wrote chunk " + std::to_string(chunkId.x) + "," + std::to_string(chunkId.z);
+    return f.good();
+}
+
+bool OSMLoader::getElevationAt(double lat, double lon, float& outMeters)
+{
+    outMeters = 0.0f;
+    std::vector<std::pair<double, double>> locs;
+    locs.emplace_back(lat, lon);
+    std::vector<float> elev;
+    // fetchElevations returns true even on failures (it will just keep zeros)
+    (void)fetchElevations(locs, elev);
+    if (!elev.empty()) {
+        outMeters = elev[0];
+    }
+    return true;
+}
+
+bool OSMLoader::writeChunksToDisk(const std::string& outDir, glm::dvec2 originMercatorMeters, double chunkSizeMeters)
+{
+    if (geometries.empty()) {
+        statusMessage = "No OSM geometries to chunk";
+        return false;
+    }
+    if (chunkSizeMeters <= 1.0) {
+        statusMessage = "Invalid chunkSizeMeters";
+        return false;
+    }
+
+    try {
+        fs::create_directories(fs::path(outDir));
+    } catch (...) {
+        statusMessage = "Failed to create chunk output directory";
+        return false;
+    }
+
+    struct ChunkBuild {
+        std::vector<vertex> verts;
+        std::vector<uint32_t> inds;
+    };
+
+    struct LocalChunkId {
+        int32_t x{};
+        int32_t z{};
+        bool operator==(const LocalChunkId& other) const noexcept { return x == other.x && z == other.z; }
+    };
+    struct LocalChunkIdHash {
+        size_t operator()(const LocalChunkId& id) const noexcept {
+            uint64_t x = static_cast<uint32_t>(id.x);
+            uint64_t z = static_cast<uint32_t>(id.z);
+            return static_cast<size_t>((x << 32) ^ z);
+        }
+    };
+
+    std::unordered_map<LocalChunkId, ChunkBuild, LocalChunkIdHash> chunkMeshes;
+    chunkMeshes.reserve(1024);
+
+    auto toChunkId = [&](double globalX, double globalZ) -> LocalChunkId {
+        const double inv = 1.0 / chunkSizeMeters;
+        int32_t cx = static_cast<int32_t>(std::floor(globalX * inv));
+        int32_t cz = static_cast<int32_t>(std::floor(globalZ * inv));
+        return LocalChunkId{cx, cz};
+    };
+
+    // Partition triangles into chunks by centroid (prototype, no dedup).
+    for (const auto& geom : geometries) {
+        if (geom.vertices.empty() || geom.indices.empty()) {
+            continue;
+        }
+        const size_t triCount = geom.indices.size() / 3;
+        for (size_t t = 0; t < triCount; ++t) {
+            const uint32_t i0 = geom.indices[t * 3 + 0];
+            const uint32_t i1 = geom.indices[t * 3 + 1];
+            const uint32_t i2 = geom.indices[t * 3 + 2];
+            if (i0 >= geom.vertices.size() || i1 >= geom.vertices.size() || i2 >= geom.vertices.size()) {
+                continue;
+            }
+            const vertex& v0 = geom.vertices[i0];
+            const vertex& v1 = geom.vertices[i1];
+            const vertex& v2 = geom.vertices[i2];
+
+            const glm::vec3 cLocal = (v0.pos + v1.pos + v2.pos) * (1.0f / 3.0f);
+            const double globalX = originMercatorMeters.x + static_cast<double>(cLocal.x);
+            const double globalZ = originMercatorMeters.y + static_cast<double>(cLocal.z);
+            const LocalChunkId cid = toChunkId(globalX, globalZ);
+
+            ChunkBuild& out = chunkMeshes[cid];
+            const uint32_t base = static_cast<uint32_t>(out.verts.size());
+            out.verts.push_back(v0);
+            out.verts.push_back(v1);
+            out.verts.push_back(v2);
+            out.inds.push_back(base + 0);
+            out.inds.push_back(base + 1);
+            out.inds.push_back(base + 2);
+        }
+    }
+
+    if (chunkMeshes.empty()) {
+        statusMessage = "No triangles to chunk";
+        return false;
+    }
+
+    // Write files
+    size_t written = 0;
+    for (const auto& kv : chunkMeshes) {
+        const LocalChunkId cid = kv.first;
+        const ChunkBuild& mesh = kv.second;
+        if (mesh.verts.empty() || mesh.inds.empty()) {
+            continue;
+        }
+
+        OSMChunkFileHeader hdr{};
+        hdr.magic[0] = 'O'; hdr.magic[1] = 'S'; hdr.magic[2] = 'M'; hdr.magic[3] = 'C';
+        hdr.chunkX = cid.x;
+        hdr.chunkZ = cid.z;
+        hdr.vertexCount = static_cast<uint32_t>(mesh.verts.size());
+        hdr.indexCount = static_cast<uint32_t>(mesh.inds.size());
+
+        std::string path = outDir + "/chunk_" + std::to_string(cid.x) + "_" + std::to_string(cid.z) + ".bin";
+        try {
+            std::ofstream f(path, std::ios::binary | std::ios::trunc);
+            f.write(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
+            f.write(reinterpret_cast<const char*>(mesh.verts.data()), static_cast<std::streamsize>(mesh.verts.size() * sizeof(vertex)));
+            f.write(reinterpret_cast<const char*>(mesh.inds.data()), static_cast<std::streamsize>(mesh.inds.size() * sizeof(uint32_t)));
+            if (f.good()) {
+                ++written;
+            }
+        } catch (...) {
+            // ignore individual chunk write failures
+        }
+    }
+
+    statusMessage = "Wrote " + std::to_string(written) + " OSM chunk files";
+    return written > 0;
 }
 
 bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &outXML)
 {
-    if (cancelRequest) return false;
+    if (cancelRequest)
+        return false;
 
     // Check cache
-    if (!fs::exists("cache")) {
+    if (!fs::exists("cache"))
+    {
         fs::create_directory("cache");
     }
 
@@ -70,13 +461,15 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
     cacheName << "cache/osm_" << std::fixed << std::setprecision(4) << lat << "_" << lon << "_" << static_cast<int>(radius) << ".json";
     std::string cachePath = cacheName.str();
 
-    if (fs::exists(cachePath)) {
+    if (fs::exists(cachePath))
+    {
         logs("[OSM] Loading from cache: " << cachePath);
         std::ifstream t(cachePath);
         std::stringstream buffer;
         buffer << t.rdbuf();
         outXML = buffer.str();
-        if (!outXML.empty()) {
+        if (!outXML.empty())
+        {
             return true;
         }
         logs("[!] Cache file empty or invalid, re-downloading...");
@@ -118,20 +511,22 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
     form.emplace("data", queryStr);
 
     outXML.clear();
-    auto res = cli.Get("/api/interpreter", form, headers, 
-        [&](const char *data, size_t data_length) {
-            if (cancelRequest) return false;
-            outXML.append(data, data_length);
-            return true;
-        }
-    );
+    auto res = cli.Get("/api/interpreter", form, headers,
+                       [&](const char *data, size_t data_length)
+                       {
+                           if (cancelRequest)
+                               return false;
+                           outXML.append(data, data_length);
+                           return true;
+                       });
 
     if (!res)
     {
-        if (cancelRequest) {
-             statusMessage = "Cancelled";
-             logs("[OSM] Download cancelled");
-             return false;
+        if (cancelRequest)
+        {
+            statusMessage = "Cancelled";
+            logs("[OSM] Download cancelled");
+            return false;
         }
         statusMessage = "HTTP error: connection failed";
         logs("[!] OSM download failed: " << statusMessage);
@@ -147,7 +542,8 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
     }
 
     // Cache the result
-    if (!outXML.empty()) {
+    if (!outXML.empty())
+    {
         std::ofstream out(cachePath);
         out << outXML;
         out.close();
@@ -160,144 +556,167 @@ bool OSMLoader::downloadOSM(double lat, double lon, double radius, std::string &
 
 bool OSMLoader::fetchElevations(const std::vector<std::pair<double, double>> &locations, std::vector<float> &outElevations)
 {
-    if (locations.empty()) return true;
+    if (locations.empty())
+        return true;
     outElevations.resize(locations.size(), 0.0f);
 
     // 1. Calculate Bounding Box
     double minLat = 1000.0, maxLat = -1000.0;
     double minLon = 1000.0, maxLon = -1000.0;
-    for(const auto& loc : locations) {
-        if(loc.first < minLat) minLat = loc.first;
-        if(loc.first > maxLat) maxLat = loc.first;
-        if(loc.second < minLon) minLon = loc.second;
-        if(loc.second > maxLon) maxLon = loc.second;
+    for (const auto &loc : locations)
+    {
+        if (loc.first < minLat)
+            minLat = loc.first;
+        if (loc.first > maxLat)
+            maxLat = loc.first;
+        if (loc.second < minLon)
+            minLon = loc.second;
+        if (loc.second > maxLon)
+            maxLon = loc.second;
     }
-    
-    // Expand slightly to ensure coverage and valid query
-    minLat -= 0.005; maxLat += 0.005;
-    minLon -= 0.005; maxLon += 0.005;
 
-    if (!fs::exists("cache")) {
+    // Expand slightly to ensure coverage and valid query
+    minLat -= 0.005;
+    maxLat += 0.005;
+    minLon -= 0.005;
+    maxLon += 0.005;
+
+    if (!fs::exists("cache"))
+    {
         fs::create_directory("cache");
     }
 
     // 2. Check Cache (AAIGrid file)
     std::ostringstream cacheName;
     // Include API type in cache name to avoid conflicts if switching back
-    cacheName << "cache/elev_ot_" << std::fixed << std::setprecision(5) 
+    cacheName << "cache/elev_ot_" << std::fixed << std::setprecision(5)
               << minLat << "_" << minLon << "_" << maxLat << "_" << maxLon << ".asc";
     std::string cachePath = cacheName.str();
-    
+
     std::string gridData;
     bool loadedFromCache = false;
-    
-    if (fs::exists(cachePath)) {
+
+    if (fs::exists(cachePath))
+    {
         logs("[OSM] Loading elevation raster from cache: " << cachePath);
         std::ifstream t(cachePath);
         std::stringstream buffer;
         buffer << t.rdbuf();
         gridData = buffer.str();
-        if (!gridData.empty()) {
+        if (!gridData.empty())
+        {
             loadedFromCache = true;
         }
     }
 
     // 3. Fetch from OpenTopography if not cached
-    if (!loadedFromCache) {
+    if (!loadedFromCache)
+    {
         logs("[OSM] Fetching elevation raster from OpenTopography...");
         statusMessage = "Fetching elevation raster...";
 
         // API Key provided by user
-        std::string apiKey = OPENTOPOLOGY_API_KEY;
-        
-        #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
-            // httplib::SSLClient constructor expects host, not URL scheme
-            httplib::SSLClient cli("portal.opentopography.org");
-            
-            cli.set_connection_timeout(30);
-            cli.set_read_timeout(120); // Raster generation can take time
+        std::string apiKey =  OSM_KEY;
 
-            // Construct Query
-            std::stringstream pathSs;
-            pathSs.imbue(std::locale::classic());
-            pathSs << "/API/globaldem?demtype=SRTMGL3" 
-                   << "&south=" << minLat 
-                   << "&north=" << maxLat 
-                   << "&west=" << minLon 
-                   << "&east=" << maxLon 
-                   << "&outputFormat=AAIGrid" 
-                   << "&API_Key=" << apiKey;
-            
-            std::string path = pathSs.str();
-            
-            logs("[OSM] GET " << path); // Debug log
-            
-            auto res = cli.Get(path.c_str());
-            
-            if (res && res->status == 200) {
-                gridData = res->body;
-                
-                if (gridData.find("ncols") != std::string::npos) {
-                    std::ofstream out(cachePath);
-                    out << gridData;
-                    out.close();
-                    logs("[OSM] Cached raster to " << cachePath);
-                    loadedFromCache = true;
-                } else {
-                    logs("[!] OpenTopography returned unexpected data: " << gridData.substr(0, 200));
-                }
-            } else {
-                 logs("[!] OpenTopography request failed: " << (res ? std::to_string(res->status) : "Connection Failed"));
-                 if (res) {
-                     logs("[!] Response: " << res->body);
-                 }
-                 return true; 
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        // httplib::SSLClient constructor expects host, not URL scheme
+        httplib::SSLClient cli("portal.opentopography.org");
+
+        cli.set_connection_timeout(30);
+        cli.set_read_timeout(120); // Raster generation can take time
+
+        // Construct Query
+        std::stringstream pathSs;
+        pathSs << "/API/globaldem?demtype=SRTMGL3"
+               << "&south=" << minLat
+               << "&north=" << maxLat
+               << "&west=" << minLon
+               << "&east=" << maxLon
+               << "&outputFormat=AAIGrid"
+               << "&API_Key=" << apiKey;
+
+        std::string path = pathSs.str();
+
+        logs("[OSM] GET " << path); // Debug log
+
+        auto res = cli.Get(path.c_str());
+
+        if (res && res->status == 200)
+        {
+            gridData = res->body;
+
+            if (gridData.find("ncols") != std::string::npos)
+            {
+                std::ofstream out(cachePath);
+                out << gridData;
+                out.close();
+                logs("[OSM] Cached raster to " << cachePath);
+                loadedFromCache = true;
             }
-        #else
-            // Fallback to system curl for HTTPS support since OpenSSL is missing
-            logs("[OSM] OpenSSL not linked. Falling back to system curl for HTTPS request.");
-            
-            std::ostringstream urlSs;
-            urlSs.imbue(std::locale::classic());
-            urlSs << "https://portal.opentopography.org/API/globaldem?demtype=SRTMGL3";
-            urlSs << "&south=" << minLat;
-            urlSs << "&north=" << maxLat;
-            urlSs << "&west=" << minLon;
-            urlSs << "&east=" << maxLon;
-            urlSs << "&outputFormat=AAIGrid";
-            urlSs << "&API_Key=" << apiKey;
-            
-            std::string url = urlSs.str();
-            std::string cmd = "curl -s -o \"" + cachePath + "\" \"" + url + "\"";
-            
-            logs("[OSM] Executing: " << cmd);
-            int ret = system(cmd.c_str());
-            
-            if (ret == 0 && fs::exists(cachePath) && fs::file_size(cachePath) > 0) {
-                 std::ifstream t(cachePath);
-                 std::stringstream buffer;
-                 buffer << t.rdbuf();
-                 gridData = buffer.str();
-                 
-                 if (gridData.find("ncols") != std::string::npos) {
-                     loadedFromCache = true;
-                     logs("[OSM] Downloaded and cached raster via curl.");
-                 } else {
-                     logs("[!] Downloaded data appears invalid (not AAIGrid).");
-                     logs("[!] Content preview: " << gridData.substr(0, 200));
-                     // Remove invalid file
-                     t.close();
-                     fs::remove(cachePath);
-                 }
-            } else {
-                logs("[!] Curl failed or file empty. Return code: " << ret);
+            else
+            {
+                logs("[!] OpenTopography returned unexpected data: " << gridData.substr(0, 200));
             }
-            
-            if (!loadedFromCache) return true; // Continue without elevation
-        #endif
+        }
+        else
+        {
+            logs("[!] OpenTopography request failed: " << (res ? std::to_string(res->status) : "Connection Failed"));
+            if (res)
+            {
+                logs("[!] Response: " << res->body);
+            }
+            return true;
+        }
+#else
+        // Fallback to system curl for HTTPS support since OpenSSL is missing
+        logs("[OSM] OpenSSL not linked. Falling back to system curl for HTTPS request.");
+
+        std::string url = "https://portal.opentopography.org/API/globaldem?demtype=SRTMGL3";
+        url += "&south=" + std::to_string(minLat);
+        url += "&north=" + std::to_string(maxLat);
+        url += "&west=" + std::to_string(minLon);
+        url += "&east=" + std::to_string(maxLon);
+        url += "&outputFormat=AAIGrid";
+        url += "&API_Key=" + apiKey;
+
+        std::string cmd = "curl -s -o \"" + cachePath + "\" \"" + url + "\"";
+
+        logs("[OSM] Executing: " << cmd);
+        int ret = system(cmd.c_str());
+
+        if (ret == 0 && fs::exists(cachePath) && fs::file_size(cachePath) > 0)
+        {
+            std::ifstream t(cachePath);
+            std::stringstream buffer;
+            buffer << t.rdbuf();
+            gridData = buffer.str();
+
+            if (gridData.find("ncols") != std::string::npos)
+            {
+                loadedFromCache = true;
+                logs("[OSM] Downloaded and cached raster via curl.");
+            }
+            else
+            {
+                logs("[!] Downloaded data appears invalid (not AAIGrid).");
+                logs("[!] Content preview: " << gridData.substr(0, 200));
+                // Remove invalid file
+                t.close();
+                fs::remove(cachePath);
+            }
+        }
+        else
+        {
+            logs("[!] Curl failed or file empty. Return code: " << ret);
+        }
+
+        if (!loadedFromCache)
+            return true; // Continue without elevation
+#endif
     }
 
-    if (!loadedFromCache) {
+    if (!loadedFromCache)
+    {
         return false; // Failed to load or download
     }
 
@@ -310,26 +729,34 @@ bool OSMLoader::fetchElevations(const std::vector<std::pair<double, double>> &lo
     // cellsize     0.000833
     // NODATA_value -9999
     // ... data ...
-    
+
     std::stringstream ss(gridData);
     std::string key;
     int ncols = 0, nrows = 0;
     double xllcorner = 0.0, yllcorner = 0.0, cellsize = 0.0;
     float nodata = -9999.0f;
-    
+
     // Parse header
-    for(int i=0; i<6; ++i) {
+    for (int i = 0; i < 6; ++i)
+    {
         ss >> key;
         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-        if (key == "ncols") ss >> ncols;
-        else if (key == "nrows") ss >> nrows;
-        else if (key == "xllcorner") ss >> xllcorner;
-        else if (key == "yllcorner") ss >> yllcorner;
-        else if (key == "cellsize") ss >> cellsize;
-        else if (key == "nodata_value") ss >> nodata;
+        if (key == "ncols")
+            ss >> ncols;
+        else if (key == "nrows")
+            ss >> nrows;
+        else if (key == "xllcorner")
+            ss >> xllcorner;
+        else if (key == "yllcorner")
+            ss >> yllcorner;
+        else if (key == "cellsize")
+            ss >> cellsize;
+        else if (key == "nodata_value")
+            ss >> nodata;
     }
 
-    if (ncols <= 0 || nrows <= 0 || cellsize <= 0.0) {
+    if (ncols <= 0 || nrows <= 0 || cellsize <= 0.0)
+    {
         logs("[!] Invalid AAIGrid header.");
         return false;
     }
@@ -337,16 +764,20 @@ bool OSMLoader::fetchElevations(const std::vector<std::pair<double, double>> &lo
     std::vector<float> rasterData;
     rasterData.reserve(ncols * nrows);
     float val;
-    while(ss >> val) {
+    while (ss >> val)
+    {
         rasterData.push_back(val);
     }
-    
-    if (rasterData.size() != static_cast<size_t>(ncols * nrows)) {
-        logs("[!] AAIGrid data size mismatch. Expected " << (ncols*nrows) << ", got " << rasterData.size());
+
+    if (rasterData.size() != static_cast<size_t>(ncols * nrows))
+    {
+        logs("[!] AAIGrid data size mismatch. Expected " << (ncols * nrows) << ", got " << rasterData.size());
+        // Continue anyway if we have enough data
     }
 
     // 5. Interpolate for each location
-    for (size_t i = 0; i < locations.size(); ++i) {
+    for (size_t i = 0; i < locations.size(); ++i)
+    {
         double lat = locations[i].first;
         double lon = locations[i].second;
 
@@ -355,22 +786,22 @@ bool OSMLoader::fetchElevations(const std::vector<std::pair<double, double>> &lo
         // Data starts at top-left (North-West).
         // yllcorner is the Bottom-Left latitude (South).
         // xllcorner is the Left longitude (West).
-        
+
         // Map lat/lon to grid coordinates (col, row)
         // col = (lon - xllcorner) / cellsize
         // row = (lat - yllcorner) / cellsize -- WAIT.
         // Standard AAIGrid stores data row by row from Top to Bottom.
         // So row 0 is the Northernmost row (yllcorner + nrows*cellsize).
-        
+
         double colF = (lon - xllcorner) / cellsize;
-        double rowF = (lat - yllcorner) / cellsize; 
-        
+        double rowF = (lat - yllcorner) / cellsize;
+
         // Invert row because data is stored Top-to-Bottom
         // Top latitude = yllcorner + nrows * cellsize
         // Row index = (TopLat - lat) / cellsize
         //           = (yllcorner + nrows*cellsize - lat) / cellsize
         //           = nrows - (lat - yllcorner)/cellsize
-        
+
         // Let's verify.
         // If lat = yllcorner (bottom), (lat - yllcorner)/cellsize = 0.
         // nrows - 0 = nrows. This is out of bounds.
@@ -378,68 +809,78 @@ bool OSMLoader::fetchElevations(const std::vector<std::pair<double, double>> &lo
         // Usually row 0 is Y = yllcorner + nrows*cellsize (top edge).
         // Let's stick to standard:
         // row_index = nrows - 1 - floor((lat - yllcorner) / cellsize)
-        
+
         double gridX = colF;
         double gridY = (double)nrows - 1.0 - rowF; // Inverted Y for array indexing
-        
+
         // But for interpolation we need fractional parts.
         // Let's define u, v in array space (0..ncols-1, 0..nrows-1)
         // where (0,0) is Top-Left of the array.
-        
+
         double u = colF;
         double v = (double)nrows - rowF; // Top is 0, Bottom is nrows
-        
+
         // Adjust v range to 0..nrows-1
         // If lat is max (top), rowF is approx nrows. v is 0.
         // If lat is min (bottom), rowF is 0. v is nrows.
-        
+
         // Clamp
-        if (u < 0) u = 0;
-        if (u > ncols - 1.001) u = ncols - 1.001;
-        if (v < 0) v = 0;
-        if (v > nrows - 1.001) v = nrows - 1.001;
-        
+        if (u < 0)
+            u = 0;
+        if (u > ncols - 1.001)
+            u = ncols - 1.001;
+        if (v < 0)
+            v = 0;
+        if (v > nrows - 1.001)
+            v = nrows - 1.001;
+
         int c0 = static_cast<int>(floor(u));
         int r0 = static_cast<int>(floor(v));
         int c1 = c0 + 1;
         int r1 = r0 + 1;
-        
-        if (c1 >= ncols) c1 = ncols - 1;
-        if (r1 >= nrows) r1 = nrows - 1;
-        
+
+        if (c1 >= ncols)
+            c1 = ncols - 1;
+        if (r1 >= nrows)
+            r1 = nrows - 1;
+
         double tx = u - c0;
         double ty = v - r0;
-        
+
         // Indices in rasterData
         int i00 = r0 * ncols + c0;
         int i10 = r0 * ncols + c1;
         int i01 = r1 * ncols + c0;
         int i11 = r1 * ncols + c1;
-        
+
         // Handle nodata
-        auto getVal = [&](int idx) {
+        auto getVal = [&](int idx)
+        {
             float val = rasterData[idx];
             return (val == nodata) ? 0.0f : val;
         };
-        
+
         float h00 = getVal(i00);
         float h10 = getVal(i10);
         float h01 = getVal(i01);
         float h11 = getVal(i11);
-        
+
         // Bilinear
         float hTop = h00 * (1.0f - (float)tx) + h10 * (float)tx;
         float hBot = h01 * (1.0f - (float)tx) + h11 * (float)tx;
-        
+
         float h = hTop * (1.0f - (float)ty) + hBot * (float)ty;
-        
+
         outElevations[i] = h;
     }
 
     float minEl = 10000.0f, maxEl = -10000.0f;
-    for(float e : outElevations) {
-        if(e < minEl) minEl = e;
-        if(e > maxEl) maxEl = e;
+    for (float e : outElevations)
+    {
+        if (e < minEl)
+            minEl = e;
+        if (e > maxEl)
+            maxEl = e;
     }
     logs("[+] Elevation complete via OpenTopography (Range: " << minEl << "m to " << maxEl << "m)");
     return true;
@@ -614,7 +1055,7 @@ bool OSMLoader::parseAndBuild(const std::string &osmXML, double centerLat, doubl
             if (isBuilding)
             {
                 buildingWays.push_back({wayId, nodeRefs});
-                buildingHeights[wayId] = std::min(height, 80.0f);
+                buildingHeights[wayId] = (std::min)(height, 80.0f);
             }
             else if (isRoad)
             {
@@ -883,7 +1324,7 @@ void OSMLoader::extrudePolygon(const std::vector<glm::vec3> &outline, float heig
 
     uint32_t topOffset = static_cast<uint32_t>(geom.vertices.size());
 
-    // Top vertices 
+    // Top vertices
     for (const auto &p : outline)
     {
         vertex v;
@@ -895,7 +1336,7 @@ void OSMLoader::extrudePolygon(const std::vector<glm::vec3> &outline, float heig
         geom.vertices.push_back(v);
     }
 
-    // Top triangles 
+    // Top triangles
     for (int i = static_cast<int>(baseIndices.size()) - 1; i >= 0; --i)
     {
         geom.indices.push_back(topOffset + baseIndices[i]);
@@ -958,11 +1399,11 @@ void OSMLoader::bufferLine(const std::vector<glm::vec3> &line, float width,
         // Project direction to XZ plane for width calculation
         glm::vec2 dir2D = glm::normalize(glm::vec2(dir.x, dir.z));
         glm::vec2 perp(-dir2D.y, dir2D.x);
-        
+
         glm::vec3 left = p;
         left.x += perp.x * halfWidth;
         left.z += perp.y * halfWidth;
-        
+
         glm::vec3 right = p;
         right.x -= perp.x * halfWidth;
         right.z -= perp.y * halfWidth;

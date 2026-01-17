@@ -8,6 +8,14 @@ add_subdirectory(synth)
 
 add_executable(Photon engine/main.cpp)
 
+set(ENV_FILE "${CMAKE_SOURCE_DIR}/.env")
+if (EXISTS "${ENV_FILE}")
+    message(STATUS "[Photon] Found .env at ${ENV_FILE}")
+    target_compile_definitions(Photon PRIVATE USE_DOTENV)
+else()
+    message(STATUS "[Photon] No .env found")
+endif()
+
 if (WIN32)
     target_sources(Photon PRIVATE ../fonts/Photon.rc)
 endif()

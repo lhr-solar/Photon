@@ -20,6 +20,7 @@
 #include <ShellScalingAPI.h>
 #endif
 
+
 #ifdef NDEBUG
     #define logs(x) do {} while(0)
 #elif defined(XCB)

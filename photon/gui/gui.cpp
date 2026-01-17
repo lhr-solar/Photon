@@ -1934,7 +1934,6 @@ void Gui::record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu){
     glm::mat4 transform(1.0f);
     transform = glm::translate(transform, pos);
     transform = glm::rotate(transform, glm::radians(rot.y), glm::vec3(0.0f, 1.0f, 0.0f));
-    transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     if (rot.x != 0.0f)
         transform = glm::rotate(transform, glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
     if (rot.z != 0.0f)
@@ -1943,11 +1942,10 @@ void Gui::record3DScenePass(VkCommandBuffer commandBuffer, Gpu* gpu){
 
     gpu->renderGLTFModel(commandBuffer, transform, false);
     
-    // Render OSM models with proper scale and position relative to car
+    // Render OSM models with proper scale and position
     if (!gpu->osmModels.empty()) {
-        glm::mat4 osmTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0));
-        // Flip Y axis to correct orientation
-        osmTransform = glm::scale(osmTransform, glm::vec3(1.0f, -1.0f, 1.0f));
+        glm::mat4 osmTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+        // Note: Keep OSM in world Y-up; projection handles Vulkan Y convention.
         
         // Bind pipeline for OSM rendering
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline);

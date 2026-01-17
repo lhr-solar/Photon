@@ -9,15 +9,92 @@
 #include "../gui/gui.hpp"
 #include "imgui.h"
 
+#include "osmChunkFormat.hpp"
+
+#include <filesystem>
+
+namespace {
+    constexpr double kOSMChunkSizeMeters = 128.0;
+    constexpr int kOSMChunkRadius = 2;
+    constexpr const char* kOSMChunkDir = "cache/osm_chunks_3857";
+
+    static ChunkId globalChunkFromCamera(const glm::vec3& cameraLocalMeters, const glm::dvec2& originMerc, double chunkSizeMeters) {
+        glm::dvec2 globalXZ = originMerc + glm::dvec2(cameraLocalMeters.x, cameraLocalMeters.z);
+        const double inv = 1.0 / chunkSizeMeters;
+        int32_t cx = static_cast<int32_t>(std::floor(globalXZ.x * inv));
+        int32_t cz = static_cast<int32_t>(std::floor(globalXZ.y * inv));
+        return ChunkId{cx, cz};
+    }
+}
+
 Photon::Photon(){ 
     logs("[+] Constructing Photon"); 
     gui.ui.networkINTF = &network;
+
+    chunks.setDiskCacheDir(kOSMChunkDir);
+    chunks.setChunkSizeMeters(static_cast<float>(kOSMChunkSizeMeters));
+    chunks.setRadiusChunks(kOSMChunkRadius);
+    chunks.setRamBudgetBytes(256ull * 1024 * 1024);
+    chunks.setGenerateIfMissing(false);
+    // Default origin from UI ("street view" default location)
+    osmOriginLat = gui.ui.renderSettings.osmLat;
+    osmOriginLon = gui.ui.renderSettings.osmLon;
+    {
+        glm::dvec2 c = OSMLoader::latLonToMercatorMeters(osmOriginLat, osmOriginLon);
+        chunks.setWorldOriginMeters(c.x, c.y);
+    }
+
+    // Base elevation at origin (used as a simple Y-offset for OSM + ground plane)
+    {
+        float elev = 0.0f;
+        osmLoader.getElevationAt(osmOriginLat, osmOriginLon, elev);
+        gpu.osmElevationOffset = elev;
+        gui.ui.renderSettings.modelPosition.y = elev;
+    }
+    chunks.start();
+
+    // Start on-demand chunk fetcher thread
+    osmChunkFetchRunning = true;
+    osmChunkFetchThread = std::thread([this]() {
+        OSMLoader loader;
+        while (osmChunkFetchRunning.load(std::memory_order_relaxed)) {
+            ChunkId id{};
+            {
+                std::unique_lock lk(osmChunkFetchMtx);
+                osmChunkFetchCv.wait(lk, [&]() {
+                    return !osmChunkFetchRunning.load(std::memory_order_relaxed) || !osmChunkFetchQueue.empty();
+                });
+                if (!osmChunkFetchRunning.load(std::memory_order_relaxed)) {
+                    break;
+                }
+                id = osmChunkFetchQueue.front();
+                osmChunkFetchQueue.pop_front();
+            }
+
+            const bool ok = loader.fetchChunkToDisk(kOSMChunkDir, osmOriginLat, osmOriginLon, id, kOSMChunkSizeMeters);
+            {
+                std::scoped_lock lk(osmStatusMtx);
+                osmDiskStatus = ok ? loader.getStatus() : ("Chunk fetch failed: " + loader.getStatus());
+            }
+            {
+                std::scoped_lock lk(osmChunkFetchMtx);
+                osmChunkFetchInFlight.erase(id);
+            }
+        }
+    });
 };
 Photon::~Photon(){ 
     logs("[!] Destructuring Photon");
     
     // Signal cancellation to OSM loader
     osmLoader.cancel();
+
+    // Stop on-demand chunk fetcher
+    osmChunkFetchRunning = false;
+    osmChunkFetchCv.notify_all();
+    if (osmChunkFetchThread.joinable()) {
+        osmChunkFetchThread.join();
+    }
 
     // wait for OSM loading thread
     if (osmLoadThread.joinable()) {
@@ -35,7 +112,6 @@ Photon::~Photon(){
     gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
     if(gpu.descriptorPool != VK_NULL_HANDLE)
         vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gpu.descriptorPool, nullptr);
-
 };
 
 void Photon::prepareScene(){
@@ -128,66 +204,219 @@ void Photon::nextFrame(){
 	// OSM loaded
 	if (gui.ui.renderSettings.osmFetchRequested && !osmLoadInProgress) {
 	    gui.ui.renderSettings.osmFetchRequested = false;
-	    osmLoadInProgress = true;
+        osmLoadInProgress = false; // streaming mode: no full-region background build
+
+        // Reset any previously streamed chunk meshes
+        for (auto& model : gpu.osmModels) {
+            for (auto& mesh : model.meshes) {
+                mesh.vertexBuffer.destroy();
+                mesh.indexBuffer.destroy();
+            }
+        }
+        gpu.osmModels.clear();
+        osmChunkToModelIndex.clear();
+        osmModelIndexToChunkId.clear();
+        osmDiskReady = false;
+
+
+        // Reset origin to requested center ("street view" location)
+        osmOriginLat = gui.ui.renderSettings.osmLat;
+        osmOriginLon = gui.ui.renderSettings.osmLon;
+        {
+            glm::dvec2 c = OSMLoader::latLonToMercatorMeters(osmOriginLat, osmOriginLon);
+            chunks.clear();
+            chunks.setDiskCacheDir(kOSMChunkDir);
+            chunks.setGenerateIfMissing(false);
+            chunks.setWorldOriginMeters(c.x, c.y);
+        }
+
+        // Clear pending fetches
+        {
+            std::scoped_lock lk(osmChunkFetchMtx);
+            osmChunkFetchQueue.clear();
+            osmChunkFetchInFlight.clear();
+        }
+
+        // Spawn car at origin (local meters) so camera immediately streams nearby chunks
+        {
+            float elev = 0.0f;
+            osmLoader.getElevationAt(osmOriginLat, osmOriginLon, elev);
+            gpu.osmElevationOffset = elev;
+            gui.ui.renderSettings.modelPosition = glm::vec3(0.0f, elev, 0.0f);
+        }
+        gui.ui.renderSettings.modelRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 	    
-	    // join thread
-	    if (osmLoadThread.joinable()) {
-	        osmLoadThread.join();
-	    }
-	    
-        osmLoader.resetCancel();
-	    osmLoadThread = std::thread([this]() {
-	        logs("[OSM] Starting fetch in background thread");
-	        OSMConfig config;
-	        config.centerLat = gui.ui.renderSettings.osmLat;
-	        config.centerLon = gui.ui.renderSettings.osmLon;
-	        config.radiusMeters = gui.ui.renderSettings.osmRadius;
-	        
-	        bool success = osmLoader.fetchAndBuild(config);
-	        
-	        if (success) {
-	            for (auto& model : gpu.osmModels) {
-	                for (auto& mesh : model.meshes) {
-	                    mesh.vertexBuffer.destroy();
-	                    mesh.indexBuffer.destroy();
-	                }
-	            }
-	            gpu.osmModels.clear();
-	            
-	        
-	            osmLoader.uploadToGPU(&gpu.vulkanDevice, gpu.osmModels);
-	            gpu.osmStatus = osmLoader.getStatus();
-	            logs("[+] OSM load complete: " << gpu.osmModels.size() << " models");
-	        } else {
-	            gpu.osmStatus = "OSM fetch failed: " + osmLoader.getStatus();
-	            logs("[!] " << gpu.osmStatus);
-	        }	        osmLoadInProgress = false;
-	    });
+
+        {
+            std::scoped_lock lk(osmStatusMtx);
+            osmDiskStatus = "OSM streaming enabled; fetching chunks on demand";
+        }
 	}
-	
-    // Update camera to follow car and look at it (car position controlled via ImGui sliders)
+
+    // Update displayed OSM status from disk chunking stage
     {
-        const float followDistance = 10.0f; // meters behind
-        const float followHeight   = -10.0f;  // meters above car's roof
+        std::string statusCopy;
+        {
+            std::scoped_lock lk(osmStatusMtx);
+            statusCopy = osmDiskStatus;
+        }
+        if (!statusCopy.empty()) {
+            gpu.osmStatus = statusCopy;
+        }
+    }
+
+    // Pull any ready chunk bytes and upload to GPU as OSM models
+    {
+        auto ready = chunks.drainReadyChunks();
+        if (!ready.empty()) {
+            for (auto& item : ready) {
+                const ChunkId id = item.first;
+                const std::vector<uint8_t>& bytes = item.second;
+                if (osmChunkToModelIndex.find(id) != osmChunkToModelIndex.end()) {
+                    continue;
+                }
+                if (bytes.size() < sizeof(OSMChunkFileHeader)) {
+                    continue;
+                }
+                const auto* hdr = reinterpret_cast<const OSMChunkFileHeader*>(bytes.data());
+                if (!(hdr->magic[0] == 'O' && hdr->magic[1] == 'S' && hdr->magic[2] == 'M' && hdr->magic[3] == 'C')) {
+                    continue;
+                }
+                const size_t vCount = static_cast<size_t>(hdr->vertexCount);
+                const size_t iCount = static_cast<size_t>(hdr->indexCount);
+                const size_t need = sizeof(OSMChunkFileHeader) + vCount * sizeof(vertex) + iCount * sizeof(uint32_t);
+                if (need > bytes.size() || vCount == 0 || iCount == 0) {
+                    continue;
+                }
+                const uint8_t* p = bytes.data() + sizeof(OSMChunkFileHeader);
+                const vertex* verts = reinterpret_cast<const vertex*>(p);
+                p += vCount * sizeof(vertex);
+                const uint32_t* inds = reinterpret_cast<const uint32_t*>(p);
+
+                Model model;
+                model.name = "osm_chunk_" + std::to_string(id.x) + "_" + std::to_string(id.z);
+                model.vertices.assign(verts, verts + vCount);
+                model.indices.assign(inds, inds + iCount);
+
+                Model::Mesh mesh;
+                mesh.vertexCount = static_cast<uint32_t>(vCount);
+                mesh.indexCount = static_cast<uint32_t>(iCount);
+
+                const VkDeviceSize vbSize = model.vertices.size() * sizeof(vertex);
+                const VkDeviceSize ibSize = model.indices.size() * sizeof(uint32_t);
+                gpu.vulkanDevice.createBuffer(
+                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                    &mesh.vertexBuffer,
+                    vbSize,
+                    (void*)model.vertices.data());
+                gpu.vulkanDevice.createBuffer(
+                    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                    &mesh.indexBuffer,
+                    ibSize,
+                    (void*)model.indices.data());
+
+                Primitive prim{};
+                prim.firstIndex = 0;
+                prim.indexCount = static_cast<uint32_t>(model.indices.size());
+                prim.materialIndex = 0;
+                mesh.primitives.push_back(prim);
+                model.meshes.push_back(std::move(mesh));
+
+                gpu.osmModels.push_back(std::move(model));
+                osmChunkToModelIndex.emplace(id, gpu.osmModels.size() - 1);
+                osmModelIndexToChunkId.push_back(id);
+            }
+        }
+    }
+	
+    // Update camera to follow car and look at it (street-view-ish defaults)
+    {
+        const float followDistance = 8.0f; // meters behind
+        const float followHeight   = 4.0f;  // approx eye height
 
         glm::vec3 carPos = gui.ui.renderSettings.modelPosition;
-        float yawDeg = gui.ui.renderSettings.modelRotation.y;
-
-        // Build the same rotation stack used for the GLTF draw so our camera basis matches
-        glm::mat4 rotMatrix(1.0f);
-        rotMatrix = glm::rotate(rotMatrix, glm::radians(yawDeg), glm::vec3(0.0f, 1.0f, 0.0f));
-        rotMatrix = glm::rotate(rotMatrix, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-
-        // Derive the model-space forward vector after all rotations (Z-forward in GLTF)
-        glm::vec3 forward = glm::normalize(glm::vec3(rotMatrix * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f)));
+        glm::vec3 rotDeg = gui.ui.renderSettings.modelRotation;
         glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+
+        // Stable follow camera: yaw-only around world-up.
+        // Treat car forward as +X in world space after yaw.
+        glm::mat4 yawM(1.0f);
+        yawM = glm::rotate(yawM, glm::radians(rotDeg.y), worldUp);
+        glm::vec3 forward = glm::normalize(glm::vec3(yawM * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f)));
 
         // Position the camera a fixed distance behind and above the car
         glm::vec3 camPos = carPos - forward * followDistance + worldUp * followHeight;
         gpu.camera.position = camPos;
 
-        // Aim the camera at the car using a stable world-up vector to avoid roll
+        // Aim the camera at the car using world-up to avoid roll/flips
         gpu.camera.setViewTarget(carPos, worldUp);
+    }
+
+    // Request missing chunks around camera from Overpass (deduped)
+    {
+        const glm::dvec2 originMerc = OSMLoader::latLonToMercatorMeters(osmOriginLat, osmOriginLon);
+        const ChunkId center = globalChunkFromCamera(gpu.camera.position, originMerc, kOSMChunkSizeMeters);
+
+        for (int dz = -kOSMChunkRadius; dz <= kOSMChunkRadius; ++dz) {
+            for (int dx = -kOSMChunkRadius; dx <= kOSMChunkRadius; ++dx) {
+                ChunkId id{center.x + dx, center.z + dz};
+                const std::string path = std::string(kOSMChunkDir) + "/chunk_" + std::to_string(id.x) + "_" + std::to_string(id.z) + ".bin";
+                if (std::filesystem::exists(path)) {
+                    continue;
+                }
+                std::scoped_lock lk(osmChunkFetchMtx);
+                if (osmChunkFetchInFlight.insert(id).second) {
+                    osmChunkFetchQueue.push_back(id);
+                    osmChunkFetchCv.notify_one();
+                }
+            }
+        }
+    }
+
+    // Chunk streaming around camera
+    if (!osmLoadInProgress) {
+        chunks.updateFromCamera(gpu.camera.position, gpu.frameCounter);
+    }
+
+    // Evict GPU OSM chunk meshes that are no longer desired
+    {
+        auto removeAt = [&](size_t idx) {
+            if (idx >= gpu.osmModels.size()) return;
+
+            // Destroy buffers for the removed model
+            for (auto& mesh : gpu.osmModels[idx].meshes) {
+                mesh.vertexBuffer.destroy();
+                mesh.indexBuffer.destroy();
+            }
+
+            const size_t last = gpu.osmModels.size() - 1;
+            if (idx != last) {
+                std::swap(gpu.osmModels[idx], gpu.osmModels[last]);
+                std::swap(osmModelIndexToChunkId[idx], osmModelIndexToChunkId[last]);
+
+                // Fix mapping for the model we swapped into idx
+                osmChunkToModelIndex[osmModelIndexToChunkId[idx]] = idx;
+            }
+            gpu.osmModels.pop_back();
+            osmModelIndexToChunkId.pop_back();
+        };
+
+        for (auto it = osmChunkToModelIndex.begin(); it != osmChunkToModelIndex.end(); ) {
+            const ChunkId id = it->first;
+            const size_t idx = it->second;
+            if (!chunks.isDesired(id)) {
+                removeAt(idx);
+                it = osmChunkToModelIndex.erase(it);
+                continue;
+            }
+            ++it;
+        }
+    }
+
+    if ((gpu.frameCounter % 300) == 0) {
+        logs("[Chunk] resident CPU chunks: " << chunks.residentChunkCount());
     }
 	
 	render();

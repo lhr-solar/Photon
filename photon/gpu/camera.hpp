@@ -25,7 +25,7 @@ struct Camera{
 
     CameraType type = lookat;
     bool updated = true;
-    bool flipY = false;
+	bool flipY = true;
 
     float rotationSpeed = 1.0f;
 	float movementSpeed = 1.0f;
@@ -63,9 +63,6 @@ struct Camera{
     void setViewTarget(const glm::vec3& target, const glm::vec3& up = glm::vec3(0.0f, 1.0f, 0.0f)) {
 		glm::mat4 previous = matrices.view;
 		matrices.view = glm::lookAt(position, target, up);
-		if (flipY) {
-			matrices.view[1][1] *= -1.0f;
-		}
 		viewPos = glm::vec4(position, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f);
 		if (matrices.view != previous) { updated = true; }
 	};
@@ -78,8 +75,6 @@ struct Camera{
 		rotM = glm::rotate(rotM, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
 		rotM = glm::rotate(rotM, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 		glm::vec3 translation = position;
-
-		if (flipY) { translation.y *= -1.0f; }
 		transM = glm::translate(glm::mat4(1.0f), translation);
 
 		if (type == CameraType::firstperson){ 

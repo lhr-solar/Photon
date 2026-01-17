@@ -49,6 +49,7 @@ public:
     // OSM models (separate from main GLTF models)
     std::vector<Model> osmModels;
     std::string osmStatus = "No OSM data loaded";
+    float osmElevationOffset = 0.0f; // meters, added as a render transform on Y
     
     struct
     {

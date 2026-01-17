@@ -7,13 +7,32 @@
 #include "../synth/synth.hpp"
 #include "include.hpp"
 #include "osmLoader.hpp"
+#include "chunking.hpp"
 
 #include <chrono>
 #include <thread>
 #include <atomic>
+#include <mutex>
+#include <unordered_map>
 
 class Photon{
 private:
+    std::atomic<bool> osmDiskReady{false};
+    std::mutex osmStatusMtx;
+    std::string osmDiskStatus;
+
+    std::unordered_map<ChunkId, size_t, ChunkIdHash> osmChunkToModelIndex;
+    std::vector<ChunkId> osmModelIndexToChunkId;
+
+    // On-demand chunk fetch worker (Overpass)
+    std::atomic<bool> osmChunkFetchRunning{false};
+    std::thread osmChunkFetchThread;
+    std::mutex osmChunkFetchMtx;
+    std::condition_variable osmChunkFetchCv;
+    std::deque<ChunkId> osmChunkFetchQueue;
+    std::unordered_set<ChunkId, ChunkIdHash> osmChunkFetchInFlight;
+    double osmOriginLat = 30.2849;
+    double osmOriginLon = -97.7341;
 
 public:
     Network network;
@@ -22,6 +41,7 @@ public:
     Parse parse;
     Synth synth;
     OSMLoader osmLoader;
+    ChunkManager chunks;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTimestamp;
     std::chrono::time_point<std::chrono::high_resolution_clock> tPrevEnd;
