@@ -1,0 +1,679 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{BC6646D9-1F05-3BE4-ACA0-716BDC712BF4}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>compile_kernels</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\alper\OneDrive\Documents\LHR\Photon\.external;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\tinygltf;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\glm;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vulkan;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vk_video;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\stb;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\imgui;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\generated;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\alper\OneDrive\Documents\LHR\Photon\.external;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\tinygltf;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\glm;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vulkan;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vk_video;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\stb;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\imgui;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\generated;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\alper\OneDrive\Documents\LHR\Photon\.external;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\tinygltf;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\glm;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vulkan;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vk_video;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\stb;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\imgui;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\generated;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\alper\OneDrive\Documents\LHR\Photon\.external;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\tinygltf;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\glm;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vulkan;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\vk_video;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\stb;C:\Users\alper\OneDrive\Documents\LHR\Photon\.external\imgui;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\generated;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\background.frag.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader background.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader background.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader background.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader background.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\background.vert.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader background.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader background.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader background.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader background.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/background.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/background.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\background.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\custom_shader.frag.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader custom_shader.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader custom_shader.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader custom_shader.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader custom_shader.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\custom_shader.vert.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader custom_shader.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader custom_shader.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader custom_shader.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader custom_shader.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/custom_shader.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/custom_shader.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\custom_shader.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\scene.frag.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader scene.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader scene.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader scene.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader scene.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\scene.vert.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader scene.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader scene.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader scene.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader scene.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/scene.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/scene.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\scene.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\ui.frag.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader ui.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader ui.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader ui.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader ui.frag -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.frag -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.frag.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.frag;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\ui.vert.spv.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling shader ui.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling shader ui.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Compiling shader ui.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Compiling shader ui.vert -^&gt; C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+glslangValidator -V C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/ui.vert -o C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/spirv/ui.vert.spv
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\ui.vert;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\3d8f0e64b17d9b2e7a3feea078d39d61\compile_kernels.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\compile_kernels</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\compile_kernels</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\compile_kernels</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</VerifyInputsAndOutputsExist>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\scene.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\ui.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\custom_shader.frag.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.vert.spv;C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\spirv\background.frag.spv;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\compile_kernels</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+      <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</VerifyInputsAndOutputsExist>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/alper/OneDrive/Documents/LHR/Photon -BC:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug --check-stamp-file C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython\Support.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython3.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/alper/OneDrive/Documents/LHR/Photon -BC:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug --check-stamp-file C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython\Support.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython3.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/alper/OneDrive/Documents/LHR/Photon -BC:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug --check-stamp-file C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython\Support.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython3.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/alper/OneDrive/Documents/LHR/Photon/kernels/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/alper/OneDrive/Documents/LHR/Photon -BC:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug --check-stamp-file C:/Users/alper/OneDrive/Documents/LHR/Photon/out/build/debug/kernels/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython\Support.cmake;C:\Program Files\CMake\share\cmake-3.28\Modules\FindPython3.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\compile_kernels">
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\ZERO_CHECK.vcxproj">
+      <Project>{B651FDE8-C344-3086-B756-7039582722D0}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

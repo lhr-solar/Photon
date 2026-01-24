@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\background.frag.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\background_frag_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\background.vert.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\background_vert_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\custom_shader.frag.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\custom_shader_frag_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\custom_shader.vert.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\custom_shader_vert_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\scene.frag.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\scene_frag_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\scene.vert.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\scene_vert_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\ui.frag.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\ui_frag_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\4d82f6f0cef5b0501396bae4d4c41661\ui.vert.spv.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\9dd99ef567758ca11df76a3b99a72ab8\ui_vert_spv.hpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\CMakeFiles\3d8f0e64b17d9b2e7a3feea078d39d61\GenerateKernelHeaders.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\kernels\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\alper\OneDrive\Documents\LHR\Photon\out\build\debug\kernels\CMakeFiles\GenerateKernelHeaders" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{4869E0DB-55C4-3CD9-B529-86684D82469F}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
