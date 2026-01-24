@@ -8,13 +8,14 @@
 #include <cstring>
 #include <vector>
 
-void VulkanObj::initObj(VkExtent2D extent, uint32_t* vertShader, size_t vertShaderSize, uint32_t* fragShader, size_t fragShaderSize){
+void VulkanObj::initObj(VkExtent2D extent, uint32_t* vertShader, size_t vertShaderSize, uint32_t* fragShader, size_t fragShaderSize, std::string name){
     // todo, this should be expanded to load the vertices/indices of the model
     this->extent = extent;
     this->vertShader = vertShader;
     this->vertShaderSize = vertShaderSize;
     this->fragShader = fragShader;
     this->fragShaderSize = fragShaderSize;
+    this->name = name;
 }
 
 void VulkanObj::updateBuffers(VulkanDevice device){

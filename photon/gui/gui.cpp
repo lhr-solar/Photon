@@ -25,8 +25,8 @@
 #include "background_vert_spv.hpp"
 #include "triangle_frag_spv.hpp"
 #include "triangle_vert_spv.hpp"
-//#include "viking_frag_spv.hpp"
-//#include "viking_vert_spv.hpp"
+#include "viking_frag_spv.hpp"
+#include "viking_vert_spv.hpp"
 #include "berk_ttf.hpp"
 #include "openSans_ttf.hpp"
 
@@ -246,7 +246,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
 
     ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
 
-    //ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size);
+    //ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size, "viking");
     //ui.viking.updateBuffers(vulkanDevice);
     //ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);;
 
@@ -420,17 +420,15 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
                 descriptorSetLayout);
         ui.accretionShader.dirty = false;
     }
-    /*
-    if (ui.triangle.dirty) {
-        ui.triangle.createResources(vulkanDevice, ui.triangle.extent, descriptorPool, 
-                descriptorSetLayout);
-        ui.triangle.dirty = false;
-    }
-    //if(ui.viking.dirty){
-        //ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
-        //ui.viking.dirty = false;
+    //if (ui.triangle.dirty) {
+      //  ui.triangle.createResources(vulkanDevice, ui.triangle.extent, descriptorPool, 
+       //         descriptorSetLayout);
+     //   ui.triangle.dirty = false;
     //}
-    */
+    if(ui.viking.dirty){
+        ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
+        ui.viking.dirty = false;
+    }
 
     updateBuffers(vulkanDevice);
 
@@ -440,7 +438,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
         ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
-        //ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
+        ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
         //ui.triangle.recordShaderPass(drawCmdBuffers[i]);
         //ui.viking.recordRenderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);

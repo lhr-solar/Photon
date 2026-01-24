@@ -32,9 +32,25 @@ bool Gpu::initVulkan(){
     return true;
 }
 
+void Gpu::getValidationLayerSupport(){
+    const char* validationLayer = "VK_LAYER_KHRONOS_validation";
+    uint32_t layerCount;
+    vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+    supportedInstanceLayers.resize(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, supportedInstanceLayers.data());
+    logs("[?] Available Vulkan Layers");
+    bool found = false;
+    for(auto layer : supportedInstanceLayers){
+        logs("[+] " << layer.layerName); 
+        if(strcmp(validationLayer, layer.layerName) == 0){
+            found = true;
+        }
+    }
+    if(found) enabledInstanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+}
+
 VkResult Gpu::createInstance(){
-    // interface for variable extensions in the future?
-    // vulkan pNext... compatability
+    getValidationLayerSupport();
     enabledInstanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
     std::vector<const char*> instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
@@ -59,9 +75,9 @@ VkResult Gpu::createInstance(){
 
     if(enabledInstanceExtensions.size() > 0){
         for(const char* enabledExtension : enabledInstanceExtensions){
-            if(std::find(supportedInstanceExtensions.begin(), supportedInstanceExtensions.end(), enabledExtension) == supportedInstanceExtensions.end())
+            if(std::find(supportedInstanceExtensions.begin(), supportedInstanceExtensions.end(), enabledExtension) 
+                    == supportedInstanceExtensions.end())
                 logs("[!] Enabled Instance Extension \"" << enabledExtension << "\" is not present at instance level");
-
             instanceExtensions.push_back(enabledExtension);
         }
     }

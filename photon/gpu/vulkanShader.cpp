@@ -25,6 +25,7 @@ void VulkanShader::initShader(VkExtent2D extent, bool runtimeFrag,
     if(!runtimeFrag){
         this->fragmentShader = fragmentShader;
         this->fragmentShaderSize = fragmentShaderSize;
+        this->fragmentShaderName = fragName;
     } else {
         this->fragmentShaderName = fragName;
     }

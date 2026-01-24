@@ -37,6 +37,10 @@
     }
     #define logs(x) do { ensure_console(); std::cout << x << std::endl; } while(0)
 #endif
+    
+#ifndef NDEBUG
+#define VALIDATION
+#endif
 
 #ifdef XCB
 static inline unsigned rdtsc(){

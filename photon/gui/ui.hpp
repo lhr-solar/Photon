@@ -42,7 +42,7 @@ struct UI{
     VulkanShader backgroundShader;
     VulkanShader triangle;
 
-//    VulkanObj viking;
+    VulkanObj viking;
     
     Video videoSource;
 
@@ -57,7 +57,7 @@ struct UI{
     void defaultWindow(std::string name);
     void orderedWindows(void(*functionArray[])(std::vector<std::vector<double>>&, int, const char*, const char*), size_t count);
     void shaderWindow(VulkanShader& shader, std::string windowName);
-//    void objWindow(VulkanObj& obj, std::string windowName);
+    void objWindow(VulkanObj& obj, std::string windowName);
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
     void genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);

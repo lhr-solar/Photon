@@ -26,7 +26,7 @@ public:
     SPSCQueue<uint8_t> tcpQueue;
     SPSCQueue<uint8_t> uartQueue;
     std::string IP ="3.141.38.115";
-    unsigned PORT = 8187;
+    unsigned PORT = 9000;
     CanStore canStore;
     std::atomic<bool> running = true;
 

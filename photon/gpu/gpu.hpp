@@ -26,6 +26,8 @@ public:
     std::string title = "Photon";
     std::string name = "Photon";
     uint32_t apiVersion = VK_API_VERSION_1_0;
+    std::vector<VkLayerProperties> supportedInstanceLayers;
+    std::vector<const char*> enabledInstanceLayers;
     std::vector<std::string> supportedInstanceExtensions;
     std::vector<const char*> enabledInstanceExtensions;
     std::vector<VkPhysicalDevice> physicalDevices;
@@ -74,6 +76,7 @@ public:
     VkResult setupVulkanDevice();
 
     bool initVulkan();
+    void getValidationLayerSupport();
     void createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers);
     void setupDepthStencil(uint32_t width, uint32_t height);
     void setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat);

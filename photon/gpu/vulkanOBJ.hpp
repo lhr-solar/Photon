@@ -61,13 +61,14 @@ struct VulkanObj{
     VkDescriptorSet uniformDescriptorSet = VK_NULL_HANDLE;
     unsigned long long outTexture;
     bool initialized = false;
+    std::string name;
     std::vector<Vertex> vertices = {
         {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
         {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
         {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
     };
 
-    void initObj(VkExtent2D extent, uint32_t* vertShader, size_t vertShaderSize, uint32_t* fragShader, size_t fragShaderSize);
+    void initObj(VkExtent2D extent, uint32_t* vertShader, size_t vertShaderSize, uint32_t* fragShader, size_t fragShaderSize, std::string name);
     void createResources(VulkanDevice device, VkExtent2D extent, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout);
     void recordRenderPass(VkCommandBuffer commandBuffer);
     void updateBuffers(VulkanDevice device);

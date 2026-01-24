@@ -23,18 +23,31 @@ void UI::build(){
                                    ImGuiWindowFlags_NoBackground |
                                    ImGuiWindowFlags_NoDocking;
     background();
-    for (auto& [id, msg] : networkINTF->canStore.canMessages) msg.updateMessage(networkINTF);
+    // if the signal does not exist, it will not be updated....
+    for (auto& [id, msg] : networkINTF->canStore.canMessages) msg.updateMessage(networkINTF); 
+
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Debug", NULL, windowFlags)){
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
             ImGui::TextUnformatted("This is the Debug window...");
+            ImVec2 drawSize(accretionShader.extent.width, accretionShader.extent.height);
+            drawSize.x = std::max(drawSize.x, 1.0f);
+            drawSize.y = std::max(drawSize.y, 1.0f);
+            ImGui::Image(accretionShader.texture, drawSize);
         }
     } ImGui::End();
+
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Main", NULL, windowFlags)){
+        /*
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
             ImGui::TextUnformatted("This is the Main window...");
+            ImVec2 drawSize(viking.extent.width, viking.extent.height);
+            drawSize.x = std::max(drawSize.x, 1.0f);
+            drawSize.y = std::max(drawSize.y, 1.0f);
+            ImGui::Image(viking.outTexture, drawSize);
         }
+        */
     } ImGui::End();
 
     // a function with a sinister soul
@@ -304,7 +317,7 @@ void UI::cmdPrompt(){
     if(cmdOpen){
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-        ImGui::SetNextWindowBgAlpha(0.25);
+        ImGui::SetNextWindowBgAlpha(0.50);
         if(ImGui::Begin("CommandPrompt", nullptr, flags)){
             ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
             if(cmdFF){ ImGui::SetKeyboardFocusHere(); }
@@ -363,7 +376,7 @@ bool UI::popupWindow(){
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImGui::SetNextWindowBgAlpha(0.25);
+    ImGui::SetNextWindowBgAlpha(0.50);
 
     bool focused = false;
     bool childFocused = false;
@@ -424,7 +437,7 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
                              ImGuiWindowFlags_NoFocusOnAppearing;
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImGui::SetNextWindowBgAlpha(0.25);
+    ImGui::SetNextWindowBgAlpha(0.50);
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(pos);
     if(ImGui::Begin((sig.name + "wide##").data(), NULL, flags)){
@@ -537,9 +550,8 @@ void UI::search(){
 }
 
 void UI::shaderWindow(VulkanShader& shader, std::string windowName){
-    if(!shader.texture) {return;}
     ImGui::SetNextWindowSize(ImVec2(shader.extent.width, shader.extent.height), ImGuiCond_FirstUseEver);
-    ImGuiWindowFlags flags = 0;//ImGuiWindowFlags_NoDecoration;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin(windowName.data(), NULL, flags)){
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
         if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
@@ -560,6 +572,30 @@ void UI::shaderWindow(VulkanShader& shader, std::string windowName){
         ImGui::Image(shader.texture, drawSize);
     }
     ImGui::End();
+}
+
+void UI::objWindow(VulkanObj& obj, std::string name){
+    ImGui::SetNextWindowSize(ImVec2(obj.extent.width, obj.extent.height), ImGuiCond_FirstUseEver);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
+    if(ImGui::Begin(name.data(), NULL, flags)){
+        ImVec2 contentSize = ImGui::GetContentRegionAvail();
+        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
+            contentSize = ImVec2(obj.extent.width, obj.extent.height);
+        }
+        const float delta = 0.5f;
+        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
+            if(std::fabs(contentSize.x - obj.extent.width) > delta ||
+               std::fabs(contentSize.y - obj.extent.height) > delta){
+                obj.extent.width = contentSize.x;
+                obj.extent.height = contentSize.y;
+                obj.dirty = true;
+            }
+        }
+        ImVec2 drawSize(obj.extent.width, obj.extent.height);
+        drawSize.x = std::max(drawSize.x, 1.0f);
+        drawSize.y = std::max(drawSize.y, 1.0f);
+        ImGui::Image(obj.outTexture, drawSize);
+    } ImGui::End();
 }
 
 void UI::showVideoDisplay(){
