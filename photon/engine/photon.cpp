@@ -52,6 +52,7 @@ void Photon::initThreads(){
     tcp_t.detach();
 
     std::thread ac_t(&Network::corsaReader, &network);
+    ac_t.detach();
 
     std::thread parser_t(&Parse::parser, &parse, std::ref(network.tcpQueue));
     parser_t.detach();
