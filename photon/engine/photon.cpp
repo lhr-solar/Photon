@@ -10,7 +10,7 @@
 
 Photon::Photon(){ 
     logs("[+] Constructing Photon"); 
-    gui.ui.networkINTF = &network;
+    gui.ui.parseINTF = &parse;
 };
 Photon::~Photon(){ 
     logs("[!] Destructuring Photon");
@@ -45,15 +45,16 @@ void Photon::prepareScene(){
 };
 
 void Photon::initThreads(){
-    network.canStore.loadStateFromFile("./assets/dbc/daybreak-master.dbc");
-    std::thread producer_t(&Network::producer, &network);
-    producer_t.detach();
-    std::thread parser_t(&Network::parser, &network);
+    //parse.canStore.loadStateFromFile("./assets/dbc/assettoCorsa.dbc");
+    parse.canStore.loadStateFromFile("./assets/dbc/daybreak-master.dbc");
+
+    std::thread tcp_t(&Network::tcpReader, &network);
+    tcp_t.detach();
+
+    std::thread ac_t(&Network::corsaReader, &network);
+
+    std::thread parser_t(&Parse::parser, &parse, std::ref(network.tcpQueue));
     parser_t.detach();
-//    std::thread uartProducer_t(&Network::uartProducer, &network);
-//    uartProducer_t.detach();
-//    std::thread uartConsumer_t(&Network::uartConsumer, &network);
-//    uartConsumer_t.detach();
 }
 
 void Photon::renderLoop(){

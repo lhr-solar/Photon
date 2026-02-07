@@ -8,7 +8,7 @@
 #include <utility>
 
 template <typename T>
-struct SPSCQueue {
+struct alignas(64) SPSCQueue {
 explicit SPSCQueue(std::size_t capacity){
   if (capacity == 0){ capacity = 1; }
   capacity_ = capacity + 1;

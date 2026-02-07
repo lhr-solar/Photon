@@ -12,7 +12,6 @@
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
-#include "../network/dbc.hpp"
 
 void UI::build(){
     static bool showFps = false;
@@ -23,8 +22,7 @@ void UI::build(){
                                    ImGuiWindowFlags_NoBackground |
                                    ImGuiWindowFlags_NoDocking;
     background();
-    // if the signal does not exist, it will not be updated....
-    for (auto& [id, msg] : networkINTF->canStore.canMessages) msg.updateMessage(networkINTF); 
+    for (auto& [id, msg] : parseINTF->canStore.canMessages) msg.updateMessage(parseINTF);
 
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Debug", NULL, windowFlags)){
@@ -39,19 +37,12 @@ void UI::build(){
 
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Main", NULL, windowFlags)){
-        /*
         if(ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)){
             ImGui::TextUnformatted("This is the Main window...");
-            ImVec2 drawSize(viking.extent.width, viking.extent.height);
-            drawSize.x = std::max(drawSize.x, 1.0f);
-            drawSize.y = std::max(drawSize.y, 1.0f);
-            ImGui::Image(viking.outTexture, drawSize);
         }
-        */
     } ImGui::End();
 
-    // a function with a sinister soul
-    cmdPrompt();
+    signalSearch();
 
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
@@ -187,7 +178,7 @@ void UI::procedural(std::vector<Plot*> plots){
             pos.y = pos.y + windowSize.y;
         }
         ImGui::SetNextWindowPos(pos);
-        plots[i]->update(networkINTF);
+        plots[i]->update(parseINTF);
         pos.x = pos.x + windowSize.x;
     }
 }
@@ -283,7 +274,7 @@ void UI::fpsWindow(){
     ImGui::PopStyleColor(4);
 }
 
-void UI::cmdPrompt(){
+void UI::signalSearch(){
     if(!cmdOpen && ImGui::IsKeyPressed(ImGuiKey_Slash)){
         cmdOpen = true;
         cmdFF = true;
@@ -385,7 +376,7 @@ bool UI::popupWindow(){
     ImVec2 center = vp->GetCenter();
     ImVec2 position = ImVec2(vp->Size.x * 0.10, vp->Size.y * 0.25);
     ImGui::SetNextWindowPos(position);
-    const CanMessage& msg = networkINTF->canStore.canMessages[activeCmdResult.canID];
+    const CanMessage& msg = parseINTF->canStore.canMessages[activeCmdResult.canID];
     if (msg.signals.empty()) {
         ImGui::Text("No signals available");
         ImGui::PopStyleColor(2);
@@ -518,9 +509,9 @@ void UI::search(){
     }
 
     std::vector<CmdResult> results;
-    results.reserve(networkINTF->canStore.canMessages.size());
+    results.reserve(parseINTF->canStore.canMessages.size());
 
-    for (auto& [id, msg] : networkINTF->canStore.canMessages) {
+    for (auto& [id, msg] : parseINTF->canStore.canMessages) {
         int d = distance(cmdBuffer, msg.name);
         results.emplace_back(msg.name, d, msg.canId);
     }

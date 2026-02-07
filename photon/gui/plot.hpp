@@ -2,8 +2,7 @@
 
 #include <string>
 #include <vector>
-
-struct Network;
+#include "../parse/parse.hpp"
 
 struct Plot{
     int canID;
@@ -13,6 +12,6 @@ struct Plot{
     double minValue = 0;
     double maxValue = 1;
     Plot(int canID, const char* windowName, const char* plotName);
-    void update(Network* networkSource);
+    void update(Parse* networkSource);
 };
 

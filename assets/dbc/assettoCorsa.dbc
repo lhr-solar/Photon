@@ -1,0 +1,337 @@
+VERSION ""
+
+
+NS_ : 
+		NS_DESC_
+		CM_
+		BA_DEF_
+		BA_
+		VAL_
+		CAT_DEF_
+		CAT_
+		FILTER
+		BA_DEF_DEF_
+		EV_DATA_
+		ENVVAR_DATA_
+		SGTYPE_
+		SGTYPE_VAL_
+		BA_DEF_SGTYPE_
+		BA_SGTYPE_
+		SIG_TYPE_REF_
+		VAL_TABLE_
+		SIG_GROUP_
+		SIG_VALTYPE_
+		SIGTYPE_VALTYPE_
+		BO_TX_BU_
+		BA_DEF_REL_
+		BA_REL_
+		BA_DEF_DEF_REL_
+		BU_SG_REL_
+		BU_EV_REL_
+		BU_BO_REL_
+		SG_MUL_VAL_
+
+BS_:
+
+BU_:
+
+
+BO_ 0 AC_Identifier: 1 Vector__XXX
+	SG_ Identifier : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 1 AC_Size: 4 Vector__XXX
+	SG_ Size : 0|32@1+ (1,0) [0|0] "bytes" Vector__XXX
+
+BO_ 2 AC_Speed_Kmh: 4 Vector__XXX
+	SG_ Speed_Kmh : 0|32@1+ (1,0) [0|0] "km/h" Vector__XXX
+
+BO_ 3 AC_Speed_Mph: 4 Vector__XXX
+	SG_ Speed_Mph : 0|32@1+ (1,0) [0|0] "mph" Vector__XXX
+
+BO_ 4 AC_Speed_Ms: 4 Vector__XXX
+	SG_ Speed_Ms : 0|32@1+ (1,0) [0|0] "m/s" Vector__XXX
+
+BO_ 5 AC_Abs_Enabled: 1 Vector__XXX
+	SG_ Abs_Enabled : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 6 AC_Abs_InAction: 1 Vector__XXX
+	SG_ Abs_InAction : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 7 AC_Tc_InAction: 1 Vector__XXX
+	SG_ Tc_InAction : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 8 AC_Tc_Enabled: 1 Vector__XXX
+	SG_ Tc_Enabled : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 9 AC_In_Pit: 1 Vector__XXX
+	SG_ In_Pit : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 10 AC_Engine_Limiter_On: 1 Vector__XXX
+	SG_ Engine_Limiter_On : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 11 AC_AccG_Vertical: 4 Vector__XXX
+	SG_ AccG_Vertical : 0|32@1- (1,0) [0|0] "g" Vector__XXX
+
+BO_ 12 AC_AccG_Horizontal: 4 Vector__XXX
+	SG_ AccG_Horizontal : 0|32@1- (1,0) [0|0] "g" Vector__XXX
+
+BO_ 13 AC_AccG_Frontal: 4 Vector__XXX
+	SG_ AccG_Frontal : 0|32@1- (1,0) [0|0] "g" Vector__XXX
+
+BO_ 14 AC_LapTime: 4 Vector__XXX
+	SG_ LapTime : 0|32@1+ (1,0) [0|0] "ms" Vector__XXX
+
+BO_ 15 AC_LastLap: 4 Vector__XXX
+	SG_ LastLap : 0|32@1+ (1,0) [0|0] "ms" Vector__XXX
+
+BO_ 16 AC_BestLap: 4 Vector__XXX
+	SG_ BestLap : 0|32@1+ (1,0) [0|0] "ms" Vector__XXX
+
+BO_ 17 AC_LapCount: 4 Vector__XXX
+	SG_ LapCount : 0|32@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 18 AC_Gas: 4 Vector__XXX
+	SG_ Gas : 0|32@1+ (1,0) [0|0] "%" Vector__XXX
+
+BO_ 19 AC_Brake: 4 Vector__XXX
+	SG_ Brake : 0|32@1+ (1,0) [0|0] "%" Vector__XXX
+
+BO_ 20 AC_Clutch: 4 Vector__XXX
+	SG_ Clutch : 0|32@1+ (1,0) [0|0] "%" Vector__XXX
+
+BO_ 21 AC_EngineRPM: 4 Vector__XXX
+	SG_ EngineRPM : 0|32@1+ (1,0) [0|0] "rpm" Vector__XXX
+
+BO_ 22 AC_Steer: 4 Vector__XXX
+	SG_ Steer : 0|32@1- (1,0) [0|0] "rad" Vector__XXX
+
+BO_ 23 AC_Gear: 4 Vector__XXX
+	SG_ Gear : 0|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 24 AC_CgHeight: 4 Vector__XXX
+	SG_ CgHeight : 0|32@1+ (1,0) [0|0] "m" Vector__XXX
+
+BO_ 25 AC_WheelAngularSpeed: 16 Vector__XXX
+	SG_ WheelAngularSpeed_0 : 0|32@1+ (1,0) [0|0] "rad/s" Vector__XXX
+	SG_ WheelAngularSpeed_1 : 32|32@1+ (1,0) [0|0] "rad/s" Vector__XXX
+	SG_ WheelAngularSpeed_2 : 64|32@1+ (1,0) [0|0] "rad/s" Vector__XXX
+	SG_ WheelAngularSpeed_3 : 96|32@1+ (1,0) [0|0] "rad/s" Vector__XXX
+
+BO_ 26 AC_SlipAngle: 16 Vector__XXX
+	SG_ SlipAngle_0 : 0|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ SlipAngle_1 : 32|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ SlipAngle_2 : 64|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ SlipAngle_3 : 96|32@1- (1,0) [0|0] "rad" Vector__XXX
+
+BO_ 27 AC_SlipAngle_ContactPatch: 16 Vector__XXX
+	SG_ SlipAngle_ContactPatch_0 : 0|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ SlipAngle_ContactPatch_1 : 32|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ SlipAngle_ContactPatch_2 : 64|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ SlipAngle_ContactPatch_3 : 96|32@1- (1,0) [0|0] "rad" Vector__XXX
+
+BO_ 28 AC_SlipRatio: 16 Vector__XXX
+	SG_ SlipRatio_0 : 0|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ SlipRatio_1 : 32|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ SlipRatio_2 : 64|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ SlipRatio_3 : 96|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 29 AC_TyreSlip: 16 Vector__XXX
+	SG_ TyreSlip_0 : 0|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ TyreSlip_1 : 32|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ TyreSlip_2 : 64|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ TyreSlip_3 : 96|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 30 AC_NdSlip: 16 Vector__XXX
+	SG_ NdSlip_0 : 0|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ NdSlip_1 : 32|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ NdSlip_2 : 64|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ NdSlip_3 : 96|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 31 AC_Load: 16 Vector__XXX
+	SG_ Load_0 : 0|32@1+ (1,0) [0|0] "N" Vector__XXX
+	SG_ Load_1 : 32|32@1+ (1,0) [0|0] "N" Vector__XXX
+	SG_ Load_2 : 64|32@1+ (1,0) [0|0] "N" Vector__XXX
+	SG_ Load_3 : 96|32@1+ (1,0) [0|0] "N" Vector__XXX
+
+BO_ 32 AC_Dy: 16 Vector__XXX
+	SG_ Dy_0 : 0|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ Dy_1 : 32|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ Dy_2 : 64|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ Dy_3 : 96|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 33 AC_Mz: 16 Vector__XXX
+	SG_ Mz_0 : 0|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ Mz_1 : 32|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ Mz_2 : 64|32@1- (1,0) [0|0] "" Vector__XXX
+	SG_ Mz_3 : 96|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 34 AC_TyreDirtyLevel: 16 Vector__XXX
+	SG_ TyreDirtyLevel_0 : 0|32@1+ (1,0) [0|0] "" Vector__XXX
+	SG_ TyreDirtyLevel_1 : 32|32@1+ (1,0) [0|0] "" Vector__XXX
+	SG_ TyreDirtyLevel_2 : 64|32@1+ (1,0) [0|0] "" Vector__XXX
+	SG_ TyreDirtyLevel_3 : 96|32@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 35 AC_CamberRAD: 16 Vector__XXX
+	SG_ CamberRAD_0 : 0|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ CamberRAD_1 : 32|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ CamberRAD_2 : 64|32@1- (1,0) [0|0] "rad" Vector__XXX
+	SG_ CamberRAD_3 : 96|32@1- (1,0) [0|0] "rad" Vector__XXX
+
+BO_ 36 AC_TyreRadius: 16 Vector__XXX
+	SG_ TyreRadius_0 : 0|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ TyreRadius_1 : 32|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ TyreRadius_2 : 64|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ TyreRadius_3 : 96|32@1+ (1,0) [0|0] "m" Vector__XXX
+
+BO_ 37 AC_TyreLoadedRadius: 16 Vector__XXX
+	SG_ TyreLoadedRadius_0 : 0|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ TyreLoadedRadius_1 : 32|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ TyreLoadedRadius_2 : 64|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ TyreLoadedRadius_3 : 96|32@1+ (1,0) [0|0] "m" Vector__XXX
+
+BO_ 38 AC_SuspensionHeight: 16 Vector__XXX
+	SG_ SuspensionHeight_0 : 0|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ SuspensionHeight_1 : 32|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ SuspensionHeight_2 : 64|32@1+ (1,0) [0|0] "m" Vector__XXX
+	SG_ SuspensionHeight_3 : 96|32@1+ (1,0) [0|0] "m" Vector__XXX
+
+BO_ 39 AC_CarPositionNormalized: 4 Vector__XXX
+	SG_ CarPositionNormalized : 0|32@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 40 AC_CarSlope: 4 Vector__XXX
+	SG_ CarSlope : 0|32@1- (1,0) [0|0] "rad" Vector__XXX
+
+BO_ 41 AC_CarCoordinates: 12 Vector__XXX
+	SG_ CarCoordinates_X : 0|32@1- (1,0) [0|0] "m" Vector__XXX
+	SG_ CarCoordinates_Y : 32|32@1- (1,0) [0|0] "m" Vector__XXX
+	SG_ CarCoordinates_Z : 64|32@1- (1,0) [0|0] "m" Vector__XXX
+
+
+CM_ BO_ 0 "Message identifier";
+CM_ SG_ 0 Identifier "Message identifier";
+CM_ BO_ 1 "Message payload size";
+CM_ SG_ 1 Size "Message payload size";
+CM_ BO_ 2 "Vehicle speed";
+CM_ SG_ 2 Speed_Kmh "Vehicle speed";
+CM_ BO_ 3 "Vehicle speed";
+CM_ SG_ 3 Speed_Mph "Vehicle speed";
+CM_ BO_ 4 "Vehicle speed";
+CM_ SG_ 4 Speed_Ms "Vehicle speed";
+CM_ BO_ 5 "ABS enabled";
+CM_ SG_ 5 Abs_Enabled "ABS enabled";
+CM_ BO_ 6 "ABS active";
+CM_ SG_ 6 Abs_InAction "ABS active";
+CM_ BO_ 7 "TC active";
+CM_ SG_ 7 Tc_InAction "TC active";
+CM_ BO_ 8 "TC enabled";
+CM_ SG_ 8 Tc_Enabled "TC enabled";
+CM_ BO_ 9 "In pit lane";
+CM_ SG_ 9 In_Pit "In pit lane";
+CM_ BO_ 10 "Engine limiter active";
+CM_ SG_ 10 Engine_Limiter_On "Engine limiter active";
+CM_ BO_ 11 "Vertical acceleration";
+CM_ SG_ 11 AccG_Vertical "Vertical acceleration";
+CM_ BO_ 12 "Lateral acceleration";
+CM_ SG_ 12 AccG_Horizontal "Lateral acceleration";
+CM_ BO_ 13 "Longitudinal acceleration";
+CM_ SG_ 13 AccG_Frontal "Longitudinal acceleration";
+CM_ BO_ 14 "Current lap time";
+CM_ SG_ 14 LapTime "Current lap time";
+CM_ BO_ 15 "Last lap time";
+CM_ SG_ 15 LastLap "Last lap time";
+CM_ BO_ 16 "Best lap time";
+CM_ SG_ 16 BestLap "Best lap time";
+CM_ BO_ 17 "Completed laps";
+CM_ SG_ 17 LapCount "Completed laps";
+CM_ BO_ 18 "Throttle position";
+CM_ SG_ 18 Gas "Throttle position";
+CM_ BO_ 19 "Brake position";
+CM_ SG_ 19 Brake "Brake position";
+CM_ BO_ 20 "Clutch position";
+CM_ SG_ 20 Clutch "Clutch position";
+CM_ BO_ 21 "Engine speed";
+CM_ SG_ 21 EngineRPM "Engine speed";
+CM_ BO_ 22 "Steering angle";
+CM_ SG_ 22 Steer "Steering angle";
+CM_ BO_ 23 "Current gear";
+CM_ SG_ 23 Gear "Current gear";
+CM_ BO_ 24 "Center of gravity height";
+CM_ SG_ 24 CgHeight "Center of gravity height";
+CM_ BO_ 25 "Wheel angular speed";
+CM_ SG_ 25 WheelAngularSpeed_0 "Wheel angular speed";
+CM_ SG_ 25 WheelAngularSpeed_1 "Wheel angular speed";
+CM_ SG_ 25 WheelAngularSpeed_2 "Wheel angular speed";
+CM_ SG_ 25 WheelAngularSpeed_3 "Wheel angular speed";
+CM_ BO_ 26 "Slip angle";
+CM_ SG_ 26 SlipAngle_0 "Slip angle";
+CM_ SG_ 26 SlipAngle_1 "Slip angle";
+CM_ SG_ 26 SlipAngle_2 "Slip angle";
+CM_ SG_ 26 SlipAngle_3 "Slip angle";
+CM_ BO_ 27 "Slip angle at contact patch";
+CM_ SG_ 27 SlipAngle_ContactPatch_0 "Slip angle at contact patch";
+CM_ SG_ 27 SlipAngle_ContactPatch_1 "Slip angle at contact patch";
+CM_ SG_ 27 SlipAngle_ContactPatch_2 "Slip angle at contact patch";
+CM_ SG_ 27 SlipAngle_ContactPatch_3 "Slip angle at contact patch";
+CM_ BO_ 28 "Slip ratio";
+CM_ SG_ 28 SlipRatio_0 "Slip ratio";
+CM_ SG_ 28 SlipRatio_1 "Slip ratio";
+CM_ SG_ 28 SlipRatio_2 "Slip ratio";
+CM_ SG_ 28 SlipRatio_3 "Slip ratio";
+CM_ BO_ 29 "Tyre slip";
+CM_ SG_ 29 TyreSlip_0 "Tyre slip";
+CM_ SG_ 29 TyreSlip_1 "Tyre slip";
+CM_ SG_ 29 TyreSlip_2 "Tyre slip";
+CM_ SG_ 29 TyreSlip_3 "Tyre slip";
+CM_ BO_ 30 "Normalized slip";
+CM_ SG_ 30 NdSlip_0 "Normalized slip";
+CM_ SG_ 30 NdSlip_1 "Normalized slip";
+CM_ SG_ 30 NdSlip_2 "Normalized slip";
+CM_ SG_ 30 NdSlip_3 "Normalized slip";
+CM_ BO_ 31 "Wheel load";
+CM_ SG_ 31 Load_0 "Wheel load";
+CM_ SG_ 31 Load_1 "Wheel load";
+CM_ SG_ 31 Load_2 "Wheel load";
+CM_ SG_ 31 Load_3 "Wheel load";
+CM_ BO_ 32 "Lateral force coefficient";
+CM_ SG_ 32 Dy_0 "Lateral force coefficient";
+CM_ SG_ 32 Dy_1 "Lateral force coefficient";
+CM_ SG_ 32 Dy_2 "Lateral force coefficient";
+CM_ SG_ 32 Dy_3 "Lateral force coefficient";
+CM_ BO_ 33 "Aligning moment";
+CM_ SG_ 33 Mz_0 "Aligning moment";
+CM_ SG_ 33 Mz_1 "Aligning moment";
+CM_ SG_ 33 Mz_2 "Aligning moment";
+CM_ SG_ 33 Mz_3 "Aligning moment";
+CM_ BO_ 34 "Tyre dirt level";
+CM_ SG_ 34 TyreDirtyLevel_0 "Tyre dirt level";
+CM_ SG_ 34 TyreDirtyLevel_1 "Tyre dirt level";
+CM_ SG_ 34 TyreDirtyLevel_2 "Tyre dirt level";
+CM_ SG_ 34 TyreDirtyLevel_3 "Tyre dirt level";
+CM_ BO_ 35 "Camber angle";
+CM_ SG_ 35 CamberRAD_0 "Camber angle";
+CM_ SG_ 35 CamberRAD_1 "Camber angle";
+CM_ SG_ 35 CamberRAD_2 "Camber angle";
+CM_ SG_ 35 CamberRAD_3 "Camber angle";
+CM_ BO_ 36 "Tyre radius";
+CM_ SG_ 36 TyreRadius_0 "Tyre radius";
+CM_ SG_ 36 TyreRadius_1 "Tyre radius";
+CM_ SG_ 36 TyreRadius_2 "Tyre radius";
+CM_ SG_ 36 TyreRadius_3 "Tyre radius";
+CM_ BO_ 37 "Tyre loaded radius";
+CM_ SG_ 37 TyreLoadedRadius_0 "Tyre loaded radius";
+CM_ SG_ 37 TyreLoadedRadius_1 "Tyre loaded radius";
+CM_ SG_ 37 TyreLoadedRadius_2 "Tyre loaded radius";
+CM_ SG_ 37 TyreLoadedRadius_3 "Tyre loaded radius";
+CM_ BO_ 38 "Suspension height";
+CM_ SG_ 38 SuspensionHeight_0 "Suspension height";
+CM_ SG_ 38 SuspensionHeight_1 "Suspension height";
+CM_ SG_ 38 SuspensionHeight_2 "Suspension height";
+CM_ SG_ 38 SuspensionHeight_3 "Suspension height";
+CM_ BO_ 39 "Track position normalized";
+CM_ SG_ 39 CarPositionNormalized "Track position normalized";
+CM_ BO_ 40 "Car slope";
+CM_ SG_ 40 CarSlope "Car slope";
+CM_ BO_ 41 "Car world position";
+CM_ SG_ 41 CarCoordinates_X "Car world position";
+CM_ SG_ 41 CarCoordinates_Y "Car world position";
+CM_ SG_ 41 CarCoordinates_Z "Car world position";

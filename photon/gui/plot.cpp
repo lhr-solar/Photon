@@ -1,7 +1,6 @@
 #include "imgui.h"
 #include "implot.h"
 #include "plot.hpp"
-#include "../network/network.hpp"
 
 Plot::Plot(int canID, const char* windowName, const char* plotName)
     : data{std::vector<double>{0.0}, std::vector<double>{0.0}},
@@ -9,7 +8,7 @@ Plot::Plot(int canID, const char* windowName, const char* plotName)
       windowName(windowName),
       plotName(plotName) {}
 
-void Plot::update(Network* networkSource){
+void Plot::update(Parse* networkSource){
     uint64_t val = 0;
     ImGuiIO &io = ImGui::GetIO();
     float deltaTime = io.DeltaTime;

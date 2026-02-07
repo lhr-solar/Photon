@@ -1,5 +1,6 @@
 #pragma once
 #include "../network/network.hpp"
+#include "../parse/parse.hpp"
 #include "../gpu/vulkanShader.hpp"
 #include "../gpu/vulkanOBJ.hpp"
 #include "video.hpp"
@@ -15,7 +16,7 @@
 #include "plot.hpp"
 
 struct UI{
-    Network *networkINTF;
+    Parse *parseINTF;
     char deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {0};
     uint32_t vendorID = 0;
     uint32_t deviceID = 0;
@@ -49,7 +50,7 @@ struct UI{
     void setStyle();
     void build();
     void fpsWindow();
-    void cmdPrompt();
+    void signalSearch();
     void basePlate();
     void background();
     void showVideoDisplay();
