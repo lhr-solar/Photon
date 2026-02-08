@@ -2,8 +2,11 @@
 #include "network.hpp"
 #include "tcp.hpp"
 #include "spsc.hpp"
+#include <fcntl.h>
 #include <cstddef>
-#include <iomanip>
+#include <charconv>
+#include <map>
+#include <fstream>
 #include <thread>
 #include <vector>
 #include <iostream>
@@ -23,20 +26,40 @@ int hexValue(char c) {
 }
 
 #define QUEUE_CAPACITY 2048
-Network::Network() : spscQueue(QUEUE_CAPACITY){
-
+Network::Network() : uartQueue(QUEUE_CAPACITY), tcpQueue(QUEUE_CAPACITY) {
 }
+Network::~Network(){
+    running = false;
+};
 
 #define BUFFER_CAPACITY 1024
 void Network::producer(){
     TcpSocket socket(IP, PORT);
+//    std::ifstream logStream("log", std::ios::binary);
+//    if (!logStream) {
+//        logs("[producer] Unable to open daq.log for replay");
+//        return;
+//    }
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
 
-    while(1){
+    while(running){
         auto bytesRead = socket.read(buffer.data(), buffer.size());
+//        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//        logStream.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+//        auto bytesRead = logStream.gcount();
+        if (bytesRead <= 0) {
+//            if (logStream.eof()) {
+//                logStream.clear();
+//                logStream.seekg(0);
+//                continue;
+//            }
+//            logs("[producer] Error while reading daq.log");
+//            break;
+            continue;
+        }
         if (bytesRead > 0) {
             for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); ++i) {
-                while (!spscQueue.try_push(buffer[i])) {
+                while (!tcpQueue.try_push(buffer[i])) {
                     std::this_thread::yield();
                 }
             }
@@ -49,10 +72,10 @@ void Network::parser(){
     frame.reserve(32);
     bool collecting = false;
 
-    while(1){
-        if(auto* byte = spscQueue.front()){
+    while(running){
+        if(auto* byte = tcpQueue.front()){
             char ch = static_cast<char>(*byte);
-            spscQueue.pop();
+            tcpQueue.pop();
 
             if (ch == 't') {
                 frame.clear();
@@ -95,22 +118,30 @@ Network::sample& Network::ensureSample(uint16_t canId) {
 }
 
 void Network::writeSample(uint16_t canId, uint64_t value) {
+    if(canId < 0) return;
     sample& entry = ensureSample(canId);
     std::lock_guard<std::mutex> valueGuard(entry.lock);
     entry.point = value;
+    entry.hasNew = true;
 }
 
 bool Network::readSample(uint16_t canId, uint64_t& outValue) {
     std::unique_lock<std::mutex> mapLock(sampleMapMutex);
     auto it = sampleMap.find(canId);
     if (it == sampleMap.end()) {
+        outValue = 0;
         return false;
     }
     sample* entry = it->second.get();
     mapLock.unlock();
 
     std::lock_guard<std::mutex> valueGuard(entry->lock);
+    if (!entry->hasNew) {
+        outValue = entry->point;
+        return false;
+    }
     outValue = entry->point;
+    entry->hasNew = false;
     return true;
 }
 
@@ -123,7 +154,6 @@ void Network::handleFrame(const std::string& frame) {
     }
 
     writeSample(canId, value);
-    //logs("[parser] CAN 0x" << std::hex << canId << " value 0x" << value << std::dec);
 }
 
 bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
@@ -175,3 +205,91 @@ bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& v
 
     return true;
 }
+
+#ifndef WIN32
+#include <termios.h>
+void Network::uartProducer(){
+    std::vector<uint8_t> buffer(BUFFER_CAPACITY);
+    int _fd = open("/dev/ttyACM0", O_RDWR | O_NOCTTY);
+    while(_fd < 0){
+        std::cout << "[!] Attempting connection on /dev/ttyACM0" << std::endl;
+        _fd = open("/dev/ttyACM0", O_RDWR | O_NOCTTY);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    struct termios tty = {};
+    tcgetattr(_fd, &tty);
+    cfmakeraw(&tty);
+    cfsetispeed(&tty, B115200);
+    cfsetospeed(&tty, B115200);
+    tty.c_cc[VMIN]  = 1;
+    tty.c_cc[VTIME] = 0;
+    tcsetattr(_fd, TCSANOW, &tty);
+    tcflush(_fd, TCIFLUSH);
+
+    while(running){
+        ssize_t n = read(_fd, buffer.data(), buffer.size());
+        for(int i = 0; i < n; i++){
+            uartQueue.push(buffer[i]);
+        }
+    }
+};
+
+static inline int retCANID(const char* str){
+    static const std::map<std::string, uint16_t> map = {
+        {"gX: ", 0x400}, 
+        {"gY: ", 0x401},
+        {"gZ: ", 0x402},
+        {"aX: ", 0x403},
+        {"aY: ", 0x404},
+        {"aZ: ", 0x405},
+        };
+    auto it = map.find(str);
+    if(it == map.end()) return -1;
+    return it->second;
+}
+
+void Network::uartConsumer(){
+    std::string canId;
+    std::string value;
+    bool collectingCAN = false;
+    bool collectingVal = false;
+    while(running){
+        if(unsigned char* l = uartQueue.front()){
+            uartQueue.pop();
+            if((*l == 'g') || (*l == 'a')){
+                canId.clear();
+                value.clear();
+                collectingCAN = true;
+                collectingVal = false;
+                canId.push_back(*l);
+                continue;
+            }
+            if(collectingCAN && *l == ' '){
+                canId.push_back(*l);
+                collectingCAN = false;
+                collectingVal = true;
+                continue;
+            }
+            if(collectingCAN){
+                canId.push_back(*l);
+            }
+            if(collectingVal && ((*l == ' ') || (*l == '\n'))){
+                int v;
+                auto [p, ec] = std::from_chars(value.data(), value.data() + value.size(), v);
+                if (ec == std::errc()) writeSample(retCANID(canId.c_str()), v);
+                canId.clear(); value.clear(); collectingVal = false;
+            }
+            if(collectingVal){
+                value.push_back(*l);
+            }
+        }
+    }
+}
+#else
+void Network::uartConsumer(){
+    return;
+}
+void Network::uartProducer(){
+    return;
+}
+#endif

@@ -7,7 +7,7 @@
 namespace ui {
 
 /**
- * Fault severity levels matching TSX implementation
+ * Fault severity levels
  */
 enum class FaultSeverity {
     Info,
@@ -16,13 +16,12 @@ enum class FaultSeverity {
 };
 
 /**
- * Gear positions for the vehicle
+ * Gear positions: Forward / Neutral / Reverse
  */
 enum class Gear {
-    Park,
-    Reverse,
+    Forward,
     Neutral,
-    Drive
+    Reverse
 };
 
 /**
@@ -54,11 +53,20 @@ struct MainBattery {
 };
 
 /**
- * Supplementary (12V) battery state
+ * Supplementary (auxiliary) battery state
  */
 struct SuppBattery {
     float soc;      // State of charge (0-100)
     float voltage;  // Voltage in V
+};
+
+/**
+ * Motor controller (inverter) telemetry
+ */
+struct MotorController {
+    float heatsinkTemp;  // Heatsink temperature in C
+    float voltage;       // Bus voltage in V
+    float current;       // Bus current in A
 };
 
 /**
@@ -71,15 +79,29 @@ struct CruiseControl {
 
 /**
  * Contactor states for high voltage system
+ * 6 contactors: HV+, HV-, Array Precharge, Array, Motor Precharge, Motor
  */
 struct ContactorStates {
-    bool main;
-    bool precharge;
-    bool hvil;  // High Voltage Interlock Loop
+    bool hvPositive;        // HP - HV+ contactor
+    bool hvNegative;        // HN - HV- contactor
+    bool arrayPrecharge;    // AP - Array precharge contactor
+    bool arrayContactor;    // AN - Array contactor
+    bool motorPrecharge;    // MP - Motor precharge contactor
+    bool motorContactor;    // MM - Motor contactor
 };
 
 /**
- * Complete application state mirroring VehicleState from TSX
+ * Ignition / enable states
+ * 3 enable switches: Low Voltage, Array, Motor
+ */
+struct IgnitionStates {
+    bool lvEnabled;         // LV - Low Voltage enable
+    bool arrayEnabled;      // A  - Array enable
+    bool motorEnabled;      // M  - Motor enable
+};
+
+/**
+ * Complete application state
  * All widgets read/write from this struct - no globals.
  */
 struct AppState {
@@ -87,45 +109,83 @@ struct AppState {
     Gear gear;
     MainBattery mainBattery;
     SuppBattery suppBattery;
+    MotorController motorController;
     CruiseControl cruise;
     bool brakeEngaged;
+    bool regenEnabled;
     ContactorStates contactorStates;
+    IgnitionStates ignitionStates;
+    bool simulationEnabled = true;
     uint8_t heartbeat;      // 0-255 cycling heartbeat counter
     std::vector<Fault> faults;
     TurnSignal turnSignal;
 
-    // Camera texture IDs - placeholders for actual textures
-    // TODO: Load actual textures when available
-    void* rearCameraTexture = nullptr;
-    void* sideCameraTexture = nullptr;
+    // Unrecoverable CAN fault
+    bool canFault = false;
+    uint16_t canFaultId = 0;
+    std::string canFaultName;
+    std::string canFaultMessage;
+
+    // Recoverable CAN fault
+    bool canFaultRecoverable = false;
+    uint16_t canFaultRecoverableId = 0;
+    std::string canFaultRecoverableName;
+    std::string canFaultRecoverableMessage;
+
+    // Camera texture IDs (nullptr = show placeholder)
+    void* leftCameraTexture  = nullptr;
+    void* rightCameraTexture = nullptr;
+    void* rearCameraTexture  = nullptr;
 };
 
 /**
- * Initialize AppState with default values matching TSX initialState
+ * Initialize AppState with default values
  */
 inline AppState CreateDefaultState() {
     AppState state{};
     state.speed = 0;
-    state.gear = Gear::Park;
-    state.mainBattery = { 78.0f, 352.4f, 0.0f };
-    state.suppBattery = { 95.0f, 12.6f };
+    state.gear = Gear::Neutral;
+    state.mainBattery = { 60.0f, 120.0f, -60.0f };
+    state.suppBattery = { 80.0f, 24.0f };
+    state.motorController = { 42.0f, 120.0f, -60.0f };
     state.cruise = { false, 0 };
-    state.brakeEngaged = true;
-    state.contactorStates = { false, false, true };
+    state.brakeEngaged = false;
+    state.regenEnabled = false;
+    state.contactorStates = { false, false, false, false, false, false };
+    state.ignitionStates = { false, false, false };
     state.heartbeat = 0;
     state.turnSignal = TurnSignal::None;
+    state.canFault = false;
+    state.canFaultId = 0;
+    state.canFaultName.clear();
+    state.canFaultMessage.clear();
+    state.canFaultRecoverable = false;
+    state.canFaultRecoverableId = 0;
+    state.canFaultRecoverableName.clear();
+    state.canFaultRecoverableMessage.clear();
     return state;
 }
 
 /**
- * Helper to convert Gear enum to display string
+ * Helper to convert Gear enum to display string (short)
  */
 inline const char* GearToString(Gear gear) {
     switch (gear) {
-        case Gear::Park:    return "P";
-        case Gear::Reverse: return "R";
+        case Gear::Forward: return "F";
         case Gear::Neutral: return "N";
-        case Gear::Drive:   return "D";
+        case Gear::Reverse: return "R";
+        default:            return "?";
+    }
+}
+
+/**
+ * Helper to convert Gear enum to long display string
+ */
+inline const char* GearToLongString(Gear gear) {
+    switch (gear) {
+        case Gear::Forward: return "F - Forward";
+        case Gear::Neutral: return "N - Neutral";
+        case Gear::Reverse: return "R - Reverse";
         default:            return "?";
     }
 }
@@ -135,11 +195,10 @@ inline const char* GearToString(Gear gear) {
  */
 inline Gear GearFromIndex(int index) {
     switch (index) {
-        case 0: return Gear::Park;
-        case 1: return Gear::Reverse;
-        case 2: return Gear::Neutral;
-        case 3: return Gear::Drive;
-        default: return Gear::Park;
+        case 0: return Gear::Forward;
+        case 1: return Gear::Neutral;
+        case 2: return Gear::Reverse;
+        default: return Gear::Neutral;
     }
 }
 

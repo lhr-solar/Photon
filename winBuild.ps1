@@ -6,6 +6,7 @@ param(
 if ($arg -eq "help") {
     Write-Host "[?] run '.\winBuild.ps1' to compile debug version"
     Write-Host "[?] run '.\winBuild.ps1 Release' to compile release version"
+    Write-Host "[?] run '.\winBuild.ps1 dash' to compile dashboard-only (no network/synth)"
     Write-Host "[?] run '.\winBuild.ps1 clean' to remove build artifacts"
     exit 0
 }
@@ -15,11 +16,19 @@ if ($arg -eq "clean") {
     Remove-Item -Recurse -Force .cache -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force artifacts -ErrorAction SilentlyContinue
     Remove-Item -Force Photon.exe -ErrorAction SilentlyContinue
+    Remove-Item -Force DashboardOnly.exe -ErrorAction SilentlyContinue
     Write-Host "[!] Cleaned build artifacts"
     exit 0
 }
 
-$BUILD_TYPE = $arg
+# Dashboard-only build
+$DASH_ONLY = $false
+if ($arg -eq "dash") {
+    $DASH_ONLY = $true
+    $BUILD_TYPE = "Debug"
+} else {
+    $BUILD_TYPE = $arg
+}
 
 $env:VK_INSTANCE_LAYERS = "VK_LAYER_KHRONOS_validation"
 $env:VK_DEBUG = "1"
@@ -42,17 +51,29 @@ cmake -G "Visual Studio 17 2022" -A x64 `
       -DVULKAN_SDK="$env:VULKAN_SDK" `
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
       -DVulkan_LIBRARY="$env:VULKAN_SDK\Lib\vulkan-1.lib" ..
-cmake --build . --config $BUILD_TYPE --parallel
+
+if ($DASH_ONLY) {
+    cmake --build . --config $BUILD_TYPE --target DashboardOnly --parallel
+} else {
+    cmake --build . --config $BUILD_TYPE --parallel
+}
 
 Set-Location ..
 
-# Path to the built exe (inside Debug/Release)
-$BUILT_EXE = ".\artifacts\photon\$BUILD_TYPE\Photon.exe"
-
-if (Test-Path $BUILT_EXE) {
-    Copy-Item -Force $BUILT_EXE .\Photon.exe
-    & ".\Photon.exe"
-}
-else {
-    Write-Host "[!] Build succeeded but no exe found at $BUILT_EXE"
+if ($DASH_ONLY) {
+    $BUILT_EXE = ".\artifacts\photon\$BUILD_TYPE\DashboardOnly.exe"
+    if (Test-Path $BUILT_EXE) {
+        Copy-Item -Force $BUILT_EXE .\DashboardOnly.exe
+        & ".\DashboardOnly.exe"
+    } else {
+        Write-Host "[!] Build succeeded but no exe found at $BUILT_EXE"
+    }
+} else {
+    $BUILT_EXE = ".\artifacts\photon\$BUILD_TYPE\Photon.exe"
+    if (Test-Path $BUILT_EXE) {
+        Copy-Item -Force $BUILT_EXE .\Photon.exe
+        & ".\Photon.exe"
+    } else {
+        Write-Host "[!] Build succeeded but no exe found at $BUILT_EXE"
+    }
 }

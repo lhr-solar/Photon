@@ -1,9 +1,11 @@
 #include "dashboard.h"
 #include "widgets.h"
 #include "theme.h"
+#include "icons.h"
 #include <cstdio>
+#include <algorithm>
 #include <cmath>
-#include <ctime>
+#include <cstring>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -11,746 +13,793 @@
 
 namespace ui {
 
-// Helper to format timestamp to HH:MM (thread-safe, cross-platform)
-static void FormatTime(int64_t timestamp, char* buf, size_t bufSize) {
-    time_t t = static_cast<time_t>(timestamp / 1000);
-    struct tm tm_storage;
-    struct tm* tm_info = nullptr;
-    
-#if defined(_WIN32) || defined(_WIN64)
-    // Windows: localtime_s has reversed parameter order and returns errno_t
-    if (localtime_s(&tm_storage, &t) == 0) {
-        tm_info = &tm_storage;
-    }
-#else
-    // POSIX (Linux, macOS, etc.): localtime_r is thread-safe
-    tm_info = localtime_r(&t, &tm_storage);
-#endif
-    
-    if (tm_info) {
-        snprintf(buf, bufSize, "%02d:%02d", tm_info->tm_hour, tm_info->tm_min);
-    } else {
-        snprintf(buf, bufSize, "--:--");
-    }
+// Color helpers
+
+static ImVec4 BlendColor(const ImVec4& a, const ImVec4& b, float t) {
+    t = std::clamp(t, 0.0f, 1.0f);
+    return ImVec4(
+        a.x + (b.x - a.x) * t,
+        a.y + (b.y - a.y) * t,
+        a.z + (b.z - a.z) * t,
+        1.0f
+    );
 }
 
-// Get color based on battery SOC level
+static ImVec4 FaultAwareCardBg(const AppState& state) {
+    ImVec4 bg = Colors::Card();
+    if (state.canFault) {
+        return BlendColor(bg, Colors::Destructive(), 0.18f);
+    }
+    if (state.canFaultRecoverable) {
+        return BlendColor(bg, Colors::Accent(), 0.18f);
+    }
+    return bg;
+}
+
+static ImVec4 FaultAwareScreenBg(const AppState& state) {
+    ImVec4 bg = Colors::Background();
+    if (state.canFault) {
+        return BlendColor(bg, Colors::Destructive(), 0.18f);
+    }
+    if (state.canFaultRecoverable) {
+        return BlendColor(bg, Colors::Accent(), 0.18f);
+    }
+    return bg;
+}
+
 static ImVec4 GetBatteryColor(float soc) {
     if (soc < 20.0f) return Colors::Destructive();
     if (soc < 40.0f) return Colors::Warning();
     return Colors::Primary();
 }
 
-// Get color based on speed
 static ImVec4 GetSpeedColor(int speed) {
-    if (speed > 160) return Colors::Destructive();
-    if (speed > 100) return Colors::Warning();
+    if (speed > 80) return Colors::Destructive();
+    if (speed > 30) return Colors::Warning();
     return Colors::Primary();
 }
 
-//=============================================================================
-// MAIN DASHBOARD
-//=============================================================================
+// Forward declarations
+
+static void RenderBatteryPanel(const AppState& state, const ImVec2& size);
+static void RenderButtonGrid(AppState& state, const ImVec2& size);
+static void RenderSpeedGauge(AppState& state, const ImVec2& size);
+
+#if defined(_DEBUG)
+static void RenderDashboardStateEditor(AppState& state) {
+    ImGuiWindowFlags editorFlags =
+        ImGuiWindowFlags_AlwaysAutoResize |
+        ImGuiWindowFlags_NoCollapse;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(12.0f, 12.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowBgAlpha(0.90f);
+
+    static bool open = true;
+    if (!open) return;
+
+    if (!ImGui::Begin("Dashboard State", &open, editorFlags)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::TextUnformatted("Edit live dashboard state");
+    ImGui::Separator();
+
+    ImGui::Checkbox("Simulation enabled", &state.simulationEnabled);
+
+    ImGui::SliderInt("Speed (km/h)", &state.speed, 0, 200);
+
+    {
+        int gearIndex = 1;
+        switch (state.gear) {
+            case Gear::Forward: gearIndex = 0; break;
+            case Gear::Neutral: gearIndex = 1; break;
+            case Gear::Reverse: gearIndex = 2; break;
+            default:            gearIndex = 1; break;
+        }
+        const char* gearItems[] = {"Forward", "Neutral", "Reverse"};
+        if (ImGui::Combo("Gear", &gearIndex, gearItems, 3)) {
+            state.gear = GearFromIndex(gearIndex);
+        }
+    }
+
+    {
+        int tsIndex = 0;
+        switch (state.turnSignal) {
+            case TurnSignal::None:  tsIndex = 0; break;
+            case TurnSignal::Left:  tsIndex = 1; break;
+            case TurnSignal::Right: tsIndex = 2; break;
+            default:                tsIndex = 0; break;
+        }
+        const char* tsItems[] = {"None", "Left", "Right"};
+        if (ImGui::Combo("Turn signal", &tsIndex, tsItems, 3)) {
+            state.turnSignal = (tsIndex == 1) ? TurnSignal::Left
+                           : (tsIndex == 2) ? TurnSignal::Right
+                                            : TurnSignal::None;
+        }
+    }
+
+    ImGui::Checkbox("Cruise enabled", &state.cruise.enabled);
+    ImGui::SliderInt("Cruise set speed", &state.cruise.setSpeed, 0, 200);
+    ImGui::Checkbox("Brake engaged", &state.brakeEngaged);
+    ImGui::Checkbox("Regen enabled", &state.regenEnabled);
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Main battery");
+    ImGui::SliderFloat("SOC (%)##main", &state.mainBattery.soc, 0.0f, 100.0f, "%.1f");
+    ImGui::SliderFloat("Voltage (V)##main", &state.mainBattery.voltage, 80.0f, 160.0f, "%.1f");
+    ImGui::SliderFloat("Current (A)##main", &state.mainBattery.current, -300.0f, 300.0f, "%.1f");
+
+    ImGui::TextUnformatted("Supp battery");
+    ImGui::SliderFloat("SOC (%)##supp", &state.suppBattery.soc, 0.0f, 100.0f, "%.1f");
+    ImGui::SliderFloat("Voltage (V)##supp", &state.suppBattery.voltage, 0.0f, 32.0f, "%.1f");
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Motor controller (MoCo)");
+    ImGui::SliderFloat("Heatsink (C)##moco", &state.motorController.heatsinkTemp, 0.0f, 140.0f, "%.1f");
+    ImGui::SliderFloat("Voltage (V)##moco", &state.motorController.voltage, 0.0f, 160.0f, "%.1f");
+    ImGui::SliderFloat("Current (A)##moco", &state.motorController.current, -300.0f, 300.0f, "%.1f");
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("CAN faults");
+    bool canFaultActive = state.canFault || state.canFaultRecoverable;
+    bool canFaultUnrecoverable = state.canFault;
+
+    if (ImGui::Checkbox("CAN fault", &canFaultActive)) {
+        if (!canFaultActive) {
+            state.canFault = false;
+            state.canFaultRecoverable = false;
+        } else {
+            state.canFault = canFaultUnrecoverable;
+            state.canFaultRecoverable = !canFaultUnrecoverable;
+        }
+    }
+
+    if (canFaultActive) {
+        if (ImGui::Checkbox("Unrecoverable", &canFaultUnrecoverable)) {
+            state.canFault = canFaultUnrecoverable;
+            state.canFaultRecoverable = !canFaultUnrecoverable;
+        }
+    }
+
+    if (canFaultActive) {
+        uint16_t* activeId = state.canFault ? &state.canFaultId : &state.canFaultRecoverableId;
+        int canId = static_cast<int>(*activeId);
+        if (ImGui::InputInt("CAN ID", &canId, 1, 16, ImGuiInputTextFlags_CharsHexadecimal)) {
+            if (canId < 0) canId = 0;
+            if (canId > 0x7FF) canId = 0x7FF;
+            *activeId = static_cast<uint16_t>(canId);
+        }
+    }
+
+    if (canFaultActive) {
+        std::string* activeMsg = state.canFault ? &state.canFaultMessage : &state.canFaultRecoverableMessage;
+        std::string* activeName = state.canFault ? &state.canFaultName : &state.canFaultRecoverableName;
+
+        static char canFaultMsgBuf[192] = {0};
+        static char canFaultNameBuf[96] = {0};
+
+        if (activeMsg->size() < sizeof(canFaultMsgBuf)) {
+            if (strncmp(canFaultMsgBuf, activeMsg->c_str(), sizeof(canFaultMsgBuf)) != 0) {
+                snprintf(canFaultMsgBuf, sizeof(canFaultMsgBuf), "%s", activeMsg->c_str());
+            }
+        }
+        if (activeName->size() < sizeof(canFaultNameBuf)) {
+            if (strncmp(canFaultNameBuf, activeName->c_str(), sizeof(canFaultNameBuf)) != 0) {
+                snprintf(canFaultNameBuf, sizeof(canFaultNameBuf), "%s", activeName->c_str());
+            }
+        }
+
+        if (ImGui::InputText("CAN message", canFaultNameBuf, sizeof(canFaultNameBuf))) {
+            *activeName = canFaultNameBuf;
+        }
+        if (ImGui::InputText("Fault text", canFaultMsgBuf, sizeof(canFaultMsgBuf))) {
+            *activeMsg = canFaultMsgBuf;
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Contactors", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("HV+", &state.contactorStates.hvPositive);
+        ImGui::SameLine();
+        ImGui::Checkbox("HV-", &state.contactorStates.hvNegative);
+        ImGui::Checkbox("Array precharge", &state.contactorStates.arrayPrecharge);
+        ImGui::SameLine();
+        ImGui::Checkbox("Array", &state.contactorStates.arrayContactor);
+        ImGui::Checkbox("Motor precharge", &state.contactorStates.motorPrecharge);
+        ImGui::SameLine();
+        ImGui::Checkbox("Motor", &state.contactorStates.motorContactor);
+    }
+
+    if (ImGui::CollapsingHeader("Ignition", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("LV", &state.ignitionStates.lvEnabled);
+        ImGui::SameLine();
+        ImGui::Checkbox("Array", &state.ignitionStates.arrayEnabled);
+        ImGui::SameLine();
+        ImGui::Checkbox("Motor", &state.ignitionStates.motorEnabled);
+    }
+
+    ImGui::Separator();
+    if (ImGui::Button("Reset to defaults")) {
+        bool sim = state.simulationEnabled;
+        state = CreateDefaultState();
+        state.simulationEnabled = sim;
+    }
+
+    ImGui::End();
+}
+#endif
+
+//Camera placeholder (used for LEFT / RIGHT / REAR views)
+
+static void RenderCameraView(const AppState& state, const char* label, void* texture, const ImVec2& size) {
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
+
+    ImGui::BeginChild(label, size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
+    {
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        if (texture) {
+            ImGui::Image(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(texture)), avail);
+        } else {
+            // Center the label text, split at space for two-line display
+            const char* space = strchr(label, ' ');
+            if (space) {
+                char line1[32], line2[32];
+                size_t len1 = static_cast<size_t>(space - label);
+                if (len1 >= sizeof(line1)) len1 = sizeof(line1) - 1;
+                memcpy(line1, label, len1);
+                line1[len1] = '\0';
+                snprintf(line2, sizeof(line2), "%s", space + 1);
+
+                ImVec2 s1 = ImGui::CalcTextSize(line1);
+                ImVec2 s2 = ImGui::CalcTextSize(line2);
+                float totalH = s1.y + s2.y + 4.0f;
+                float startY = (avail.y - totalH) * 0.5f;
+
+                ImGui::SetCursorPos(ImVec2((avail.x - s1.x) * 0.5f, startY));
+                ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+                ImGui::TextUnformatted(line1);
+                ImGui::SetCursorPosX((avail.x - s2.x) * 0.5f);
+                ImGui::TextUnformatted(line2);
+                ImGui::PopStyleColor();
+            } else {
+                ImVec2 textSize = ImGui::CalcTextSize(label);
+                ImGui::SetCursorPos(ImVec2((avail.x - textSize.x) * 0.5f,
+                                           (avail.y - textSize.y) * 0.5f));
+                ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+                ImGui::TextUnformatted(label);
+                ImGui::PopStyleColor();
+            }
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+}
+
+// Battery 
+
+static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 14.0f));
+
+    ImGui::BeginChild("##BatteryPanel", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
+    {
+        float avW = ImGui::GetContentRegionAvail().x;
+        float avH = ImGui::GetContentRegionAvail().y;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+
+        {
+            char currentLabel[16];
+            snprintf(currentLabel, sizeof(currentLabel), "%.0fA",
+                 std::abs(state.mainBattery.current));
+            ImGuiIO& io = ImGui::GetIO();
+            ImFont* medFont = (io.Fonts->Fonts.Size > 2)
+                      ? io.Fonts->Fonts[2] : nullptr;
+            float fs = 28.0f;
+            if (medFont) {
+            ImVec2 sz = medFont->CalcTextSizeA(fs, FLT_MAX, 0, currentLabel);
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            float centeredX = pos.x + (avW - sz.x) * 0.5f;
+            dl->AddText(medFont, fs, ImVec2(centeredX, pos.y), ColorToU32(Colors::Foreground()), currentLabel);
+            ImGui::Dummy(ImVec2(sz.x, sz.y));
+            } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%s", currentLabel);
+            ImGui::PopStyleColor();
+            }
+        }
+        widgets::Space(12.0f);
+
+        // Helper lambda to draw a battery row
+        auto drawBatteryRow = [&](const char* rowLabel, float soc, float voltage) {
+            ImVec4 batColor = GetBatteryColor(soc);
+            float labelW = 32.0f;
+            float voltW = 52.0f;
+            float barW = avW - labelW - voltW - 16.0f;
+            if (barW < 40.0f) barW = 40.0f;
+
+            // Row label (M or AU)
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::SetWindowFontScale(1.3f);
+            ImGui::Text("%s", rowLabel);
+            ImGui::SetWindowFontScale(1.0f);
+            ImGui::PopStyleColor();
+            ImGui::SameLine(labelW + 4.0f);
+
+            // SOC bar with percentage overlay
+            {
+                ImVec2 barPos = ImGui::GetCursorScreenPos();
+                float barH = 64.0f;
+                float rounding = 3.0f;
+
+                // Background
+                ImVec4 bgCol = ColorWithAlpha(Colors::Muted(), 0.5f);
+                dl->AddRectFilled(barPos,
+                    ImVec2(barPos.x + barW, barPos.y + barH),
+                    ColorToU32(bgCol), rounding);
+                // Fill
+                float pct = std::clamp(soc / 100.0f, 0.0f, 1.0f);
+                float fillW = barW * pct;
+                if (pct > 0.0f && fillW < 2.0f) fillW = 2.0f;
+                if (fillW > 0.0f) {
+                    ImDrawFlags fillFlags = ImDrawFlags_RoundCornersLeft;
+                    if (fillW >= barW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
+                    float fillR = std::min(rounding, fillW * 0.5f);
+                    dl->AddRectFilled(barPos,
+                        ImVec2(barPos.x + fillW, barPos.y + barH),
+                        ColorToU32(batColor), fillR, fillFlags);
+                }
+                // Border
+                dl->AddRect(barPos,
+                    ImVec2(barPos.x + barW, barPos.y + barH),
+                    ColorToU32(Colors::MutedForeground()), rounding, 0, 1.0f);
+                // % text centered in bar
+                char socTxt[8];
+                snprintf(socTxt, sizeof(socTxt), "%.0f%%", soc);
+                ImVec2 socSz = ImGui::CalcTextSize(socTxt);
+                dl->AddText(
+                    ImVec2(barPos.x + (barW - socSz.x) * 0.5f,
+                           barPos.y + (barH - socSz.y) * 0.5f),
+                    ColorToU32(Colors::Foreground()), socTxt);
+
+                ImGui::Dummy(ImVec2(barW, barH));
+            }
+
+            ImGui::SameLine(0, 8.0f);
+
+            // Voltage
+            char vTxt[16];
+            snprintf(vTxt, sizeof(vTxt), "%.0fV", voltage);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::SetWindowFontScale(1.2f);
+            ImGui::Text("%s", vTxt);
+            ImGui::SetWindowFontScale(1.0f);
+            ImGui::PopStyleColor();
+        };
+
+        drawBatteryRow("M",  state.mainBattery.soc, state.mainBattery.voltage);
+        widgets::Space(10);
+        drawBatteryRow("AU", state.suppBattery.soc,  state.suppBattery.voltage);
+
+        widgets::Space(12);
+
+        // MoCo : Heatsink temp, Voltage, Current
+        {
+            const float labelW = 56.0f;
+            const float colStart = labelW + 6.0f;
+            const float colW = std::max(40.0f, (avW - colStart) / 3.0f);
+
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::SetWindowFontScale(1.10f);
+            ImGui::TextUnformatted("MoCo");
+            ImGui::SetWindowFontScale(1.6f);
+            ImGui::PopStyleColor();
+
+            char hsTxt[24];
+            char vTxt[24];
+            char aTxt[24];
+            snprintf(hsTxt, sizeof(hsTxt), "%.0fC", state.motorController.heatsinkTemp);
+            snprintf(vTxt,  sizeof(vTxt),  "%.0fV", state.motorController.voltage);
+            snprintf(aTxt,  sizeof(aTxt),  "%.0fA", std::abs(state.motorController.current));
+
+            ImGui::SameLine(colStart);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::TextUnformatted(hsTxt);
+
+            ImGui::SameLine(colStart + colW);
+            ImGui::TextUnformatted(vTxt);
+
+            ImGui::SameLine(colStart + colW * 2.0f);
+            ImGui::TextUnformatted(aTxt);
+            ImGui::PopStyleColor();
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
+}
+
+// contactors + IGN states
+
+static void RenderButtonGrid(AppState& state, const ImVec2& size) {
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+    ImGui::BeginChild("##ButtonGrid", size, ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar);
+    {
+
+        // Grid layout:
+        //   HP   HN   LV
+        //   AP    A   AN
+        //   MP    M   MM
+
+        struct BtnDef {
+            const char* label;
+            bool* statePtr;
+        };
+
+        BtnDef buttons[3][3] = {
+            { {"HP", &state.contactorStates.hvPositive},
+              {"HN", &state.contactorStates.hvNegative},
+              {"LV", &state.ignitionStates.lvEnabled} },
+            { {"AP", &state.contactorStates.arrayPrecharge},
+              {"A",  &state.ignitionStates.arrayEnabled},
+              {"AN", &state.contactorStates.arrayContactor} },
+            { {"MP", &state.contactorStates.motorPrecharge},
+              {"M",  &state.ignitionStates.motorEnabled},
+              {"MM", &state.contactorStates.motorContactor} },
+        };
+
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                ImGuiIO& io = ImGui::GetIO();
+                ImFont* labelFont = (io.Fonts->Fonts.Size > 2)
+                                                                ? io.Fonts->Fonts[2] : nullptr;
+
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        float gap = 1.0f;
+        float btnW = (avail.x - gap * 2.0f) / 3.0f;
+        float btnH = (avail.y - gap * 2.0f) / 5.0f;
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                BtnDef& b = buttons[row][col];
+                bool active = *b.statePtr;
+
+                char id[32];
+                snprintf(id, sizeof(id), "%s##grid%d%d", b.label, row, col);
+
+                ImVec2 cellPos = ImGui::GetCursorScreenPos();
+                ImGui::InvisibleButton(id, ImVec2(btnW, btnH));
+            
+
+                ImVec4 fillCol = active ? Colors::Primary() : Colors::Muted();
+                ImVec4 textCol = active ? Colors::PrimaryForeground()
+                                        : Colors::MutedForeground();
+                ImVec4 outlineCol = ColorWithAlpha(Colors::MutedForeground(), 0.55f);
+
+                ImVec2 center(cellPos.x + btnW * 0.5f, cellPos.y + btnH * 0.5f);
+                float radius = std::min(btnW, btnH) * 0.40f;
+
+                dl->AddCircleFilled(center, radius, ColorToU32(fillCol), 48);
+                dl->AddCircle(center, radius, ColorToU32(outlineCol), 48, 2.0f);
+
+                float fs = std::min(radius * 0.90f, 34.0f);
+                ImVec2 tSz = labelFont
+                    ? labelFont->CalcTextSizeA(fs, FLT_MAX, 0, b.label)
+                    : ImGui::CalcTextSize(b.label);
+                dl->AddText(labelFont, fs,
+                            ImVec2(center.x - tSz.x * 0.5f,
+                                   center.y - tSz.y * 0.5f),
+                            ColorToU32(textCol), b.label);
+
+                if (col < 2) ImGui::SameLine(0, gap);
+            }
+            if (row < 2) {
+                ImGui::Dummy(ImVec2(0, gap));
+            }
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
+}
+
+// Speed Gauge
+//   heartbeat icon (top), semi-circle arc, large speed number,
+//   three status icons (cruise / brake / regen), turn arrows, FNR letters
+
+static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 8.0f));
+
+    ImGui::BeginChild("##SpeedGauge", size, ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar);
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 cs = ImGui::GetContentRegionAvail();
+        ImVec2 origin = ImGui::GetCursorScreenPos();
+
+        float cX = origin.x + cs.x * 0.5f;   // horizontal center
+
+        // Vertical budget
+        float heartbeatH = 28.0f;
+        float fnrH       = 92.0f;
+        float iconsH     = 36.0f;
+        float bottomPad  =  8.0f;
+        float arcSpace   = cs.y - heartbeatH - iconsH - fnrH - bottomPad - 10.0f;
+        if (arcSpace < 60.0f) arcSpace = 60.0f;
+
+        float radius    = std::min(cs.x * 0.48f, arcSpace * 0.6f);
+        float thickness = 14.0f;
+        float arcCenterY = origin.y + heartbeatH + 8.0f + radius;
+        ImVec2 center(cX, arcCenterY);
+
+        //  hb
+        {
+            float t     = static_cast<float>(ImGui::GetTime());
+            float pulse = 0.5f + 0.5f * sinf(t * 4.0f * static_cast<float>(M_PI));
+            ImVec4 hbCol = ColorWithAlpha(Colors::Destructive(), 0.4f + 0.6f * pulse);
+            // Move to the left so it doesn't overlap the arc/top area.
+            icons::DrawHeart(dl, ImVec2(origin.x + 28.0f, origin.y + 22.0f),
+                             30.0f, ColorToU32(hbCol));
+        }
+
+        // background arc
+        float startAngle = static_cast<float>(M_PI);
+        float sweepAngle = static_cast<float>(M_PI);
+
+        dl->PathArcTo(center, radius, startAngle, startAngle + sweepAngle, 64);
+        dl->PathStroke(ColorToU32(Colors::Muted()), 0, thickness);
+
+        // progress arc
+        float maxSpeed = 80.0f;
+        float pct = std::max(0.0f, std::min(1.0f,
+            static_cast<float>(state.speed) / maxSpeed));
+        if (pct > 0.001f) {
+            ImVec4 sCol = GetSpeedColor(state.speed);
+            dl->PathArcTo(center, radius,
+                          startAngle, startAngle + sweepAngle * pct, 64);
+            dl->PathStroke(ColorToU32(sCol), 0, thickness);
+        }
+
+        //  Speed
+        {
+            char speedTxt[8];
+            snprintf(speedTxt, sizeof(speedTxt), "%d", state.speed);
+            ImGuiIO& io = ImGui::GetIO();
+            ImFont* bigFont = (io.Fonts->Fonts.Size > 3)
+                                  ? io.Fonts->Fonts[3] : nullptr;
+            float fontSize = (bigFont ? bigFont->FontSize : 48.0f) * 1.80f;
+            ImVec2 sSz = bigFont
+                ? bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, speedTxt)
+                : ImGui::CalcTextSize(speedTxt);
+            float textY = center.y - sSz.y * 0.8f;
+            dl->AddText(bigFont, fontSize,
+                        ImVec2(cX - sSz.x * 0.5f, textY),
+                        ColorToU32(Colors::Foreground()), speedTxt);
+        }
+
+        // Status icons below speed
+        //    left-turn | cruise control | brake | regen | right-turn
+        {
+            float iconY       = center.y + radius * 0.35f;
+            float iconSpacing = 56.0f;
+            float iconSize    = 48.0f;
+
+            // Left Turn Signal
+            {
+                ImVec4 lC = (state.turnSignal == TurnSignal::Left)
+                    ? Colors::Accent() : Colors::MutedForeground();
+                icons::DrawLeftArrow(dl, ImVec2(cX - iconSpacing * 2.0f, iconY),
+                                     iconSize, ColorToU32(lC));
+            }
+            // Cruise Control
+            {
+                ImVec4 ccCol = state.cruise.enabled
+                    ? Colors::Warning() : Colors::MutedForeground();
+                icons::DrawCruiseControl(dl, ImVec2(cX - iconSpacing, iconY),
+                                         iconSize, ColorToU32(ccCol));
+            }
+            // Brake
+            {
+                ImVec4 bkCol = state.brakeEngaged
+                    ? Colors::Destructive() : Colors::MutedForeground();
+                icons::DrawBrake(dl, ImVec2(cX, iconY),
+                                 iconSize, ColorToU32(bkCol));
+            }
+            // Regen
+            {
+                ImVec4 rgCol = state.regenEnabled
+                    ? Colors::Success() : Colors::MutedForeground();
+                icons::DrawRegen(dl, ImVec2(cX + iconSpacing, iconY),
+                                 iconSize, ColorToU32(rgCol));
+            }
+            // Right Turn Signal
+            {
+                ImVec4 rC = (state.turnSignal == TurnSignal::Right)
+                    ? Colors::Accent() : Colors::MutedForeground();
+                icons::DrawRightArrow(dl, ImVec2(cX + iconSpacing * 2.0f, iconY),
+                                      iconSize, ColorToU32(rC));
+            }
+        }
+
+        // FNR gear display below icons
+        {
+            float iconBottomY = center.y + radius * 0.35f + 48.0f * 0.5f;
+            float fnrY = iconBottomY + 12.0f;
+            float fnrH = 72.0f;            const char* letters[] = {"F", "N", "R"};
+            const Gear  vals[]    = {Gear::Forward, Gear::Neutral, Gear::Reverse};
+            float spacing = 96.0f;
+            float totalW  = spacing * 2.0f;
+            float startX  = cX - totalW * 0.5f;
+
+            ImGuiIO& io2 = ImGui::GetIO();
+            ImFont* medFont = (io2.Fonts->Fonts.Size > 2)
+                                  ? io2.Fonts->Fonts[2] : nullptr;
+            ImFont* hugeFont = (io2.Fonts->Fonts.Size > 3)
+                                  ? io2.Fonts->Fonts[3] : nullptr;
+            ImFont* baseFont = hugeFont ? hugeFont : medFont;
+
+            for (int i = 0; i < 3; i++) {
+                bool sel = (state.gear == vals[i]);
+                ImVec4 col = sel ? Colors::Primary()
+                                 : Colors::MutedForeground();
+                float fs = sel ? 72.0f : 56.0f;
+                ImFont* useFont = baseFont;
+                ImVec2 lSz = useFont
+                    ? useFont->CalcTextSizeA(fs, FLT_MAX, 0, letters[i])
+                    : ImGui::CalcTextSize(letters[i]);
+                float x = startX + spacing * static_cast<float>(i)
+                         - lSz.x * 0.5f;
+                dl->AddText(useFont, fs,
+                            ImVec2(x, fnrY + (fnrH - lSz.y) * 0.5f),
+                            ColorToU32(col), letters[i]);
+            }
+        }
+
+        // CAN Fault display below FNR
+        if (state.canFault || state.canFaultRecoverable) {
+            float iconBottomY2 = center.y + radius * 0.35f + 48.0f * 0.5f;
+            float fnrBottom = iconBottomY2 + 12.0f + 72.0f;
+            float faultY = fnrBottom + 8.0f;
+
+            ImGuiIO& ioF = ImGui::GetIO();
+            ImFont* faultFont = (ioF.Fonts->Fonts.Size > 2)
+                                    ? ioF.Fonts->Fonts[2] : nullptr;
+            float faultFs = 28.0f;
+
+            const bool unrecoverable = state.canFault;
+
+            uint16_t faultId = unrecoverable ? state.canFaultId : state.canFaultRecoverableId;
+            const std::string& faultName = unrecoverable ? state.canFaultName : state.canFaultRecoverableName;
+            const std::string& faultMsg = unrecoverable ? state.canFaultMessage : state.canFaultRecoverableMessage;
+
+            ImVec4 faultCol = unrecoverable ? Colors::Destructive() : Colors::Accent();
+
+            const bool haveMeta = (faultId != 0) || !faultName.empty();
+            const bool haveMsg = !faultMsg.empty();
+
+            std::string faultLine;
+            if (haveMeta) {
+                char idBuf[16] = {0};
+                if (faultId != 0) {
+                    snprintf(idBuf, sizeof(idBuf), "0x%03X", static_cast<unsigned>(faultId));
+                }
+
+                faultLine = "CAN";
+                if (faultId != 0) {
+                    faultLine += " ";
+                    faultLine += idBuf;
+                }
+                if (!faultName.empty()) {
+                    faultLine += " ";
+                    faultLine += faultName;
+                }
+            } else {
+                faultLine = "CAN FAULT";
+            }
+
+            if (haveMsg) {
+                faultLine += ": ";
+                faultLine += faultMsg;
+            }
+            const char* faultTxt = faultLine.c_str();
+
+            ImVec2 fSz = faultFont
+                ? faultFont->CalcTextSizeA(faultFs, FLT_MAX, 0, faultTxt)
+                : ImGui::CalcTextSize(faultTxt);
+            dl->AddText(faultFont, faultFs,
+                        ImVec2(cX - fSz.x * 0.5f, faultY),
+                        ColorToU32(faultCol), faultTxt);
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
+}
+
 void RenderDashboard(AppState& state) {
     ImGuiIO& io = ImGui::GetIO();
-    
-    ImGui::SetNextWindowSize(ImVec2(1024, 700), ImGuiCond_FirstUseEver);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
-    
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, Colors::Background());
-    
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoTitleBar   |
+        ImGuiWindowFlags_NoResize     |
+        ImGuiWindowFlags_NoMove       |
+        ImGuiWindowFlags_NoCollapse   |
+        ImGuiWindowFlags_NoScrollbar  |
+        ImGuiWindowFlags_NoScrollWithMouse |
+        ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, FaultAwareScreenBg(state));
+
     if (!ImGui::Begin("LHR Photon Dashboard", nullptr, flags)) {
         ImGui::End();
         ImGui::PopStyleColor();
-        ImGui::PopStyleVar();
+        ImGui::PopStyleVar(2);
         return;
     }
-    
-    // Header with branding, heartbeat, and gear selector
-    RenderHeader(state);
-    
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
-    // Main content - 3 column layout
-    float availWidth = ImGui::GetContentRegionAvail().x;
-    float availHeight = ImGui::GetContentRegionAvail().y - 50.0f; // Reserve for fault ticker
-    
-    float leftWidth = availWidth * 0.22f;
-    float rightWidth = availWidth * 0.30f;
-    float centerWidth = availWidth - leftWidth - rightWidth - 16.0f;
-    
-    // LEFT COLUMN: Speed Gauge
-    ImGui::BeginChild("##LeftCol", ImVec2(leftWidth, availHeight), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-    RenderSpeedGauge(state);
-    ImGui::EndChild();
-    
-    ImGui::SameLine(0, 8);
-    
-    // CENTER COLUMN: Camera Feeds
-    ImGui::BeginChild("##CenterCol", ImVec2(centerWidth, availHeight), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-    RenderCameraFeeds(state);
-    ImGui::EndChild();
-    
-    ImGui::SameLine(0, 8);
-    
-    // RIGHT COLUMN: Battery + System Status
-    ImGui::BeginChild("##RightCol", ImVec2(rightWidth, availHeight), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-    RenderBatteryPanel(state);
-    widgets::Space(8);
-    RenderSystemStatus(state);
-    ImGui::EndChild();
-    
-    // FOOTER: Fault Ticker
-    ImGui::Spacing();
-    RenderFaultTicker(state);
-    
+
+    float availW = ImGui::GetContentRegionAvail().x;
+    float availH = ImGui::GetContentRegionAvail().y;
+    float gap       = 4.0f;
+    float rowTop    = availH * 0.50f;
+    float rowBottom = availH - rowTop - gap;
+
+    // Top row: wider camera views, narrower speed gauge
+    float topColLeft   = availW * 0.34f;
+    float topColRight  = availW * 0.32f;
+    float topColCenter = availW - topColLeft - topColRight - gap * 2.0f;
+
+    // Bottom row even proportions
+    float botColLeft   = availW * 0.26f;
+    float botColRight  = availW * 0.24f;
+    float botColCenter = availW - botColLeft - botColRight - gap * 2.0f;
+
+    RenderCameraView(state, "LEFT VIEW",
+                     state.leftCameraTexture,
+                     ImVec2(topColLeft, rowTop));
+    ImGui::SameLine(0, gap);
+
+    RenderSpeedGauge(state, ImVec2(topColCenter, rowTop));
+    ImGui::SameLine(0, gap);
+
+    RenderCameraView(state, "RIGHT VIEW",
+                     state.rightCameraTexture,
+                     ImVec2(topColRight, rowTop));
+
+    ImGui::Dummy(ImVec2(0, gap)); 
+
+    // bottom
+
+    RenderBatteryPanel(state, ImVec2(botColLeft, rowBottom));
+    ImGui::SameLine(0, gap);
+
+    RenderCameraView(state, "REAR VIEW",
+                     state.rearCameraTexture,
+                     ImVec2(botColCenter, rowBottom));
+    ImGui::SameLine(0, gap);
+
+    RenderButtonGrid(state, ImVec2(botColRight, rowBottom));
+
+#if defined(_DEBUG)
+    RenderDashboardStateEditor(state);
+#endif
+
     ImGui::End();
     ImGui::PopStyleColor();
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
 }
-
-//=============================================================================
-// HEADER: Branding + Heartbeat + Gear Selector
-//=============================================================================
-void RenderHeader(AppState& state) {
-    float headerHeight = 50.0f;
-    
-    // Add background to header
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Card());
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-    
-    ImGui::BeginChild("##Header", ImVec2(0, headerHeight), ImGuiChildFlags_Borders);
-    
-    float contentWidth = ImGui::GetContentRegionAvail().x;
-    
-    // Left: LHR Photon branding
-    ImGui::SetCursorPosY((headerHeight - ImGui::GetTextLineHeight()) * 0.5f - 4);
-    ImGui::SetCursorPosX(12);
-    ImGui::PushStyleColor(ImGuiCol_Text, Colors::Primary());
-    ImGui::Text("LHR");
-    ImGui::PopStyleColor();
-    ImGui::SameLine(0, 4);
-    ImGui::Text("Photon");
-    
-    // Center: Heartbeat indicator with 1-second pulse
-    float centerX = contentWidth * 0.5f - 40;
-    ImGui::SameLine(centerX);
-    ImGui::SetCursorPosY((headerHeight - 20) * 0.5f - 4);
-    
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 hbPos = ImGui::GetCursorScreenPos();
-    
-    // Use real time for smooth 1-second pulse (fade in/out)
-    float time = static_cast<float>(ImGui::GetTime());
-    float pulse = 0.4f + 0.6f * (0.5f + 0.5f * sinf(time * 2.0f * static_cast<float>(M_PI)));
-    ImVec4 hbColor = ColorWithAlpha(Colors::Primary(), pulse);
-    drawList->AddCircleFilled(ImVec2(hbPos.x + 8, hbPos.y + 10), 6, ColorToU32(hbColor));
-    
-    ImGui::SetCursorPosX(centerX + 20);
-    char hbText[16];
-    snprintf(hbText, sizeof(hbText), "HB %03d", state.heartbeat);
-    ImGui::Text("%s", hbText);
-    
-    // Right: Gear selector pills - use absolute positioning
-    float gearY = (headerHeight - 32) * 0.5f - 4;
-    float buttonWidth = 36.0f;
-    float buttonSpacing = 4.0f;
-    float totalGearWidth = 4 * buttonWidth + 3 * buttonSpacing;  // 4 buttons + 3 gaps
-    float gearStartX = contentWidth - totalGearWidth - 8;  // 8px padding from right
-    
-    const char* gears[] = {"P", "R", "N", "D"};
-    const Gear gearVals[] = {Gear::Park, Gear::Reverse, Gear::Neutral, Gear::Drive};
-    bool disabled = state.speed >= 5;
-    
-    for (int i = 0; i < 4; i++) {
-        bool selected = state.gear == gearVals[i];
-        bool isDisabled = disabled && !selected;
-        
-        ImVec4 btnColor = selected ? Colors::Primary() : Colors::Muted();
-        ImVec4 textColor = selected ? Colors::PrimaryForeground() : Colors::MutedForeground();
-        
-        if (isDisabled) {
-            btnColor = ColorWithAlpha(Colors::Muted(), 0.5f);
-            textColor = ColorWithAlpha(Colors::MutedForeground(), 0.5f);
-        }
-        
-        // Set explicit position for each button
-        float btnX = gearStartX + i * (buttonWidth + buttonSpacing);
-        ImGui::SetCursorPos(ImVec2(btnX, gearY));
-        
-        ImGui::PushStyleColor(ImGuiCol_Button, btnColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, selected ? Colors::PrimaryDark() : Colors::Secondary());
-        ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 16.0f);
-        
-        char btnId[16];
-        snprintf(btnId, sizeof(btnId), "%s##Gear%d", gears[i], i);
-        
-        if (ImGui::Button(btnId, ImVec2(buttonWidth, 32)) && !isDisabled) {
-            state.gear = gearVals[i];
-        }
-        
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(3);
-    }
-    
-    ImGui::EndChild();
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
 }
-
-//=============================================================================
-// SPEED GAUGE: Large circular gauge with gear badge
-//=============================================================================
-void RenderSpeedGauge(const AppState& state) {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Card());
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 12.0f);
-    
-    ImGui::BeginChild("##SpeedCard", ImVec2(0, 0), ImGuiChildFlags_Borders);
-    
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 size = ImGui::GetContentRegionAvail();
-    ImVec2 pos = ImGui::GetCursorScreenPos();
-    
-    // Gauge parameters
-    float gaugeSize = std::min(size.x, size.y - 60) * 0.85f;
-    float radius = gaugeSize * 0.5f;
-    float thickness = 14.0f;
-    ImVec2 center = ImVec2(pos.x + size.x * 0.5f, pos.y + radius + 20);
-    
-    // Background arc (270 degrees)
-    float startAngle = static_cast<float>(M_PI) * 0.75f;
-    float maxAngle = static_cast<float>(M_PI) * 1.5f;
-    
-    drawList->PathArcTo(center, radius, startAngle, startAngle + maxAngle, 64);
-    drawList->PathStroke(ColorToU32(Colors::Muted()), 0, thickness);
-    
-    // Progress arc
-    float maxSpeed = 200.0f;
-    float pct = std::max(0.0f, std::min(1.0f, static_cast<float>(state.speed) / maxSpeed));
-    
-    if (pct > 0.001f) {
-        ImVec4 speedColor = GetSpeedColor(state.speed);
-        drawList->PathArcTo(center, radius, startAngle, startAngle + maxAngle * pct, 64);
-        drawList->PathStroke(ColorToU32(speedColor), 0, thickness);
-    }
-    
-    // Speed value - large (use 72px font from atlas index 3)
-    char speedText[8];
-    snprintf(speedText, sizeof(speedText), "%d", state.speed);
-    
-    ImGuiIO& io = ImGui::GetIO();
-    ImFont* hugeFont = (io.Fonts->Fonts.Size > 3) ? io.Fonts->Fonts[3] : nullptr;
-    if (hugeFont) ImGui::PushFont(hugeFont);
-    ImVec2 textSize = ImGui::CalcTextSize(speedText);
-    drawList->AddText(hugeFont, hugeFont ? hugeFont->FontSize : 72.0f,
-                     ImVec2(center.x - textSize.x * 0.5f, center.y - textSize.y * 0.5f),
-                     ColorToU32(Colors::Foreground()), speedText);
-    if (hugeFont) ImGui::PopFont();
-    
-    // Unit label
-    const char* unit = "km/h";
-    ImVec2 unitSize = ImGui::CalcTextSize(unit);
-    drawList->AddText(ImVec2(center.x - unitSize.x * 0.5f, center.y + 35),
-                     ColorToU32(Colors::MutedForeground()), unit);
-    
-    // Gear badge below gauge
-    float badgeY = center.y + radius + 15;
-    float badgeWidth = 100.0f;
-    float badgeHeight = 28.0f;
-    
-    ImVec2 badgeMin(center.x - badgeWidth * 0.5f, badgeY);
-    ImVec2 badgeMax(center.x + badgeWidth * 0.5f, badgeY + badgeHeight);
-    
-    drawList->AddRectFilled(badgeMin, badgeMax, ColorToU32(Colors::Primary()), 6.0f);
-    
-    const char* gearNames[] = {"PARK", "REVERSE", "NEUTRAL", "DRIVE"};
-    const char* gearLetters[] = {"P", "R", "N", "D"};
-    int gearIdx = static_cast<int>(state.gear);
-    
-    char gearLabel[32];
-    snprintf(gearLabel, sizeof(gearLabel), "%s - %s", gearLetters[gearIdx], gearNames[gearIdx]);
-    
-    ImVec2 gearSize = ImGui::CalcTextSize(gearLabel);
-    drawList->AddText(ImVec2(center.x - gearSize.x * 0.5f, badgeY + (badgeHeight - gearSize.y) * 0.5f),
-                     ColorToU32(Colors::PrimaryForeground()), gearLabel);
-    
-    ImGui::Dummy(size);
-    
-    ImGui::EndChild();
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
-}
-
-//=============================================================================
-// CAMERA FEEDS: Stacked rear view and side camera
-//=============================================================================
-void RenderCameraFeeds(AppState& state) {
-    float spacing = 8.0f;
-    float halfHeight = (ImGui::GetContentRegionAvail().y - spacing) * 0.5f;
-    
-    // Rear View Camera
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Card());
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-    
-    ImGui::BeginChild("##RearCam", ImVec2(0, halfHeight), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
-    {
-        // Header
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-        ImGui::Text("REAR VIEW");
-        ImGui::PopStyleColor();
-        
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 45);
-        ImDrawList* drawList = ImGui::GetWindowDrawList();
-        ImVec2 livePos = ImGui::GetCursorScreenPos();
-        drawList->AddCircleFilled(ImVec2(livePos.x + 5, livePos.y + 7), 4, ColorToU32(Colors::Success()));
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::Success());
-        ImGui::Text("LIVE");
-        ImGui::PopStyleColor();
-        
-        // Camera feed area
-        ImVec2 feedSize = ImGui::GetContentRegionAvail();
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Muted());
-        ImGui::BeginChild("##RearFeed", feedSize, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-        
-        if (state.rearCameraTexture) {
-            ImGui::Image(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(state.rearCameraTexture)), feedSize);
-        } else {
-            // Placeholder with camera grid
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImVec2 p = ImGui::GetCursorScreenPos();
-            ImVec4 gridColor = ColorWithAlpha(Colors::Primary(), 0.3f);
-            
-            // Grid lines
-            for (int i = 1; i < 4; i++) {
-                float x = p.x + feedSize.x * i / 4.0f;
-                float y = p.y + feedSize.y * i / 4.0f;
-                dl->AddLine(ImVec2(x, p.y), ImVec2(x, p.y + feedSize.y), ColorToU32(gridColor), 1.0f);
-                dl->AddLine(ImVec2(p.x, y), ImVec2(p.x + feedSize.x, y), ColorToU32(gridColor), 1.0f);
-            }
-            
-            // Guideline arc
-            ImVec2 arcCenter(p.x + feedSize.x * 0.5f, p.y + feedSize.y);
-            dl->PathArcTo(arcCenter, feedSize.x * 0.2f, -3.14f, 0, 32);
-            dl->PathStroke(ColorToU32(Colors::Warning()), 0, 2.0f);
-        }
-        
-        ImGui::EndChild();
-        ImGui::PopStyleColor();
-    }
-    ImGui::EndChild();
-    
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
-    
-    widgets::Space(spacing);
-    
-    // Side Camera
-    const char* sideLabel = "SIDE CAMERA";
-    bool sideActive = false;
-    
-    if (state.turnSignal == TurnSignal::Left) {
-        sideLabel = "LEFT TURN SIGNAL";
-        sideActive = true;
-    } else if (state.turnSignal == TurnSignal::Right) {
-        sideLabel = "RIGHT TURN SIGNAL";
-        sideActive = true;
-    }
-    
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Card());
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-    
-    ImGui::BeginChild("##SideCam", ImVec2(0, 0), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, sideActive ? Colors::Warning() : Colors::MutedForeground());
-        ImGui::Text("%s", sideLabel);
-        ImGui::PopStyleColor();
-        
-        if (sideActive) {
-            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 45);
-            ImDrawList* drawList = ImGui::GetWindowDrawList();
-            ImVec2 livePos = ImGui::GetCursorScreenPos();
-            drawList->AddCircleFilled(ImVec2(livePos.x + 5, livePos.y + 7), 4, ColorToU32(Colors::Warning()));
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning());
-            ImGui::Text("LIVE");
-            ImGui::PopStyleColor();
-        }
-        
-        ImVec2 feedSize = ImGui::GetContentRegionAvail();
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Muted());
-        ImGui::BeginChild("##SideFeed", feedSize, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-        
-        if (state.sideCameraTexture) {
-            ImGui::Image(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(state.sideCameraTexture)), feedSize);
-        } else {
-            // Placeholder
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImVec2 p = ImGui::GetCursorScreenPos();
-            ImVec4 gridColor = ColorWithAlpha(Colors::Primary(), 0.2f);
-            
-            for (int i = 1; i < 4; i++) {
-                float x = p.x + feedSize.x * i / 4.0f;
-                float y = p.y + feedSize.y * i / 4.0f;
-                dl->AddLine(ImVec2(x, p.y), ImVec2(x, p.y + feedSize.y), ColorToU32(gridColor), 1.0f);
-                dl->AddLine(ImVec2(p.x, y), ImVec2(p.x + feedSize.x, y), ColorToU32(gridColor), 1.0f);
-            }
-        }
-        
-        ImGui::EndChild();
-        ImGui::PopStyleColor();
-    }
-    ImGui::EndChild();
-    
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
-}
-
-//=============================================================================
-// BATTERY PANEL: Main + 12V Aux
-//=============================================================================
-void RenderBatteryPanel(const AppState& state) {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Card());
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-    
-    // Main Battery Card
-    ImGui::BeginChild("##MainBatCard", ImVec2(0, 180), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
-    {
-        ImGui::Text("MAIN BATTERY");
-        widgets::Space(4);
-        
-        // Large SOC display (use 48px font from atlas index 2)
-        ImGui::PushStyleColor(ImGuiCol_Text, GetBatteryColor(state.mainBattery.soc));
-        ImGuiIO& batIO = ImGui::GetIO();
-        ImFont* largeFont = (batIO.Fonts->Fonts.Size > 2) ? batIO.Fonts->Fonts[2] : nullptr;
-        if (largeFont) ImGui::PushFont(largeFont);
-        ImGui::Text("%.0f%%", state.mainBattery.soc);
-        if (largeFont) ImGui::PopFont();
-        ImGui::PopStyleColor();
-        
-        // Progress bar
-        widgets::ProgressBar(state.mainBattery.soc / 100.0f, ImVec2(-1, 8), GetBatteryColor(state.mainBattery.soc));
-        
-        widgets::Space(8);
-        
-        // Voltage and Current row
-        float halfW = ImGui::GetContentRegionAvail().x * 0.5f - 4;
-        
-        ImGui::BeginChild("##Volt", ImVec2(halfW, 45), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("VOLTAGE");
-        ImGui::PopStyleColor();
-        ImGui::Text("%.1f V", state.mainBattery.voltage);
-        ImGui::EndChild();
-        
-        ImGui::SameLine(0, 8);
-        
-        ImGui::BeginChild("##Curr", ImVec2(halfW, 45), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("CURRENT");
-        ImGui::PopStyleColor();
-        ImVec4 currColor = state.mainBattery.current < 0 ? Colors::Accent() : Colors::Success();
-        ImGui::PushStyleColor(ImGuiCol_Text, currColor);
-        ImGui::Text("%.1f A", state.mainBattery.current);
-        ImGui::PopStyleColor();
-        ImGui::EndChild();
-    }
-    ImGui::EndChild();
-    
-    widgets::Space(8);
-    
-    // 12V Aux Card
-    ImGui::BeginChild("##AuxBatCard", ImVec2(0, 100), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
-    {
-        ImGui::Text("12V AUX");
-        
-        float halfW = ImGui::GetContentRegionAvail().x * 0.5f;
-        
-        ImGui::SameLine(halfW);
-        ImVec4 auxColor = state.suppBattery.soc < 30 ? Colors::Destructive() : Colors::Foreground();
-        ImGui::PushStyleColor(ImGuiCol_Text, auxColor);
-        ImGui::Text("%.0f%%", state.suppBattery.soc);
-        ImGui::PopStyleColor();
-        
-        widgets::Space(4);
-        widgets::ProgressBar(state.suppBattery.soc / 100.0f, ImVec2(-1, 6), 
-                            state.suppBattery.soc < 30 ? Colors::Destructive() : Colors::MutedForeground());
-        
-        widgets::Space(4);
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("%.1f V", state.suppBattery.voltage);
-        ImGui::PopStyleColor();
-    }
-    ImGui::EndChild();
-    
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
-}
-
-//=============================================================================
-// SYSTEM STATUS: Contactors, Brake, Cruise
-//=============================================================================
-void RenderSystemStatus(AppState& state) {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Card());
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-    
-    ImGui::BeginChild("##SystemCard", ImVec2(0, 0), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
-    {
-        ImGui::Text("SYSTEM");
-        widgets::Space(8);
-        
-        // Contactors row
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("CONTACTORS");
-        ImGui::PopStyleColor();
-        widgets::Space(4);
-        
-        float btnW = (ImGui::GetContentRegionAvail().x - 16) / 3.0f;
-        
-        // Main contactor
-        ImVec4 mainColor = state.contactorStates.main ? Colors::Success() : Colors::Muted();
-        ImGui::PushStyleColor(ImGuiCol_Button, mainColor);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        if (ImGui::Button("MAIN##Cont", ImVec2(btnW, 28))) {
-            state.contactorStates.main = !state.contactorStates.main;
-        }
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor();
-        
-        ImGui::SameLine(0, 8);
-        
-        // Precharge
-        ImVec4 preColor = state.contactorStates.precharge ? Colors::Success() : Colors::Muted();
-        ImGui::PushStyleColor(ImGuiCol_Button, preColor);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        if (ImGui::Button("PRE##Cont", ImVec2(btnW, 28))) {
-            state.contactorStates.precharge = !state.contactorStates.precharge;
-        }
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor();
-        
-        ImGui::SameLine(0, 8);
-        
-        // HVIL (read-only indicator)
-        ImVec4 hvilColor = state.contactorStates.hvil ? Colors::Success() : Colors::Destructive();
-        ImGui::PushStyleColor(ImGuiCol_Button, hvilColor);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        ImGui::Button("HVIL##Ind", ImVec2(btnW, 28));
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor();
-        
-        widgets::Space(12);
-        
-        // Brake Status
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("BRAKE");
-        ImGui::PopStyleColor();
-        
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 80);
-        
-        if (state.brakeEngaged) {
-            widgets::Badge("ENGAGED", Colors::DestructiveBg(), Colors::Destructive());
-        } else {
-            widgets::Badge("RELEASED", Colors::Muted(), Colors::MutedForeground());
-        }
-        
-        // Make brake clickable
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 22);
-        if (ImGui::InvisibleButton("##BrakeToggle", ImVec2(ImGui::GetContentRegionAvail().x, 22))) {
-            state.brakeEngaged = !state.brakeEngaged;
-        }
-        
-        widgets::Space(8);
-        
-        // Cruise Control
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("CRUISE CONTROL");
-        ImGui::PopStyleColor();
-        widgets::Space(4);
-        
-        // Toggle button
-        ImVec4 ccColor = state.cruise.enabled ? Colors::Primary() : Colors::Muted();
-        ImVec4 ccText = state.cruise.enabled ? Colors::PrimaryForeground() : Colors::MutedForeground();
-        
-        ImGui::PushStyleColor(ImGuiCol_Button, ccColor);
-        ImGui::PushStyleColor(ImGuiCol_Text, ccText);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 20.0f);
-        
-        if (ImGui::Button(state.cruise.enabled ? "ON##CC" : "OFF##CC", ImVec2(50, 28))) {
-            state.cruise.enabled = !state.cruise.enabled;
-            if (state.cruise.enabled) {
-                state.cruise.setSpeed = state.speed;
-            }
-        }
-        
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(2);
-        
-        if (state.cruise.enabled) {
-            ImGui::SameLine(0, 12);
-            
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-            if (ImGui::Button("-##CC", ImVec2(24, 24))) {
-                state.cruise.setSpeed = std::max(0, state.cruise.setSpeed - 5);
-            }
-            ImGui::PopStyleVar();
-            
-            ImGui::SameLine(0, 4);
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Primary());
-            ImGui::Text("%d", state.cruise.setSpeed);
-            ImGui::PopStyleColor();
-            ImGui::SameLine(0, 2);
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::Text("km/h");
-            ImGui::PopStyleColor();
-            
-            ImGui::SameLine(0, 4);
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-            if (ImGui::Button("+##CC", ImVec2(24, 24))) {
-                state.cruise.setSpeed = std::min(200, state.cruise.setSpeed + 5);
-            }
-            ImGui::PopStyleVar();
-        }
-        
-        // Turn signal controls
-        widgets::Space(12);
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("TURN SIGNALS");
-        ImGui::PopStyleColor();
-        widgets::Space(4);
-        
-        float sigW = (ImGui::GetContentRegionAvail().x - 8) * 0.5f;
-        
-        // Left signal
-        bool leftOn = state.turnSignal == TurnSignal::Left;
-        ImVec4 leftColor = leftOn ? Colors::Warning() : Colors::Muted();
-        ImGui::PushStyleColor(ImGuiCol_Button, leftColor);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        if (ImGui::Button("<##TurnL", ImVec2(sigW, 28))) {
-            state.turnSignal = leftOn ? TurnSignal::None : TurnSignal::Left;
-        }
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor();
-        
-        ImGui::SameLine(0, 8);
-        
-        // Right signal
-        bool rightOn = state.turnSignal == TurnSignal::Right;
-        ImVec4 rightColor = rightOn ? Colors::Warning() : Colors::Muted();
-        ImGui::PushStyleColor(ImGuiCol_Button, rightColor);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        if (ImGui::Button(">##TurnR", ImVec2(sigW, 28))) {
-            state.turnSignal = rightOn ? TurnSignal::None : TurnSignal::Right;
-        }
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor();
-    }
-    ImGui::EndChild();
-    
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
-}
-
-//=============================================================================
-// FAULT TICKER: Horizontal scrolling fault display
-//=============================================================================
-void RenderFaultTicker(AppState& state) {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::Card());
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-    
-    ImGui::BeginChild("##FaultTicker", ImVec2(0, 40), ImGuiChildFlags_Borders);
-    {
-        ImGui::SetCursorPosY(10);
-        
-        if (state.faults.empty()) {
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            dl->AddCircleFilled(ImVec2(pos.x + 8, pos.y + 6), 5, ColorToU32(Colors::Success()));
-            ImGui::SetCursorPosX(20);
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Success());
-            ImGui::Text("No active faults");
-            ImGui::PopStyleColor();
-            
-            // Add fault button (for testing)
-            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 60);
-            ImGui::SetCursorPosY(6);
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-            if (ImGui::Button("+##AddF", ImVec2(24, 24))) {
-                static const struct { const char* code; const char* msg; FaultSeverity sev; } templates[] = {
-                    { "E001", "Battery temp high", FaultSeverity::Warning },
-                    { "E002", "Motor overheat", FaultSeverity::Critical },
-                    { "E003", "CAN timeout", FaultSeverity::Warning },
-                };
-                int idx = state.heartbeat % 3;
-                Fault f;
-                f.code = templates[idx].code;
-                f.message = templates[idx].msg;
-                f.severity = templates[idx].sev;
-                f.timestamp = static_cast<int64_t>(time(nullptr)) * 1000;
-                if (state.faults.size() >= 5) state.faults.erase(state.faults.begin());
-                state.faults.push_back(f);
-            }
-            ImGui::PopStyleVar();
-        } else {
-            // Display faults horizontally
-            for (size_t i = 0; i < state.faults.size(); i++) {
-                const Fault& f = state.faults[i];
-                
-                ImVec4 bgColor = f.severity == FaultSeverity::Critical ? Colors::DestructiveBg() : 
-                                 f.severity == FaultSeverity::Warning ? Colors::WarningBg() : Colors::Muted();
-                ImVec4 textColor = f.severity == FaultSeverity::Critical ? Colors::Destructive() :
-                                   f.severity == FaultSeverity::Warning ? Colors::Warning() : Colors::Foreground();
-                
-                char faultText[64];
-                snprintf(faultText, sizeof(faultText), "%s: %s", f.code.c_str(), f.message.c_str());
-                
-                widgets::Badge(faultText, bgColor, textColor);
-                
-                if (i < state.faults.size() - 1) {
-                    ImGui::SameLine(0, 8);
-                }
-            }
-            
-            // Clear button
-            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 30);
-            ImGui::SetCursorPosY(6);
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-            if (ImGui::Button("X##ClrF", ImVec2(24, 24))) {
-                state.faults.clear();
-            }
-            ImGui::PopStyleVar();
-        }
-    }
-    ImGui::EndChild();
-    
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
-}
-
-// Legacy functions kept for compatibility but simplified
-void RenderGearIndicator(AppState& state) {
-    // Gear is now in header - this is a no-op
-}
-
-void RenderCruiseControl(AppState& state) {
-    // Cruise is now in system panel - this is a no-op
-}
-
-void RenderFaultPanel(AppState& state) {
-    // Faults are now in ticker - this is a no-op
-}
-
-void RenderCameraFeed(const char* label, const char* type, bool isActive, void* texture) {
-    // Cameras now use RenderCameraFeeds - this is a no-op
-}
-
-bool RenderTurnIndicator(bool isLeft, bool active) {
-    // Turn signals now in system panel
-    return false;
-}
-
-} // namespace ui
