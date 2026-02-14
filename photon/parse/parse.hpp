@@ -6,6 +6,7 @@
 #include <mutex>
 
 #include "dbc.hpp"
+#include "corsa.hpp"
 #include "../network/spsc.hpp"
 
 struct sample {
@@ -16,7 +17,7 @@ struct sample {
     sample& operator=(sample&&) = delete;
 
     std::mutex lock;
-    int64_t point = 0;
+    uint64_t point = 0;
     bool hasNew = false;
 };
 
@@ -26,6 +27,7 @@ private:
 public:
 
     void parser(SPSCQueue<uint8_t>& queue);
+    void acParser(SPSCQueue<RTCarInfo>& queue);
     void handleFrame(const std::string& frame);
     bool decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value);
     void writeSample(uint16_t canId, uint64_t value);

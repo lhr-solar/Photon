@@ -75,6 +75,12 @@ bool CanStore::loadStateFromFile(std::string filePath){
     uint32_t currentId = 0;
     int messageCountLocal = 0;
     int signalCountLocal = 0;
+    struct PendingValType {
+        int canId = 0;
+        std::string signalName;
+        valType type = INT;
+    };
+    std::vector<PendingValType> pendingValTypes;
 
     // === Main parsing loop ===
     while (std::getline(file, line)) {
@@ -197,6 +203,65 @@ bool CanStore::loadStateFromFile(std::string filePath){
             logs("[DBC] Registered signal: " << sigName
                       << " (ID=" << currentId << ")");
         }
+        // --- Parse SIG_VALTYPE_ lines ---
+        else if (line.rfind("SIG_VALTYPE_", 0) == 0) {
+            std::istringstream iss(line);
+            std::string tag;
+            int canId = 0;
+            std::string sigName;
+            std::string colon;
+            std::string typeStr;
+            iss >> tag >> canId >> sigName >> colon >> typeStr;
+            if (sigName.empty() || typeStr.empty()) {
+                continue;
+            }
+            if (!typeStr.empty() && typeStr.back() == ';') {
+                typeStr.pop_back();
+            }
+
+            int rawType = 0;
+            try {
+                rawType = std::stoi(typeStr);
+            } catch (...) {
+                continue;
+            }
+
+            valType parsedType = INT;
+            if (rawType == 1) {
+                parsedType = FLOAT;
+            } else if (rawType == 2) {
+                parsedType = DOUBLE;
+            }
+
+            bool applied = false;
+            auto msgIt = canMessages.find(canId);
+            if (msgIt != canMessages.end()) {
+                for (auto& sig : msgIt->second.signals) {
+                    if (sig.name == sigName) {
+                        sig.type = parsedType;
+                        applied = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!applied) {
+                pendingValTypes.push_back(PendingValType{canId, sigName, parsedType});
+            }
+        }
+    }
+
+    for (const auto& pending : pendingValTypes) {
+        auto msgIt = canMessages.find(pending.canId);
+        if (msgIt == canMessages.end()) {
+            continue;
+        }
+        for (auto& sig : msgIt->second.signals) {
+            if (sig.name == pending.signalName) {
+                sig.type = pending.type;
+                break;
+            }
+        }
     }
 
     // --- Summary + dump ---
@@ -222,11 +287,18 @@ void CanStore::dump() {
                   << " | DLC: " << msg.dlc
                   << " | Sender: " << msg.transmitter);
         for (const auto& sigName : msg.signals) {
+                const char* typeLabel = "int";
+                if (sigName.type == FLOAT) {
+                    typeLabel = "float";
+                } else if (sigName.type == DOUBLE) {
+                    typeLabel = "double";
+                }
                 logs("   SG_ " << sigName.name
                       << " start=" << sigName.startBit
                       << " len=" << sigName.length
                       << " endian=" << sigName.endianness
                       << (sigName.isSigned ? " signed" : " unsigned")
+                      << " type=" << typeLabel
                       << " offset,scale=" << sigName.offset << " " << sigName.scale);
         }
     }

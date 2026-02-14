@@ -45,17 +45,18 @@ void Photon::prepareScene(){
 };
 
 void Photon::initThreads(){
-    //parse.canStore.loadStateFromFile("./assets/dbc/assettoCorsa.dbc");
-    parse.canStore.loadStateFromFile("./assets/dbc/daybreak-master.dbc");
 
-    std::thread tcp_t(&Network::tcpReader, &network);
-    tcp_t.detach();
+    //parse.canStore.loadStateFromFile("./assets/dbc/daybreak-master.dbc");
+    //std::thread tcp_t(&Network::tcpReader, &network);
+    //tcp_t.detach();
+    //std::thread parser_t(&Parse::parser, &parse, std::ref(network.tcpQueue));
+    //parser_t.detach();
 
+    parse.canStore.loadStateFromFile("./assets/dbc/assettoCorsa.dbc");
     std::thread ac_t(&Network::corsaReader, &network);
     ac_t.detach();
-
-    std::thread parser_t(&Parse::parser, &parse, std::ref(network.tcpQueue));
-    parser_t.detach();
+    std::thread acp_t(&Parse::acParser, &parse, std::ref(network.corsaQueue));
+    acp_t.detach();
 }
 
 void Photon::renderLoop(){

@@ -7,6 +7,12 @@
 
 struct Parse;
 
+enum valType {
+    INT = 0,
+    FLOAT = 1,
+    DOUBLE = 2
+};
+
 struct CanSignal {
     int startBit = 0;
     int length = 0;
@@ -16,12 +22,13 @@ struct CanSignal {
     double offset = 0.0;
     double min = 0.0;
     double max = 0.0;
+    valType type = INT;
     std::string name;
     std::string unit;
     std::string receiver;
     std::chrono::system_clock::time_point lastTimeMutated = std::chrono::system_clock::now();
     std::chrono::milliseconds timeSinceMutation;
-    std::vector<double> data = {0.0};
+    std::vector<double> data;
 };
 
 struct CanMessage{

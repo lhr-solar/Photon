@@ -34,23 +34,33 @@ void Network::tcpReader(){
         auto bytesRead = socket.read(buffer.data(), buffer.size());
         if (bytesRead <= 0) { continue; }
         if (bytesRead > 0) {
-            for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); ++i) {
-                while (!tcpQueue.try_push(buffer[i])) { std::this_thread::yield(); }
+            for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); i++) {
+                while (!tcpQueue.try_push(buffer[i])) { std::cout << "[!] Network Buffer full!" << std::endl; std::this_thread::yield(); }
             }
         }
     }
 }
 
 void Network::udpReader(){
-    UDP_SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
-
 };
+
 void Network::localReader(){
 
 };
 
 void Network::corsaReader(){
-
+    UdpSocket socket(LOCAL_IP, CORSA_PORT);
+    std::vector<RTCarInfo> buffer(1);
+    while(running){
+        auto bytesRead = socket.read(buffer.data(), buffer.size());
+        if(bytesRead <= 0){ continue; }
+        if(bytesRead > 0){
+            std::size_t count = static_cast<std::size_t>(bytesRead) / sizeof(RTCarInfo);
+            for(std::size_t i = 0; i < count; i++){
+                while(!corsaQueue.try_push(buffer[i])){ std::cout << "[!] Network Buffer full!" << std::endl; std::this_thread::yield();}
+            }
+        }
+    }
 };
 
 #ifndef WIN32

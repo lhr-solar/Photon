@@ -29,7 +29,6 @@ struct UI{
         float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
     } renderSettings;
 
-    // Command palette-style overlay state
     bool cmdOpen = false;
     bool cmdFF = false;
     char cmdBuffer[128] = {0};

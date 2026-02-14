@@ -1,17 +1,59 @@
 /*[λ] the photon parsing interface*/
 #include "parse.hpp"
+#include "corsa.hpp"
+#include <cstring>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <variant>
 
 int hexValue(char c) {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
-    }
-    if (c >= 'a' && c <= 'f') {
-        return 10 + (c - 'a');
-    }
-    if (c >= 'A' && c <= 'F') {
-        return 10 + (c - 'A');
-    }
+    if (c >= '0' && c <= '9') { return c - '0'; }
+    if (c >= 'a' && c <= 'f') { return 10 + (c - 'a'); }
+    if (c >= 'A' && c <= 'F') { return 10 + (c - 'A'); }
     return -1;
+}
+
+std::string toHex(uint64_t i, size_t w){
+    std::ostringstream oss;
+    oss << std::hex 
+        << std::nouppercase 
+        << std::setw(w) 
+        << std::setfill('0') 
+        << i;
+    return oss.str();
+}
+
+std::string toHex(uint32_t i, size_t w){
+    std::ostringstream oss;
+    oss << std::hex 
+        << std::nouppercase 
+        << std::setw(w) 
+        << std::setfill('0') 
+        << i;
+    return oss.str();
+}
+
+std::string toHex(uint16_t i, size_t w){
+    std::ostringstream oss;
+    oss << std::hex 
+        << std::nouppercase 
+        << std::setw(w) 
+        << std::setfill('0') 
+        << i;
+    return oss.str();
+}
+
+std::string toHex(uint8_t i, size_t w){
+    std::ostringstream oss;
+    oss << std::hex 
+        << std::nouppercase 
+        << std::setw(w) 
+        << std::setfill('0') 
+        << static_cast<unsigned int>(i);
+    return oss.str();
 }
 
 void Parse::writeSample(uint16_t canId, uint64_t value) {
@@ -53,48 +95,33 @@ bool Parse::readSample(uint16_t canId, uint64_t& outValue) {
 }
 
 void Parse::handleFrame(const std::string& frame){
+    static uint64_t err_count = 0;
     uint16_t canId = 0;
     uint64_t value = 0;
-    if (!decodeFrame(frame, canId, value)) {
-        //logs("[parser] Invalid SLCAN frame encountered");
-        return;
-    }
+    if (!decodeFrame(frame, canId, value)) { std::cout << "invalid frame " << err_count++ << " | " << canId << " " << value << std::endl; return; }
     writeSample(canId, value);
 }
 
-bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
-    if (frame.empty() || frame.front() != 't') {
-        return false;
-    }
-    if (frame.back() != '\r') {
-        return false;
-    }
 
-    if (frame.size() < 5) {
-        return false;
-    }
+bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
+    if (frame.empty() || frame.front() != 't') { return false; }
+    if (frame.back() != '\r') { return false; }
+
+    if (frame.size() < 5) { return false; }
 
     const std::size_t payloadLength = frame.size() - 1;
-    if (payloadLength < 5) {
-        return false;
-    }
+    if (payloadLength < 5) { return false; }
 
     int dataLength = hexValue(frame[4]);
-    if (dataLength < 0 || dataLength > 8) {
-        return false;
-    }
+    if (dataLength < 0 || dataLength > 8) { return false; }
 
     const std::size_t expectedLength = 5 + static_cast<std::size_t>(dataLength) * 2;
-    if (payloadLength != expectedLength) {
-        return false;
-    }
+    if (payloadLength != expectedLength) { return false; }
 
     canId = 0;
     for (std::size_t i = 1; i <= 3; ++i) {
         int nibble = hexValue(frame[i]);
-        if (nibble < 0) {
-            return false;
-        }
+        if (nibble < 0) { return false; }
         canId = static_cast<uint16_t>((canId << 4) | static_cast<uint16_t>(nibble));
     }
 
@@ -102,14 +129,45 @@ bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& val
     for (int i = 0; i < dataLength; ++i) {
         int hi = hexValue(frame[5 + i * 2]);
         int lo = hexValue(frame[6 + i * 2]);
-        if (hi < 0 || lo < 0) {
-            return false;
-        }
+        if (hi < 0 || lo < 0) { return false; }
         uint8_t byte = static_cast<uint8_t>((hi << 4) | lo);
         value = (value << 8) | byte;
     }
 
     return true;
+}
+
+void Parse::acParser(SPSCQueue<RTCarInfo>& queue){
+    while(1){
+        if(auto* t = queue.front()){ queue.pop();
+            std::byte* base = reinterpret_cast<std::byte*>(t);
+            for(size_t i{0u}; i < RTCarInfo_Fields.size(); i++){
+                const FieldInfo& field = RTCarInfo_Fields[i];
+                if (field.size > 8) { continue; }
+
+                std::string id = toHex(static_cast<uint16_t>(i), 3);
+                std::string dlc = toHex(static_cast<uint8_t>(field.size), 1);
+                std::string dt;
+                dt.reserve(field.size * 2);
+
+                const uint8_t* payload = reinterpret_cast<const uint8_t*>(base + field.offset);
+                for (size_t b = 0; b < field.size; ++b) {
+                    dt += toHex(payload[b], 2);
+                }
+
+                std::string frame;
+                frame.reserve(1 + id.size() + dlc.size() + dt.size() + 1);
+                frame += 't';
+                frame += id;
+                frame += dlc;
+                frame += dt;
+                frame += '\r';
+                //std::cout << "try Frame " << frame << std::endl;
+                handleFrame(frame);
+            }
+        }
+    }
+    std::cout << "ended?" << std::endl;
 }
 
 void Parse::parser(SPSCQueue<uint8_t>& queue){
@@ -123,18 +181,16 @@ void Parse::parser(SPSCQueue<uint8_t>& queue){
             char ch = static_cast<char>(*byte);
             queue.pop();
 
-            if (ch == 't') {
+            if (ch == 't'){
                 frame.clear();
                 frame.push_back(ch);
                 collecting = true;
                 continue;
             }
 
-            if (!collecting) {
-                continue;
-            }
+            if (!collecting) { continue; }
 
-            if (ch == '\r') {
+            if (ch == '\r'){
                 frame.push_back(ch);
                 handleFrame(frame);
                 frame.clear();
@@ -142,18 +198,12 @@ void Parse::parser(SPSCQueue<uint8_t>& queue){
                 continue;
             }
 
-            if (ch == '\n') {
-                continue;
-            }
-
+            if (ch == '\n') { continue; }
             frame.push_back(ch);
-        } else {
-            std::this_thread::yield();
-        }
+
+        } else { std::this_thread::yield(); }
     }
 };
-
-
 
 /*
 static inline int retCANID(const char* str){

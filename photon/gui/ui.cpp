@@ -22,7 +22,18 @@ void UI::build(){
                                    ImGuiWindowFlags_NoBackground |
                                    ImGuiWindowFlags_NoDocking;
     background();
+
     for (auto& [id, msg] : parseINTF->canStore.canMessages) msg.updateMessage(parseINTF);
+
+    //if(!parseINTF->canStore.canMessages.empty())
+        //std::cout << "not empty" << std::endl;
+    const CanMessage& msg = parseINTF->canStore.canMessages[0x002];
+    if(!msg.signals.empty()){
+        //std::cout << "not empty";
+        //genericInlinePlot(msg.time, msg.signals[0].data, "speed");
+        std::cout << static_cast<float>(msg.signals[0].data.back()) << '\r';
+        //std::cout << "not empty" << std::endl;
+    }
 
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Debug", NULL, windowFlags)){
@@ -136,6 +147,7 @@ void UI::genericInlinePlot(const std::vector<double>& xAxis, const std::vector<d
     const double windowStart = std::max(0.0, xAxis.back() - maxTime);
     auto startIt = std::lower_bound(xAxis.begin(), xAxis.end(), windowStart);
     const std::size_t startIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), startIt));
+
     if (startIdx >= xAxis.size()) { return; }
 
     double currentMin = yAxis[startIdx];
@@ -156,6 +168,7 @@ void UI::genericInlinePlot(const std::vector<double>& xAxis, const std::vector<d
     ImPlot::SetNextAxisLimits(ImAxis_X1, windowStart, xAxis.back(), ImPlotCond_Always);
     ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
     std::string plotLabel = std::string(name) + "##inlinePlot";
+
     if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-FLT_MIN, 200.0f), ImPlotFlags_NoLegend)) {
         const double* xData = xAxis.data() + startIdx;
         const double* yData = yAxis.data() + startIdx;
