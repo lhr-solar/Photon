@@ -309,10 +309,10 @@ void CanMessage::updateMessage(Parse* networkSource){
     uint64_t encoded;
     ImGuiIO &io = ImGui::GetIO();
     float deltaTime = io.DeltaTime;
-    const bool hasNewData = networkSource->readSample(canId, encoded);
+    const bool haveNewData = networkSource->readSample(canId, encoded);
     time.push_back(time.back() + deltaTime);
     const auto now = std::chrono::system_clock::now();
-    if (!hasNewData) {
+    if (!haveNewData) {
         for (auto& sg : signals) { 
             sg.timeSinceMutation = std::chrono::duration_cast<std::chrono::milliseconds>(now-sg.lastTimeMutated);
         }
@@ -352,6 +352,8 @@ void CanMessage::updateMessage(Parse* networkSource){
                                         : static_cast<int64_t>(raw);
         double physical = static_cast<double>(signedRaw) * sg.scale + sg.offset;
 
+
+        std::cout << physical << " " << std::endl;
         sg.data.push_back(physical);
         totalBytes += static_cast<double>(sg.data.size()) * sizeof(double);
     }

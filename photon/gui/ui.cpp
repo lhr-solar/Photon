@@ -31,7 +31,7 @@ void UI::build(){
     if(!msg.signals.empty()){
         //std::cout << "not empty";
         //genericInlinePlot(msg.time, msg.signals[0].data, "speed");
-        std::cout << static_cast<float>(msg.signals[0].data.back()) << '\r';
+        //std::cout << static_cast<float>(msg.signals[0].data.back()) << '\r';
         //std::cout << "not empty" << std::endl;
     }
 
