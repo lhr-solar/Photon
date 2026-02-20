@@ -50,5 +50,15 @@ void main(){
     n = n * 0.9 + 4.0;
 
     vec4 o = tanh(vec4(3.0,3.0,3.0,1.0) * d * n * 0.010);
+
+    vec2 noiseUV = gl_FragCoord.xy + vec2(pc.time * 23.0, pc.time * -11.0);
+    vec3 noise = vec3(
+        hash(noiseUV),
+        hash(noiseUV.yx + 19.0),
+        hash(noiseUV + 37.0)
+    ) - 0.5;
+    float grad = max(length(fwidth(o.rgb)), 1.0 / 48.0);
+    o.rgb = clamp(o.rgb + noise * grad, 0.0, 1.0);
+
     fragColor = vec4(o.rgb, 1.0);
 }
