@@ -8,11 +8,47 @@
 
 namespace {
 
-uint64_t extractBitsLe(uint64_t value, uint8_t startBit, uint8_t bitCount){
-    if (bitCount == 0 || startBit >= 64) { return 0; }
-    if (bitCount >= 64) { return value; }
-    const uint64_t mask = (bitCount == 64) ? ~0ULL : ((1ULL << bitCount) - 1ULL);
-    return (value >> startBit) & mask;
+uint64_t extractLe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitLength){
+    if (bitLength <= 0) return 0;
+    if (dlc < 0) return 0;
+    if (dlc > 8) dlc = 8;
+    if (startBit < 0) return 0;
+    if (startBit + bitLength > dlc * 8) return 0;
+
+    uint64_t v = 0;
+    for (int i = 0; i < dlc; ++i) v = (v << 8) | uint64_t(bytes[i]);
+
+    if (bitLength == 64) return v >> startBit;
+
+    uint64_t mask = (1ULL << bitLength) - 1ULL;
+    return (v >> startBit) & mask;
+}
+
+uint64_t extractBe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitLength) {
+    if (bitLength <= 0) return 0;
+    if (dlc < 0) return 0;
+    if (dlc > 8) dlc = 8;
+    if (startBit < 0) return 0;
+
+    const int totalBits = dlc * 8;
+    if (startBit >= totalBits) return 0;
+    if (bitLength > 64) return 0;
+
+    const int byteIdx = startBit / 8;
+    const int bitIdx  = startBit % 8;
+    if (byteIdx >= dlc) return 0;
+
+    uint64_t v = 0;
+    for (int i = 0; i < dlc; ++i) v = (v << 8) | uint64_t(bytes[i]); // bytes[0] is MSB
+
+    const int p0  = (totalBits - 1) - (byteIdx * 8 + (7 - bitIdx));   // bit position in v (LSB=0)
+    const int low = p0 - bitLength + 1;
+    if (low < 0) return 0;
+
+    if (bitLength == 64) return v >> low;
+
+    const uint64_t mask = (1ULL << bitLength) - 1ULL;
+    return (v >> low) & mask;
 }
 
 int32_t signExtend(uint64_t raw, uint8_t bits){
@@ -25,13 +61,14 @@ int32_t signExtend(uint64_t raw, uint8_t bits){
     return static_cast<int32_t>(v);
 }
 
+// least significant @ [0], so returns little endian
 std::array<uint8_t, 8> unpackBytes(uint64_t value, int dlc){
     std::array<uint8_t, 8> bytes{};
     if (dlc <= 0) { return bytes; }
     const int byteCount = dlc > 8 ? 8 : dlc;
-    for (int i = 0; i < byteCount; ++i) {
-        const int shift = 8 * (byteCount - 1 - i);
-        bytes[i] = static_cast<uint8_t>((value >> shift) & 0xFF);
+    for (int i = byteCount; i > 0; i--) {
+        const int shift = 8 * (byteCount - i);
+        bytes[byteCount - i] = static_cast<uint8_t>((value >> shift) & 0xFF);
     }
     return bytes;
 }
@@ -43,23 +80,6 @@ uint64_t buildLittleEndianPayload(const std::array<uint8_t, 8>& bytes, int dlc){
         payload |= static_cast<uint64_t>(bytes[i]) << (i * 8);
     }
     return payload;
-}
-
-uint64_t extractBitsBe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitCount){
-    if (bitCount <= 0) { return 0; }
-    uint64_t result = 0;
-    const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
-    int bitIndex = startBit;
-    for (int i = 0; i < bitCount; ++i) {
-        const int byteIndex = bitIndex / 8;
-        if (byteIndex < 0 || byteIndex >= byteCount) { break; }
-        const int bitInByte = 7 - (bitIndex % 8);
-        const uint64_t bit = (bytes[byteIndex] >> bitInByte) & 0x1ULL;
-        result = (result << 1) | bit;
-        if (bitIndex % 8 == 0) { bitIndex += 15;} 
-        else { --bitIndex; }
-    }
-    return result;
 }
 
 }  // namespace
@@ -311,6 +331,7 @@ void CanMessage::updateMessage(Parse* networkSource){
     float deltaTime = io.DeltaTime;
     const bool haveNewData = networkSource->readSample(canId, encoded);
     time.push_back(time.back() + deltaTime);
+    // meta-data updates
     const auto now = std::chrono::system_clock::now();
     if (!haveNewData) {
         for (auto& sg : signals) { 
@@ -333,28 +354,40 @@ void CanMessage::updateMessage(Parse* networkSource){
         networkSource->canStore.totalBandwidth = networkSource->canStore.totalBandwidth + amtThisUpdate;
     }
 
-    const auto bytes = unpackBytes(encoded, dlc);
-    const uint64_t littlePayload = buildLittleEndianPayload(bytes, dlc);
+    // data updates
+    const std::array<uint8_t, 8> bytes = unpackBytes(encoded, dlc); // bytes, in little endian order
     const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
     double totalBytes = static_cast<double>(time.size()) * sizeof(double);
+    if(canId == 2){
+        //std::cout << std::endl;
+        //std::cout << encoded << " : ";
+        //for( auto v : bytes)
+            //std::cout << std::hex << v;
+    }
+
+
+    // what operations need to happen?
+    // decode the ascii hex -> hex bytes
+    // bytes hex -> decimal
+    // reinterpret decimal depending on:
+    // endianess
+    // uint vs int vs float
+    // add-mul
 
     for(auto& sg : signals){
-        uint64_t raw = 0;
-        if (sg.endianness == 0) {
-            raw = extractBitsBe(bytes, byteCount, sg.startBit, sg.length);
-        } else {
-            raw = extractBitsLe(littlePayload,
-                                static_cast<uint8_t>(sg.startBit),
-                                static_cast<uint8_t>(sg.length));
-        }
+        uint64_t raw{};
+        raw = extractLe(bytes, dlc, sg.startBit, sg.length);
+            //: extractBe(bytes, dlc, sg.startBit, sg.length);
 
-        int64_t signedRaw = sg.isSigned ? signExtend(raw, static_cast<uint8_t>(sg.length))
-                                        : static_cast<int64_t>(raw);
-        double physical = static_cast<double>(signedRaw) * sg.scale + sg.offset;
+        //if(canId == 0x02)
+            //std::cout << bytes.data() << std::endl;
 
+        //int64_t signedRaw = sg.isSigned ? signExtend(raw, static_cast<uint8_t>(sg.length)) : static_cast<int64_t>(raw);
+        //float physical = static_cast<float>(raw) * sg.scale + sg.offset;
 
-        std::cout << physical << " " << std::endl;
-        sg.data.push_back(physical);
+        //std::cout << canId << " : " << physical << " " << std::endl;
+
+        //sg.data.push_back(physical);
         totalBytes += static_cast<double>(sg.data.size()) * sizeof(double);
     }
 

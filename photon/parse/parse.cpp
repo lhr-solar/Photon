@@ -99,6 +99,11 @@ void Parse::handleFrame(const std::string& frame){
     uint16_t canId = 0;
     uint64_t value = 0;
     if (!decodeFrame(frame, canId, value)) { std::cout << "invalid frame " << err_count++ << " | " << canId << " " << value << std::endl; return; }
+    if(canId == 2){
+        std::string t = frame;
+        t.pop_back();
+        std::cout << " : " << t << " : " << value << " : ";
+    }
     writeSample(canId, value);
 }
 
@@ -131,7 +136,9 @@ bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& val
         int lo = hexValue(frame[6 + i * 2]);
         if (hi < 0 || lo < 0) { return false; }
         uint8_t byte = static_cast<uint8_t>((hi << 4) | lo);
-        value = (value << 8) | byte;
+        value = value | (byte << (i * 2));
+        //if(canId == 2)
+            //std::cout << byte;
     }
 
     return true;
@@ -147,14 +154,20 @@ void Parse::acParser(SPSCQueue<RTCarInfo>& queue){
 
                 std::string id = toHex(static_cast<uint16_t>(i), 3);
                 std::string dlc = toHex(static_cast<uint8_t>(field.size), 1);
+
                 std::string dt;
                 dt.reserve(field.size * 2);
 
                 const uint8_t* payload = reinterpret_cast<const uint8_t*>(base + field.offset);
-                for (size_t b = 0; b < field.size; ++b) {
-                    dt += toHex(payload[b], 2);
+                for (size_t b = 0; b < field.size; ++b) dt += toHex(payload[b], 2);
+                // least significant -> most significant
+                // 0x123 4 AA BB CC DD
+                // ∴ little endian
+                if(i == 2){
+                    float x = *reinterpret_cast<const float*>(base + field.offset);
+                    std::cout << std::endl;
+                    std::cout << x << " : " << dt << " : ";
                 }
-
                 std::string frame;
                 frame.reserve(1 + id.size() + dlc.size() + dt.size() + 1);
                 frame += 't';
@@ -162,7 +175,6 @@ void Parse::acParser(SPSCQueue<RTCarInfo>& queue){
                 frame += dlc;
                 frame += dt;
                 frame += '\r';
-                //std::cout << "try Frame " << frame << std::endl;
                 handleFrame(frame);
             }
         }
