@@ -46,6 +46,8 @@ struct UI{
     
     Video videoSource;
 
+    std::vector<double> globalTime {0.0};
+
     void setStyle();
     void build();
     void fpsWindow();
@@ -61,6 +63,7 @@ struct UI{
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
     void genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
+    void dynamicInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
     void tempWork();
     void search();
     bool popupWindow();

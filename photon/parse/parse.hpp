@@ -5,6 +5,7 @@
 #include <thread>
 #include <unordered_map>
 #include <mutex>
+#include <atomic>
 
 #include "dbc.hpp"
 #include "corsa.hpp"
@@ -45,6 +46,7 @@ public:
         CORSA   = 4,
     } backend = TCP;
     CanStore canStore {};
+    std::atomic<bool> running {true};
 
 /* end of parse class */
 };

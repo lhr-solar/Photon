@@ -147,7 +147,7 @@ bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, std::array<ui
 }
 
 void Parse::acParser(SPSCQueue<RTCarInfo>& queue){
-    while(1){
+    while(running){
         if(auto* t = queue.front()){ queue.pop();
             std::byte* base = reinterpret_cast<std::byte*>(t);
             for(size_t i{0u}; i < RTCarInfo_Fields.size(); i++){
@@ -179,9 +179,8 @@ void Parse::acParser(SPSCQueue<RTCarInfo>& queue){
                 frame += '\r';
                 handleFrame(frame);
             }
-        }
+        } else { std::this_thread::yield(); }
     }
-    std::cout << "ended?" << std::endl;
 }
 
 void Parse::parser(SPSCQueue<uint8_t>& queue){
@@ -189,7 +188,6 @@ void Parse::parser(SPSCQueue<uint8_t>& queue){
     frame.reserve(32);
     bool collecting = false;
 
-    bool running = true;
     while(running){
         if(auto* byte = queue.front()){
             char ch = static_cast<char>(*byte);

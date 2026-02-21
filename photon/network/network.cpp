@@ -49,12 +49,26 @@ void Network::localReader(){
 };
 
 void Network::corsaReader(){
-    UdpSocket socket(LOCAL_IP, CORSA_PORT);
     std::vector<RTCarInfo> buffer(1);
+    constexpr int maxConsecutiveReadFailures = 3;
+
     while(running){
-        auto bytesRead = socket.read(buffer.data(), buffer.size());
-        if(bytesRead <= 0){ continue; }
-        if(bytesRead > 0){
+        UdpSocket socket(LOCAL_IP, CORSA_PORT);
+        int consecutiveReadFailures = 0;
+
+        while(running){
+            auto bytesRead = socket.read(buffer.data(), buffer.size());
+            if(bytesRead <= 0){
+                consecutiveReadFailures++;
+                if(consecutiveReadFailures >= maxConsecutiveReadFailures){
+                    std::cout << "[!] Corsa UDP read failed repeatedly; restarting reader socket" << std::endl;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                    break;
+                }
+                continue;
+            }
+
+            consecutiveReadFailures = 0;
             std::size_t count = static_cast<std::size_t>(bytesRead) / sizeof(RTCarInfo);
             for(std::size_t i = 0; i < count; i++){
                 while(!corsaQueue.try_push(buffer[i])){ std::cout << "[!] Network Buffer full!" << std::endl; std::this_thread::yield();}
