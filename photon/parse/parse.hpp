@@ -44,7 +44,7 @@ public:
         LOCAL   = 3,
         CORSA   = 4,
     } backend = TCP;
-    CanStore canStore;
+    CanStore canStore {};
 
 /* end of parse class */
 };

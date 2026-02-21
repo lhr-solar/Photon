@@ -331,7 +331,7 @@ void CanMessage::updateMessage(Parse* networkSource){
     float deltaTime = io.DeltaTime;
     const bool haveNewData = networkSource->readSample(canId, value);
     time.push_back(time.back() + deltaTime);
-    // meta-data updates
+    // metadata updates
     const auto now = std::chrono::system_clock::now();
     if (!haveNewData) {
         for (auto& sg : signals) { 
@@ -357,36 +357,37 @@ void CanMessage::updateMessage(Parse* networkSource){
     // data updates
     const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
     double totalBytes = static_cast<double>(time.size()) * sizeof(double);
-    /*
-    if(canId == 2){
-        std::cout << std::endl;
-        for( auto v : value)
-            std::cout << std::dec << +v;
-    }
-    */
-
-    // what operations need to happen?
-    // decode the ascii hex -> hex bytes
-    // bytes hex -> decimal
-    // reinterpret decimal depending on:
-    // endianess
-    // uint vs int vs float
-    // add-mul
-
     for(auto& sg : signals){
         uint64_t raw{};
-        //raw = extractLe(value, dlc, sg.startBit, sg.length);
-        //raw = extractBe(value, dlc, sg.startBit, sg.length);
+        raw = (sg.endianness == 0) ? extractBe(value, dlc, sg.startBit, sg.length) : 
+                                     extractLe(value, dlc, sg.startBit, sg.length);
+        int failed = 1;
+        if(sg.type == vINT){
+            uint64_t bits = static_cast<uint64_t>(raw);
+            uint64_t value = std::bit_cast<uint64_t>(bits);
+            value = (value + sg.offset) * sg.scale;
+            sg.data.push_back(static_cast<double>(value));
+            failed = 0;
+        }
 
-        //if(canId == 0x02)
-            //std::cout << static_cast<float>(raw) << std::endl;
+        if(sg.type == vFLOAT){
+            uint32_t bits = static_cast<uint32_t>(raw);
+            float value = std::bit_cast<float>(bits);
+            value = (value + sg.offset) * sg.scale;
+            sg.data.push_back(static_cast<double>(value));
+            failed = 0;
+        }
 
-        //int64_t signedRaw = sg.isSigned ? signExtend(raw, static_cast<uint8_t>(sg.length)) : static_cast<int64_t>(raw);
-        //float physical = static_cast<float>(raw) * sg.scale + sg.offset;
+        if(sg.type == vDOUBLE){
+            uint64_t bits = static_cast<uint64_t>(raw);
+            double value = std::bit_cast<double>(bits);
+            value = (value + sg.offset) * sg.scale;
+            sg.data.push_back(static_cast<double>(value));
+            failed = 0;
+        }
 
-        //std::cout << canId << " : " << physical << " " << std::endl;
+        if(failed) std::cout << canId << " " << sg.name << " failed" << std::endl;
 
-        //sg.data.push_back(physical);
         totalBytes += static_cast<double>(sg.data.size()) * sizeof(double);
     }
 

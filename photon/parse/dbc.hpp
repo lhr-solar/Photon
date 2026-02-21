@@ -23,12 +23,12 @@ struct CanSignal {
     double min = 0.0;
     double max = 0.0;
     valType type = vINT;
-    std::string name;
-    std::string unit;
-    std::string receiver;
+    std::string name = "NULL";
+    std::string unit = "NULL";
+    std::string receiver = "NULL";
     std::chrono::system_clock::time_point lastTimeMutated = std::chrono::system_clock::now();
-    std::chrono::milliseconds timeSinceMutation;
-    std::vector<double> data;
+    std::chrono::milliseconds timeSinceMutation{};
+    std::vector<double> data {0.0};
 };
 
 struct CanMessage{
@@ -43,7 +43,7 @@ struct CanMessage{
     double dataTransfer = 0;
     double bandwidthPercentage = 0; // percentage of total data sent
     std::vector<double> time {0.0};
-    std::vector<CanSignal> signals;
+    std::vector<CanSignal> signals{};
 
     void updateMessage(Parse* networkSource);
 };

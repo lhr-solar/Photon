@@ -102,9 +102,9 @@ void Parse::handleFrame(const std::string& frame){
     if(canId == 2){
         std::string t = frame;
         t.pop_back();
-        std::cout << " : " << t << " : ";
-        for(uint8_t v : value)
-            std::cout << std::dec << +v << " ";
+        //std::cout << " : " << t << " : ";
+        //for(uint8_t v : value)
+            //std::cout << std::dec << +v << " ";
     }
     writeSample(canId, value);
 }
@@ -133,15 +133,15 @@ bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, std::array<ui
     }
 
     value = {};
-    if(canId == 2) std::cout << " : ";
+    //if(canId == 2) std::cout << " : ";
     for (int i = 0; i < dataLength; ++i) {
         uint8_t h = hexValue(frame[5 + i*2]);
         uint8_t l = hexValue(frame[6 + i*2]);
         if (h < 0 || l < 0) { return false; }
         int v = (h<<4)+l;
         value[i] = v;
-        if(canId == 2)
-            std::cout << std::dec << v << " ";
+        //if(canId == 2)
+            //std::cout << std::dec << v << " ";
     }
     return true;
 }
@@ -161,14 +161,14 @@ void Parse::acParser(SPSCQueue<RTCarInfo>& queue){
                 dt.reserve(field.size * 2);
 
                 const uint8_t* payload = reinterpret_cast<const uint8_t*>(base + field.offset);
-                for (size_t b = 0; b < field.size; ++b) dt += toHex(payload[b], 2);
+                for (size_t b = 0; b < field.size; ++b) dt += toHex(payload[field.size - b - 1], 2);
                 // least significant -> most significant
                 // 0x123 4 AA BB CC DD
                 // ∴ little endian
                 if(i == 2){
                     float x = *reinterpret_cast<const float*>(base + field.offset);
-                    std::cout << std::endl;
-                    std::cout << x << " : " << dt;
+                    //std::cout << std::endl;
+                    //std::cout << x << " : " << dt;
                 }
                 std::string frame;
                 frame.reserve(1 + id.size() + dlc.size() + dt.size() + 1);

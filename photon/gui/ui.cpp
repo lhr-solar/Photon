@@ -22,17 +22,12 @@ void UI::build(){
                                    ImGuiWindowFlags_NoBackground |
                                    ImGuiWindowFlags_NoDocking;
     background();
-// :)
     for (auto& [id, msg] : parseINTF->canStore.canMessages) msg.updateMessage(parseINTF);
 
-    //if(!parseINTF->canStore.canMessages.empty())
-        //std::cout << "not empty" << std::endl;
-    const CanMessage& msg = parseINTF->canStore.canMessages[0x002];
-    if(!msg.signals.empty()){
-        //std::cout << "not empty";
-        //genericInlinePlot(msg.time, msg.signals[0].data, "speed");
-        //std::cout << static_cast<float>(msg.signals[0].data.back()) << '\r';
-        //std::cout << "not empty" << std::endl;
+    if(!parseINTF->canStore.canMessages.empty()){
+        genericInlinePlot(parseINTF->canStore.canMessages[0x02].time,
+                parseINTF->canStore.canMessages[0x02].signals[0].data, "km/h");
+        std::cout << parseINTF->canStore.canMessages[0x02].signals[0].data.back() << std::endl;;
     }
 
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
@@ -469,8 +464,10 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
         ImGui::Text("Receiver: %s", sig.receiver.c_str());
         ImGui::SameLine();
         ImGui::Text("Last Mutated: %.3f s ago",
-
         std::chrono::duration<double>(std::chrono::system_clock::now() - sig.lastTimeMutated).count());
+        ImGui::SameLine();
+        ImGui::Text("Last: %.3f", sig.data.back());
+
         genericInlinePlot(time, sig.data, sig.name.c_str());
     }
     ImGui::End();
