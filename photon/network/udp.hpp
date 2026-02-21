@@ -33,7 +33,11 @@ struct UdpSocket{
     ssize_t write(const uint8_t* buf, std::size_t len);
     void reconnect();
 
+#ifdef _WIN32
+    SOCKET sock;
+#else
     int sock;
+#endif
     sockaddr_in server{};
     socklen_t slen;
 };

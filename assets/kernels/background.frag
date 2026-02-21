@@ -8,7 +8,13 @@ layout(push_constant) uniform PushConstants {
 } pc;
 
 // the book of shaders CH10
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); } 
+//float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); } 
+float hash(vec2 p) {
+    uvec2 n = uvec2(ivec2(floor(p)));
+    n = (n ^ (n.yx >> 1U)) * 1664525U + 1013904223U;
+    uint h = n.x ^ n.y ^ (n.x * 374761393U) ^ (n.y * 668265263U);
+    return float(h & 0x00ffffffu) * (1.0 / 16777216.0);
+}
 
 float snoise2D(vec2 p){
     vec2 i = floor(p);
