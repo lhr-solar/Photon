@@ -1,4 +1,8 @@
-file(GLOB src "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+set(src
+    "${CMAKE_CURRENT_SOURCE_DIR}/network.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/dbc_manager.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tcp.cpp"
+)
 add_library(network ${src})
 
 target_include_directories(network PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

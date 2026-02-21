@@ -386,7 +386,8 @@ void Network::candumpParser() {
     // Example: (1612345678.123456) can0 0C0#0000000000000000
     FILE* pipe = popen("candump -L can0", "r");
     if (!pipe) {
-        std::cerr << "[Network] Failed to execute candump -L can0\n";
+        std::cerr << "[Network] Failed to execute candump -L can0\n"; make DashboardOnly -j$(nproc)
+make: *** No rule to make target 'DashboardOnly'.  Stop.
         return;
     }
 
