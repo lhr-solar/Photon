@@ -98,7 +98,7 @@ bool CanStore::loadStateFromFile(std::string filePath){
     struct PendingValType {
         int canId = 0;
         std::string signalName;
-        valType type = INT;
+        valType type = vINT;
     };
     std::vector<PendingValType> pendingValTypes;
 
@@ -246,11 +246,11 @@ bool CanStore::loadStateFromFile(std::string filePath){
                 continue;
             }
 
-            valType parsedType = INT;
+            valType parsedType = vINT;
             if (rawType == 1) {
-                parsedType = FLOAT;
+                parsedType = vFLOAT;
             } else if (rawType == 2) {
-                parsedType = DOUBLE;
+                parsedType = vDOUBLE;
             }
 
             bool applied = false;
@@ -308,9 +308,9 @@ void CanStore::dump() {
                   << " | Sender: " << msg.transmitter);
         for (const auto& sigName : msg.signals) {
                 const char* typeLabel = "int";
-                if (sigName.type == FLOAT) {
+                if (sigName.type == vFLOAT) {
                     typeLabel = "float";
-                } else if (sigName.type == DOUBLE) {
+                } else if (sigName.type == vDOUBLE) {
                     typeLabel = "double";
                 }
                 logs("   SG_ " << sigName.name

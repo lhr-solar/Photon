@@ -8,9 +8,9 @@
 struct Parse;
 
 enum valType {
-    INT = 0,
-    FLOAT = 1,
-    DOUBLE = 2
+    vINT = 0,
+    vFLOAT = 1,
+    vDOUBLE = 2
 };
 
 struct CanSignal {
@@ -22,7 +22,7 @@ struct CanSignal {
     double offset = 0.0;
     double min = 0.0;
     double max = 0.0;
-    valType type = INT;
+    valType type = vINT;
     std::string name;
     std::string unit;
     std::string receiver;
