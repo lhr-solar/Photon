@@ -1,5 +1,6 @@
 /*[λ] the photon parsing interface*/
 #pragma once
+#include <array>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -17,7 +18,7 @@ struct sample {
     sample& operator=(sample&&) = delete;
 
     std::mutex lock;
-    uint64_t point = 0;
+    std::array<uint8_t, 8> point;
     bool hasNew = false;
 };
 
@@ -29,10 +30,10 @@ public:
     void parser(SPSCQueue<uint8_t>& queue);
     void acParser(SPSCQueue<RTCarInfo>& queue);
     void handleFrame(const std::string& frame);
-    bool decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value);
-    void writeSample(uint16_t canId, uint64_t value);
+    bool decodeFrame(const std::string& frame, uint16_t& canId, std::array<uint8_t,8>& value);
+    void writeSample(uint16_t canId, std::array<uint8_t,8>value);
     sample& ensureSample(uint16_t canId);
-    bool readSample(uint16_t canId, uint64_t& outValue);
+    bool readSample(uint16_t canId, std::array<uint8_t,8>& outValue);
 
     std::mutex sampleMapMutex;
     std::unordered_map<uint16_t, std::unique_ptr<sample>> sampleMap;

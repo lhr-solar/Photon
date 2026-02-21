@@ -326,10 +326,10 @@ void CanStore::dump() {
 }
 
 void CanMessage::updateMessage(Parse* networkSource){
-    uint64_t encoded;
+    std::array<uint8_t, 8> value;
     ImGuiIO &io = ImGui::GetIO();
     float deltaTime = io.DeltaTime;
-    const bool haveNewData = networkSource->readSample(canId, encoded);
+    const bool haveNewData = networkSource->readSample(canId, value);
     time.push_back(time.back() + deltaTime);
     // meta-data updates
     const auto now = std::chrono::system_clock::now();
@@ -355,16 +355,15 @@ void CanMessage::updateMessage(Parse* networkSource){
     }
 
     // data updates
-    const std::array<uint8_t, 8> bytes = unpackBytes(encoded, dlc); // bytes, in little endian order
     const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
     double totalBytes = static_cast<double>(time.size()) * sizeof(double);
+    /*
     if(canId == 2){
-        //std::cout << std::endl;
-        //std::cout << encoded << " : ";
-        //for( auto v : bytes)
-            //std::cout << std::hex << v;
+        std::cout << std::endl;
+        for( auto v : value)
+            std::cout << std::dec << +v;
     }
-
+    */
 
     // what operations need to happen?
     // decode the ascii hex -> hex bytes
@@ -376,11 +375,11 @@ void CanMessage::updateMessage(Parse* networkSource){
 
     for(auto& sg : signals){
         uint64_t raw{};
-        raw = extractLe(bytes, dlc, sg.startBit, sg.length);
-            //: extractBe(bytes, dlc, sg.startBit, sg.length);
+        //raw = extractLe(value, dlc, sg.startBit, sg.length);
+        //raw = extractBe(value, dlc, sg.startBit, sg.length);
 
         //if(canId == 0x02)
-            //std::cout << bytes.data() << std::endl;
+            //std::cout << static_cast<float>(raw) << std::endl;
 
         //int64_t signedRaw = sg.isSigned ? signExtend(raw, static_cast<uint8_t>(sg.length)) : static_cast<int64_t>(raw);
         //float physical = static_cast<float>(raw) * sg.scale + sg.offset;

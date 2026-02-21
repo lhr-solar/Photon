@@ -1,6 +1,7 @@
 #include "imgui.h"
 #include "implot.h"
 #include "plot.hpp"
+#include <iostream>
 
 Plot::Plot(int canID, const char* windowName, const char* plotName)
     : data{std::vector<double>{0.0}, std::vector<double>{0.0}},
@@ -19,7 +20,8 @@ void Plot::update(Parse* networkSource){
             series[1].erase(series[1].begin());
         }
     };
-    const bool hasNew = networkSource->readSample(canID, val);
+    std::cout << "DEPRECATED FUNCTION CALL" << std::endl;
+    const bool hasNew = 0;//networkSource->readSample(canID, val);
     prune(data);
     data[0].push_back(data[0].back() + deltaTime);
     if (!hasNew && !data[1].empty()) {

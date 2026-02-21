@@ -56,7 +56,7 @@ std::string toHex(uint8_t i, size_t w){
     return oss.str();
 }
 
-void Parse::writeSample(uint16_t canId, uint64_t value) {
+void Parse::writeSample(uint16_t canId, std::array<uint8_t,8>value) {
     if(canId < 0) return;
     sample& entry = ensureSample(canId);
     std::lock_guard<std::mutex> valueGuard(entry.lock);
@@ -74,11 +74,11 @@ sample& Parse::ensureSample(uint16_t canId) {
     return *(it->second);
 }
 
-bool Parse::readSample(uint16_t canId, uint64_t& outValue) {
+bool Parse::readSample(uint16_t canId, std::array<uint8_t,8>& outValue) {
     std::unique_lock<std::mutex> mapLock(sampleMapMutex);
     auto it = sampleMap.find(canId);
     if (it == sampleMap.end()) {
-        outValue = 0;
+        outValue = {};
         return false;
     }
     sample* entry = it->second.get();
@@ -97,18 +97,20 @@ bool Parse::readSample(uint16_t canId, uint64_t& outValue) {
 void Parse::handleFrame(const std::string& frame){
     static uint64_t err_count = 0;
     uint16_t canId = 0;
-    uint64_t value = 0;
-    if (!decodeFrame(frame, canId, value)) { std::cout << "invalid frame " << err_count++ << " | " << canId << " " << value << std::endl; return; }
+    std::array<uint8_t,8> value = {};
+    if (!decodeFrame(frame, canId, value)) { std::cout << "invalid frame " << err_count++ << " | " << canId << std::endl; return; }
     if(canId == 2){
         std::string t = frame;
         t.pop_back();
-        std::cout << " : " << t << " : " << value << " : ";
+        std::cout << " : " << t << " : ";
+        for(uint8_t v : value)
+            std::cout << std::dec << +v << " ";
     }
     writeSample(canId, value);
 }
 
 
-bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
+bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, std::array<uint8_t, 8>& value) {
     if (frame.empty() || frame.front() != 't') { return false; }
     if (frame.back() != '\r') { return false; }
 
@@ -130,17 +132,17 @@ bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& val
         canId = static_cast<uint16_t>((canId << 4) | static_cast<uint16_t>(nibble));
     }
 
-    value = 0;
+    value = {};
+    if(canId == 2) std::cout << " : ";
     for (int i = 0; i < dataLength; ++i) {
-        int hi = hexValue(frame[5 + i * 2]);
-        int lo = hexValue(frame[6 + i * 2]);
-        if (hi < 0 || lo < 0) { return false; }
-        uint8_t byte = static_cast<uint8_t>((hi << 4) | lo);
-        value = value | (byte << (i * 2));
-        //if(canId == 2)
-            //std::cout << byte;
+        uint8_t h = hexValue(frame[5 + i*2]);
+        uint8_t l = hexValue(frame[6 + i*2]);
+        if (h < 0 || l < 0) { return false; }
+        int v = (h<<4)+l;
+        value[i] = v;
+        if(canId == 2)
+            std::cout << std::dec << v << " ";
     }
-
     return true;
 }
 
@@ -166,7 +168,7 @@ void Parse::acParser(SPSCQueue<RTCarInfo>& queue){
                 if(i == 2){
                     float x = *reinterpret_cast<const float*>(base + field.offset);
                     std::cout << std::endl;
-                    std::cout << x << " : " << dt << " : ";
+                    std::cout << x << " : " << dt;
                 }
                 std::string frame;
                 frame.reserve(1 + id.size() + dlc.size() + dt.size() + 1);
