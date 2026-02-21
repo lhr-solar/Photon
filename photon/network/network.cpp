@@ -246,6 +246,12 @@ void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
 
         double physValue = sig.scale * rawSignal + sig.offset;
 
+        // ---- STORE PARSED VALUE ----
+        {
+            std::lock_guard<std::mutex> parsedLock(parsedSignalsMutex);
+            parsedSignals[sigName] = physValue;
+        }
+
         // ---- MAKE A STRING FOR THIS SIGNAL ----
         std::ostringstream ss;
         ss << sigName << " = " << physValue;
@@ -372,6 +378,81 @@ void Network::uartProducer(){
 }
 #endif
 
+void Network::candumpParser() {
+#ifndef WIN32
+    std::cerr << "[Network] Starting candumpParser thread (Linux popen mode)\n";
+    
+    // candump -L can0 outputs: (timestamp) can0 ID#DATA
+    // Example: (1612345678.123456) can0 0C0#0000000000000000
+    FILE* pipe = popen("candump -L can0", "r");
+    if (!pipe) {
+        std::cerr << "[Network] Failed to execute candump -L can0\n";
+        return;
+    }
+
+    char line[256];
+    while (running && fgets(line, sizeof(line), pipe)) {
+        std::string s(line);
+        
+        // Find the '#' separator
+        size_t hashPos = s.find('#');
+        if (hashPos == std::string::npos) continue;
+
+        // Find the space before the ID
+        size_t spacePos = s.find_last_of(' ', hashPos);
+        if (spacePos == std::string::npos) continue;
+
+        // Extract ID (hex)
+        std::string idStr = s.substr(spacePos + 1, hashPos - spacePos - 1);
+        uint16_t canId = 0;
+        try {
+            canId = static_cast<uint16_t>(std::stoul(idStr, nullptr, 16));
+        } catch (...) { continue; }
+
+        // Extract Data (hex)
+        std::string dataStr = s.substr(hashPos + 1);
+        // Remove trailing newline/whitespace
+        while (!dataStr.empty() && (dataStr.back() == '\r' || dataStr.back() == '\n' || dataStr.back() == ' ')) {
+            dataStr.pop_back();
+        }
+
+        if (dataStr.empty()) continue;
+
+        uint64_t value = 0;
+        int dlc = (int)dataStr.length() / 2;
+        if (dlc > 8) dlc = 8;
+
+        try {
+            // candump -L ID#DATA provides data as a hex string.
+            // Example: 0C0#1122334455667788
+            // We need to parse this into a 64-bit integer such that the first byte (11)
+            // is the most significant byte if we want to match the existing big-endian
+            // construction used in decodeFrame.
+            
+            for (int i = 0; i < dlc; ++i) {
+                std::string byteStr = dataStr.substr(i * 2, 2);
+                uint8_t byte = static_cast<uint8_t>(std::stoul(byteStr, nullptr, 16));
+                value = (value << 8) | byte;
+            }
+        } catch (...) { continue; }
+
+        writeSample(canId, value);
+
+        if (dbcManager.hasMessages()) {
+            interpretDBCFrame(canId, value, dlc);
+        }
+    }
+
+    pclose(pipe);
+    std::cerr << "[Network] candumpParser thread exiting\n";
+#else
+    std::cerr << "[Network] candumpParser not supported on Windows\n";
+    while (running) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+#endif
+}
+
 // ---------------------- DBC wrappers ----------------------
 
 bool Network::loadDBC(const std::string& path) {
@@ -380,4 +461,14 @@ bool Network::loadDBC(const std::string& path) {
 
 void Network::printDBCMap() {
     dbcManager.dump();
+}
+
+bool Network::readParsedSignal(const std::string& sigName, double& outValue) {
+    std::lock_guard<std::mutex> lock(parsedSignalsMutex);
+    auto it = parsedSignals.find(sigName);
+    if (it == parsedSignals.end()) {
+        return false;
+    }
+    outValue = it->second;
+    return true;
 }

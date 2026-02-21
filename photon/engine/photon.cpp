@@ -59,10 +59,15 @@ void Photon::initThreads(){
     DbcWatcher watcher(network.getDbcManager(), "dbc", 3);
     watcher.start();
     network.printDBCMap();
+#ifndef WIN32
+    std::thread candump_t(&Network::candumpParser, &network);
+    candump_t.detach();
+#else
     std::thread producer_t(&Network::producer, &network);
     producer_t.detach();
     std::thread parser_t(&Network::parser, &network);
     parser_t.detach();
+#endif
 }
 
 void Photon::renderLoop(){

@@ -511,7 +511,7 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             ImGuiIO& ioF = ImGui::GetIO();
             ImFont* faultFont = (ioF.Fonts->Fonts.Size > 2)
                                     ? ioF.Fonts->Fonts[2] : nullptr;
-            float faultFs = 28.0f;
+            float faultFs = 60.0f;
 
             const bool unrecoverable = state.canFault;
 

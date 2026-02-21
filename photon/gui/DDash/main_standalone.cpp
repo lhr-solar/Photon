@@ -21,6 +21,7 @@ int APIENTRY WinMain(_In_ HINSTANCE hinstance,
     photon.gpu.initVulkan();
     photon.gui.initWindow(hinstance);
     photon.prepareScene();
+    photon.initThreads();
     photon.renderLoop();
     return 0;
 }
@@ -34,6 +35,7 @@ int main() {
     photon.gpu.initVulkan();
     photon.gui.initWindow();
     photon.prepareScene();
+    photon.initThreads();
     photon.renderLoop();
     return 0;
 }

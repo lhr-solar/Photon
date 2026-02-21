@@ -115,7 +115,7 @@ struct AppState {
     bool regenEnabled;
     ContactorStates contactorStates;
     IgnitionStates ignitionStates;
-    bool simulationEnabled = true;
+    bool simulationEnabled = false;
     uint8_t heartbeat;      // 0-255 cycling heartbeat counter
     std::vector<Fault> faults;
     TurnSignal turnSignal;

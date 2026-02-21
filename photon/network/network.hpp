@@ -25,6 +25,7 @@ public:
     void parser();
     void uartProducer();
     void uartConsumer();
+    void candumpParser();
 
     // --- Debug / DBC ---
     void printDBCMap();
@@ -53,6 +54,11 @@ public:
     static constexpr size_t MAX_HISTORY = 100;
     std::mutex decodedHistoryMutex;
     std::deque<DecodedEntry> decodedHistory;
+
+    // --- Parsed Signal Storage ---
+    std::mutex parsedSignalsMutex;
+    std::unordered_map<std::string, double> parsedSignals;
+    bool readParsedSignal(const std::string& sigName, double& outValue);
 
 private:
     struct sample {

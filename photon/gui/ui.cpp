@@ -9,10 +9,58 @@ void UI::build(){
     ImGui::NewFrame();
 
     static ui::AppState ddashState = ui::CreateDefaultState();
-    // ddashState.canFault = true;
-    // ddashState.canFaultMessage = "UNRECOVERABLE CAN BUS FAILURE";
     if (ddashState.simulationEnabled) {
         ui::UpdateSimulation(ddashState, ImGui::GetIO().DeltaTime);
+    } else if (networkINTF) {
+        double val = 0;
+        if (networkINTF->readParsedSignal("VehicleVelocity", val)) ddashState.speed = (int)(val * 3.6);
+        if (networkINTF->readParsedSignal("Main_Battery_Voltage", val)) ddashState.mainBattery.voltage = (float)val;
+        if (networkINTF->readParsedSignal("Main_Battery_Current", val)) ddashState.mainBattery.current = (float)val;
+        if (networkINTF->readParsedSignal("Supplemental_Battery_Voltage", val)) ddashState.suppBattery.voltage = (float)val;
+        if (networkINTF->readParsedSignal("HeatsinkTemp", val)) ddashState.motorController.heatsinkTemp = (float)val;
+        if (networkINTF->readParsedSignal("BusVoltage", val)) ddashState.motorController.voltage = (float)val;
+        if (networkINTF->readParsedSignal("BusCurrent", val)) ddashState.motorController.current = (float)val;
+        
+        double bpsF = 0, vcuF = 0;
+        bool hasBps = networkINTF->readParsedSignal("BPS_Fault", bpsF);
+        bool hasVcu = networkINTF->readParsedSignal("VCU_Fault", vcuF);
+        if (hasBps && bpsF != 0) {
+            ddashState.canFault = true;
+            ddashState.canFaultId = 1;
+            ddashState.canFaultName = "BPS";
+            ddashState.canFaultMessage = "BPS Fault";
+        } else if (hasVcu && vcuF != 0) {
+            ddashState.canFault = true;
+            ddashState.canFaultId = 16;
+            ddashState.canFaultName = "VCU";
+            ddashState.canFaultMessage = "VCU Fault";
+        } else {
+            ddashState.canFault = false;
+        }
+
+        if (networkINTF->readParsedSignal("HV_Plus_Contactor_State", val)) ddashState.contactorStates.hvPositive = (val != 0);
+        if (networkINTF->readParsedSignal("HV_Minus_Contactor_State", val)) ddashState.contactorStates.hvNegative = (val != 0);
+        if (networkINTF->readParsedSignal("Array_Precharge_Contactor_State", val)) ddashState.contactorStates.arrayPrecharge = (val != 0);
+        if (networkINTF->readParsedSignal("Array_Contactor_State", val)) ddashState.contactorStates.arrayContactor = (val != 0);
+        if (networkINTF->readParsedSignal("Motor_Precharge_Contactor_State", val)) ddashState.contactorStates.motorPrecharge = (val != 0);
+        if (networkINTF->readParsedSignal("Motor_Contactor_State", val)) ddashState.contactorStates.motorContactor = (val != 0);
+
+        if (networkINTF->readParsedSignal("Ignition_Off", val)) ddashState.ignitionStates.lvEnabled = (val == 0);
+        if (networkINTF->readParsedSignal("Ignition_Array", val)) ddashState.ignitionStates.arrayEnabled = (val != 0);
+        if (networkINTF->readParsedSignal("Ignition_Motor", val)) ddashState.ignitionStates.motorEnabled = (val != 0);
+
+        if (networkINTF->readParsedSignal("Gear_Forward", val) && val != 0) ddashState.gear = ui::Gear::Forward;
+        if (networkINTF->readParsedSignal("Gear_Reverse", val) && val != 0) ddashState.gear = ui::Gear::Reverse;
+        if (networkINTF->readParsedSignal("Gear_Neutral", val) && val != 0) ddashState.gear = ui::Gear::Neutral;
+
+        double bL = 0, bR = 0;
+        if (networkINTF->readParsedSignal("Blinker_Left", bL) && bL != 0) ddashState.turnSignal = ui::TurnSignal::Left;
+        else if (networkINTF->readParsedSignal("Blinker_Right", bR) && bR != 0) ddashState.turnSignal = ui::TurnSignal::Right;
+        else ddashState.turnSignal = ui::TurnSignal::None;
+
+        if (networkINTF->readParsedSignal("Cruise_Enable", val)) ddashState.cruise.enabled = (val != 0);
+        if (networkINTF->readParsedSignal("Regen_Enable", val)) ddashState.regenEnabled = (val != 0);
+        if (networkINTF->readParsedSignal("Brake_Pos_Main", val)) ddashState.brakeEngaged = (val > 5.0);
     }
     ui::RenderUI(ddashState);
 
