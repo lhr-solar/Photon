@@ -24,11 +24,13 @@ void UI::build(){
     background();
     for (auto& [id, msg] : parseINTF->canStore.canMessages) msg.updateMessage(parseINTF);
 
+    /*
     if(!parseINTF->canStore.canMessages.empty()){
         genericInlinePlot(parseINTF->canStore.canMessages[0x02].time,
                 parseINTF->canStore.canMessages[0x02].signals[0].data, "km/h");
         std::cout << parseINTF->canStore.canMessages[0x02].signals[0].data.back() << std::endl;;
     }
+    */
 
     ImGui::SetNextWindowPos(vp->Pos); ImGui::SetNextWindowSize(vp->Size);
     if(ImGui::Begin("Debug", NULL, windowFlags)){
@@ -380,10 +382,27 @@ bool UI::popupWindow(){
     bool focused = false;
     bool childFocused = false;
     static int selected = 0;
+    static ImVec2 popupWindowSize(360.0f, 420.0f);
+    static ImVec2 popupWideSize(900.0f, 330.0f);
     ImGuiViewport* vp = ImGui::GetMainViewport();
+    if (!vp) {
+        ImGui::PopStyleColor(2);
+        return false;
+    }
     ImVec2 center = vp->GetCenter();
-    ImVec2 position = ImVec2(vp->Size.x * 0.10, vp->Size.y * 0.25);
-    ImGui::SetNextWindowPos(position);
+    const float gap = 20.0f;
+    auto clampPos = [&](const ImVec2& pos, const ImVec2& size) {
+        const float minX = vp->Pos.x + 8.0f;
+        const float minY = vp->Pos.y + 8.0f;
+        const float maxX = vp->Pos.x + vp->Size.x - size.x - 8.0f;
+        const float maxY = vp->Pos.y + vp->Size.y - size.y - 8.0f;
+        return ImVec2(std::clamp(pos.x, minX, std::max(minX, maxX)),
+                      std::clamp(pos.y, minY, std::max(minY, maxY)));
+    };
+    const float totalWidth = popupWindowSize.x + gap + popupWideSize.x;
+    ImVec2 popupWindowPos(center.x - totalWidth * 0.5f, center.y - popupWindowSize.y * 0.5f);
+    popupWindowPos = clampPos(popupWindowPos, popupWindowSize);
+    ImGui::SetNextWindowPos(popupWindowPos, ImGuiCond_Always);
     const CanMessage& msg = parseINTF->canStore.canMessages[activeCmdResult.canID];
     if (msg.signals.empty()) {
         ImGui::Text("No signals available");
@@ -393,6 +412,7 @@ bool UI::popupWindow(){
     selected = std::clamp(selected, 0, static_cast<int>(msg.signals.size()) - 1);
     if(ImGui::Begin("Command Result", &cmdShowPopup, flags)){
         focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        popupWindowSize = ImGui::GetWindowSize();
         ImGui::Text("Message Name: %s", msg.name.c_str());
         ImGui::Text("CanID: %#04x", msg.canId);
         ImGui::Text("DLC: %d", msg.dlc);
@@ -413,9 +433,12 @@ bool UI::popupWindow(){
                     if (ImGui::IsItemFocused()) selected = static_cast<int>(idx);
                     if (isSelected){
                         ImGui::SetItemDefaultFocus();
-                        // I lied.
-                        // it is actually this guy
-                        childFocused = popupWide(msg.signals[idx], msg.time, {position.x + ImGui::GetWindowWidth() + 20, position.y + ImGui::GetWindowHeight()/2});
+                        const float groupWidth = popupWindowSize.x + gap + popupWideSize.x;
+                        ImVec2 groupOrigin(center.x - groupWidth * 0.5f, center.y);
+                        ImVec2 popupWidePos(groupOrigin.x + popupWindowSize.x + gap,
+                                            center.y - popupWideSize.y * 0.5f);
+                        popupWidePos = clampPos(popupWidePos, popupWideSize);
+                        childFocused = popupWide(msg.signals[idx], msg.time, popupWidePos, &popupWideSize);
                     }
                 }
             ImGui::EndListBox();
@@ -426,7 +449,7 @@ bool UI::popupWindow(){
     return (focused || childFocused);
 }
 
-bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2 pos){
+bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize){
     bool focused = false;
     ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | 
                              ImGuiWindowFlags_NoSavedSettings  | 
@@ -437,7 +460,6 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
     ImGui::SetNextWindowBgAlpha(0.50);
-    ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(pos);
     if(ImGui::Begin((sig.name + "wide##").data(), NULL, flags)){
         focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -469,6 +491,9 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
         ImGui::Text("Last: %.3f", sig.data.back());
 
         genericInlinePlot(time, sig.data, sig.name.c_str());
+        if (outSize != nullptr) {
+            *outSize = ImGui::GetWindowSize();
+        }
     }
     ImGui::End();
     ImGui::PopStyleColor(2);
