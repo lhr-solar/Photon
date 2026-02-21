@@ -438,6 +438,12 @@ void Network::candumpParser() {
 
         writeSample(canId, value);
 
+        std::cerr << "[CANDUMP] CAN ID = " << canId
+                << "  (0x" << std::uppercase << std::hex << canId << std::dec << ")"
+                << " | DLC = " << dlc
+                << " | DATA = 0x" << std::uppercase << std::hex << value << std::dec
+                << "\n";
+
         if (dbcManager.hasMessages()) {
             interpretDBCFrame(canId, value, dlc);
         }
