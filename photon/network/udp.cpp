@@ -12,10 +12,12 @@ UdpSocket::UdpSocket(const std::string& IP, unsigned port){
     server.sin_port = htons(port);
     inet_pton(AF_INET, IP.c_str(), &server.sin_addr);
 
+#ifndef WIN32
     timeval timeout{};
     timeout.tv_sec = 2;
     timeout.tv_usec = 0;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+#endif
 
     handshake hello{};
     hello.id = eIPhoneDevice;
@@ -33,8 +35,10 @@ UdpSocket::UdpSocket(const std::string& IP, unsigned port){
     reinterpret_cast<sockaddr *>(&server), &slen);
     if (recv_len < static_cast<ssize_t>(sizeof(response))) {
         std::cerr << "Handshake response failed";
+#ifndef WIN32
         if (errno == EAGAIN || errno == EWOULDBLOCK) { std::cerr << " (timeout)"; }
         std::cerr << "\n";
+#endif
         f = 1;
     }
 

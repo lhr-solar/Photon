@@ -17,7 +17,6 @@ typedef SSIZE_T ssize_t;
 #include <unistd.h> // This contains close
 #define INVALID_SOCKET (UDP_SOCKET)(~0)
 #define SOCKET_ERROR (-1)
-typedef int UDP_SOCKET;
 #endif
 
 
@@ -34,7 +33,7 @@ struct UdpSocket{
     ssize_t write(const uint8_t* buf, std::size_t len);
     void reconnect();
 
-    UDP_SOCKET sock;
+    int sock;
     sockaddr_in server{};
     socklen_t slen;
 };
