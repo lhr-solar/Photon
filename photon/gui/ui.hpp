@@ -57,4 +57,5 @@ struct UI{
     void showVideoDisplay();
     void customBackground();
     void networkSamplePlot();
+    void slcanWindow();
 };

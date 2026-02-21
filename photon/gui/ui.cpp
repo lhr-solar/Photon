@@ -15,6 +15,7 @@ void UI::build(){
         ui::UpdateSimulation(ddashState, ImGui::GetIO().DeltaTime);
     }
     ui::RenderUI(ddashState);
+    slcanWindow();
 
     if (!dashboardOnly) {
         customBackground();
@@ -241,6 +242,62 @@ void UI::networkSamplePlot(){
 
     ImGui::End();
 }
+
+void UI::slcanWindow() {
+    ImGui::SetNextWindowSize(ImVec2(460.0f, 300.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("SLCAN Monitor")) {
+        ImGui::End();
+        return;
+    }
+
+    if (!networkINTF) {
+        ImGui::Text("Network not connected.");
+        ImGui::End();
+        return;
+    }
+
+    auto& net = *networkINTF;
+
+    if (ImGui::BeginTable("slcan_table", 3,
+                          ImGuiTableFlags_ScrollY |
+                          ImGuiTableFlags_Borders |
+                          ImGuiTableFlags_RowBg)) {
+
+        ImGui::TableSetupColumn("CAN ID");
+        ImGui::TableSetupColumn("Raw");
+        ImGui::TableSetupColumn("Interpretation");
+        ImGui::TableHeadersRow();
+
+        std::lock_guard<std::mutex> lock(net.decodedHistoryMutex);
+
+        for (const auto& entry : net.decodedHistory) {
+
+            ImGui::TableNextRow();
+
+            // CAN ID
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%u (0x%X)", entry.canId, entry.canId);
+
+            // Raw Value
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Text("0x%016llX",
+                (unsigned long long)entry.rawValue);
+
+            // Interpretation (multiline)
+            ImGui::TableSetColumnIndex(2);
+            for (const std::string& line : entry.lines) {
+                ImGui::TextUnformatted(line.c_str());
+            }
+        }
+
+        ImGui::EndTable();
+    }
+
+    ImGui::End();
+}
+
+
+
 
 void UI::customBackground(){
     ImGuiIO &io = ImGui::GetIO();

@@ -1,4 +1,6 @@
-/*[ξ] the photon network interface*/
+#include <mutex>
+#define NOMINMAX
+#include <algorithm>
 #include "network.hpp"
 #include "tcp.hpp"
 #include "spsc.hpp"
@@ -8,95 +10,86 @@
 #include <map>
 #include <fstream>
 #include <thread>
-#include <vector>
 #include <iostream>
-#include "../engine/include.hpp"
+#include <sstream>
+#include <cctype>
 
-int hexValue(char c) {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
-    }
-    if (c >= 'a' && c <= 'f') {
-        return 10 + (c - 'a');
-    }
-    if (c >= 'A' && c <= 'F') {
-        return 10 + (c - 'A');
-    }
+#define QUEUE_CAPACITY 2048
+#define BUFFER_CAPACITY 1024
+
+static int hexValue(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
     return -1;
 }
 
-#define QUEUE_CAPACITY 2048
-Network::Network() : uartQueue(QUEUE_CAPACITY), tcpQueue(QUEUE_CAPACITY) {
-}
-Network::~Network(){
-    running = false;
-};
+Network::Network() : tcpQueue(QUEUE_CAPACITY), uartQueue(QUEUE_CAPACITY) {}
 
-#define BUFFER_CAPACITY 1024
-void Network::producer(){
+Network::~Network() {
+    running = false;
+}
+
+// ---------------------- producer ----------------------
+
+void Network::producer() {
+    std::cerr << "[DEBUG] Using IP=" << IP
+              << " PORT=" << PORT << "\n";
+
     TcpSocket socket(IP, PORT);
-//    std::ifstream logStream("log", std::ios::binary);
-//    if (!logStream) {
-//        logs("[producer] Unable to open daq.log for replay");
-//        return;
-//    }
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
 
-    while(running){
+    std::cerr << "[+] Attempting connection to "
+              << IP << ":" << PORT << "...\n";
+    std::cerr << "[+] Connected (TcpSocket constructor succeeded).\n";
+
+    while (running) {
         auto bytesRead = socket.read(buffer.data(), buffer.size());
-//        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-//        logStream.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
-//        auto bytesRead = logStream.gcount();
         if (bytesRead <= 0) {
-//            if (logStream.eof()) {
-//                logStream.clear();
-//                logStream.seekg(0);
-//                continue;
-//            }
-//            logs("[producer] Error while reading daq.log");
-//            break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
         if (bytesRead > 0) {
-            for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); ++i) {
-                while (!tcpQueue.try_push(buffer[i])) {
+            for (size_t i = 0; i < (size_t)bytesRead; ++i) {
+                while (!tcpQueue.try_push(buffer[i]))
                     std::this_thread::yield();
-                }
             }
         }
     }
 }
 
-void Network::parser(){
+// ---------------------- parser ----------------------
+
+void Network::parser() {
     std::string frame;
-    frame.reserve(32);
+    frame.reserve(256);
     bool collecting = false;
 
-    while(running){
-        if(auto* byte = tcpQueue.front()){
+    while (running) {
+        if (auto* byte = tcpQueue.front()) {
             char ch = static_cast<char>(*byte);
             tcpQueue.pop();
 
-            if (ch == 't') {
-                frame.clear();
-                frame.push_back(ch);
+            if (!collecting && (std::isprint(ch) || ch == '\r'))
                 collecting = true;
+            if (!collecting)
                 continue;
-            }
-
-            if (!collecting) {
-                continue;
-            }
 
             if (ch == '\r') {
-                frame.push_back(ch);
-                handleFrame(frame);
+                if (!frame.empty()) {
+                    while (!frame.empty() &&
+                          (frame.back() == '\r' ||
+                           frame.back() == '\n')) {
+                        frame.pop_back();
+                    }
+
+                    if (!frame.empty() &&
+                        frame.rfind("t", 0) == 0) {
+                        handleFrame(frame);
+                    }
+                }
                 frame.clear();
                 collecting = false;
-                continue;
-            }
-
-            if (ch == '\n') {
                 continue;
             }
 
@@ -107,22 +100,78 @@ void Network::parser(){
     }
 }
 
-Network::sample& Network::ensureSample(uint16_t canId) {
-    std::lock_guard<std::mutex> guard(sampleMapMutex);
-    auto it = sampleMap.find(canId);
-    if (it == sampleMap.end()) {
-        auto inserted = sampleMap.emplace(canId, std::make_unique<sample>());
-        it = inserted.first;
+// ---------------------- decodeFrame ----------------------
+
+bool Network::decodeFrame(const std::string& frame,
+                          uint16_t& canId,
+                          uint64_t& value) {
+    if (frame.empty() || frame.front() != 't'
+        || frame.size() < 5)
+        return false;
+
+    int dataLength = hexValue(frame[4]);
+    if (dataLength < 0 || dataLength > 8)
+        return false;
+
+    const size_t expectedLength =
+        5 + static_cast<size_t>(dataLength) * 2;
+    if (frame.size() != expectedLength)
+        return false;
+
+    canId = 0;
+    for (size_t i = 1; i <= 3; ++i) {
+        int nibble = hexValue(frame[i]);
+        if (nibble < 0) return false;
+        canId = static_cast<uint16_t>((canId << 4) | nibble);
     }
-    return *(it->second);
+
+    value = 0;
+    for (int i = 0; i < dataLength; ++i) {
+        int hi = hexValue(frame[5 + i * 2]);
+        int lo = hexValue(frame[6 + i * 2]);
+        if (hi < 0 || lo < 0) return false;
+        uint8_t byte = static_cast<uint8_t>((hi << 4) | lo);
+        value = (value << 8) | byte;
+    }
+
+    return true;
 }
 
-void Network::writeSample(uint16_t canId, uint64_t value) {
-    if(canId < 0) return;
-    sample& entry = ensureSample(canId);
-    std::lock_guard<std::mutex> valueGuard(entry.lock);
-    entry.point = value;
-    entry.hasNew = true;
+// ---------------------- handleFrame ----------------------
+
+void Network::handleFrame(const std::string& frame) {
+    uint16_t canId;
+    uint64_t value;
+
+    if (!decodeFrame(frame, canId, value)) {
+        std::cerr << "[parser] Invalid SLCAN frame → "
+                  << frame << "\n";
+        return;
+    }
+
+    writeSample(canId, value);
+
+    std::cerr << "[SLCAN] CAN ID = " << canId
+            << "  (0x" << std::uppercase << std::hex << canId << std::dec << ")"
+            << " | DLC = " << int(frame[4] - '0')
+            << " | DATA = 0x" << std::uppercase << std::hex << value << std::dec
+            << "\n";
+
+    // Interpret using DBC if available
+    if (dbcManager.hasMessages()) {
+        interpretDBCFrame(canId, value, frame[4] - '0');  // DLC from frame[4]
+    }
+}
+
+// ---------------------- sample helpers ----------------------
+
+Network::sample& Network::ensureSample(uint16_t canId) {
+    std::lock_guard<std::mutex> guard(sampleMapMutex);
+    auto& ptr = sampleMap[canId];
+    if (!ptr) {
+        ptr = std::make_unique<sample>();
+    }
+    return *ptr;
 }
 
 bool Network::readSample(uint16_t canId, uint64_t& outValue) {
@@ -136,86 +185,103 @@ bool Network::readSample(uint16_t canId, uint64_t& outValue) {
     mapLock.unlock();
 
     std::lock_guard<std::mutex> valueGuard(entry->lock);
-    if (!entry->hasNew) {
-        outValue = entry->point;
-        return false;
-    }
     outValue = entry->point;
+    bool wasNew = entry->hasNew;
     entry->hasNew = false;
-    return true;
+    return wasNew;
 }
 
-void Network::handleFrame(const std::string& frame) {
-    uint16_t canId = 0;
-    uint64_t value = 0;
-    if (!decodeFrame(frame, canId, value)) {
-        logs("[parser] Invalid SLCAN frame encountered");
+void Network::writeSample(uint16_t canId, uint64_t value) {
+    sample& entry = ensureSample(canId);
+    std::lock_guard<std::mutex> valueGuard(entry.lock);
+    entry.point = value;
+    entry.hasNew = true;
+}
+
+// ---------------------------------------------------------
+// Decode raw CAN payload using the DBC map
+// ---------------------------------------------------------
+void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
+    std::lock_guard<std::mutex> lock(dbcManager.mapMutex);
+
+    auto it = dbcManager.dbcMap.find(canId);
+    if (it == dbcManager.dbcMap.end()) {
         return;
     }
 
-    writeSample(canId, value);
+    const DbcMessage& msg = it->second;
+
+    // ---- COLLECT INTO A VECTOR ----
+    std::vector<std::string> collected;
+    collected.push_back(msg.name);
+
+    // Convert rawValue → bytes
+    uint8_t bytes[8] = {0};
+    uint64_t tmp = rawValue;
+    for (int i = dlc - 1; i >= 0; --i) {
+        bytes[i] = static_cast<uint8_t>(tmp & 0xFF);
+        tmp >>= 8;
+    }
+
+    // Iterate signals
+    for (const auto& [sigName, sig] : msg.signals) {
+
+        uint64_t rawSignal = 0;
+        int byteIndex = sig.startBit / 8;
+        int bitOffset = sig.startBit % 8;
+        int bitsLeft = sig.length;
+        int dstPos = 0;
+
+        while (bitsLeft > 0 && byteIndex < dlc) {
+            int bitsInByte = std::min(8 - bitOffset, bitsLeft);
+            uint8_t mask = ((1 << bitsInByte) - 1) << bitOffset;
+            uint8_t extracted = (bytes[byteIndex] & mask) >> bitOffset;
+            rawSignal |= (uint64_t(extracted) << dstPos);
+
+            bitsLeft -= bitsInByte;
+            dstPos += bitsInByte;
+            byteIndex++;
+            bitOffset = 0;
+        }
+
+        double physValue = sig.scale * rawSignal + sig.offset;
+
+        // ---- MAKE A STRING FOR THIS SIGNAL ----
+        std::ostringstream ss;
+        ss << sigName << " = " << physValue;
+        if (!sig.unit.empty())
+            ss << " " << sig.unit;
+
+        collected.push_back(ss.str());
+
+        // ---- Print OUT (original behavior) ----
+        std::cerr << "    " << ss.str() << "\n";
+    }
+
+    // ---- STORE IN HISTORY ----
+    {
+        std::lock_guard<std::mutex> histLock(decodedHistoryMutex);
+        decodedHistory.push_back({canId, rawValue, collected});
+        if (decodedHistory.size() > MAX_HISTORY)
+            decodedHistory.pop_front();
+    }
 }
 
-bool Network::decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value) {
-    if (frame.empty() || frame.front() != 't') {
-        return false;
-    }
-    if (frame.back() != '\r') {
-        return false;
-    }
-
-    if (frame.size() < 5) {
-        return false;
-    }
-
-    const std::size_t payloadLength = frame.size() - 1;
-    if (payloadLength < 5) {
-        return false;
-    }
-
-    int dataLength = hexValue(frame[4]);
-    if (dataLength < 0 || dataLength > 8) {
-        return false;
-    }
-
-    const std::size_t expectedLength = 5 + static_cast<std::size_t>(dataLength) * 2;
-    if (payloadLength != expectedLength) {
-        return false;
-    }
-
-    canId = 0;
-    for (std::size_t i = 1; i <= 3; ++i) {
-        int nibble = hexValue(frame[i]);
-        if (nibble < 0) {
-            return false;
-        }
-        canId = static_cast<uint16_t>((canId << 4) | static_cast<uint16_t>(nibble));
-    }
-
-    value = 0;
-    for (int i = 0; i < dataLength; ++i) {
-        int hi = hexValue(frame[5 + i * 2]);
-        int lo = hexValue(frame[6 + i * 2]);
-        if (hi < 0 || lo < 0) {
-            return false;
-        }
-        uint8_t byte = static_cast<uint8_t>((hi << 4) | lo);
-        value = (value << 8) | byte;
-    }
-
-    return true;
-}
+// ---------------------- UART ----------------------
 
 #ifndef WIN32
 #include <termios.h>
+#include <unistd.h>
 void Network::uartProducer(){
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
     int _fd = open("/dev/ttyACM0", O_RDWR | O_NOCTTY);
-    while(_fd < 0){
+    while(running && _fd < 0){
         std::cout << "[!] Attempting connection on /dev/ttyACM0" << std::endl;
         _fd = open("/dev/ttyACM0", O_RDWR | O_NOCTTY);
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (_fd < 0) std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+    if (_fd < 0) return;
+
     struct termios tty = {};
     tcgetattr(_fd, &tty);
     cfmakeraw(&tty);
@@ -228,10 +294,16 @@ void Network::uartProducer(){
 
     while(running){
         ssize_t n = read(_fd, buffer.data(), buffer.size());
-        for(int i = 0; i < n; i++){
-            uartQueue.push(buffer[i]);
+        if (n > 0) {
+            for(int i = 0; i < n; i++){
+                while (!uartQueue.try_push(buffer[i]))
+                    std::this_thread::yield();
+            }
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
+    close(_fd);
 };
 
 static inline int retCANID(const char* str){
@@ -255,41 +327,57 @@ void Network::uartConsumer(){
     bool collectingVal = false;
     while(running){
         if(unsigned char* l = uartQueue.front()){
+            unsigned char val = *l;
             uartQueue.pop();
-            if((*l == 'g') || (*l == 'a')){
+            if((val == 'g') || (val == 'a')){
                 canId.clear();
                 value.clear();
                 collectingCAN = true;
                 collectingVal = false;
-                canId.push_back(*l);
+                canId.push_back(val);
                 continue;
             }
-            if(collectingCAN && *l == ' '){
-                canId.push_back(*l);
+            if(collectingCAN && val == ' '){
+                canId.push_back(val);
                 collectingCAN = false;
                 collectingVal = true;
                 continue;
             }
             if(collectingCAN){
-                canId.push_back(*l);
+                canId.push_back(val);
             }
-            if(collectingVal && ((*l == ' ') || (*l == '\n'))){
+            if(collectingVal && ((val == ' ') || (val == '\n'))){
                 int v;
                 auto [p, ec] = std::from_chars(value.data(), value.data() + value.size(), v);
-                if (ec == std::errc()) writeSample(retCANID(canId.c_str()), v);
+                if (ec == std::errc()) {
+                    int id = retCANID(canId.c_str());
+                    if (id != -1) writeSample(static_cast<uint16_t>(id), v);
+                }
                 canId.clear(); value.clear(); collectingVal = false;
             }
             if(collectingVal){
-                value.push_back(*l);
+                value.push_back(val);
             }
+        } else {
+            std::this_thread::yield();
         }
     }
 }
 #else
 void Network::uartConsumer(){
-    return;
+    while(running) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 void Network::uartProducer(){
-    return;
+    while(running) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 #endif
+
+// ---------------------- DBC wrappers ----------------------
+
+bool Network::loadDBC(const std::string& path) {
+    return dbcManager.loadFromFile(path);
+}
+
+void Network::printDBCMap() {
+    dbcManager.dump();
+}
