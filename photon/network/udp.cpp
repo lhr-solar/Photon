@@ -1,6 +1,8 @@
 #include "udp.hpp"
 #include "../parse/corsa.hpp"
+#ifndef WIN32
 #include <sys/socket.h>
+#endif
 #include <thread>
 UdpSocket::UdpSocket(const std::string& IP, unsigned port){
     bool failed = 1;
