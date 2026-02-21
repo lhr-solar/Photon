@@ -15,9 +15,9 @@ void UI::build(){
         ui::UpdateSimulation(ddashState, ImGui::GetIO().DeltaTime);
     }
     ui::RenderUI(ddashState);
-    slcanWindow();
 
     if (!dashboardOnly) {
+        slcanWindow();
         customBackground();
         ImPlot::ShowDemoWindow();
         ImPlot3D::ShowDemoWindow();

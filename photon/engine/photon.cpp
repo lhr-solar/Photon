@@ -36,10 +36,12 @@ void Photon::prepareScene(){
    gpu.setupRenderPass(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceFormat);
    gpu.createPipelineCache(gpu.vulkanDevice.logicalDevice);
    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.buffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
-   gpu.prepareUniformBuffers();
-   gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
-   gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
-   gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
+   if (!gui.ui.dashboardOnly) {
+       gpu.prepareUniformBuffers();
+       gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
+       gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
+       gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
+   }
    gui.prepareImGui();
    gui.initResources(gpu.vulkanDevice, gpu.renderPass);
    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
@@ -109,17 +111,21 @@ void Photon::nextFrame(){
     if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
     auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
     gpu.frameTimer = frameTime / 1000.0f;
-    gpu.camera.update(gpu.frameTimer); 
-	if (gpu.camera.moving()) { gui.viewUpdated = true; }
-    if(!paused){
-        gpu.timer += gpu.timerSpeed * gpu.frameTimer;
-        if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
+    if (!gui.ui.dashboardOnly) {
+        gpu.camera.update(gpu.frameTimer); 
+        if (gpu.camera.moving()) { gui.viewUpdated = true; }
+        if(!paused){
+            gpu.timer += gpu.timerSpeed * gpu.frameTimer;
+            if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
+        }
     }
 }
 
 void Photon::render(){
     if(!prepared) return;
-    gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
+    if (!gui.ui.dashboardOnly) {
+        gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
+    }
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)gui.width, (float)gui.height);
     io.DeltaTime = gpu.frameTimer;

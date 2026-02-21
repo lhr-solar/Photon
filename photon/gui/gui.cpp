@@ -322,9 +322,11 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ui.videoTexture = static_cast<ImTextureID>(0);
     ui.videoTextureSize = ImVec2(0.0f, 0.0f);
 
-    initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
-    initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
-    initVideoFeedResources(vulkanDevice);
+    if (!ui.dashboardOnly) {
+        initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
+        initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
+        initVideoFeedResources(vulkanDevice);
+    }
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -1335,14 +1337,18 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
-    updateVideoFeed(vulkanDevice);
+    if (!ui.dashboardOnly) {
+        updateVideoFeed(vulkanDevice);
+    }
     ui.build();
 
-    if (ui.background.dirty) {
-        resizeBackground(vulkanDevice, ui.background.x, ui.background.y);
-    }
-    if (ui.customShader.dirty) {
-        resizeCustomShader(vulkanDevice, ui.customShader.x, ui.customShader.y);
+    if (!ui.dashboardOnly) {
+        if (ui.background.dirty) {
+            resizeBackground(vulkanDevice, ui.background.x, ui.background.y);
+        }
+        if (ui.customShader.dirty) {
+            resizeCustomShader(vulkanDevice, ui.customShader.x, ui.customShader.y);
+        }
     }
 
     updateBuffers(vulkanDevice);
@@ -1350,8 +1356,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     for (int32_t i = 0; i < drawCmdBuffers.size(); ++i) {
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
-        recordBackgroundPass(drawCmdBuffers[i]);
-        recordCustomShaderPass(drawCmdBuffers[i]);
+        if (!ui.dashboardOnly) {
+            recordBackgroundPass(drawCmdBuffers[i]);
+            recordCustomShaderPass(drawCmdBuffers[i]);
+        }
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};
         viewport.width = width;
