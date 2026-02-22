@@ -661,6 +661,7 @@ void drawGeneratedPlots(Parse* parseINTF) {
     for (GeneratedPlotWindow& plot : state.windows) {
         std::string windowTitle = std::string(specFor(plot.typeIndex).label) + " #" + std::to_string(plot.id);
         if (ImGui::Begin(windowTitle.c_str(), &plot.open)) {
+            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
             if (specFor(plot.typeIndex).is3D &&
                 ((plot.typeIndex == PlotType_3DLine && plot.sources.size() >= 2) ||
                  (plot.typeIndex != PlotType_3DLine && plot.sources.size() >= 3))) {
@@ -841,6 +842,7 @@ void UI::build(){
         ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
     };
 
+    /*
     fitToViewport();
     ImGuiID main_dock_id = 0;
     if (ImGui::Begin("Main", nullptr, big_flags)) {
@@ -853,7 +855,25 @@ void UI::build(){
     if (ImGui::Begin("Custom", nullptr, big_flags)) {
         custom_dock_id = ImGui::GetID("CustomDockspace");
         ImGui::DockSpace(custom_dock_id);
-        if(ImGui::IsWindowFocused()) drawGeneratorUI(parseINTF);
+        // if we have "Custom" selected, then we should dock in windows that we want 
+        // e.g. we want to dock in "drawGeneratorUI(parseINTF)"
+        // however, if it is not selected, e.g. I am on "Main"
+        // none of these things should exist/be visible
+        // all the elements should be placed in the dockspace within "Custom"
+        // of course, like normal docked elements, they should be 
+        // moveable, resizeable, adapt to other docked elements, etc
+        //
+        // we should also be able to dock into it
+        // once something is docked in, it "inherits" the property that it is only shown
+        // when the main window is selected/currently being shown
+        // it is possible that we may need to switch our format for our main windows, so that it is just 3 Windows docked into eachother, 
+        // that are able to be tabbed through
+        //
+        // some things I want in the "custom" window
+        // drawGeneratorUI(parseINTF);
+        // if(!parseINTF->canStore.canMessages.empty())
+        //  dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time, 
+        //  parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
     } ImGui::End();
 
     fitToViewport();
@@ -863,6 +883,17 @@ void UI::build(){
         ImGui::DockSpace(debug_dock_id);
     }
     ImGui::End();
+    */
+
+    fitToViewport();
+    if(ImGui::Begin("Main", nullptr, big_flags)){
+        ImGui::Text("some text");
+        drawGeneratorUI(parseINTF);
+        if(!parseINTF->canStore.canMessages.empty())
+            dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time, 
+                    parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
+
+    } ImGui::End();
 
     drawGeneratedPlots(parseINTF);
     signalSearch();
@@ -1472,7 +1503,7 @@ void UI::setStyle(){
     ImGuiStyle &UIstyle = ImGui::GetStyle();
     ImVec4* colors = UIstyle.Colors;
 
-    UIstyle.WindowRounding = 12.0f;
+    UIstyle.WindowRounding = 01.0f;
     UIstyle.ChildRounding = 12.0f;
     UIstyle.PopupRounding = 12.0f;
     UIstyle.PopupBorderSize = UIstyle.WindowBorderSize;
@@ -1482,8 +1513,8 @@ void UI::setStyle(){
         ImVec4(0.0f, 0.0f, 0.0f, 0.5f); 
     colors[ImGuiCol_ChildBg] =
         ImVec4(0.0f, 0.0f, 0.0f, 0.5f);
-    colors[ImGuiCol_PopupBg] =
-        colors[ImGuiCol_WindowBg];
+    colors[ImGuiCol_PopupBg] = 
+        ImVec4(0.02f, 0.02f, 0.02f, 0.95f);
 
     // Borders and separators
     colors[ImGuiCol_Border] =
