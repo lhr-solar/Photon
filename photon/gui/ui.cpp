@@ -32,6 +32,8 @@ struct RenderSlice {
 };
 
 constexpr size_t kMaxRenderablePoints = 4096;
+constexpr size_t kMaxRenderablePointsScatter2D = 512;
+constexpr size_t kMaxRenderableHeatmapCells = 1024;
 constexpr size_t kMaxRenderablePoints3DLine = 1024;
 constexpr size_t kMaxRenderablePoints3DScatter = 256;
 constexpr int kMaxSurfaceSide = 24;
@@ -254,7 +256,7 @@ void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     }
     const CanMessage* primaryMsg = findMessage(parseINTF, plot.sources[0].canId);
     if (!primaryMsg) {
-        ImGui::TextUnformatted("Primary data source is no longer available.");
+        ImGui::TextUnformatted("Data source is not available.");
         return;
     }
     const std::vector<double>& xAxis = primaryMsg->time;
@@ -382,7 +384,7 @@ void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
             for (const CanSignal* signal : signals) {
                 const size_t usableEnd = std::min(endIdx, signal->data.size());
                 if (usableEnd <= startIdx) { continue; }
-                const RenderSlice slice = makeRenderSlice(startIdx, usableEnd);
+                const RenderSlice slice = makeRenderSlice(startIdx, usableEnd, kMaxRenderablePointsScatter2D);
                 if (slice.count > 1) {
                     ImPlot::PlotScatter(signal->name.c_str(), xAxis.data() + slice.start, signal->data.data() + slice.start,
                                         slice.count, 0, 0, static_cast<int>(sizeof(double) * slice.step));
@@ -521,13 +523,14 @@ void renderNonTimePlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
         case PlotType_Heatmap: {
             const std::vector<double>& v = signals[0]->data;
             if (v.empty()) { break; }
-            const size_t start = (v.size() > kMaxRenderablePoints) ? (v.size() - kMaxRenderablePoints) : 0;
+            const size_t start = (v.size() > kMaxRenderableHeatmapCells) ? (v.size() - kMaxRenderableHeatmapCells) : 0;
             const size_t usable = v.size() - start;
             const int cols = std::max(1, static_cast<int>(std::sqrt(static_cast<double>(usable))));
             const int rows = std::max(1, static_cast<int>(usable / static_cast<size_t>(cols)));
             const int count = rows * cols;
             if (count > 0) {
-                ImPlot::PlotHeatmap(signals[0]->name.c_str(), v.data() + start, rows, cols, 0.0, 0.0, "%.2f");
+                // Disable per-cell labels to avoid massive vertex counts in ImGui draw lists.
+                ImPlot::PlotHeatmap(signals[0]->name.c_str(), v.data() + start, rows, cols, 0.0, 0.0, "");
             }
             break;
         }
@@ -769,53 +772,73 @@ void drawGeneratorUI(Parse* parseINTF) {
     windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
     ImGui::SeparatorText("Configure");
 
-    if (ImGui::BeginCombo("Plot Type", specFor(state.typeIndex).label)) {
-        for (int i = 0; i < PlotType_Count; ++i) {
-            const bool selected = (state.typeIndex == i);
-            if (ImGui::Selectable(specFor(i).label, selected)) {
-                state.typeIndex = i;
-                resetGeneratorSourcesForType(state);
-                state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
-                state.sourceSelected = -1;
-            }
-            if (selected) { ImGui::SetItemDefaultFocus(); }
-        }
-        ImGui::EndCombo();
-    }
-
     const PlotTypeSpec& spec = specFor(state.typeIndex);
-    ImGui::Text("Data sources required: %d", spec.minSources);
-    ImGui::Text("Data sources allowed: %d to %d", spec.minSources, spec.maxSources);
-    if (spec.is3D) {
-        if (state.typeIndex == PlotType_3DLine) {
-            ImGui::TextUnformatted("3D line mapping: X = Source 1 time, Y = Source 1, Z = Source 2");
-        } else {
-            ImGui::TextUnformatted("3D source mapping: Source 1 = X, Source 2 = Y, Source 3 = Z");
-        }
-    } else {
-        ImGui::Text("Time source (if used): Source 1");
-    }
-
-    if (spec.maxSources > spec.minSources) {
-        if (ImGui::Button("Add Source") && state.sources.size() < static_cast<size_t>(spec.maxSources)) {
-            state.sources.push_back({});
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Remove Source") && state.sources.size() > static_cast<size_t>(spec.minSources)) {
-            state.sources.pop_back();
-            state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
-            state.sourceSelected = -1;
-        }
-    }
-
-    ImGui::Separator();
-    if (ImGui::BeginTable("##sourceLayout", 2, ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("Assigned", ImGuiTableColumnFlags_WidthStretch, 0.45f);
-        ImGui::TableSetupColumn("Search", ImGuiTableColumnFlags_WidthStretch, 0.55f);
+    if (ImGui::BeginTable("##configureLayout", 3, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch, 0.34f);
+        ImGui::TableSetupColumn("Assigned", ImGuiTableColumnFlags_WidthStretch, 0.34f);
+        ImGui::TableSetupColumn("Search", ImGuiTableColumnFlags_WidthStretch, 0.32f);
         ImGui::TableNextRow();
 
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted("Assigned Sources");
+        ImGui::TextUnformatted("Plot Type");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(240.0f);
+        if (ImGui::BeginCombo("##plotType", specFor(state.typeIndex).label)) {
+            for (int i = 0; i < PlotType_Count; ++i) {
+                const bool selected = (state.typeIndex == i);
+                if (ImGui::Selectable(specFor(i).label, selected)) {
+                    state.typeIndex = i;
+                    resetGeneratorSourcesForType(state);
+                    state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
+                    state.sourceSelected = -1;
+                }
+                if (selected) { ImGui::SetItemDefaultFocus(); }
+            }
+            ImGui::EndCombo();
+        }
+
+        const float previewHeight = 220.0f;
+        if (ImGui::BeginChild("##plotPreview", ImVec2(0.0f, previewHeight), true)) {
+            GeneratedPlotWindow previewPlot;
+            previewPlot.id = -1000 - state.typeIndex;
+            previewPlot.typeIndex = state.typeIndex;
+            previewPlot.sources = state.sources;
+            if (specFor(previewPlot.typeIndex).is3D) {
+                render3DPlot(parseINTF, previewPlot);
+            } else if (specFor(previewPlot.typeIndex).usesTimeAxis) {
+                renderTimeSeriesPlot(parseINTF, previewPlot);
+            } else {
+                renderNonTimePlot(parseINTF, previewPlot);
+            }
+        }
+        ImGui::EndChild();
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("Minimum Signals: %d", spec.minSources);
+        ImGui::Text("Maximum Signals: %d", spec.maxSources);
+        if (spec.is3D) {
+            if (state.typeIndex == PlotType_3DLine) {
+                ImGui::TextUnformatted("3D line mapping: X = Source 1 time, Y = Source 1, Z = Source 2");
+            } else {
+                ImGui::TextUnformatted("3D source mapping: Source 1 = X, Source 2 = Y, Source 3 = Z");
+            }
+        } else {
+            ImGui::Text("Time Inherited From: Signal 1");
+        }
+
+        if (spec.maxSources > spec.minSources) {
+            if (ImGui::Button("Add Signal") && state.sources.size() < static_cast<size_t>(spec.maxSources)) {
+                state.sources.push_back({});
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Remove Signal") && state.sources.size() > static_cast<size_t>(spec.minSources)) {
+                state.sources.pop_back();
+                state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
+                state.sourceSelected = -1;
+            }
+        }
+
+        ImGui::SeparatorText("Assigned Signals");
         for (size_t i = 0; i < state.sources.size(); ++i) {
             const bool selectedRow = (static_cast<int>(i) == state.activeSourceIndex);
             int selectedIndex = findOptionIndex(options, state.sources[i]);
@@ -833,8 +856,8 @@ void drawGeneratorUI(Parse* parseINTF) {
             }
         }
 
-        ImGui::TableSetColumnIndex(1);
-        ImGui::TextUnformatted("Source Search");
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted("Search: ");
         if (options.empty()) {
             ImGui::TextUnformatted("No CAN signals available yet.");
         } else if (!state.sources.empty()) {
@@ -1634,9 +1657,9 @@ void UI::setStyle(){
         ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 
     // Frame backgrounds
-    colors[ImGuiCol_FrameBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.2f, 0.2f, 0.2f, 0.9f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.3f, 0.3f, 0.3f, 0.9f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.16f, 0.16f, 0.16f, 1.0f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.24f, 0.24f, 0.95f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.32f, 0.32f, 0.32f, 0.95f);
 
     // Tabs
     colors[ImGuiCol_Tab] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
