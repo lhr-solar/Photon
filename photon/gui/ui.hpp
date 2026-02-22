@@ -69,3 +69,5 @@ struct UI{
     bool popupWindow();
     bool popupWide(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
 };
+
+int distance(std::string a, std::string b);

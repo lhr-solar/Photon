@@ -366,6 +366,7 @@ void CanMessage::updateMessage(Parse* networkSource){
             uint64_t bits = static_cast<uint64_t>(raw);
             uint64_t value = std::bit_cast<uint64_t>(bits);
             value = (value + sg.offset) * sg.scale;
+            logs(canId << " : " << value);
             sg.data.push_back(static_cast<double>(value));
             failed = 0;
         }
@@ -374,6 +375,7 @@ void CanMessage::updateMessage(Parse* networkSource){
             uint32_t bits = static_cast<uint32_t>(raw);
             float value = std::bit_cast<float>(bits);
             value = (value + sg.offset) * sg.scale;
+            logs(canId << " : " << value);
             sg.data.push_back(static_cast<double>(value));
             failed = 0;
         }
@@ -382,6 +384,7 @@ void CanMessage::updateMessage(Parse* networkSource){
             uint64_t bits = static_cast<uint64_t>(raw);
             double value = std::bit_cast<double>(bits);
             value = (value + sg.offset) * sg.scale;
+            logs(canId << " : " << value);
             sg.data.push_back(static_cast<double>(value));
             failed = 0;
         }

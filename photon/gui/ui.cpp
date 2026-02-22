@@ -116,8 +116,12 @@ struct GeneratedPlotWindow {
 
 struct PlotGeneratorState {
     bool creating = false;
+    bool createFF = false;
     int typeIndex = PlotType_Line;
     std::vector<PlotDataSourceRef> sources;
+    char sourceQuery[128] = {0};
+    int sourceSelected = -1;
+    int activeSourceIndex = 0;
     int nextId = 1;
     std::vector<GeneratedPlotWindow> windows;
 };
@@ -189,6 +193,31 @@ int findOptionIndex(const std::vector<SignalOption>& options, const PlotDataSour
         }
     }
     return -1;
+}
+
+struct SourceMatch {
+    int optionIndex = -1;
+    int score = 0;
+};
+
+std::vector<SourceMatch> buildSourceMatches(const std::vector<SignalOption>& options, const char* query) {
+    std::vector<SourceMatch> matches;
+    matches.reserve(options.size());
+
+    const bool hasQuery = (query != nullptr && query[0] != '\0');
+    for (size_t i = 0; i < options.size(); ++i) {
+        SourceMatch m;
+        m.optionIndex = static_cast<int>(i);
+        m.score = hasQuery ? distance(query, options[i].label) : 0;
+        matches.push_back(m);
+    }
+
+    std::sort(matches.begin(), matches.end(), [&](const SourceMatch& a, const SourceMatch& b) {
+        if (a.score != b.score) { return a.score < b.score; }
+        return options[static_cast<size_t>(a.optionIndex)].label <
+               options[static_cast<size_t>(b.optionIndex)].label;
+    });
+    return matches;
 }
 
 void updateFollowState(GeneratedPlotWindow& plot) {
@@ -699,23 +728,55 @@ void drawGeneratorUI(Parse* parseINTF) {
     PlotGeneratorState& state = generatorState();
     const std::vector<SignalOption> options = collectSignalOptions(parseINTF);
 
-    if (!state.creating) {
-        if (ImGui::Button("Create New")) {
-            state.creating = true;
-            state.typeIndex = PlotType_Line;
-            state.sources.assign(static_cast<size_t>(specFor(state.typeIndex).minSources), PlotDataSourceRef{});
-        }
-        ImGui::Text("Created plots: %zu", state.windows.size());
+    if (ImGui::Button("New Plot")) {
+        state.creating = true;
+        state.createFF = true;
+        state.typeIndex = PlotType_Line;
+        state.sources.assign(static_cast<size_t>(specFor(state.typeIndex).minSources), PlotDataSourceRef{});
+        state.sourceQuery[0] = '\0';
+        state.sourceSelected = -1;
+        state.activeSourceIndex = 0;
+    }
+    //ImGui::Text("Created plots: %zu", state.windows.size());
+
+    if (!state.creating) { return; }
+
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImVec2 center = vp ? vp->GetCenter() : ImVec2(0, 0);
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
+                             ImGuiWindowFlags_AlwaysAutoResize |
+                             ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoNav;
+
+    bool windowFocused = false;
+    bool inputActive = false;
+    const bool justOpened = state.createFF;
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
+    ImVec4 popupBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    popupBg.w = 0.9f;//std::min(1.0f, popupBg.w * 1.35f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, popupBg);
+    if (!ImGui::Begin("Configure Plot", nullptr, flags)) {
+        ImGui::End();
+        ImGui::PopStyleColor(3);
         return;
     }
 
-    ImGui::SeparatorText("Plot Generator");
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        state.creating = false;
+    }
+    windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    ImGui::SeparatorText("Configure");
+
     if (ImGui::BeginCombo("Plot Type", specFor(state.typeIndex).label)) {
         for (int i = 0; i < PlotType_Count; ++i) {
             const bool selected = (state.typeIndex == i);
             if (ImGui::Selectable(specFor(i).label, selected)) {
                 state.typeIndex = i;
                 resetGeneratorSourcesForType(state);
+                state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
+                state.sourceSelected = -1;
             }
             if (selected) { ImGui::SetItemDefaultFocus(); }
         }
@@ -742,33 +803,92 @@ void drawGeneratorUI(Parse* parseINTF) {
         ImGui::SameLine();
         if (ImGui::Button("Remove Source") && state.sources.size() > static_cast<size_t>(spec.minSources)) {
             state.sources.pop_back();
+            state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
+            state.sourceSelected = -1;
         }
     }
 
-    if (options.empty()) {
-        ImGui::TextUnformatted("No CAN signals available yet.");
-    }
+    ImGui::Separator();
+    if (ImGui::BeginTable("##sourceLayout", 2, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("Assigned", ImGuiTableColumnFlags_WidthStretch, 0.45f);
+        ImGui::TableSetupColumn("Search", ImGuiTableColumnFlags_WidthStretch, 0.55f);
+        ImGui::TableNextRow();
 
-    for (size_t i = 0; i < state.sources.size(); ++i) {
-        int selectedIndex = findOptionIndex(options, state.sources[i]);
-        std::string currentLabel = (selectedIndex >= 0) ? options[static_cast<size_t>(selectedIndex)].label : "<select source>";
-        std::string comboLabel;
-        if (state.typeIndex == PlotType_3DLine) {
-            comboLabel = (i == 0) ? "Y Source" : "Z Source";
-        } else {
-            comboLabel = "Source " + std::to_string(i + 1);
-        }
-        if (ImGui::BeginCombo(comboLabel.c_str(), currentLabel.c_str())) {
-            for (size_t optionIndex = 0; optionIndex < options.size(); ++optionIndex) {
-                const bool selected = (selectedIndex == static_cast<int>(optionIndex));
-                if (ImGui::Selectable(options[optionIndex].label.c_str(), selected)) {
-                    state.sources[i] = options[optionIndex].ref;
-                    selectedIndex = static_cast<int>(optionIndex);
-                }
-                if (selected) { ImGui::SetItemDefaultFocus(); }
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted("Assigned Sources");
+        for (size_t i = 0; i < state.sources.size(); ++i) {
+            const bool selectedRow = (static_cast<int>(i) == state.activeSourceIndex);
+            int selectedIndex = findOptionIndex(options, state.sources[i]);
+            std::string sourceLabel = (selectedIndex >= 0) ? options[static_cast<size_t>(selectedIndex)].label : "<unassigned>";
+            std::string lineLabel;
+            if (spec.is3D && state.typeIndex == PlotType_3DLine) {
+                lineLabel = (i == 0) ? "Y Source" : "Z Source";
+            } else {
+                lineLabel = "Source " + std::to_string(i + 1);
             }
-            ImGui::EndCombo();
+            std::string rowText = lineLabel + ": " + sourceLabel;
+            if (ImGui::Selectable(rowText.c_str(), selectedRow, ImGuiSelectableFlags_AllowDoubleClick)) {
+                state.activeSourceIndex = static_cast<int>(i);
+                state.createFF = true;
+            }
         }
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextUnformatted("Source Search");
+        if (options.empty()) {
+            ImGui::TextUnformatted("No CAN signals available yet.");
+        } else if (!state.sources.empty()) {
+            state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
+            if (state.createFF) {
+                ImGui::SetKeyboardFocusHere();
+            }
+            bool submitted = ImGui::InputText("##plotSourceSearch", state.sourceQuery, IM_ARRAYSIZE(state.sourceQuery),
+                                              ImGuiInputTextFlags_EnterReturnsTrue);
+            if (state.createFF) { state.createFF = false; }
+            inputActive = ImGui::IsItemActive();
+
+            std::vector<SourceMatch> matches = buildSourceMatches(options, state.sourceQuery);
+            if (!matches.empty()) {
+                if (state.sourceSelected < 0 || state.sourceSelected >= static_cast<int>(matches.size())) {
+                    state.sourceSelected = 0;
+                }
+
+                const int resultCount = static_cast<int>(matches.size());
+                const int previousSelected = state.sourceSelected;
+                if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) state.sourceSelected = (state.sourceSelected + 1) % resultCount;
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) state.sourceSelected = (state.sourceSelected - 1 + resultCount) % resultCount;
+                if (ImGui::IsKeyPressed(ImGuiKey_Tab)) state.sourceSelected = (state.sourceSelected + 1) % resultCount;
+                const bool selectionMovedByKeyboard = (state.sourceSelected != previousSelected);
+
+                float rowHeight = ImGui::GetTextLineHeightWithSpacing();
+                const int rowsToShow = std::min(resultCount, 6);
+                ImVec2 listSize(ImGui::GetContentRegionAvail().x, rowHeight * rowsToShow + ImGui::GetStyle().FramePadding.y);
+                if (ImGui::BeginListBox("##plotSourceResults", listSize)) {
+                    for (int i = 0; i < resultCount; ++i) {
+                        const int optionIndex = matches[static_cast<size_t>(i)].optionIndex;
+                        const bool isSelected = (i == state.sourceSelected);
+                        if (ImGui::Selectable(options[static_cast<size_t>(optionIndex)].label.c_str(), isSelected)) {
+                            state.sourceSelected = i;
+                            state.sources[static_cast<size_t>(state.activeSourceIndex)] = options[static_cast<size_t>(optionIndex)].ref;
+                        }
+                        if (isSelected && selectionMovedByKeyboard) {
+                            ImGui::SetScrollHereY();
+                        }
+                    }
+                    ImGui::EndListBox();
+                }
+
+                const bool activateSelection = (submitted || ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter));
+                if (activateSelection && state.sourceSelected >= 0 && state.sourceSelected < resultCount) {
+                    const int optionIndex = matches[static_cast<size_t>(state.sourceSelected)].optionIndex;
+                    state.sources[static_cast<size_t>(state.activeSourceIndex)] = options[static_cast<size_t>(optionIndex)].ref;
+                }
+            } else {
+                state.sourceSelected = -1;
+            }
+        }
+
+        ImGui::EndTable();
     }
 
     bool allSelected = !state.sources.empty();
@@ -798,6 +918,13 @@ void drawGeneratorUI(Parse* parseINTF) {
     }
     ImGui::SameLine();
     if (ImGui::Button("Cancel")) {
+        state.creating = false;
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(3);
+
+    const bool anyPopupOpen = ImGui::IsPopupOpen((const char*)nullptr, ImGuiPopupFlags_AnyPopupId);
+    if (!windowFocused && !inputActive && !anyPopupOpen && !justOpened) {
         state.creating = false;
     }
 }
@@ -841,49 +968,6 @@ void UI::build(){
         ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
         ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
     };
-
-    /*
-    fitToViewport();
-    ImGuiID main_dock_id = 0;
-    if (ImGui::Begin("Main", nullptr, big_flags)) {
-        main_dock_id = ImGui::GetID("MainDockspace");
-        ImGui::DockSpace(main_dock_id);
-    } ImGui::End();
-
-    fitToViewport();
-    ImGuiID custom_dock_id = 0;
-    if (ImGui::Begin("Custom", nullptr, big_flags)) {
-        custom_dock_id = ImGui::GetID("CustomDockspace");
-        ImGui::DockSpace(custom_dock_id);
-        // if we have "Custom" selected, then we should dock in windows that we want 
-        // e.g. we want to dock in "drawGeneratorUI(parseINTF)"
-        // however, if it is not selected, e.g. I am on "Main"
-        // none of these things should exist/be visible
-        // all the elements should be placed in the dockspace within "Custom"
-        // of course, like normal docked elements, they should be 
-        // moveable, resizeable, adapt to other docked elements, etc
-        //
-        // we should also be able to dock into it
-        // once something is docked in, it "inherits" the property that it is only shown
-        // when the main window is selected/currently being shown
-        // it is possible that we may need to switch our format for our main windows, so that it is just 3 Windows docked into eachother, 
-        // that are able to be tabbed through
-        //
-        // some things I want in the "custom" window
-        // drawGeneratorUI(parseINTF);
-        // if(!parseINTF->canStore.canMessages.empty())
-        //  dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time, 
-        //  parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
-    } ImGui::End();
-
-    fitToViewport();
-    ImGuiID debug_dock_id = 0;
-    if (ImGui::Begin("Debug", nullptr, big_flags)) {
-        debug_dock_id = ImGui::GetID("DebugDockspace");
-        ImGui::DockSpace(debug_dock_id);
-    }
-    ImGui::End();
-    */
 
     fitToViewport();
     if(ImGui::Begin("Main", nullptr, big_flags)){
@@ -1130,12 +1214,12 @@ void UI::signalSearch(){
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                              ImGuiWindowFlags_AlwaysAutoResize |
                              ImGuiWindowFlags_NoMove |
-                             ImGuiWindowFlags_NoFocusOnAppearing |
                              ImGuiWindowFlags_NoNav;
 
     bool windowFocused = false;
     bool inputActive = false;
     bool hidePrompt = false;
+    const bool justOpened = cmdFF;
 
     if(cmdOpen){
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
@@ -1192,7 +1276,7 @@ void UI::signalSearch(){
     bool popupFocused = false;
     if(cmdShowPopup){ popupFocused = popupWindow(); } // this is what you are looking for
     if(hidePrompt){ cmdOpen = false; }
-    if(!windowFocused && !inputActive && !popupFocused){
+    if(!windowFocused && !inputActive && !popupFocused && !justOpened){
         cmdOpen = false;
         cmdShowPopup = false;
     }
@@ -1495,8 +1579,8 @@ void UI::background(){
     ImVec2 min = viewport->Pos;
     ImVec2 max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
     drawList->AddImage(this->backgroundShader.texture, min, max);
-    static float alpha = 80;
-    drawList->AddRectFilled(min, max, IM_COL32(0,0,0,alpha));
+    //static float alpha = 80;
+    //drawList->AddRectFilled(min, max, IM_COL32(0,0,0,alpha));
 }
 
 void UI::setStyle(){
