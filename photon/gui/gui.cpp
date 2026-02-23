@@ -66,6 +66,7 @@ Gui::~Gui(){
             fontMemory = VK_NULL_HANDLE;
         }
     }
+    ImGui::SaveIniSettingsToDisk("config.ini");
     ImGui::DestroyContext();
     ImPlot::DestroyContext();
     ImPlot3D::DestroyContext();
@@ -92,8 +93,7 @@ void Gui::prepareImGui(){
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-    io.IniFilename = "config.ini";
-    //io.IniFilename = nullptr;
+    io.IniFilename = nullptr; // Manual ini load/save only, no periodic autosave.
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
     ImFont *font= io.Fonts->AddFontFromMemoryTTF((void *)berk_ttf, 
@@ -103,6 +103,8 @@ void Gui::prepareImGui(){
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.FontGlobalScale = 1.0f;
+    ui.installPersistentSettings();
+    ImGui::LoadIniSettingsFromDisk("config.ini");
     ui.setStyle();
 }
 

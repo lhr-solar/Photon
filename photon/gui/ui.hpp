@@ -66,6 +66,7 @@ struct UI{
     void dynamicInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
     void tempWork();
     void search();
+    void installPersistentSettings();
     bool popupWindow();
     void bottomBar();
     bool popupWide(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);

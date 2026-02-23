@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
@@ -136,6 +138,91 @@ struct PlotGeneratorState {
 PlotGeneratorState& generatorState() {
     static PlotGeneratorState state;
     return state;
+}
+
+constexpr const char* kPlotSettingsTypeName = "PhotonPlots";
+constexpr const char* kPlotSettingsSectionName = "State";
+
+void persistIniNowIfAvailable() {
+    ImGuiContext* ctx = ImGui::GetCurrentContext();
+    if (!ctx) { return; }
+    ImGui::SaveIniSettingsToDisk("config.ini");
+}
+
+void clearPlotSettings() {
+    PlotGeneratorState& state = generatorState();
+    state.windows.clear();
+    state.nextId = 1;
+}
+
+void* plotSettingsReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* name) {
+    return (std::strcmp(name, kPlotSettingsSectionName) == 0) ? reinterpret_cast<void*>(1) : nullptr;
+}
+
+void plotSettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const char* line) {
+    PlotGeneratorState& state = generatorState();
+    if (std::strncmp(line, "NextId=", 7) == 0) {
+        state.nextId = std::max(1, std::atoi(line + 7));
+        return;
+    }
+    if (std::strncmp(line, "Plot=", 5) != 0) {
+        return;
+    }
+
+    std::stringstream ss(line + 5);
+    std::string token;
+    std::vector<std::string> tokens;
+    while (std::getline(ss, token, ',')) {
+        tokens.push_back(token);
+    }
+    if (tokens.size() < 4) {
+        return;
+    }
+
+    GeneratedPlotWindow window;
+    window.id = std::atoi(tokens[0].c_str());
+    window.typeIndex = std::clamp(std::atoi(tokens[1].c_str()), 0, PlotType_Count - 1);
+    window.open = (std::atoi(tokens[2].c_str()) != 0);
+    const int sourceCount = std::max(0, std::atoi(tokens[3].c_str()));
+    window.needsInitialDock = false;
+    window.initialDockNode = 0;
+    window.forceInitialDock = false;
+    window.undockedInteracting = false;
+    window.requestRedock = false;
+
+    const size_t expected = 4 + static_cast<size_t>(sourceCount);
+    const size_t available = std::min(tokens.size(), expected);
+    for (size_t i = 4; i < available; ++i) {
+        const std::string& src = tokens[i];
+        const size_t colon = src.find(':');
+        if (colon == std::string::npos) {
+            continue;
+        }
+        PlotDataSourceRef ref;
+        ref.canId = std::atoi(src.substr(0, colon).c_str());
+        ref.signalIndex = std::atoi(src.substr(colon + 1).c_str());
+        window.sources.push_back(ref);
+    }
+
+    state.nextId = std::max(state.nextId, window.id + 1);
+    state.windows.push_back(std::move(window));
+}
+
+void plotSettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out_buf) {
+    const PlotGeneratorState& state = generatorState();
+    out_buf->appendf("[%s][%s]\n", handler->TypeName, kPlotSettingsSectionName);
+    out_buf->appendf("NextId=%d\n", state.nextId);
+    for (const GeneratedPlotWindow& plot : state.windows) {
+        out_buf->appendf("Plot=%d,%d,%d,%d",
+                         plot.id,
+                         plot.typeIndex,
+                         plot.open ? 1 : 0,
+                         static_cast<int>(plot.sources.size()));
+        for (const PlotDataSourceRef& source : plot.sources) {
+            out_buf->appendf(",%d:%d", source.canId, source.signalIndex);
+        }
+        out_buf->append("\n");
+    }
 }
 
 const PlotTypeSpec& specFor(int typeIndex) {
@@ -718,8 +805,9 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     ImPlot3D::EndPlot();
 }
 
-void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
+void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool customVisible) {
     PlotGeneratorState& state = generatorState();
+    const size_t countBefore = state.windows.size();
 
     if (customDockspaceId != 0 && ImGui::DockBuilderGetNode(customDockspaceId) != nullptr) {
         bool hasEstablishedLayout = false;
@@ -761,6 +849,8 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
 
         if (dockChanged) {
             ImGui::DockBuilderFinish(customDockspaceId);
+            ImGui::MarkIniSettingsDirty();
+            persistIniNowIfAvailable();
         }
     }
 
@@ -768,17 +858,17 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
         std::string windowTitle = generatedPlotWindowTitle(plot);
         ImGuiWindow* existing = ImGui::FindWindowByName(windowTitle.c_str());
         const bool wasDocked = (existing != nullptr) && (existing->DockNode != nullptr);
+        const bool wasUndocked = (existing != nullptr) && (existing->DockNode == nullptr);
         if (customDockspaceId != 0) {
             if (plot.forceInitialDock && plot.initialDockNode != 0) {
                 ImGui::SetNextWindowDockID(plot.initialDockNode, ImGuiCond_Always);
-            } else if (plot.requestRedock) {
+            } else if (plot.requestRedock || (!customVisible && wasUndocked)) {
                 ImGui::SetNextWindowDockID(customDockspaceId, ImGuiCond_Always);
             }
         }
         ImGuiWindowFlags plotWindowFlags =
             ImGuiWindowFlags_NoTitleBar |
-            ImGuiWindowFlags_NoCollapse |
-            ImGuiWindowFlags_NoSavedSettings;
+            ImGuiWindowFlags_NoCollapse;
         if (wasDocked) {
             plotWindowFlags |= ImGuiWindowFlags_NoBackground;
         }
@@ -789,15 +879,20 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
             ImGuiWindow* current = ImGui::GetCurrentWindow();
             const bool isUndocked = (current != nullptr) && (current->DockNode == nullptr);
             if (isUndocked) {
-                const bool interacting =
-                    ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
-                    ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
-                if (interacting) {
-                    plot.undockedInteracting = true;
-                } else if (plot.undockedInteracting) {
-                    // User let go / switched focus while still floating: now recover to Custom.
+                if (!customVisible) {
                     plot.requestRedock = true;
                     plot.undockedInteracting = false;
+                } else {
+                    const bool interacting =
+                        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
+                        ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+                    if (interacting) {
+                        plot.undockedInteracting = true;
+                    } else if (plot.undockedInteracting) {
+                        // User let go / switched focus while still floating: now recover to Custom.
+                        plot.requestRedock = true;
+                        plot.undockedInteracting = false;
+                    }
                 }
             } else {
                 plot.undockedInteracting = false;
@@ -818,6 +913,10 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
     state.windows.erase(std::remove_if(state.windows.begin(), state.windows.end(),
         [](const GeneratedPlotWindow& window) { return !window.open; }),
         state.windows.end());
+    if (state.windows.size() != countBefore) {
+        ImGui::MarkIniSettingsDirty();
+        persistIniNowIfAvailable();
+    }
 }
 
 void drawGeneratorUI(Parse* parseINTF) {
@@ -1032,6 +1131,8 @@ void drawGeneratorUI(Parse* parseINTF) {
         window.typeIndex = state.typeIndex;
         window.sources = state.sources;
         state.windows.push_back(std::move(window));
+        ImGui::MarkIniSettingsDirty();
+        persistIniNowIfAvailable();
         state.creating = false;
     }
     if (!canCreate) {
@@ -1050,6 +1151,28 @@ void drawGeneratorUI(Parse* parseINTF) {
     }
 }
 } // namespace
+
+void UI::installPersistentSettings() {
+    ImGuiContext* ctx = ImGui::GetCurrentContext();
+    if (!ctx) {
+        return;
+    }
+    const ImGuiID typeHash = ImHashStr(kPlotSettingsTypeName);
+    for (ImGuiSettingsHandler& existing : ctx->SettingsHandlers) {
+        if (existing.TypeHash == typeHash) {
+            return;
+        }
+    }
+
+    ImGuiSettingsHandler handler;
+    handler.TypeName = kPlotSettingsTypeName;
+    handler.TypeHash = typeHash;
+    handler.ClearAllFn = [](ImGuiContext*, ImGuiSettingsHandler*) { clearPlotSettings(); };
+    handler.ReadOpenFn = plotSettingsReadOpen;
+    handler.ReadLineFn = plotSettingsReadLine;
+    handler.WriteAllFn = plotSettingsWriteAll;
+    ImGui::AddSettingsHandler(&handler);
+}
 
 void UI::build(){
     ImGuiIO &io = ImGui::GetIO();
@@ -1138,10 +1261,13 @@ void UI::build(){
     bool customVisible = ImGui::Begin("Custom##CustomDockedTab", nullptr, fixedTabFlags);
     customDockspaceId = ImGui::GetID("CustomDockspace");
     const ImGuiDockNodeFlags customTabsOnlyFlags = ImGuiDockNodeFlags_AutoHideTabBar;
-    ImGui::DockSpace(customDockspaceId, ImVec2(0.0f, 0.0f), customTabsOnlyFlags);
+    const ImGuiDockNodeFlags customDockFlags = customVisible
+        ? customTabsOnlyFlags
+        : (customTabsOnlyFlags | ImGuiDockNodeFlags_KeepAliveOnly);
+    ImGui::DockSpace(customDockspaceId, ImVec2(0.0f, 0.0f), customDockFlags);
     ImGui::End();
 
-    drawGeneratedPlots(parseINTF, customDockspaceId);
+    drawGeneratedPlots(parseINTF, customDockspaceId, customVisible);
     signalSearch();
     drawGeneratorUI(parseINTF);
 
