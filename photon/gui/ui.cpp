@@ -766,6 +766,8 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
 
     for (GeneratedPlotWindow& plot : state.windows) {
         std::string windowTitle = generatedPlotWindowTitle(plot);
+        ImGuiWindow* existing = ImGui::FindWindowByName(windowTitle.c_str());
+        const bool wasDocked = (existing != nullptr) && (existing->DockNode != nullptr);
         if (customDockspaceId != 0) {
             if (plot.forceInitialDock && plot.initialDockNode != 0) {
                 ImGui::SetNextWindowDockID(plot.initialDockNode, ImGuiCond_Always);
@@ -775,8 +777,13 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
         }
         ImGuiWindowFlags plotWindowFlags =
             ImGuiWindowFlags_NoTitleBar |
-            ImGuiWindowFlags_NoCollapse;
+            ImGuiWindowFlags_NoCollapse |
+            ImGuiWindowFlags_NoSavedSettings;
+        if (wasDocked) {
+            plotWindowFlags |= ImGuiWindowFlags_NoBackground;
+        }
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wasDocked ? ImVec2(1.0f, 1.0f) : ImVec2(6.0f, 6.0f));
         if (ImGui::Begin(windowTitle.c_str(), &plot.open, plotWindowFlags)) {
             plot.forceInitialDock = false;
             ImGuiWindow* current = ImGui::GetCurrentWindow();
@@ -796,19 +803,6 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
                 plot.undockedInteracting = false;
                 plot.requestRedock = false;
             }
-            if (specFor(plot.typeIndex).is3D &&
-                ((plot.typeIndex == PlotType_3DLine && plot.sources.size() >= 2) ||
-                 (plot.typeIndex != PlotType_3DLine && plot.sources.size() >= 3))) {
-                if (plot.typeIndex == PlotType_3DLine) {
-                    ImGui::Text("X(time): message time from %s", sourceName(parseINTF, plot.sources[0]).c_str());
-                    ImGui::Text("Y: %s", sourceName(parseINTF, plot.sources[0]).c_str());
-                    ImGui::Text("Z: %s", sourceName(parseINTF, plot.sources[1]).c_str());
-                } else {
-                    ImGui::Text("X: %s", sourceName(parseINTF, plot.sources[0]).c_str());
-                    ImGui::Text("Y: %s", sourceName(parseINTF, plot.sources[1]).c_str());
-                    ImGui::Text("Z: %s", sourceName(parseINTF, plot.sources[2]).c_str());
-                }
-            }
             if (specFor(plot.typeIndex).is3D) {
                 render3DPlot(parseINTF, plot);
             } else if (specFor(plot.typeIndex).usesTimeAxis) {
@@ -818,6 +812,7 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
             }
         }
         ImGui::End();
+        ImGui::PopStyleVar();
         ImGui::PopStyleVar();
     }
     state.windows.erase(std::remove_if(state.windows.begin(), state.windows.end(),
@@ -1142,7 +1137,7 @@ void UI::build(){
     ImGuiID customDockspaceId = 0;
     bool customVisible = ImGui::Begin("Custom##CustomDockedTab", nullptr, fixedTabFlags);
     customDockspaceId = ImGui::GetID("CustomDockspace");
-    const ImGuiDockNodeFlags customTabsOnlyFlags = ImGuiDockNodeFlags_None;
+    const ImGuiDockNodeFlags customTabsOnlyFlags = ImGuiDockNodeFlags_AutoHideTabBar;
     ImGui::DockSpace(customDockspaceId, ImVec2(0.0f, 0.0f), customTabsOnlyFlags);
     ImGui::End();
 
