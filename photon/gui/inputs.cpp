@@ -76,6 +76,7 @@ ImGuiKey Inputs::translateKey(uint32_t key){
         case KEY_0:             return ImGuiKey_0;
 
         case KEY_SLASH:         return ImGuiKey_Slash;
+        case KEY_BACKSLASH:     return ImGuiKey_Backslash;
         case KEY_PERIOD:        return ImGuiKey_Period;
         case KEY_F1:            return ImGuiKey_F1;
         case KEY_F2:            return ImGuiKey_F2;
@@ -206,6 +207,7 @@ void Inputs::handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xc
             case KEY_9: c = shift ? '(' : '9'; break;
             case KEY_0: c = shift ? ')' : '0'; break;
             case KEY_SLASH:       c = shift ? '?' : '/'; break;
+            case KEY_BACKSLASH:   c = shift ? '|' : '\\'; break;
             case KEY_PERIOD:      c = shift ? '>' : '.'; break;
             case KEY_SPACE:       c = ' ';  break;
             case KEY_ENTER:       c = '\n'; break;

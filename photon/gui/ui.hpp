@@ -67,6 +67,7 @@ struct UI{
     void tempWork();
     void search();
     bool popupWindow();
+    void bottomBar();
     bool popupWide(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
 };
 

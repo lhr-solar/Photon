@@ -110,6 +110,11 @@ struct GeneratedPlotWindow {
     int typeIndex = PlotType_Line;
     std::vector<PlotDataSourceRef> sources;
     bool open = true;
+    bool needsInitialDock = true;
+    ImGuiID initialDockNode = 0;
+    bool forceInitialDock = false;
+    bool undockedInteracting = false;
+    bool requestRedock = false;
     bool followLatest = true;
     bool hasView = false;
     double xMin = 0.0;
@@ -135,6 +140,31 @@ PlotGeneratorState& generatorState() {
 
 const PlotTypeSpec& specFor(int typeIndex) {
     return kPlotSpecs[static_cast<size_t>(typeIndex)];
+}
+
+std::string generatedPlotWindowTitle(const GeneratedPlotWindow& plot) {
+    return std::string(specFor(plot.typeIndex).label) + " " + std::to_string(plot.id);
+}
+
+ImGuiID largestLeafDockNode(ImGuiID nodeId) {
+    ImGuiDockNode* node = ImGui::DockBuilderGetNode(nodeId);
+    if (!node) { return 0; }
+    if (!node->IsSplitNode()) { return nodeId; }
+    const ImGuiID leftId = largestLeafDockNode(node->ChildNodes[0] ? node->ChildNodes[0]->ID : 0);
+    const ImGuiID rightId = largestLeafDockNode(node->ChildNodes[1] ? node->ChildNodes[1]->ID : 0);
+    ImGuiDockNode* left = ImGui::DockBuilderGetNode(leftId);
+    ImGuiDockNode* right = ImGui::DockBuilderGetNode(rightId);
+    const float leftArea = left ? left->Size.x * left->Size.y : 0.0f;
+    const float rightArea = right ? right->Size.x * right->Size.y : 0.0f;
+    return (leftArea >= rightArea) ? leftId : rightId;
+}
+
+bool hasInputChar(ImWchar ch) {
+    const ImGuiIO& io = ImGui::GetIO();
+    for (ImWchar c : io.InputQueueCharacters) {
+        if (c == ch) { return true; }
+    }
+    return false;
 }
 
 void resetGeneratorSourcesForType(PlotGeneratorState& state) {
@@ -688,12 +718,84 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     ImPlot3D::EndPlot();
 }
 
-void drawGeneratedPlots(Parse* parseINTF) {
+void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId) {
     PlotGeneratorState& state = generatorState();
+
+    if (customDockspaceId != 0 && ImGui::DockBuilderGetNode(customDockspaceId) != nullptr) {
+        bool hasEstablishedLayout = false;
+        for (const GeneratedPlotWindow& plot : state.windows) {
+            if (plot.open && !plot.needsInitialDock) {
+                hasEstablishedLayout = true;
+                break;
+            }
+        }
+
+        bool dockChanged = false;
+        for (GeneratedPlotWindow& plot : state.windows) {
+            if (!plot.open || !plot.needsInitialDock) { continue; }
+            const std::string windowTitle = generatedPlotWindowTitle(plot);
+            ImGuiID targetNode = customDockspaceId;
+
+            if (hasEstablishedLayout) {
+                ImGuiID leaf = largestLeafDockNode(customDockspaceId);
+                ImGuiDockNode* leafNode = ImGui::DockBuilderGetNode(leaf);
+                if (leaf != 0 && leafNode != nullptr) {
+                    const ImGuiDir splitDir = (leafNode->Size.x >= leafNode->Size.y) ? ImGuiDir_Right : ImGuiDir_Down;
+                    constexpr float kGoldenNewPaneRatio = 0.381966f;
+                    ImGuiID newNode = 0;
+                    ImGuiID remainingNode = 0;
+                    ImGui::DockBuilderSplitNode(leaf, splitDir, kGoldenNewPaneRatio, &newNode, &remainingNode);
+                    if (newNode != 0) {
+                        targetNode = newNode;
+                    }
+                }
+            }
+
+            ImGui::DockBuilderDockWindow(windowTitle.c_str(), targetNode);
+            plot.initialDockNode = targetNode;
+            plot.forceInitialDock = true;
+            plot.needsInitialDock = false;
+            hasEstablishedLayout = true;
+            dockChanged = true;
+        }
+
+        if (dockChanged) {
+            ImGui::DockBuilderFinish(customDockspaceId);
+        }
+    }
+
     for (GeneratedPlotWindow& plot : state.windows) {
-        std::string windowTitle = std::string(specFor(plot.typeIndex).label) + " #" + std::to_string(plot.id);
-        if (ImGui::Begin(windowTitle.c_str(), &plot.open)) {
-            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+        std::string windowTitle = generatedPlotWindowTitle(plot);
+        if (customDockspaceId != 0) {
+            if (plot.forceInitialDock && plot.initialDockNode != 0) {
+                ImGui::SetNextWindowDockID(plot.initialDockNode, ImGuiCond_Always);
+            } else if (plot.requestRedock) {
+                ImGui::SetNextWindowDockID(customDockspaceId, ImGuiCond_Always);
+            }
+        }
+        ImGuiWindowFlags plotWindowFlags =
+            ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoCollapse;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        if (ImGui::Begin(windowTitle.c_str(), &plot.open, plotWindowFlags)) {
+            plot.forceInitialDock = false;
+            ImGuiWindow* current = ImGui::GetCurrentWindow();
+            const bool isUndocked = (current != nullptr) && (current->DockNode == nullptr);
+            if (isUndocked) {
+                const bool interacting =
+                    ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
+                    ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+                if (interacting) {
+                    plot.undockedInteracting = true;
+                } else if (plot.undockedInteracting) {
+                    // User let go / switched focus while still floating: now recover to Custom.
+                    plot.requestRedock = true;
+                    plot.undockedInteracting = false;
+                }
+            } else {
+                plot.undockedInteracting = false;
+                plot.requestRedock = false;
+            }
             if (specFor(plot.typeIndex).is3D &&
                 ((plot.typeIndex == PlotType_3DLine && plot.sources.size() >= 2) ||
                  (plot.typeIndex != PlotType_3DLine && plot.sources.size() >= 3))) {
@@ -706,12 +808,7 @@ void drawGeneratedPlots(Parse* parseINTF) {
                     ImGui::Text("Y: %s", sourceName(parseINTF, plot.sources[1]).c_str());
                     ImGui::Text("Z: %s", sourceName(parseINTF, plot.sources[2]).c_str());
                 }
-            } else {
-                for (size_t i = 0; i < plot.sources.size(); ++i) {
-                    ImGui::Text("Source %zu: %s", i + 1, sourceName(parseINTF, plot.sources[i]).c_str());
-                }
             }
-            ImGui::Separator();
             if (specFor(plot.typeIndex).is3D) {
                 render3DPlot(parseINTF, plot);
             } else if (specFor(plot.typeIndex).usesTimeAxis) {
@@ -721,6 +818,7 @@ void drawGeneratedPlots(Parse* parseINTF) {
             }
         }
         ImGui::End();
+        ImGui::PopStyleVar();
     }
     state.windows.erase(std::remove_if(state.windows.begin(), state.windows.end(),
         [](const GeneratedPlotWindow& window) { return !window.open; }),
@@ -731,7 +829,13 @@ void drawGeneratorUI(Parse* parseINTF) {
     PlotGeneratorState& state = generatorState();
     const std::vector<SignalOption> options = collectSignalOptions(parseINTF);
 
-    if (ImGui::Button("New Plot")) {
+    const ImGuiIO& io = ImGui::GetIO();
+    const bool generatorHotkeyPressed =
+        ImGui::IsKeyPressed(ImGuiKey_Backslash) ||
+        hasInputChar('\\') ||
+        hasInputChar('|');
+
+    if (!state.creating && generatorHotkeyPressed && !io.KeyCtrl && !io.KeyAlt && !io.KeySuper) {
         state.creating = true;
         state.createFF = true;
         state.typeIndex = PlotType_Line;
@@ -740,7 +844,6 @@ void drawGeneratorUI(Parse* parseINTF) {
         state.sourceSelected = -1;
         state.activeSourceIndex = 0;
     }
-    //ImGui::Text("Created plots: %zu", state.windows.size());
 
     if (!state.creating) { return; }
 
@@ -980,11 +1083,13 @@ void UI::build(){
     ImGui::End();
 
     ImGuiWindowFlags big_flags =
+        ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoDocking |
-        ImGuiWindowFlags_NoBackground;
+        ImGuiWindowFlags_NoBackground |
+        ImGuiWindowFlags_NoSavedSettings;
 
     auto fitToViewport = [&]() {
         ImGui::SetNextWindowViewport(vp->ID);
@@ -992,22 +1097,82 @@ void UI::build(){
         ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
     };
 
+    ImGuiID mainDockspaceId = 0;
     fitToViewport();
-    if(ImGui::Begin("Main", nullptr, big_flags)){
+    if (ImGui::Begin("Main Host##MainDockHost", nullptr, big_flags)) {
+        mainDockspaceId = ImGui::GetID("MainDockspace");
+        const ImGuiDockNodeFlags lockedTabsOnlyFlags =
+            ImGuiDockNodeFlags_NoUndocking |
+            ImGuiDockNodeFlags_NoDockingSplit |
+            ImGuiDockNodeFlags_NoDockingOverMe |
+            ImGuiDockNodeFlags_NoDockingOverOther;
+        ImGui::DockSpace(mainDockspaceId, ImVec2(0.0f, 0.0f), lockedTabsOnlyFlags);
+
+        if (ImGui::DockBuilderGetNode(mainDockspaceId) == nullptr) {
+            ImGui::DockBuilderRemoveNode(mainDockspaceId);
+            ImGui::DockBuilderAddNode(mainDockspaceId, ImGuiDockNodeFlags_DockSpace | lockedTabsOnlyFlags);
+            ImGui::DockBuilderSetNodeSize(mainDockspaceId, ImGui::GetContentRegionAvail());
+            ImGui::DockBuilderDockWindow("Main##MainDockedTab", mainDockspaceId);
+            ImGui::DockBuilderDockWindow("Custom##CustomDockedTab", mainDockspaceId);
+            ImGui::DockBuilderFinish(mainDockspaceId);
+        }
+    }
+    ImGui::End();
+
+    if (mainDockspaceId != 0) {
+        ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
+    }
+    ImGuiWindowFlags fixedTabFlags =
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoBackground;
+    if (ImGui::Begin("Main##MainDockedTab", nullptr, fixedTabFlags)) {
         ImGui::Text("some text");
-        drawGeneratorUI(parseINTF);
-        if(!parseINTF->canStore.canMessages.empty())
-            dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time, 
-                    parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
+        if (!parseINTF->canStore.canMessages.empty()) {
+            dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time,
+                              parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
+        }
+    }
+    ImGui::End();
 
-    } ImGui::End();
+    if (mainDockspaceId != 0) {
+        ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
+    }
+    ImGuiID customDockspaceId = 0;
+    bool customVisible = ImGui::Begin("Custom##CustomDockedTab", nullptr, fixedTabFlags);
+    customDockspaceId = ImGui::GetID("CustomDockspace");
+    const ImGuiDockNodeFlags customTabsOnlyFlags = ImGuiDockNodeFlags_None;
+    ImGui::DockSpace(customDockspaceId, ImVec2(0.0f, 0.0f), customTabsOnlyFlags);
+    ImGui::End();
 
-    drawGeneratedPlots(parseINTF);
+    drawGeneratedPlots(parseINTF, customDockspaceId);
     signalSearch();
+    drawGeneratorUI(parseINTF);
 
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
     ImGui::Render();
+}
+
+void UI::bottomBar(){
+    const ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
+    const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
+    const float rowHeight = ImGui::GetFrameHeight() + 6.0f;
+    const float rowY = contentMax.y - rowHeight;
+
+    ImGui::SetCursorPos(ImVec2(contentMin.x, rowY));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
+
+    const ImGuiWindowFlags rowFlags =
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse |
+        ImGuiWindowFlags_NoSavedSettings;
+
+    if (ImGui::BeginChild("##bottom_bar_row", ImVec2(0.0f, rowHeight), false, rowFlags)) {
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
 }
 
 void UI::genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name){
@@ -1665,6 +1830,7 @@ void UI::setStyle(){
     colors[ImGuiCol_Tab] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
     colors[ImGuiCol_TabHovered] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
     colors[ImGuiCol_TabActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+    colors[ImGuiCol_TabSelectedOverline] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     colors[ImGuiCol_TabUnfocused] = ImVec4(0.1f, 0.1f, 0.1f, 0.8f);
     colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.2f, 0.2f, 0.2f, 0.8f);
 
