@@ -1195,6 +1195,10 @@ void UI::build(){
         ImGuiWindowFlags_NoNavFocus |
         ImGuiWindowFlags_NoBackground;
 
+    // Docked tab bars need their own rounding config; style globals are not sufficient here.
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0f);
     ImGui::Begin("Root", nullptr, host_flags);
     ImGuiID root_id = ImGui::GetID("RootDockspace");
     ImGui::DockSpace(root_id);
@@ -1230,7 +1234,7 @@ void UI::build(){
             ImGui::DockBuilderRemoveNode(mainDockspaceId);
             ImGui::DockBuilderAddNode(mainDockspaceId, ImGuiDockNodeFlags_DockSpace | lockedTabsOnlyFlags);
             ImGui::DockBuilderSetNodeSize(mainDockspaceId, ImGui::GetContentRegionAvail());
-            ImGui::DockBuilderDockWindow("Main##MainDockedTab", mainDockspaceId);
+            ImGui::DockBuilderDockWindow("Home##MainDockedTab", mainDockspaceId);
             ImGui::DockBuilderDockWindow("Custom##CustomDockedTab", mainDockspaceId);
             ImGui::DockBuilderFinish(mainDockspaceId);
         }
@@ -1245,7 +1249,7 @@ void UI::build(){
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoBackground;
-    if (ImGui::Begin("Main##MainDockedTab", nullptr, fixedTabFlags)) {
+    if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) {
         ImGui::Text("some text");
         if (!parseINTF->canStore.canMessages.empty()) {
             dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time,
@@ -1266,6 +1270,7 @@ void UI::build(){
         : (customTabsOnlyFlags | ImGuiDockNodeFlags_KeepAliveOnly);
     ImGui::DockSpace(customDockspaceId, ImVec2(0.0f, 0.0f), customDockFlags);
     ImGui::End();
+    ImGui::PopStyleVar(3);
 
     drawGeneratedPlots(parseINTF, customDockspaceId, customVisible);
     signalSearch();
@@ -1896,8 +1901,9 @@ void UI::setStyle(){
     ImGuiStyle &UIstyle = ImGui::GetStyle();
     ImVec4* colors = UIstyle.Colors;
 
-    UIstyle.WindowRounding = 01.0f;
+    UIstyle.WindowRounding = 1.0f;
     UIstyle.ChildRounding = 12.0f;
+    UIstyle.TabRounding = 0.0f;
     UIstyle.PopupRounding = 12.0f;
     UIstyle.PopupBorderSize = UIstyle.WindowBorderSize;
     UIstyle.PopupRounding = UIstyle.WindowRounding;
@@ -1985,7 +1991,7 @@ void UI::setStyle(){
     ImPlotStyle &plotStyle = ImPlot::GetStyle();
     // Transparent plot backgrounds.
     plotStyle.Colors[ImPlotCol_FrameBg] = ImVec4(0, 0, 0, 0.0f);
-    plotStyle.Colors[ImPlotCol_PlotBg] = ImVec4(0, 0, 0, 0.0f);
+    plotStyle.Colors[ImPlotCol_PlotBg] = ImVec4(0, 0, 0, 0.85f);
     plotStyle.Colors[ImPlotCol_PlotBorder] = ImVec4(0, 0, 0, 0.0f);
     plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(0, 0, 0, 0.0f);
     plotStyle.Colors[ImPlotCol_LegendBorder] = ImVec4(0, 0, 0, 0.0f);
