@@ -14296,7 +14296,13 @@ static void ImGui::NavUpdateCreateWrappingRequest()
 // If you want a window to never be focused, you may use the e.g. NoInputs flag.
 bool ImGui::IsWindowNavFocusable(ImGuiWindow* window)
 {
-    return window->WasActive && window == window->RootWindow && !(window->Flags & ImGuiWindowFlags_NoNavFocus);
+    if (!(window->WasActive && window == window->RootWindow && !(window->Flags & ImGuiWindowFlags_NoNavFocus)))
+        return false;
+
+    // Photon customization:
+    // Restrict CTRL+TAB / windowing list to the two primary dock tabs only.
+    return strcmp(window->Name, "Home##MainDockedTab") == 0
+        || strcmp(window->Name, "Custom##CustomDockedTab") == 0;
 }
 
 static ImGuiWindow* FindWindowNavFocusable(int i_start, int i_stop, int dir) // FIXME-OPT O(N)

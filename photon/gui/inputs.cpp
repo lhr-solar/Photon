@@ -74,6 +74,10 @@ ImGuiKey Inputs::translateKey(uint32_t key){
         case KEY_8:             return ImGuiKey_8;
         case KEY_9:             return ImGuiKey_9;
         case KEY_0:             return ImGuiKey_0;
+        case KEY_MINUS:         return ImGuiKey_Minus;
+        case KEY_EQUAL:         return ImGuiKey_Equal;
+        case KEY_KP_SUBTRACT:   return ImGuiKey_KeypadSubtract;
+        case KEY_KP_ADD:        return ImGuiKey_KeypadAdd;
 
         case KEY_SLASH:         return ImGuiKey_Slash;
         case KEY_BACKSLASH:     return ImGuiKey_Backslash;
@@ -206,6 +210,8 @@ void Inputs::handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xc
             case KEY_8: c = shift ? '*' : '8'; break;
             case KEY_9: c = shift ? '(' : '9'; break;
             case KEY_0: c = shift ? ')' : '0'; break;
+            case KEY_MINUS:      c = shift ? '_' : '-'; break;
+            case KEY_EQUAL:      c = shift ? '+' : '='; break;
             case KEY_SLASH:       c = shift ? '?' : '/'; break;
             case KEY_BACKSLASH:   c = shift ? '|' : '\\'; break;
             case KEY_PERIOD:      c = shift ? '>' : '.'; break;
@@ -286,6 +292,8 @@ ImGuiKey Inputs::translateWin32Key(uint32_t key){
     case VK_RWIN:      return ImGuiKey_RightSuper;
     case VK_OEM_PLUS:  return ImGuiKey_Equal;
     case VK_OEM_MINUS: return ImGuiKey_Minus;
+    case VK_ADD:       return ImGuiKey_KeypadAdd;
+    case VK_SUBTRACT:  return ImGuiKey_KeypadSubtract;
     case VK_OEM_COMMA: return ImGuiKey_Comma;
     case VK_OEM_PERIOD:return ImGuiKey_Period;
     case VK_OEM_1:     return ImGuiKey_Semicolon;

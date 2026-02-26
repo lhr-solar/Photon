@@ -17,6 +17,11 @@
 
 struct UI{
     Parse *parseINTF;
+    int fontSize = 24;
+    int fontSizeMin = 8;
+    int fontSizeMax = 96;
+    bool fontSizeSynced = false;
+    bool fontSizeDirty = false;
     char deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE] = {0};
     uint32_t vendorID = 0;
     uint32_t deviceID = 0;
@@ -49,6 +54,7 @@ struct UI{
     std::vector<double> globalTime {0.0};
 
     void setStyle();
+    void setScale();
     void build();
     void fpsWindow();
     void signalSearch();

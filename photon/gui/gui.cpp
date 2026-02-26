@@ -29,6 +29,7 @@
 #include "viking_vert_spv.hpp"
 #include "berk_ttf.hpp"
 #include "openSans_ttf.hpp"
+#include "sansFlex_ttf.hpp"
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -96,8 +97,12 @@ void Gui::prepareImGui(){
     io.IniFilename = nullptr; // Manual ini load/save only, no periodic autosave.
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
-    ImFont *font= io.Fonts->AddFontFromMemoryTTF((void *)berk_ttf, 
-            static_cast<int>(berk_ttf_size), 18.0f, &fontConfig);
+    //ImFont *font= io.Fonts->AddFontFromMemoryTTF((void *)berk_ttf, 
+            //static_cast<int>(berk_ttf_size), 18.0f, &fontConfig);
+    //ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)openSans_ttf,
+           //static_cast<int>(openSans_ttf_size), 18.0f, &fontConfig);
+    ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)sansFlex_ttf,
+           static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
 
     if (font != nullptr) { io.FontDefault = font; }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -108,26 +113,42 @@ void Gui::prepareImGui(){
     ui.setStyle();
 }
 
-// initialize all vulkan resources used by the UI
-void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet){
-    deviceHandle = vulkanDevice.logicalDevice;
-    ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
-    ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
-    ui.triangle.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
-    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, descriptorPool);
-    std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
-    ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
-    ui.vendorID = vulkanDevice.deviceProperties.vendorID;
-    ui.deviceID = vulkanDevice.deviceProperties.deviceID;
-    ui.deviceType = vulkanDevice.deviceProperties.deviceType;
-    ui.driverVersion = vulkanDevice.deviceProperties.driverVersion;
-    ui.apiVersion = vulkanDevice.deviceProperties.apiVersion;
-
+void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descriptorSet){
     ImGuiIO &io = ImGui::GetIO();
-    unsigned char *fontData;
-    int texWidth, texHeight;
+    ImFontConfig fontConfig;
+    fontConfig.FontDataOwnedByAtlas = false;
+    io.Fonts->Clear();
+    ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)sansFlex_ttf,
+            static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    if (font != nullptr) {
+        io.FontDefault = font;
+    }
+    io.FontGlobalScale = 1.0f;
+    io.Fonts->Build();
+
+    unsigned char *fontData = nullptr;
+    int texWidth = 0;
+    int texHeight = 0;
     io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
     VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
+
+    if (fontSampler != VK_NULL_HANDLE) {
+        vkDestroySampler(vulkanDevice.logicalDevice, fontSampler, nullptr);
+        fontSampler = VK_NULL_HANDLE;
+    }
+    if (fontView != VK_NULL_HANDLE) {
+        vkDestroyImageView(vulkanDevice.logicalDevice, fontView, nullptr);
+        fontView = VK_NULL_HANDLE;
+    }
+    if (fontImage != VK_NULL_HANDLE) {
+        vkDestroyImage(vulkanDevice.logicalDevice, fontImage, nullptr);
+        fontImage = VK_NULL_HANDLE;
+    }
+    if (fontMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(vulkanDevice.logicalDevice, fontMemory, nullptr);
+        fontMemory = VK_NULL_HANDLE;
+    }
+
     VkImageCreateInfo imageCreateInfo {};
     imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -150,9 +171,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     memAllocInfo.allocationSize = memReqs.size;
     memAllocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
     VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &memAllocInfo, nullptr, &fontMemory));
-    logs("[+] Allocated font memory");
     VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, fontImage, fontMemory, 0));
-    logs("[+] Bound font memory");
 
     VkImageViewCreateInfo imageViewCreateInfo {};
     imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -163,26 +182,22 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     imageViewCreateInfo.subresourceRange.levelCount = 1;
     imageViewCreateInfo.subresourceRange.layerCount = 1;
     VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &imageViewCreateInfo, nullptr, &fontView));
-    logs("[+] Created Font Image View");
 
     VulkanBuffer stagingBuffer;
     VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
                 &stagingBuffer, uploadSize, nullptr));
-    logs("[+] Created staging buffer");
     stagingBuffer.map(VK_WHOLE_SIZE, 0);
     memcpy(stagingBuffer.mapped, fontData, uploadSize);
     stagingBuffer.unmap();
 
     VkCommandBuffer copyCmd = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
-    logs("[+] Created Command Buffer from Graphics Command Pool");
     VkImageSubresourceRange subresourceRange = {};
     subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     subresourceRange.baseMipLevel = 0;
     subresourceRange.levelCount = 1;
     subresourceRange.layerCount = 1;
-    Gpu::setImageLayout(copyCmd, fontImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+    Gpu::setImageLayout(copyCmd, fontImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subresourceRange, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-    logs("[+] Set Image Layout for Transfer");
 
     VkBufferImageCopy bufferCopyRegion = {};
     bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -191,14 +206,11 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     bufferCopyRegion.imageExtent.height = texHeight;
     bufferCopyRegion.imageExtent.depth = 1;
     vkCmdCopyBufferToImage(copyCmd, stagingBuffer.buffer, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferCopyRegion);
-    logs("[+] Copied Buffer to Image");
 
-    Gpu::setImageLayout(copyCmd, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, 
+    Gpu::setImageLayout(copyCmd, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     vulkanDevice.flushCommandBuffer(copyCmd, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
-    logs("[+] Flushed Command Buffer");
     stagingBuffer.destroy();
-    logs("[+] Destroyed Staging Buffer");
 
     VkSamplerCreateInfo samplerCreateInfo {};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -211,7 +223,6 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     vkCreateSampler(vulkanDevice.logicalDevice, &samplerCreateInfo, nullptr, &fontSampler);
-    logs("[+] Created Gui Sampler");
 
     VkDescriptorImageInfo fontDescriptorImageInfo {};
     fontDescriptorImageInfo.sampler = fontSampler;
@@ -228,6 +239,24 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
 
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &fontWriteDescriptorSet, 0, nullptr);
     io.Fonts->TexID = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(descriptorSet));
+}
+
+// initialize all vulkan resources used by the UI
+void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet){
+    deviceHandle = vulkanDevice.logicalDevice;
+    ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.triangle.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, descriptorPool);
+    std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
+    ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
+    ui.vendorID = vulkanDevice.deviceProperties.vendorID;
+    ui.deviceID = vulkanDevice.deviceProperties.deviceID;
+    ui.deviceType = vulkanDevice.deviceProperties.deviceType;
+    ui.driverVersion = vulkanDevice.deviceProperties.driverVersion;
+    ui.apiVersion = vulkanDevice.deviceProperties.apiVersion;
+
+    refreshFontResources(vulkanDevice, descriptorSet);
 
     ui.videoSource.texture = static_cast<ImTextureID>(0);
     ui.videoSource.textureSize = {0, 0};
@@ -411,6 +440,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
 
     ui.videoSource.updateVideoFeed(vulkanDevice);
     ui.build();
+    if (ui.fontSizeDirty) {
+        refreshFontResources(vulkanDevice, descriptorSet);
+        ui.fontSizeDirty = false;
+    }
 
     if (ui.backgroundShader.dirty) {
         ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, descriptorPool, 

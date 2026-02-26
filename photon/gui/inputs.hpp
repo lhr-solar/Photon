@@ -64,6 +64,8 @@ struct Inputs{
 #define KEY_8          0x11  // '8' (scan 0x09 + 8)
 #define KEY_9          0x12  // '9' (scan 0x0A + 8)
 #define KEY_0          0x13  // '0' (scan 0x0B + 8)
+#define KEY_MINUS      0x14  // '-' key (scan 0x0C + 8)
+#define KEY_EQUAL      0x15  // '=' key (scan 0x0D + 8)
 
 // — QWERTY top row —
 #define KEY_Q          0x18  // Q (scan 0x10 + 8)
@@ -117,3 +119,5 @@ struct Inputs{
 #define KEY_DOWN_ARROW 0x74  // Down Arrow
 #define KEY_LEFT_ARROW 0x71  // Left Arrow
 #define KEY_RIGHT_ARROW 0x72 // Right Arrow
+#define KEY_KP_SUBTRACT 0x52 // Keypad '-'
+#define KEY_KP_ADD      0x56 // Keypad '+'

@@ -143,6 +143,11 @@ PlotGeneratorState& generatorState() {
 constexpr const char* kPlotSettingsTypeName = "PhotonPlots";
 constexpr const char* kPlotSettingsSectionName = "State";
 
+int& persistedFontSize() {
+    static int value = 24;
+    return value;
+}
+
 void persistIniNowIfAvailable() {
     ImGuiContext* ctx = ImGui::GetCurrentContext();
     if (!ctx) { return; }
@@ -153,6 +158,7 @@ void clearPlotSettings() {
     PlotGeneratorState& state = generatorState();
     state.windows.clear();
     state.nextId = 1;
+    persistedFontSize() = 24;
 }
 
 void* plotSettingsReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* name) {
@@ -161,6 +167,14 @@ void* plotSettingsReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* nam
 
 void plotSettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const char* line) {
     PlotGeneratorState& state = generatorState();
+    if (std::strncmp(line, "FontSize=", 9) == 0) {
+        persistedFontSize() = std::max(8, std::atoi(line + 9));
+        return;
+    }
+    if (std::strncmp(line, "FontScale=", 10) == 0) {
+        persistedFontSize() = std::max(8, static_cast<int>(std::lround(std::atof(line + 10) * 24.0)));
+        return;
+    }
     if (std::strncmp(line, "NextId=", 7) == 0) {
         state.nextId = std::max(1, std::atoi(line + 7));
         return;
@@ -211,6 +225,7 @@ void plotSettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const cha
 void plotSettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out_buf) {
     const PlotGeneratorState& state = generatorState();
     out_buf->appendf("[%s][%s]\n", handler->TypeName, kPlotSettingsSectionName);
+    out_buf->appendf("FontSize=%d\n", persistedFontSize());
     out_buf->appendf("NextId=%d\n", state.nextId);
     for (const GeneratedPlotWindow& plot : state.windows) {
         out_buf->appendf("Plot=%d,%d,%d,%d",
@@ -319,6 +334,18 @@ struct SourceMatch {
     int score = 0;
 };
 
+struct LinkedTimeAxisState {
+    bool hasRange = false;
+    bool followLatest = true;
+    double xMin = 0.0;
+    double xMax = 0.0;
+};
+
+LinkedTimeAxisState& linkedTimeAxisState() {
+    static LinkedTimeAxisState state;
+    return state;
+}
+
 std::vector<SourceMatch> buildSourceMatches(const std::vector<SignalOption>& options, const char* query) {
     std::vector<SourceMatch> matches;
     matches.reserve(options.size());
@@ -339,7 +366,7 @@ std::vector<SourceMatch> buildSourceMatches(const std::vector<SignalOption>& opt
     return matches;
 }
 
-void updateFollowState(GeneratedPlotWindow& plot) {
+void updateFollowState(GeneratedPlotWindow& plot, LinkedTimeAxisState* linkedState = nullptr) {
     const ImGuiIO& io = ImGui::GetIO();
     const bool isNavigating =
         ImPlot::IsPlotHovered() &&
@@ -355,15 +382,26 @@ void updateFollowState(GeneratedPlotWindow& plot) {
     if (recenterToLive) {
         plot.followLatest = true;
         plot.hasView = false;
+        if (linkedState != nullptr) {
+            linkedState->followLatest = true;
+        }
     }
     if (isNavigating) {
         plot.followLatest = false;
+        if (linkedState != nullptr) {
+            linkedState->followLatest = false;
+        }
     }
 
     const ImPlotRect limits = ImPlot::GetPlotLimits(ImAxis_X1, ImAxis_Y1);
     plot.xMin = limits.X.Min;
     plot.xMax = limits.X.Max;
     plot.hasView = true;
+    if (linkedState != nullptr) {
+        linkedState->xMin = plot.xMin;
+        linkedState->xMax = plot.xMax;
+        linkedState->hasRange = true;
+    }
 }
 
 void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
@@ -386,16 +424,37 @@ void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     const double dataStart = xAxis.front();
     const double latestTime = xAxis.back();
     const double liveWindowStart = std::max(dataStart, latestTime - maxTime);
+    const bool useLinkedAxis = (plot.id > 0);
+    LinkedTimeAxisState* linkedAxis = useLinkedAxis ? &linkedTimeAxisState() : nullptr;
 
     double rangeStart = liveWindowStart;
     double rangeEnd = latestTime;
-    if (!plot.followLatest && plot.hasView) {
-        rangeStart = std::max(dataStart, plot.xMin);
-        rangeEnd = std::max(rangeStart, plot.xMax);
+    if (useLinkedAxis) {
+        if (!linkedAxis->hasRange) {
+            linkedAxis->xMin = rangeStart;
+            linkedAxis->xMax = rangeEnd;
+            linkedAxis->hasRange = true;
+        }
+        if (linkedAxis->followLatest) {
+            linkedAxis->xMin = liveWindowStart;
+            linkedAxis->xMax = latestTime;
+        }
+        rangeStart = std::max(dataStart, linkedAxis->xMin);
+        rangeEnd = std::max(rangeStart, linkedAxis->xMax);
         if (rangeEnd > latestTime) {
             const double span = rangeEnd - rangeStart;
             rangeEnd = latestTime;
             rangeStart = std::max(dataStart, rangeEnd - span);
+        }
+    } else {
+        if (!plot.followLatest && plot.hasView) {
+            rangeStart = std::max(dataStart, plot.xMin);
+            rangeEnd = std::max(rangeStart, plot.xMax);
+            if (rangeEnd > latestTime) {
+                const double span = rangeEnd - rangeStart;
+                rangeEnd = latestTime;
+                rangeStart = std::max(dataStart, rangeEnd - span);
+            }
         }
     }
 
@@ -443,7 +502,11 @@ void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     yMin -= pad;
     yMax += pad;
 
-    if (plot.followLatest) {
+    if (useLinkedAxis) {
+        linkedAxis->xMin = rangeStart;
+        linkedAxis->xMax = rangeEnd;
+        ImPlot::SetNextAxisLinks(ImAxis_X1, &linkedAxis->xMin, &linkedAxis->xMax);
+    } else if (plot.followLatest) {
         ImPlot::SetNextAxisLimits(ImAxis_X1, liveWindowStart, latestTime, ImPlotCond_Always);
     }
     ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
@@ -602,7 +665,7 @@ void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
         default: break;
     }
 
-    updateFollowState(plot);
+    updateFollowState(plot, linkedAxis);
     ImPlot::EndPlot();
 }
 
@@ -854,15 +917,41 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool custom
         }
     }
 
+    // Do not submit plot windows while Custom is inactive. Submitting docked windows can
+    // force-tab back to Custom. Track undocked ones and recover when Custom is active again.
+    if (!customVisible) {
+        for (GeneratedPlotWindow& plot : state.windows) {
+            if (!plot.open) { continue; }
+            const std::string windowTitle = generatedPlotWindowTitle(plot);
+            ImGuiWindow* existing = ImGui::FindWindowByName(windowTitle.c_str());
+            const bool isUndocked = (existing != nullptr) && (existing->DockNode == nullptr);
+            if (isUndocked) {
+                plot.requestRedock = true;
+            }
+        }
+        state.windows.erase(std::remove_if(state.windows.begin(), state.windows.end(),
+            [](const GeneratedPlotWindow& window) { return !window.open; }),
+            state.windows.end());
+        if (state.windows.size() != countBefore) {
+            ImGui::MarkIniSettingsDirty();
+            persistIniNowIfAvailable();
+        }
+        return;
+    }
+
     for (GeneratedPlotWindow& plot : state.windows) {
         std::string windowTitle = generatedPlotWindowTitle(plot);
         ImGuiWindow* existing = ImGui::FindWindowByName(windowTitle.c_str());
-        const bool wasDocked = (existing != nullptr) && (existing->DockNode != nullptr);
-        const bool wasUndocked = (existing != nullptr) && (existing->DockNode == nullptr);
+        const bool wasFloatingDockNode =
+            (existing != nullptr) &&
+            (existing->DockNode != nullptr) &&
+            existing->DockNode->IsFloatingNode();
+        const bool wasDocked = (existing != nullptr) && (existing->DockNode != nullptr) && !wasFloatingDockNode;
+
         if (customDockspaceId != 0) {
             if (plot.forceInitialDock && plot.initialDockNode != 0) {
                 ImGui::SetNextWindowDockID(plot.initialDockNode, ImGuiCond_Always);
-            } else if (plot.requestRedock || (!customVisible && wasUndocked)) {
+            } else if (plot.requestRedock) {
                 ImGui::SetNextWindowDockID(customDockspaceId, ImGuiCond_Always);
             }
         }
@@ -877,26 +966,17 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool custom
         if (ImGui::Begin(windowTitle.c_str(), &plot.open, plotWindowFlags)) {
             plot.forceInitialDock = false;
             ImGuiWindow* current = ImGui::GetCurrentWindow();
-            const bool isUndocked = (current != nullptr) && (current->DockNode == nullptr);
-            if (isUndocked) {
-                if (!customVisible) {
-                    plot.requestRedock = true;
-                    plot.undockedInteracting = false;
-                } else {
-                    const bool interacting =
-                        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
-                        ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
-                    if (interacting) {
-                        plot.undockedInteracting = true;
-                    } else if (plot.undockedInteracting) {
-                        // User let go / switched focus while still floating: now recover to Custom.
-                        plot.requestRedock = true;
-                        plot.undockedInteracting = false;
-                    }
-                }
-            } else {
-                plot.undockedInteracting = false;
+            const bool nowFloatingDockNode =
+                (current != nullptr) &&
+                (current->DockNode != nullptr) &&
+                current->DockNode->IsFloatingNode();
+            const bool nowDocked = (current != nullptr) && (current->DockNode != nullptr) && !nowFloatingDockNode;
+            if (nowDocked) {
+                // Clear recovery latch once docked in any node of the dock tree.
                 plot.requestRedock = false;
+            } else if (current != nullptr) {
+                // Keep floating generated plots visible above the full-size host tabs.
+                ImGui::BringWindowToDisplayFront(current);
             }
             if (specFor(plot.typeIndex).is3D) {
                 render3DPlot(parseINTF, plot);
@@ -1174,10 +1254,46 @@ void UI::installPersistentSettings() {
     ImGui::AddSettingsHandler(&handler);
 }
 
+void UI::setScale() {
+    const ImGuiIO& io = ImGui::GetIO();
+    if (!fontSizeSynced) {
+        const int persisted = std::clamp(persistedFontSize(), fontSizeMin, fontSizeMax);
+        if (fontSize != persisted) {
+            fontSize = persisted;
+            fontSizeDirty = true;
+        }
+        fontSizeSynced = true;
+    }
+
+    const bool zoomIn = io.KeyCtrl &&
+        (ImGui::IsKeyReleased(ImGuiKey_Equal) || ImGui::IsKeyReleased(ImGuiKey_KeypadAdd));
+    const bool zoomOut = io.KeyCtrl &&
+        (ImGui::IsKeyReleased(ImGuiKey_Minus) || ImGui::IsKeyReleased(ImGuiKey_KeypadSubtract));
+
+    int nextSize = fontSize;
+    if (zoomIn) {
+        nextSize = std::clamp(fontSize + 1, fontSizeMin, fontSizeMax);
+    } else if (zoomOut) {
+        nextSize = std::clamp(fontSize - 1, fontSizeMin, fontSizeMax);
+    }
+
+    if (nextSize != fontSize) {
+        fontSize = nextSize;
+        fontSizeDirty = true;
+    }
+
+    if (persistedFontSize() != fontSize) {
+        persistedFontSize() = fontSize;
+        ImGui::MarkIniSettingsDirty();
+        persistIniNowIfAvailable();
+    }
+}
+
 void UI::build(){
-    ImGuiIO &io = ImGui::GetIO();
     static bool showFps = false;
     ImGui::NewFrame();
+    setScale();
+
     background();
     for (auto& [id, msg] : parseINTF->canStore.canMessages) msg.updateMessage(parseINTF);
 
@@ -1250,11 +1366,11 @@ void UI::build(){
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoBackground;
     if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) {
-        ImGui::Text("some text");
-        if (!parseINTF->canStore.canMessages.empty()) {
-            dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time,
-                              parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
-        }
+        ImGui::Text("This is home");
+        //if (!parseINTF->canStore.canMessages.empty()) {
+            //dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time,
+                              //parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
+        //}
     }
     ImGui::End();
 
@@ -1275,6 +1391,8 @@ void UI::build(){
     drawGeneratedPlots(parseINTF, customDockspaceId, customVisible);
     signalSearch();
     drawGeneratorUI(parseINTF);
+    //ImGui::ShowDemoWindow();
+    //ImGui::ShowStyleEditor();
 
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
@@ -1897,6 +2015,7 @@ void UI::background(){
     //drawList->AddRectFilled(min, max, IM_COL32(0,0,0,alpha));
 }
 
+/*
 void UI::setStyle(){
     ImGuiStyle &UIstyle = ImGui::GetStyle();
     ImVec4* colors = UIstyle.Colors;
@@ -1995,4 +2114,75 @@ void UI::setStyle(){
     plotStyle.Colors[ImPlotCol_PlotBorder] = ImVec4(0, 0, 0, 0.0f);
     plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(0, 0, 0, 0.0f);
     plotStyle.Colors[ImPlotCol_LegendBorder] = ImVec4(0, 0, 0, 0.0f);
+}
+*/
+
+void UI::setStyle(){
+    ImGuiStyle &style = ImGui::GetStyle();
+    style.WindowRounding = 8.0f;
+    style.GrabRounding = 8.0f;
+    style.FrameRounding = 4.0f;
+    style.FrameBorderSize = 0.0f;
+    style.WindowBorderSize = 0.0f;
+    style.DockingSeparatorSize = 1.0f;
+    style.WindowPadding = (ImVec2){8, 5};
+
+    ImVec4* colors = style.Colors;
+    const ImVec4 almostBlack = (ImVec4){0.05f, 0.05f, 0.05f, 1.00f};
+    const ImVec4 darkGray = (ImVec4){0.10f, 0.10f, 0.10f, 1.00f};
+    const ImVec4 midGray = (ImVec4){0.15f, 0.15f, 0.15f, 1.00f};
+    const ImVec4 lightGray = (ImVec4){0.25f, 0.25f, 0.25f, 1.00f};
+    const ImVec4 lightBlue = (ImVec4){0.00f, 0.75f, 0.75f, 1.00};
+    const ImVec4 textColor = (ImVec4){1.00f, 1.00f, 1.00f, 1.00f};
+
+    colors[ImGuiCol_Text] = textColor;
+    colors[ImGuiCol_TextDisabled] = (ImVec4){0.50f, 0.50f, 0.50f, 1.00f};
+    colors[ImGuiCol_WindowBg] = (ImVec4){0.05f, 0.05f, 0.05f, 1.00f};
+    colors[ImGuiCol_ChildBg] = darkGray;
+    colors[ImGuiCol_PopupBg] = almostBlack;
+    colors[ImGuiCol_Border] = (ImVec4){0.32f, 0.32f, 0.32f, 1.00f};
+    colors[ImGuiCol_FrameBg] = (ImVec4){0.18f, 0.18f, 0.18f, 1.00f};
+    colors[ImGuiCol_FrameBgHovered] = (ImVec4){0.28f, 0.28f, 0.28f, 1.00f};
+    colors[ImGuiCol_FrameBgActive] = (ImVec4){0.34f, 0.34f, 0.34f, 1.00f};
+    colors[ImGuiCol_TitleBg] = darkGray;
+    colors[ImGuiCol_TitleBgActive] = midGray;
+    colors[ImGuiCol_TitleBgCollapsed] = almostBlack;
+    colors[ImGuiCol_MenuBarBg] = darkGray;
+    colors[ImGuiCol_ScrollbarBg] = darkGray;
+    colors[ImGuiCol_ScrollbarGrab] = midGray;
+    colors[ImGuiCol_ScrollbarGrabHovered] = lightGray;
+    colors[ImGuiCol_ScrollbarGrabActive] = lightGray;
+    colors[ImGuiCol_CheckMark] = textColor;
+    colors[ImGuiCol_SliderGrab] = (ImVec4){0.40f, 0.40f, 0.40f, 1.00f};
+    colors[ImGuiCol_SliderGrabActive] = (ImVec4){0.30f, 0.30f, 0.30f, 1.00f};
+    colors[ImGuiCol_Button] = midGray;
+    colors[ImGuiCol_ButtonHovered] = lightGray;
+    colors[ImGuiCol_ButtonActive] = lightGray;
+    colors[ImGuiCol_Header] = midGray;
+    colors[ImGuiCol_HeaderHovered] = lightGray;
+    colors[ImGuiCol_HeaderActive] = lightGray;
+    colors[ImGuiCol_Separator] = midGray;
+    colors[ImGuiCol_SeparatorHovered] = lightGray;
+    colors[ImGuiCol_SeparatorActive] = lightGray;
+    colors[ImGuiCol_ResizeGrip] = midGray;
+    colors[ImGuiCol_ResizeGripHovered] = lightGray;
+    colors[ImGuiCol_ResizeGripActive] = lightGray;
+    colors[ImGuiCol_Tab] = midGray;
+    colors[ImGuiCol_TabHovered] = lightGray;
+    colors[ImGuiCol_TabActive] = lightGray;
+    colors[ImGuiCol_TabUnfocused] = darkGray;
+    colors[ImGuiCol_TabUnfocusedActive] = midGray;
+    colors[ImGuiCol_TabSelectedOverline] = (ImVec4){0.00f, 0.00f, 0.00f, 0.00f};
+    colors[ImGuiCol_DockingPreview] = lightBlue;
+    colors[ImGuiCol_DockingEmptyBg] = (ImVec4){0.00, 0.00f, 0.00f, 0.00f};
+    colors[ImGuiCol_PlotLines] = (ImVec4){0.61f, 0.61f, 0.61f, 1.00f};
+    colors[ImGuiCol_PlotLinesHovered] = lightGray;
+    colors[ImGuiCol_PlotHistogram] = midGray;
+    colors[ImGuiCol_PlotHistogramHovered] = lightGray;
+    colors[ImGuiCol_TextSelectedBg] = midGray;
+    colors[ImGuiCol_DragDropTarget] = lightGray;
+    colors[ImGuiCol_NavHighlight] = lightGray;
+    colors[ImGuiCol_NavWindowingHighlight] = (ImVec4){0.0f, 0.0f, 0.0f, 0.0f};
+    colors[ImGuiCol_NavWindowingDimBg] = (ImVec4){0.0f, 0.0f, 0.0f, 0.0f};
+    colors[ImGuiCol_ModalWindowDimBg] = almostBlack;
 }

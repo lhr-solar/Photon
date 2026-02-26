@@ -8,6 +8,8 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(FONT_FILES
     ${FONT_DIR}/berk.ttf
     ${FONT_DIR}/openSans.ttf
+    ${FONT_DIR}/sansFlex.ttf
+
 )
 
 set(FONT_HEADERS)

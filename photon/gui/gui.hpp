@@ -91,6 +91,7 @@ public:
 
     std::string getWindowTitle()const;
     void prepareImGui();
+    void refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descriptorSet);
 
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet);
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet,
