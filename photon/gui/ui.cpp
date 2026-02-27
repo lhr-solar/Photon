@@ -1033,13 +1033,12 @@ void drawGeneratorUI(Parse* parseINTF) {
     bool inputActive = false;
     const bool justOpened = state.createFF;
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImVec4 popupBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-    popupBg.w = 0.9f;//std::min(1.0f, popupBg.w * 1.35f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, popupBg);
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
     if (!ImGui::Begin("Configure Plot", nullptr, flags)) {
         ImGui::End();
-        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(2);
         return;
     }
 
@@ -1223,7 +1222,8 @@ void drawGeneratorUI(Parse* parseINTF) {
         state.creating = false;
     }
     ImGui::End();
-    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(2);
 
     const bool anyPopupOpen = ImGui::IsPopupOpen((const char*)nullptr, ImGuiPopupFlags_AnyPopupId);
     if (!windowFocused && !inputActive && !anyPopupOpen && !justOpened) {
@@ -1656,7 +1656,7 @@ void UI::signalSearch(){
     if(cmdOpen){
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-        ImGui::SetNextWindowBgAlpha(0.50);
+        ImGui::SetNextWindowBgAlpha(0.90f);
         if(ImGui::Begin("CommandPrompt", nullptr, flags)){
             ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
             if(cmdFF){ ImGui::SetKeyboardFocusHere(); }
@@ -1703,8 +1703,8 @@ void UI::signalSearch(){
                 }
             } else { cmdSelected = -1; }
         } ImGui::End();
-        ImGui::PopStyleColor(2);
-    }
+    ImGui::PopStyleColor(3);
+}
     bool popupFocused = false;
     if(cmdShowPopup){ popupFocused = popupWindow(); } // this is what you are looking for
     if(hidePrompt){ cmdOpen = false; }
@@ -1723,7 +1723,7 @@ bool UI::popupWindow(){
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImGui::SetNextWindowBgAlpha(0.50);
+    ImGui::SetNextWindowBgAlpha(0.90f);
 
     bool focused = false;
     bool childFocused = false;
@@ -1805,7 +1805,7 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
                              ImGuiWindowFlags_NoFocusOnAppearing;
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0,0,0,0));
-    ImGui::SetNextWindowBgAlpha(0.50);
+    ImGui::SetNextWindowBgAlpha(0.90f);
     ImGui::SetNextWindowPos(pos);
     if(ImGui::Begin((sig.name + "wide##").data(), NULL, flags)){
         focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -2155,7 +2155,7 @@ void UI::setStyle(){
     colors[ImGuiCol_CheckMark] = textColor;
     colors[ImGuiCol_SliderGrab] = (ImVec4){0.40f, 0.40f, 0.40f, 1.00f};
     colors[ImGuiCol_SliderGrabActive] = (ImVec4){0.30f, 0.30f, 0.30f, 1.00f};
-    colors[ImGuiCol_Button] = midGray;
+    colors[ImGuiCol_Button] = lightGray;
     colors[ImGuiCol_ButtonHovered] = lightGray;
     colors[ImGuiCol_ButtonActive] = lightGray;
     colors[ImGuiCol_Header] = midGray;
@@ -2185,4 +2185,12 @@ void UI::setStyle(){
     colors[ImGuiCol_NavWindowingHighlight] = (ImVec4){0.0f, 0.0f, 0.0f, 0.0f};
     colors[ImGuiCol_NavWindowingDimBg] = (ImVec4){0.0f, 0.0f, 0.0f, 0.0f};
     colors[ImGuiCol_ModalWindowDimBg] = almostBlack;
+
+    ImPlotStyle &plotStyle = ImPlot::GetStyle();
+    plotStyle.Colors[ImPlotCol_FrameBg] = midGray;
+    //plotStyle.Colors[ImPlotCol_PlotBg] = ImVec4(0, 0, 0, 0.95f);
+    //plotStyle.Colors[ImPlotCol_PlotBorder] = ImVec4(0, 0, 0, 0.0f);
+    //plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(0, 0, 0, 0.0f);
+    //plotStyle.Colors[ImPlotCol_LegendBorder] = ImVec4(0, 0, 0, 0.0f);
+
 }
