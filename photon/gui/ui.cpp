@@ -1391,7 +1391,7 @@ void UI::build(){
     drawGeneratedPlots(parseINTF, customDockspaceId, customVisible);
     signalSearch();
     drawGeneratorUI(parseINTF);
-    //ImGui::ShowDemoWindow();
+    terminalDemoHotkey();
     //ImGui::ShowStyleEditor();
 
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
@@ -1704,13 +1704,28 @@ void UI::signalSearch(){
             } else { cmdSelected = -1; }
         } ImGui::End();
     ImGui::PopStyleColor(3);
-}
+    }
     bool popupFocused = false;
     if(cmdShowPopup){ popupFocused = popupWindow(); } // this is what you are looking for
     if(hidePrompt){ cmdOpen = false; }
     if(!windowFocused && !inputActive && !popupFocused && !justOpened){
         cmdOpen = false;
         cmdShowPopup = false;
+    }
+}
+
+void UI::terminalDemoHotkey() {
+    const ImGuiIO& io = ImGui::GetIO();
+    bool terminalHotkeyPressed =
+        ImGui::IsKeyPressed(ImGuiKey_GraveAccent) ||
+        hasInputChar('~');
+
+    if (terminalHotkeyPressed && !io.KeyCtrl && !io.KeyAlt && !io.KeySuper) {
+        showImGuiTerminalDemo = !showImGuiTerminalDemo;
+    }
+
+    if (showImGuiTerminalDemo) {
+        console.Draw("console", &terminalHotkeyPressed);
     }
 }
 

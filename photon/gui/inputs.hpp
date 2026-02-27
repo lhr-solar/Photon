@@ -114,6 +114,7 @@ struct Inputs{
 #define KEY_F12        0x60  // F12 (scan 0x58 + 8)
 #define KEY_SLASH      0x3D  // '/' key
 #define KEY_BACKSLASH  0x33  // '\\' key (scan 0x2B + 8)
+#define KEY_GRAVE      0x31  // '`' / '~' key (scan 0x29 + 8)
 #define KEY_PERIOD     0x3C  // '.' key
 #define KEY_UP_ARROW   0x6F  // Up Arrow
 #define KEY_DOWN_ARROW 0x74  // Down Arrow

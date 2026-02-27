@@ -118,6 +118,7 @@ void Photon::executeFrame(){
     getFrame();
     if (!prepared) { return; }
 
+    //for (auto& [id, msg] : gui.ui.parseINTF->canStore.canMessages) msg.updateMessage(gui.ui.parseINTF); // consider moving out of ui.build()
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
             gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
 

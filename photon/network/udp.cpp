@@ -65,9 +65,8 @@ UdpSocket::UdpSocket(const std::string& IP, unsigned port){
 
     std::array<char, 2048> handshake_buf{};
     handshakeResponse response{};
-    constexpr int kMaxHandshakeAttempts = 5;
     bool handshake_ok = false;
-    for (int attempt = 1; attempt <= kMaxHandshakeAttempts && !handshake_ok; ++attempt) {
+    while(!handshake_ok){
         if (!send_control_message(HANDSHAKE)) {
 #ifdef _WIN32
             std::cerr << "Handshake send failed (WSA error " << WSAGetLastError() << ")\n";
@@ -86,14 +85,12 @@ UdpSocket::UdpSocket(const std::string& IP, unsigned port){
 #ifdef _WIN32
             const int err = WSAGetLastError();
             if (err == WSAETIMEDOUT) {
-                std::cerr << "Handshake timeout (" << attempt << "/" << kMaxHandshakeAttempts << ")\n";
                 std::this_thread::sleep_for(std::chrono::milliseconds(300));
                 continue;
             }
             std::cerr << "Handshake response failed (WSA error " << err << ")\n";
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                std::cerr << "Handshake timeout (" << attempt << "/" << kMaxHandshakeAttempts << ")\n";
                 std::this_thread::sleep_for(std::chrono::milliseconds(300));
                 continue;
             }
@@ -114,7 +111,6 @@ UdpSocket::UdpSocket(const std::string& IP, unsigned port){
     }
 
     if (!handshake_ok) {
-        std::cerr << "No handshake response after " << kMaxHandshakeAttempts << " attempts\n";
         f = 1;
     }
 

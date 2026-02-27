@@ -42,6 +42,7 @@ struct UI{
     CmdResult activeCmdResult{};
     int cmdSelected = -1;
     bool cmdShowPopup = false;
+    bool showImGuiTerminalDemo = false;
 
     VulkanShader accretionShader;
     VulkanShader backgroundShader;
@@ -53,11 +54,14 @@ struct UI{
 
     std::vector<double> globalTime {0.0};
 
+    Console console;
+
     void setStyle();
     void setScale();
     void build();
     void fpsWindow();
     void signalSearch();
+    void terminalDemoHotkey();
     void basePlate();
     void background();
     void showVideoDisplay();
