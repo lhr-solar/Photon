@@ -56,6 +56,8 @@ struct UI{
 
     Console console;
 
+    int styleConfig = 0;
+
     std::string currentDBC = "assettoCorsa";
     std::vector<const char*> availableDBC = {
             "assettoCorsa",
