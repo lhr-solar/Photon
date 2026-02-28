@@ -7,6 +7,16 @@
 #include "../gpu/gpu.hpp"
 #include "../gui/gui.hpp"
 #include "imgui.h"
+#include "assettoCorsa_dbc.hpp"
+#include "bps_dbc.hpp"
+#include "contactor_dbc.hpp"
+#include "controls_dbc.hpp"
+#include "daq_dbc.hpp"
+#include "daybreak_master_dbc.hpp"
+#include "mppt_dbc.hpp"
+#include "prohelion_wavesculptor22_dbc.hpp"
+
+static_assert(assettoCorsa_dbc_size > 0, "Embedded DBC header generation failed");
 
 Photon::Photon(){ 
     logs("[+] Constructing Photon"); 
@@ -40,19 +50,21 @@ void Photon::prepareScene(){
     gui.prepareImGui();
     gui.initResources(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet);
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet,
-           gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
+           gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
     prepared = true;
 };
 
 void Photon::initThreads(){
-
-    //parse.canStore.loadStateFromFile("./assets/dbc/daybreak-master.dbc");
+    //parse.canStore.loadStateFromHeader(daybreak_master_dbc, daybreak_master_dbc_size);
     //std::thread tcp_t(&Network::tcpReader, &network);
     //tcp_t.detach();
     //std::thread parser_t(&Parse::parser, &parse, std::ref(network.tcpQueue));
     //parser_t.detach();
 
-    parse.canStore.loadStateFromFile("./assets/dbc/assettoCorsa.dbc");
+    // this should be controlled by ui.current
+    parse.canStore.loadStateFromHeader(assettoCorsa_dbc, assettoCorsa_dbc_size);
+    parse.currentDBC = "assettoCorsa";
+
     std::thread ac_t(&Network::corsaReader, &network);
     ac_t.detach();
     std::thread acp_t(&Parse::acParser, &parse, std::ref(network.corsaQueue));
@@ -96,7 +108,7 @@ void Photon::renderLoop(){
 
 void Photon::renderFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
-	    prepareFrame();
+    prepareFrame();
     auto tEnd = std::chrono::high_resolution_clock::now();
     gpu.frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
     gpu.frameCounter++;
@@ -114,13 +126,32 @@ void Photon::prepareFrame(){
     executeFrame();
 }
 
+void Photon::manageNetwork(){
+    // check ui.currentDBC
+    // check ui.currentProtocol
+    //gui.ui.currentDBC;
+    //parse.backend;
+    if(gui.ui.currentDBC != parse.currentDBC){
+        std::cout << "does not match!" << std::endl;
+        if(gui.ui.currentDBC == "assettoCorsa"){
+            parse.canStore.loadStateFromHeader(assettoCorsa_dbc, assettoCorsa_dbc_size);
+            parse.currentDBC = "assettoCorsa";
+        }
+        if(gui.ui.currentDBC == "daybreak"){
+            parse.canStore.loadStateFromHeader(daybreak_master_dbc, daybreak_master_dbc_size);
+            parse.currentDBC = "daybreak";
+        }
+    }
+}
+
 void Photon::executeFrame(){
+    manageNetwork();
     getFrame();
     if (!prepared) { return; }
 
     //for (auto& [id, msg] : gui.ui.parseINTF->canStore.canMessages) msg.updateMessage(gui.ui.parseINTF); // consider moving out of ui.build()
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
-            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
+            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
 
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
@@ -189,7 +220,7 @@ void Photon::windowResize(){
     vkFreeCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceCommandPool, gpu.vulkanSwapchain.drawCmdBuffers.size(), gpu.vulkanSwapchain.drawCmdBuffers.data());
     gpu.vulkanSwapchain.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice);
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet,
-            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
+            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
 
     for (auto& fence : gpu.waitFences) { vkDestroyFence(gpu.vulkanDevice.logicalDevice, fence, nullptr); }
     gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.drawCmdBuffers);

@@ -26,6 +26,7 @@ struct Inputs{
     } mouseState;
 
     void handleMouseMove(int32_t x, int32_t y);
+    void handleMouseScroll(float xOffset, float yOffset);
     ImGuiKey translateKey(uint32_t key);
 
 #ifdef XCB

@@ -95,7 +95,7 @@ public:
 
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet);
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet,
-            std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
+            std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, uint32_t& idx);
     void updateBuffers(VulkanDevice vulkanDevice);
     void drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet);
 

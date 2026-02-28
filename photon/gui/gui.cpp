@@ -423,7 +423,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
 }
 
 void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet,
-        std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers){
+        std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, uint32_t& idx){
     VkClearValue clearValues[2];
     clearValues[0].color = {{0.0f, 0.00f, 0.00f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -438,7 +438,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
-    ui.videoSource.updateVideoFeed(vulkanDevice);
+    //ui.videoSource.updateVideoFeed(vulkanDevice);
     ui.build();
     if (ui.fontSizeDirty) {
         refreshFontResources(vulkanDevice, descriptorSet);
@@ -460,10 +460,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
        //         descriptorSetLayout);
      //   ui.triangle.dirty = false;
     //}
-    if(ui.viking.dirty){
-        ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
-        ui.viking.dirty = false;
-    }
+    //if(ui.viking.dirty){
+        //ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
+        //ui.viking.dirty = false;
+    //}
 
     updateBuffers(vulkanDevice);
 

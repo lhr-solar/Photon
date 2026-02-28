@@ -11,4 +11,7 @@ target_link_libraries(engine
     network
     parse
     synth
+    DbcHeaders
 )
+
+add_dependencies(engine GenerateDbcHeaders)

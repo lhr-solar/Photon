@@ -83,6 +83,7 @@ enum PlotTypeIndex : int {
     PlotType_3DLine,
     PlotType_3DScatter,
     PlotType_3DSurface,
+    PlotType_List,
     PlotType_Count
 };
 
@@ -102,9 +103,10 @@ constexpr std::array<PlotTypeSpec, PlotType_Count> kPlotSpecs{{
     {"Histogram", 1, 8, false, false},
     {"Histogram 2D", 2, 2, false, false},
     {"Digital Plots", 1, 8, true, false},
-    {"3D Line Plots", 2, 2, false, true},
+    {"3D Line Plots", 2, 3, false, true},
     {"3D Scatter Plots", 3, 3, false, true},
-    {"3D Surface Plots", 3, 3, false, true}
+    {"3D Surface Plots", 3, 3, false, true},
+    {"List", 1, 1024, false, false}
 }};
 
 struct GeneratedPlotWindow {
@@ -121,6 +123,7 @@ struct GeneratedPlotWindow {
     bool hasView = false;
     double xMin = 0.0;
     double xMax = 0.0;
+    bool useSource1TimeAsX = true;
 };
 
 struct PlotGeneratorState {
@@ -131,6 +134,7 @@ struct PlotGeneratorState {
     char sourceQuery[128] = {0};
     int sourceSelected = -1;
     int activeSourceIndex = 0;
+    bool useSource1TimeAsX = true;
     int nextId = 1;
     std::vector<GeneratedPlotWindow> windows;
 };
@@ -217,6 +221,12 @@ void plotSettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const cha
         ref.signalIndex = std::atoi(src.substr(colon + 1).c_str());
         window.sources.push_back(ref);
     }
+    for (size_t i = available; i < tokens.size(); ++i) {
+        const std::string& extra = tokens[i];
+        if (extra.rfind("UseTimeX=", 0) == 0) {
+            window.useSource1TimeAsX = (std::atoi(extra.c_str() + 9) != 0);
+        }
+    }
 
     state.nextId = std::max(state.nextId, window.id + 1);
     state.windows.push_back(std::move(window));
@@ -236,12 +246,55 @@ void plotSettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTex
         for (const PlotDataSourceRef& source : plot.sources) {
             out_buf->appendf(",%d:%d", source.canId, source.signalIndex);
         }
+        out_buf->appendf(",UseTimeX=%d", plot.useSource1TimeAsX ? 1 : 0);
         out_buf->append("\n");
     }
 }
 
 const PlotTypeSpec& specFor(int typeIndex) {
     return kPlotSpecs[static_cast<size_t>(typeIndex)];
+}
+
+int required3DSources(bool useSource1TimeAsX) {
+    return useSource1TimeAsX ? 2 : 3;
+}
+
+const char* threeDMappingText(int typeIndex, bool useSource1TimeAsX) {
+    const bool line = (typeIndex == PlotType_3DLine);
+    if (useSource1TimeAsX) {
+        return line
+                   ? "3D line mapping: X = Source 1 time, Y = Source 1, Z = Source 2"
+                   : "3D source mapping: X = Source 1 time, Y = Source 1, Z = Source 2";
+    }
+    return line
+               ? "3D line mapping: Source 1 = X, Source 2 = Y, Source 3 = Z"
+               : "3D source mapping: Source 1 = X, Source 2 = Y, Source 3 = Z";
+}
+
+const char* threeDRequiredSourcesText(int typeIndex, bool useSource1TimeAsX) {
+    const bool line = (typeIndex == PlotType_3DLine);
+    if (useSource1TimeAsX) {
+        return line ? "3D line requires 2 sources (Y, Z)." : "3D plots require 2 valid sources (Y, Z).";
+    }
+    return line ? "3D line requires 3 sources (X, Y, Z)." : "3D plots require 3 valid sources (X, Y, Z).";
+}
+
+std::string threeDSourceLabel(size_t sourceIndex, bool useSource1TimeAsX) {
+    if (useSource1TimeAsX) {
+        return (sourceIndex == 0) ? "Y Source" : "Z Source";
+    }
+    if (sourceIndex == 0) { return "X Source"; }
+    if (sourceIndex == 1) { return "Y Source"; }
+    return "Z Source";
+}
+
+void apply3DSourceCount(bool useSource1TimeAsX,
+                        std::vector<PlotDataSourceRef>& sources,
+                        int& activeSourceIndex,
+                        int& sourceSelected) {
+    sources.resize(static_cast<size_t>(required3DSources(useSource1TimeAsX)));
+    activeSourceIndex = std::clamp(activeSourceIndex, 0, std::max(0, static_cast<int>(sources.size()) - 1));
+    sourceSelected = -1;
 }
 
 std::string generatedPlotWindowTitle(const GeneratedPlotWindow& plot) {
@@ -341,9 +394,18 @@ struct LinkedTimeAxisState {
     double xMax = 0.0;
 };
 
+struct ListWindowState {
+    int selectedOption = -1;
+};
+
 LinkedTimeAxisState& linkedTimeAxisState() {
     static LinkedTimeAxisState state;
     return state;
+}
+
+std::unordered_map<int, ListWindowState>& listWindowStates() {
+    static std::unordered_map<int, ListWindowState> states;
+    return states;
 }
 
 std::vector<SourceMatch> buildSourceMatches(const std::vector<SignalOption>& options, const char* query) {
@@ -759,24 +821,27 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     }
 
     if (plot.typeIndex == PlotType_3DLine) {
-        if (plot.sources.size() < 2) {
+        const size_t requiredSources = static_cast<size_t>(required3DSources(plot.useSource1TimeAsX));
+        if (plot.sources.size() < requiredSources) {
             ImPlot3D::EndPlot();
-            ImGui::TextUnformatted("3D line requires 2 sources (Y, Z).");
+            ImGui::TextUnformatted(threeDRequiredSourcesText(plot.typeIndex, plot.useSource1TimeAsX));
             return;
         }
         const CanMessage* timeMsg = findMessage(parseINTF, plot.sources[0].canId);
-        const CanSignal* ySignal = findSignal(parseINTF, plot.sources[0]);
-        const CanSignal* zSignal = findSignal(parseINTF, plot.sources[1]);
-        if (!timeMsg || !ySignal || !zSignal) {
+        const CanSignal* source1 = findSignal(parseINTF, plot.sources[0]);
+        const CanSignal* source2 = findSignal(parseINTF, plot.sources[1]);
+        const CanSignal* source3 = plot.useSource1TimeAsX ? nullptr : findSignal(parseINTF, plot.sources[2]);
+        if (!timeMsg || !source1 || !source2 || (!plot.useSource1TimeAsX && !source3)) {
             ImPlot3D::EndPlot();
             ImGui::TextUnformatted("Missing source(s) for 3D line.");
             return;
         }
 
-        const std::vector<double>& xs = timeMsg->time;      // X defaults to first selected signal's message time
-        const std::vector<double>& ys = ySignal->data;      // Y from source 1 signal
-        const std::vector<double>& zs = zSignal->data;      // Z from source 2 signal
-        const size_t count = std::min({xs.size(), ys.size(), zs.size()});
+        const std::vector<double>& samplingTime = timeMsg->time;
+        const std::vector<double>& xs = plot.useSource1TimeAsX ? samplingTime : source1->data;
+        const std::vector<double>& ys = plot.useSource1TimeAsX ? source1->data : source2->data;
+        const std::vector<double>& zs = plot.useSource1TimeAsX ? source2->data : source3->data;
+        const size_t count = std::min({samplingTime.size(), xs.size(), ys.size(), zs.size()});
         if (count < 2) {
             ImPlot3D::EndPlot();
             ImGui::TextUnformatted("Need at least 2 points for 3D line.");
@@ -784,56 +849,73 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
         }
 
         constexpr double maxTime = 5.0;
-        const double latestTime = xs[count - 1];
-        const double windowStart = std::max(xs[0], latestTime - maxTime);
-        auto minIt = std::lower_bound(xs.begin(), xs.begin() + static_cast<std::ptrdiff_t>(count), windowStart);
-        const size_t startIdx = static_cast<size_t>(std::distance(xs.begin(), minIt));
+        const double latestTime = samplingTime[count - 1];
+        const double windowStart = std::max(samplingTime[0], latestTime - maxTime);
+        auto minIt = std::lower_bound(samplingTime.begin(), samplingTime.begin() + static_cast<std::ptrdiff_t>(count), windowStart);
+        const size_t startIdx = static_cast<size_t>(std::distance(samplingTime.begin(), minIt));
         const RenderSlice slice = makeRenderSlice(startIdx, count, kMaxRenderablePoints3DLine);
         const int allowed = clampByBudget(slice.count * 2, slice.count, 2, 2);
 
+        double xMin = std::numeric_limits<double>::max();
+        double xMax = std::numeric_limits<double>::lowest();
         double yMin = std::numeric_limits<double>::max();
         double yMax = std::numeric_limits<double>::lowest();
         double zMin = std::numeric_limits<double>::max();
         double zMax = std::numeric_limits<double>::lowest();
         for (size_t i = slice.start; i < count; i += slice.step) {
+            xMin = std::min(xMin, xs[i]);
+            xMax = std::max(xMax, xs[i]);
             yMin = std::min(yMin, ys[i]);
             yMax = std::max(yMax, ys[i]);
             zMin = std::min(zMin, zs[i]);
             zMax = std::max(zMax, zs[i]);
         }
+        if (std::abs(xMax - xMin) < 1e-6) { xMin -= 0.5; xMax += 0.5; }
         if (std::abs(yMax - yMin) < 1e-6) { yMin -= 0.5; yMax += 0.5; }
         if (std::abs(zMax - zMin) < 1e-6) { zMin -= 0.5; zMax += 0.5; }
+        const double xPad = (xMax - xMin) * 0.1;
         const double yPad = (yMax - yMin) * 0.1;
         const double zPad = (zMax - zMin) * 0.1;
-        ImPlot3D::SetupAxes("time", ySignal->name.c_str(), zSignal->name.c_str());
-        ImPlot3D::SetupAxesLimits(windowStart, latestTime, yMin - yPad, yMax + yPad, zMin - zPad, zMax + zPad, ImPlot3DCond_Always);
+        ImPlot3D::SetupAxes(plot.useSource1TimeAsX ? "time" : source1->name.c_str(),
+                            plot.useSource1TimeAsX ? source1->name.c_str() : source2->name.c_str(),
+                            plot.useSource1TimeAsX ? source2->name.c_str() : source3->name.c_str());
+        ImPlot3D::SetupAxesLimits(xMin - xPad, xMax + xPad, yMin - yPad, yMax + yPad, zMin - zPad, zMax + zPad, ImPlot3DCond_Always);
 
         if (allowed > 1) {
             ImPlot3D::PlotLine("3D Line", xs.data() + slice.start, ys.data() + slice.start, zs.data() + slice.start,
                                allowed, 0, 0, static_cast<int>(sizeof(double) * slice.step));
         }
     } else {
+        const size_t requiredSources = static_cast<size_t>(required3DSources(plot.useSource1TimeAsX));
         std::vector<const CanSignal*> signals;
         signals.reserve(plot.sources.size());
         for (const PlotDataSourceRef& src : plot.sources) {
             const CanSignal* signal = findSignal(parseINTF, src);
             if (signal) { signals.push_back(signal); }
         }
-        if (signals.size() < 3) {
+        if (signals.size() < requiredSources) {
             ImPlot3D::EndPlot();
-            ImGui::TextUnformatted("3D plots require 3 valid sources (X, Y, Z).");
+            ImGui::TextUnformatted(threeDRequiredSourcesText(plot.typeIndex, plot.useSource1TimeAsX));
             return;
         }
-        const std::vector<double>& xs = signals[0]->data;
-        const std::vector<double>& ys = signals[1]->data;
-        const std::vector<double>& zs = signals[2]->data;
+        const CanMessage* timeMsg = plot.useSource1TimeAsX ? findMessage(parseINTF, plot.sources[0].canId) : nullptr;
+        if (plot.useSource1TimeAsX && !timeMsg) {
+            ImPlot3D::EndPlot();
+            ImGui::TextUnformatted("Missing source 1 message time for X axis.");
+            return;
+        }
+        const std::vector<double>& xs = plot.useSource1TimeAsX ? timeMsg->time : signals[0]->data;
+        const std::vector<double>& ys = plot.useSource1TimeAsX ? signals[0]->data : signals[1]->data;
+        const std::vector<double>& zs = plot.useSource1TimeAsX ? signals[1]->data : signals[2]->data;
         const size_t count = std::min({xs.size(), ys.size(), zs.size()});
         if (count < 2) {
             ImPlot3D::EndPlot();
             ImGui::TextUnformatted("Need at least 2 points for 3D plotting.");
             return;
         }
-        ImPlot3D::SetupAxes(signals[0]->name.c_str(), signals[1]->name.c_str(), signals[2]->name.c_str());
+        ImPlot3D::SetupAxes(plot.useSource1TimeAsX ? "time" : signals[0]->name.c_str(),
+                            plot.useSource1TimeAsX ? signals[0]->name.c_str() : signals[1]->name.c_str(),
+                            plot.useSource1TimeAsX ? signals[1]->name.c_str() : signals[2]->name.c_str());
 
         if (plot.typeIndex == PlotType_3DScatter) {
         const size_t start = (count > kMaxRenderablePoints3DScatter) ? (count - kMaxRenderablePoints3DScatter) : 0;
@@ -868,9 +950,85 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     ImPlot3D::EndPlot();
 }
 
+void renderListWindow(Parse* parseINTF, GeneratedPlotWindow& plot, const std::vector<SignalOption>& options, bool allowAdd) {
+    if (ImGui::BeginTable("##signalList", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("Signal", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+        ImGui::TableSetupColumn("Latest", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+        ImGui::TableHeadersRow();
+
+        for (const PlotDataSourceRef& src : plot.sources) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(sourceName(parseINTF, src).c_str());
+
+            ImGui::TableSetColumnIndex(1);
+            const CanSignal* signal = findSignal(parseINTF, src);
+            const char* valueText = "<n/a>";
+            char valueBuf[64] = {0};
+            if (signal && !signal->data.empty()) {
+                std::snprintf(valueBuf, sizeof(valueBuf), "%.6g", signal->data.back());
+                valueText = valueBuf;
+            }
+            const float colWidth = ImGui::GetColumnWidth();
+            const float textWidth = ImGui::CalcTextSize(valueText).x;
+            float x = ImGui::GetCursorPosX() + colWidth - textWidth - ImGui::GetStyle().CellPadding.x * 2.0f;
+            if (x < ImGui::GetCursorPosX()) { x = ImGui::GetCursorPosX(); }
+            ImGui::SetCursorPosX(x);
+            ImGui::TextUnformatted(valueText);
+        }
+        ImGui::EndTable();
+    }
+
+    if (!allowAdd) { return; }
+    ImGui::Separator();
+    ImGui::TextUnformatted("Add Signal");
+
+    if (options.empty()) {
+        ImGui::TextUnformatted("No CAN signals available yet.");
+        return;
+    }
+
+    ListWindowState& state = listWindowStates()[plot.id];
+    if (state.selectedOption < 0 || state.selectedOption >= static_cast<int>(options.size())) {
+        state.selectedOption = 0;
+    }
+
+    ImGui::SetNextItemWidth(-110.0f);
+    const char* preview = options[static_cast<size_t>(state.selectedOption)].label.c_str();
+    if (ImGui::BeginCombo("##listAddSignal", preview)) {
+        for (int i = 0; i < static_cast<int>(options.size()); ++i) {
+            const bool selected = (state.selectedOption == i);
+            if (ImGui::Selectable(options[static_cast<size_t>(i)].label.c_str(), selected)) {
+                state.selectedOption = i;
+            }
+            if (selected) { ImGui::SetItemDefaultFocus(); }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Add") && state.selectedOption >= 0 && state.selectedOption < static_cast<int>(options.size())) {
+        plot.sources.push_back(options[static_cast<size_t>(state.selectedOption)].ref);
+        ImGui::MarkIniSettingsDirty();
+        persistIniNowIfAvailable();
+    }
+}
+
 void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool customVisible) {
     PlotGeneratorState& state = generatorState();
+    const std::vector<SignalOption> options = collectSignalOptions(parseINTF);
     const size_t countBefore = state.windows.size();
+    auto pruneListWindowStates = [&]() {
+        auto& listStates = listWindowStates();
+        for (auto it = listStates.begin(); it != listStates.end();) {
+            const bool exists = std::any_of(state.windows.begin(), state.windows.end(),
+                                            [&](const GeneratedPlotWindow& w) { return w.id == it->first; });
+            if (!exists) {
+                it = listStates.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    };
 
     if (customDockspaceId != 0 && ImGui::DockBuilderGetNode(customDockspaceId) != nullptr) {
         bool hasEstablishedLayout = false;
@@ -936,6 +1094,7 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool custom
             ImGui::MarkIniSettingsDirty();
             persistIniNowIfAvailable();
         }
+        pruneListWindowStates();
         return;
     }
 
@@ -980,6 +1139,8 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool custom
             }
             if (specFor(plot.typeIndex).is3D) {
                 render3DPlot(parseINTF, plot);
+            } else if (plot.typeIndex == PlotType_List) {
+                renderListWindow(parseINTF, plot, options, true);
             } else if (specFor(plot.typeIndex).usesTimeAxis) {
                 renderTimeSeriesPlot(parseINTF, plot);
             } else {
@@ -997,6 +1158,7 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool custom
         ImGui::MarkIniSettingsDirty();
         persistIniNowIfAvailable();
     }
+    pruneListWindowStates();
 }
 
 void drawGeneratorUI(Parse* parseINTF) {
@@ -1014,6 +1176,7 @@ void drawGeneratorUI(Parse* parseINTF) {
         state.createFF = true;
         state.typeIndex = PlotType_Line;
         state.sources.assign(static_cast<size_t>(specFor(state.typeIndex).minSources), PlotDataSourceRef{});
+        state.useSource1TimeAsX = true;
         state.sourceQuery[0] = '\0';
         state.sourceSelected = -1;
         state.activeSourceIndex = 0;
@@ -1049,6 +1212,12 @@ void drawGeneratorUI(Parse* parseINTF) {
     ImGui::SeparatorText("Configure");
 
     const PlotTypeSpec& spec = specFor(state.typeIndex);
+    int minSourcesForCurrentConfig = spec.minSources;
+    int maxSourcesForCurrentConfig = spec.maxSources;
+    if (spec.is3D) {
+        minSourcesForCurrentConfig = required3DSources(state.useSource1TimeAsX);
+        maxSourcesForCurrentConfig = minSourcesForCurrentConfig;
+    }
     if (ImGui::BeginTable("##configureLayout", 3, ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch, 0.34f);
         ImGui::TableSetupColumn("Assigned", ImGuiTableColumnFlags_WidthStretch, 0.34f);
@@ -1065,8 +1234,10 @@ void drawGeneratorUI(Parse* parseINTF) {
                 if (ImGui::Selectable(specFor(i).label, selected)) {
                     state.typeIndex = i;
                     resetGeneratorSourcesForType(state);
+                    if (specFor(state.typeIndex).is3D) {
+                        apply3DSourceCount(state.useSource1TimeAsX, state.sources, state.activeSourceIndex, state.sourceSelected);
+                    }
                     state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
-                    state.sourceSelected = -1;
                 }
                 if (selected) { ImGui::SetItemDefaultFocus(); }
             }
@@ -1079,8 +1250,11 @@ void drawGeneratorUI(Parse* parseINTF) {
             previewPlot.id = -1000 - state.typeIndex;
             previewPlot.typeIndex = state.typeIndex;
             previewPlot.sources = state.sources;
+            previewPlot.useSource1TimeAsX = state.useSource1TimeAsX;
             if (specFor(previewPlot.typeIndex).is3D) {
                 render3DPlot(parseINTF, previewPlot);
+            } else if (previewPlot.typeIndex == PlotType_List) {
+                renderListWindow(parseINTF, previewPlot, options, false);
             } else if (specFor(previewPlot.typeIndex).usesTimeAxis) {
                 renderTimeSeriesPlot(parseINTF, previewPlot);
             } else {
@@ -1090,24 +1264,27 @@ void drawGeneratorUI(Parse* parseINTF) {
         ImGui::EndChild();
 
         ImGui::TableSetColumnIndex(1);
-        ImGui::Text("Minimum Signals: %d", spec.minSources);
-        ImGui::Text("Maximum Signals: %d", spec.maxSources);
+        ImGui::Text("Minimum Signals: %d", minSourcesForCurrentConfig);
+        ImGui::Text("Maximum Signals: %d", maxSourcesForCurrentConfig);
         if (spec.is3D) {
-            if (state.typeIndex == PlotType_3DLine) {
-                ImGui::TextUnformatted("3D line mapping: X = Source 1 time, Y = Source 1, Z = Source 2");
-            } else {
-                ImGui::TextUnformatted("3D source mapping: Source 1 = X, Source 2 = Y, Source 3 = Z");
+            if (ImGui::Checkbox("Use Source 1 Time as X", &state.useSource1TimeAsX)) {
+                apply3DSourceCount(state.useSource1TimeAsX, state.sources, state.activeSourceIndex, state.sourceSelected);
             }
+            ImGui::TextUnformatted(threeDMappingText(state.typeIndex, state.useSource1TimeAsX));
         } else {
-            ImGui::Text("Time Inherited From: Signal 1");
+            if (state.typeIndex == PlotType_List) {
+                ImGui::TextUnformatted("List shows latest value for each assigned signal.");
+            } else {
+                ImGui::Text("Time Inherited From: Signal 1");
+            }
         }
 
-        if (spec.maxSources > spec.minSources) {
-            if (ImGui::Button("Add Signal") && state.sources.size() < static_cast<size_t>(spec.maxSources)) {
+        if (maxSourcesForCurrentConfig > minSourcesForCurrentConfig) {
+            if (ImGui::Button("Add Signal") && state.sources.size() < static_cast<size_t>(maxSourcesForCurrentConfig)) {
                 state.sources.push_back({});
             }
             ImGui::SameLine();
-            if (ImGui::Button("Remove Signal") && state.sources.size() > static_cast<size_t>(spec.minSources)) {
+            if (ImGui::Button("Remove Signal") && state.sources.size() > static_cast<size_t>(minSourcesForCurrentConfig)) {
                 state.sources.pop_back();
                 state.activeSourceIndex = std::clamp(state.activeSourceIndex, 0, std::max(0, static_cast<int>(state.sources.size()) - 1));
                 state.sourceSelected = -1;
@@ -1120,8 +1297,8 @@ void drawGeneratorUI(Parse* parseINTF) {
             int selectedIndex = findOptionIndex(options, state.sources[i]);
             std::string sourceLabel = (selectedIndex >= 0) ? options[static_cast<size_t>(selectedIndex)].label : "<unassigned>";
             std::string lineLabel;
-            if (spec.is3D && state.typeIndex == PlotType_3DLine) {
-                lineLabel = (i == 0) ? "Y Source" : "Z Source";
+            if (spec.is3D) {
+                lineLabel = threeDSourceLabel(i, state.useSource1TimeAsX);
             } else {
                 lineLabel = "Source " + std::to_string(i + 1);
             }
@@ -1197,8 +1374,14 @@ void drawGeneratorUI(Parse* parseINTF) {
             break;
         }
     }
-    const bool validCount = state.sources.size() >= static_cast<size_t>(spec.minSources) &&
-                            state.sources.size() <= static_cast<size_t>(spec.maxSources);
+    minSourcesForCurrentConfig = spec.minSources;
+    maxSourcesForCurrentConfig = spec.maxSources;
+    if (spec.is3D) {
+        minSourcesForCurrentConfig = required3DSources(state.useSource1TimeAsX);
+        maxSourcesForCurrentConfig = minSourcesForCurrentConfig;
+    }
+    const bool validCount = state.sources.size() >= static_cast<size_t>(minSourcesForCurrentConfig) &&
+                            state.sources.size() <= static_cast<size_t>(maxSourcesForCurrentConfig);
     const bool canCreate = allSelected && validCount;
 
     if (!canCreate) {
@@ -1209,6 +1392,7 @@ void drawGeneratorUI(Parse* parseINTF) {
         window.id = state.nextId++;
         window.typeIndex = state.typeIndex;
         window.sources = state.sources;
+        window.useSource1TimeAsX = state.useSource1TimeAsX;
         state.windows.push_back(std::move(window));
         ImGui::MarkIniSettingsDirty();
         persistIniNowIfAvailable();
@@ -1365,12 +1549,13 @@ void UI::build(){
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoBackground;
+    // mainHere
     if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) {
         ImGui::Text("This is home");
-        //if (!parseINTF->canStore.canMessages.empty()) {
-            //dynamicInlinePlot(parseINTF->canStore.canMessages[0x02].time,
-                              //parseINTF->canStore.canMessages[0x02].signals[0].data, "ts");
-        //}
+        static int current = 0;
+        //ImGui::Combo("DBC Config", &current, availableDBC.data(), availableDBC.size());
+        //if(current == 0){ currentDBC = "assettoCorsa"; }
+        //if(current == 1){ currentDBC = "daybreak"; }
     }
     ImGui::End();
 
@@ -1391,8 +1576,7 @@ void UI::build(){
     drawGeneratedPlots(parseINTF, customDockspaceId, customVisible);
     signalSearch();
     drawGeneratorUI(parseINTF);
-    terminalDemoHotkey();
-    //ImGui::ShowStyleEditor();
+    terminal();
 
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
@@ -1703,7 +1887,7 @@ void UI::signalSearch(){
                 }
             } else { cmdSelected = -1; }
         } ImGui::End();
-    ImGui::PopStyleColor(3);
+    ImGui::PopStyleColor(2);
     }
     bool popupFocused = false;
     if(cmdShowPopup){ popupFocused = popupWindow(); } // this is what you are looking for
@@ -1714,7 +1898,7 @@ void UI::signalSearch(){
     }
 }
 
-void UI::terminalDemoHotkey() {
+void UI::terminal() {
     const ImGuiIO& io = ImGui::GetIO();
     bool terminalHotkeyPressed =
         ImGui::IsKeyPressed(ImGuiKey_GraveAccent) ||

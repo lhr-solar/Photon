@@ -17,6 +17,13 @@ void Inputs::handleMouseMove(int32_t x, int32_t y){
     }
 }
 
+void Inputs::handleMouseScroll(float xOffset, float yOffset){
+    if (ImGui::GetCurrentContext()) {
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddMouseWheelEvent(xOffset, yOffset);
+    }
+}
+
 ImGuiKey Inputs::translateKey(uint32_t key){
 #ifdef XCB
     switch (key) {
@@ -124,6 +131,22 @@ void Inputs::handleXcbEvent(const xcb_generic_event_t *event, bool &quitFlag, xc
     }
     case XCB_BUTTON_PRESS:{
         auto *press = reinterpret_cast<const xcb_button_press_event_t*>(event);
+        if (press->detail == XCB_BUTTON_INDEX_4) {
+            handleMouseScroll(0.0f, 1.0f);
+            break;
+        }
+        if (press->detail == XCB_BUTTON_INDEX_5) {
+            handleMouseScroll(0.0f, -1.0f);
+            break;
+        }
+        if (press->detail == 6) {
+            handleMouseScroll(1.0f, 0.0f);
+            break;
+        }
+        if (press->detail == 7) {
+            handleMouseScroll(-1.0f, 0.0f);
+            break;
+        }
         if (press->detail == XCB_BUTTON_INDEX_1){
             ImGui::GetIO().AddMouseButtonEvent(0, true);
             mouseState.buttons.left = true;
@@ -377,13 +400,13 @@ LRESULT Inputs::handleWin32Message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
     case WM_MOUSEWHEEL:
         if (io) {
             const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
-            io->AddMouseWheelEvent(0.0f, wheelDelta);
+            handleMouseScroll(0.0f, wheelDelta);
         }
         return 0;
     case WM_MOUSEHWHEEL:
         if (io) {
             const float wheelDelta = static_cast<SHORT>(HIWORD(wParam)) / static_cast<float>(WHEEL_DELTA);
-            io->AddMouseWheelEvent(wheelDelta, 0.0f);
+            handleMouseScroll(wheelDelta, 0.0f);
         }
         return 0;
     case WM_KEYDOWN:

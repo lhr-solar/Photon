@@ -70,7 +70,7 @@ struct Console{
     }
 
     void Draw(const char* title, bool* p_open){
-        ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(720, 360), ImGuiCond_FirstUseEver);
         if (!ImGui::Begin(title)){
             ImGui::End();
             return;
@@ -87,16 +87,16 @@ struct Console{
         }
         */
 
-        ImGui::TextWrapped("Enter 'HELP' for help.");
+        //ImGui::TextWrapped("Enter 'HELP' for help.");
 
         // TODO: display items starting from the bottom
 
-        if (ImGui::SmallButton("Add Debug Text"))  { AddLog("%d some text", Items.Size); AddLog("some more text"); AddLog("display very important message here!"); }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Add Debug Error")) { AddLog("[error] something went wrong"); }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Clear"))           { ClearLog(); }
-        ImGui::SameLine();
+        //if (ImGui::SmallButton("Add Debug Text"))  { AddLog("%d some text", Items.Size); AddLog("some more text"); AddLog("display very important message here!"); }
+        //ImGui::SameLine();
+        //if (ImGui::SmallButton("Add Debug Error")) { AddLog("[error] something went wrong"); }
+        //ImGui::SameLine();
+        //if (ImGui::SmallButton("Clear"))           { ClearLog(); }
+        //ImGui::SameLine();
         bool copy_to_clipboard = ImGui::SmallButton("Copy");
         //static float t = 0.0f; if (ImGui::GetTime() - t > 0.02f) { t = ImGui::GetTime(); AddLog("Spam %f", t); }
 
@@ -227,8 +227,8 @@ struct Console{
             int first = History.Size - 10;
             for (int i = first > 0 ? first : 0; i < History.Size; i++)
                 AddLog("%3d: %s\n", i, History[i]);
-        } else if (Stricmp(command_line, "NVIM") == 0){
-            AddLog("I Wish!");
+        } else if (Stricmp(command_line, "PING") == 0){
+            AddLog("MISSING IP");
         } else { AddLog("Unknown command: '%s'\n", command_line); }
 
         // On command input, we scroll to bottom even if AutoScroll==false

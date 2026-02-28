@@ -35,5 +35,6 @@ public:
     void getFrame();
     void submitFrame();
     void windowResize();
+    void manageNetwork();
 /*end of photon class*/
 };

@@ -44,8 +44,9 @@ public:
         SERIAL  = 2,
         LOCAL   = 3,
         CORSA   = 4,
-    } backend = TCP;
+    } backend = CORSA;
     CanStore canStore {};
+    std::string currentDBC = {};
     std::atomic<bool> running {true};
 
 /* end of parse class */

@@ -5,6 +5,7 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 namespace {
 
@@ -82,15 +83,7 @@ uint64_t buildLittleEndianPayload(const std::array<uint8_t, 8>& bytes, int dlc){
     return payload;
 }
 
-}  // namespace
-
-bool CanStore::loadStateFromFile(std::string filePath){
-    std::ifstream file(filePath);
-    if (!file.is_open()) {
-        logs("[DBC Loader] Failed to open " << filePath);
-        return false;
-    }
-
+bool parseDbcFromStream(CanStore& store, std::istream& stream, const std::string& sourceLabel) {
     std::string line;
     uint32_t currentId = 0;
     int messageCountLocal = 0;
@@ -103,7 +96,7 @@ bool CanStore::loadStateFromFile(std::string filePath){
     std::vector<PendingValType> pendingValTypes;
 
     // === Main parsing loop ===
-    while (std::getline(file, line)) {
+    while (std::getline(stream, line)) {
         // trim leading spaces/tabs
         line.erase(0, line.find_first_not_of(" \t\r\n"));
         if (line.empty()) continue;
@@ -135,11 +128,8 @@ bool CanStore::loadStateFromFile(std::string filePath){
 
             iss >> sender;
 
-            // at this point, we have accumulated enough data to populate 1 can message
-            // we should go about populating it
             {
-                //std::lock_guard<std::mutex> lock(mapMutex);
-                CanMessage& msg = canMessages[static_cast<int>(canId)];
+                CanMessage& msg = store.canMessages[static_cast<int>(canId)];
                 msg.canId = static_cast<int>(canId);
                 msg.name = name;
                 msg.dlc = dlc;
@@ -213,9 +203,8 @@ bool CanStore::loadStateFromFile(std::string filePath){
             }
 
             {
-                //std::lock_guard<std::mutex> lock(mapMutex);
-                auto it = canMessages.find(static_cast<int>(currentId));
-                if (it != canMessages.end())
+                auto it = store.canMessages.find(static_cast<int>(currentId));
+                if (it != store.canMessages.end())
                     it->second.signals.push_back(sig);
             }
 
@@ -254,8 +243,8 @@ bool CanStore::loadStateFromFile(std::string filePath){
             }
 
             bool applied = false;
-            auto msgIt = canMessages.find(canId);
-            if (msgIt != canMessages.end()) {
+            auto msgIt = store.canMessages.find(canId);
+            if (msgIt != store.canMessages.end()) {
                 for (auto& sig : msgIt->second.signals) {
                     if (sig.name == sigName) {
                         sig.type = parsedType;
@@ -272,8 +261,8 @@ bool CanStore::loadStateFromFile(std::string filePath){
     }
 
     for (const auto& pending : pendingValTypes) {
-        auto msgIt = canMessages.find(pending.canId);
-        if (msgIt == canMessages.end()) {
+        auto msgIt = store.canMessages.find(pending.canId);
+        if (msgIt == store.canMessages.end()) {
             continue;
         }
         for (auto& sig : msgIt->second.signals) {
@@ -284,18 +273,36 @@ bool CanStore::loadStateFromFile(std::string filePath){
         }
     }
 
-    // --- Summary + dump ---
-    {
-        //std::lock_guard<std::mutex> lock(mapMutex);
-            logs("[DBC Loader] Parsed " << messageCountLocal
-                  << " messages and " << signalCountLocal
-                  << " signals from " << filePath);
-            logs("[DBC Loader] Current total messages in map: "
-                  << canMessages.size());
+    logs("[DBC Loader] Parsed " << messageCountLocal
+          << " messages and " << signalCountLocal
+          << " signals from " << sourceLabel);
+    logs("[DBC Loader] Current total messages in map: "
+          << store.canMessages.size());
+
+    store.dump();
+    return (messageCountLocal > 0);
+}
+
+}  // namespace
+
+bool CanStore::loadStateFromFile(std::string filePath){
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        logs("[DBC Loader] Failed to open " << filePath);
+        return false;
+    }
+    return parseDbcFromStream(*this, file, filePath);
+}
+
+bool CanStore::loadStateFromHeader(const unsigned char* headerData, size_t headerSize) {
+    if (headerData == nullptr || headerSize == 0) {
+        logs("[DBC Loader] Header data is empty");
+        return false;
     }
 
-    dump();
-    return (messageCountLocal > 0);
+    std::string dbcText(reinterpret_cast<const char*>(headerData), headerSize);
+    std::istringstream stream(dbcText);
+    return parseDbcFromStream(*this, stream, "embedded header");
 }
 
 void CanStore::dump() {

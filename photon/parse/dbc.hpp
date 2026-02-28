@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <cstddef>
 
 struct Parse;
 
@@ -52,5 +53,6 @@ struct CanStore{
     double totalBandwidth = 1.0; // total data stored
     std::map<int, CanMessage> canMessages;
     bool loadStateFromFile(std::string filePath);
+    bool loadStateFromHeader(const unsigned char* headerData, size_t headerSize);
     void dump();
 };

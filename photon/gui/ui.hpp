@@ -56,12 +56,25 @@ struct UI{
 
     Console console;
 
+    std::string currentDBC = "assettoCorsa";
+    std::vector<const char*> availableDBC = {
+            "assettoCorsa",
+            "daybreak",
+    };
+    enum {
+        TCP     = 0,
+        UDP     = 1,
+        SERIAL  = 2,
+        LOCAL   = 3,
+        CORSA   = 4,
+    } backend = CORSA;
+
     void setStyle();
     void setScale();
     void build();
     void fpsWindow();
     void signalSearch();
-    void terminalDemoHotkey();
+    void terminal();
     void basePlate();
     void background();
     void showVideoDisplay();
