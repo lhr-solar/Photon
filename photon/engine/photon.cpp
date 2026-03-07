@@ -148,7 +148,7 @@ void Photon::manageNetwork(){
         network.running = true;
         parse.running = true;
 
-        if(gui.ui.currentNetwork == "TCP"){
+        if(gui.ui.currentNetwork == "Server"){
             network.currentSource_t = std::thread(&Network::tcpReader, &network);
             parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.tcpQueue));
         }

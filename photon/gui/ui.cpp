@@ -1504,7 +1504,7 @@ void UI::build(){
     ImGui::DockSpace(root_id);
     ImGui::End();
 
-    ImGuiWindowFlags big_flags =
+    ImGuiWindowFlags main_dockspace_flags =
         ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoMove |
@@ -1513,15 +1513,12 @@ void UI::build(){
         ImGuiWindowFlags_NoBackground |
         ImGuiWindowFlags_NoSavedSettings;
 
-    auto fitToViewport = [&]() {
-        ImGui::SetNextWindowViewport(vp->ID);
-        ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
-        ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
-    };
-
     ImGuiID mainDockspaceId = 0;
-    fitToViewport();
-    if (ImGui::Begin("Main Host##MainDockHost", nullptr, big_flags)) {
+    ImGui::SetNextWindowViewport(vp->ID);
+    ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
+
+    if (ImGui::Begin("Main Host##MainDockHost", nullptr, main_dockspace_flags)) {
         mainDockspaceId = ImGui::GetID("MainDockspace");
         const ImGuiDockNodeFlags lockedTabsOnlyFlags =
             ImGuiDockNodeFlags_NoUndocking |
@@ -1549,7 +1546,7 @@ void UI::build(){
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoBackground;
-    // mainHere
+
     if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) {
         home();
     }
@@ -1569,8 +1566,13 @@ void UI::build(){
 
     if (customVisible) {
         const PlotGeneratorState& generatedPlots = generatorState();
-        const bool hasOpenGeneratedPlot = std::any_of(generatedPlots.windows.begin(), generatedPlots.windows.end(),
-            [](const GeneratedPlotWindow& plot) { return plot.open; });
+        bool hasOpenGeneratedPlot = false;
+        for (const GeneratedPlotWindow& plot : generatedPlots.windows) {
+            if (plot.open) {
+                hasOpenGeneratedPlot = true;
+                break;
+            }
+        }
         if (!hasOpenGeneratedPlot) {
             const char* emptyText = "Press '\\' to create plots";
             ImVec2 textSize = ImGui::CalcTextSize(emptyText);
@@ -1608,7 +1610,7 @@ void UI::networkUI(){
         if(dbcIdx == 1){ currentDBC = "daybreak"; }
 
         ImGui::Combo("Network", &networkIdx, availableNetwork.data(), availableNetwork.size());
-        if(networkIdx == 0){ currentNetwork = "TCP";}
+        if(networkIdx == 0){ currentNetwork = "Server";}
         if(networkIdx == 1){ currentNetwork = "Serial";}
         if(networkIdx == 2){ currentNetwork = "Assetto Corsa";}
         if(currentNetwork == "Serial"){
@@ -1634,8 +1636,8 @@ void UI::networkUI(){
             }
         }
 }
+
 void UI::home(){
-    //nodeEditorDemo();
     const ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
     const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
     const float contentWidth = contentMax.x - contentMin.x;

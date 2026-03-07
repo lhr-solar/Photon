@@ -72,7 +72,7 @@ struct UI{
 
     std::string currentNetwork = "Assetto Corsa";
     std::vector<const char*> availableNetwork ={
-        "TCP",
+        "Server",
         "Serial",
         "Assetto Corsa",
     };
