@@ -1658,6 +1658,8 @@ void UI::home(){
 }
 
 void UI::refreshSerialPorts(){
+    static bool windowsPortsInitialized = false;
+#ifndef _WIN32
     static auto lastRefresh = std::chrono::steady_clock::time_point{};
     const auto now = std::chrono::steady_clock::now();
     if(lastRefresh != std::chrono::steady_clock::time_point{} &&
@@ -1666,6 +1668,11 @@ void UI::refreshSerialPorts(){
         return;
     }
     lastRefresh = now;
+#else
+    if(windowsPortsInitialized && !ports.empty()){
+        return;
+    }
+#endif
 
     std::vector<std::string> nextPorts;
 
@@ -1678,6 +1685,7 @@ void UI::refreshSerialPorts(){
             nextPorts.push_back(name);
         }
     }
+    windowsPortsInitialized = true;
 #else
     namespace fs = std::filesystem;
     std::error_code ec;
