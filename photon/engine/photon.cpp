@@ -66,7 +66,7 @@ void Photon::initThreads(){
     parse.currentDBC = "assettoCorsa";
 
     network.currentSource_t = std::thread(&Network::corsaReader, &network);
-    network.currentParser_t = std::thread(&Parse::acParser, &parse, std::ref(network.corsaQueue));
+    parse.currentParser_t = std::thread(&Parse::acParser, &parse, std::ref(network.corsaQueue));
 }
 
 void Photon::renderLoop(){
@@ -141,7 +141,7 @@ void Photon::manageNetwork(){
     if(network.currentBackend != gui.ui.currentNetwork){
         network.running = false;
         parse.running = false;
-        network.currentParser_t.join();
+        parse.currentParser_t.join();
         network.currentSource_t.join();
 
         network.currentBackend = gui.ui.currentNetwork;
@@ -150,21 +150,21 @@ void Photon::manageNetwork(){
 
         if(gui.ui.currentNetwork == "TCP"){
             network.currentSource_t = std::thread(&Network::tcpReader, &network);
-            network.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.tcpQueue));
+            parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.tcpQueue));
         }
         if(gui.ui.currentNetwork == "Serial"){
             network.currentSource_t = std::thread(&Network::serialReader, &network);
-            network.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
+            parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
         }
         if(gui.ui.currentNetwork == "Assetto Corsa"){
             network.currentSource_t = std::thread(&Network::corsaReader, &network);
-            network.currentParser_t = std::thread(&Parse::acParser, &parse, std::ref(network.corsaQueue));
+            parse.currentParser_t = std::thread(&Parse::acParser, &parse, std::ref(network.corsaQueue));
         }
     }
     if(gui.ui.rebuildSerial){
         network.running = false;
         parse.running = false;
-        network.currentParser_t.join();
+        parse.currentParser_t.join();
         network.currentSource_t.join();
         network.running = true;
         parse.running = true;
@@ -173,7 +173,7 @@ void Photon::manageNetwork(){
         network.serialPort = gui.ui.serialPort;
 
         network.currentSource_t = std::thread(&Network::serialReader, &network);
-        network.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
+        parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
 
         gui.ui.rebuildSerial = false;
     }

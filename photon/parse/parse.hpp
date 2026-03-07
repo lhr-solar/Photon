@@ -27,7 +27,10 @@ struct Parse{
 private:
 
 public:
-
+    ~Parse(){
+        running = false;
+        currentParser_t.join();
+    };
     void parser(SPSCQueue<uint8_t>& queue);
     void acParser(SPSCQueue<RTCarInfo>& queue);
     void handleFrame(const std::string& frame);
@@ -41,6 +44,7 @@ public:
     CanStore canStore {};
     std::string currentDBC = {};
     std::atomic<bool> running {true};
+    std::thread currentParser_t;
 
 /* end of parse class */
 };

@@ -66,6 +66,7 @@ Network::Network() :
 }
 Network::~Network(){
     running = false;
+    currentSource_t.join();
 };
 
 #define BUFFER_CAPACITY 1024

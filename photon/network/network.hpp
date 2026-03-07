@@ -48,7 +48,6 @@ public:
 
     std::atomic<bool> running = true;
     std::string currentBackend = "Assetto Corsa";
-    std::thread currentParser_t;
     std::thread currentSource_t;
 
 /* end of network class */
