@@ -1495,10 +1495,6 @@ void UI::build(){
         ImGuiWindowFlags_NoNavFocus |
         ImGuiWindowFlags_NoBackground;
 
-    // Docked tab bars need their own rounding config; style globals are not sufficient here.
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0f);
     ImGui::Begin("Root", nullptr, host_flags);
     ImGuiID root_id = ImGui::GetID("RootDockspace");
     ImGui::DockSpace(root_id);
@@ -1533,28 +1529,23 @@ void UI::build(){
             ImGui::DockBuilderSetNodeSize(mainDockspaceId, ImGui::GetContentRegionAvail());
             ImGui::DockBuilderDockWindow("Home##MainDockedTab", mainDockspaceId);
             ImGui::DockBuilderDockWindow("Custom##CustomDockedTab", mainDockspaceId);
+            ImGui::DockBuilderDockWindow("Debug##DebugDockedTab", mainDockspaceId);
             ImGui::DockBuilderFinish(mainDockspaceId);
         }
     }
     ImGui::End();
 
-    if (mainDockspaceId != 0) {
-        ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
-    }
+    if (mainDockspaceId != 0) ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
     ImGuiWindowFlags fixedTabFlags =
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoBackground;
 
-    if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) {
-        home();
-    }
+    if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) home();
     ImGui::End();
+    if (mainDockspaceId != 0) ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
 
-    if (mainDockspaceId != 0) {
-        ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
-    }
     ImGuiID customDockspaceId = 0;
     bool customVisible = ImGui::Begin("Custom##CustomDockedTab", nullptr, fixedTabFlags);
     customDockspaceId = ImGui::GetID("CustomDockspace");
@@ -1563,34 +1554,13 @@ void UI::build(){
         ? customTabsOnlyFlags
         : (customTabsOnlyFlags | ImGuiDockNodeFlags_KeepAliveOnly);
     ImGui::DockSpace(customDockspaceId, ImVec2(0.0f, 0.0f), customDockFlags);
-
-    if (customVisible) {
-        const PlotGeneratorState& generatedPlots = generatorState();
-        bool hasOpenGeneratedPlot = false;
-        for (const GeneratedPlotWindow& plot : generatedPlots.windows) {
-            if (plot.open) {
-                hasOpenGeneratedPlot = true;
-                break;
-            }
-        }
-        if (!hasOpenGeneratedPlot) {
-            const char* emptyText = "Press '\\' to create plots";
-            ImVec2 textSize = ImGui::CalcTextSize(emptyText);
-            ImVec2 windowPos = ImGui::GetWindowPos();
-            ImVec2 windowSize = ImGui::GetWindowSize();
-            ImGuiViewport* mainViewport = ImGui::GetMainViewport();
-            const float targetY = (mainViewport != nullptr)
-                ? (mainViewport->Pos.y + (mainViewport->Size.y * 0.33f))
-                : (windowPos.y + (windowSize.y * 0.33f));
-            ImGui::GetWindowDrawList()->AddText(
-                ImVec2(windowPos.x + (windowSize.x * 0.5f) - (textSize.x * 0.5f), targetY - (textSize.y * 0.5f)),
-                IM_COL32(255, 255, 255, 255),
-                emptyText);
-        }
-    }
-
+    if (customVisible) emptyCustom();
     ImGui::End();
-    ImGui::PopStyleVar(3);
+
+    if (mainDockspaceId != 0) ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
+    if(ImGui::Begin("Debug##DebugDockedTab", nullptr, fixedTabFlags)){
+        ImGui::Text("Hi :0");
+    } ImGui::End();
 
     drawGeneratedPlots(parseINTF, customDockspaceId, customVisible);
     signalSearch();
@@ -1600,6 +1570,31 @@ void UI::build(){
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
     ImGui::Render();
+}
+
+void UI::emptyCustom(){
+    const PlotGeneratorState& generatedPlots = generatorState();
+    bool hasOpenGeneratedPlot = false;
+    for (const GeneratedPlotWindow& plot : generatedPlots.windows) {
+        if (plot.open) {
+            hasOpenGeneratedPlot = true;
+            break;
+        }
+    }
+    if (!hasOpenGeneratedPlot) {
+        const char* emptyText = "Press '\\' to create plots";
+        ImVec2 textSize = ImGui::CalcTextSize(emptyText);
+        ImVec2 windowPos = ImGui::GetWindowPos();
+        ImVec2 windowSize = ImGui::GetWindowSize();
+        ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+        const float targetY = (mainViewport != nullptr)
+            ? (mainViewport->Pos.y + (mainViewport->Size.y * 0.33f))
+            : (windowPos.y + (windowSize.y * 0.33f));
+        ImGui::GetWindowDrawList()->AddText(
+            ImVec2(windowPos.x + (windowSize.x * 0.5f) - (textSize.x * 0.5f), targetY - (textSize.y * 0.5f)),
+            IM_COL32(255, 255, 255, 255),
+            emptyText);
+    }
 }
 
 void UI::networkUI(){

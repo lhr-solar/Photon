@@ -127,10 +127,10 @@ struct UI{
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
     void genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
-    void tempWork();
     void search();
     void installPersistentSettings();
     bool signalSearchPopup();
+    void emptyCustom();
     void bottomBar();
     void home();
     void networkUI();

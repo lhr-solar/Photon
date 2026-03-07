@@ -14303,7 +14303,9 @@ bool ImGui::IsWindowNavFocusable(ImGuiWindow* window)
     // Restrict CTRL+TAB / windowing list to the two primary dock tabs only.
     // ctrltab here
     return strcmp(window->Name, "Home##MainDockedTab") == 0
-        || strcmp(window->Name, "Custom##CustomDockedTab") == 0;
+        || strcmp(window->Name, "Custom##CustomDockedTab") == 0
+        || strcmp(window->Name, "Debug##DebugDockedTab") == 0;
+
 }
 
 static ImGuiWindow* FindWindowNavFocusable(int i_start, int i_stop, int dir) // FIXME-OPT O(N)
