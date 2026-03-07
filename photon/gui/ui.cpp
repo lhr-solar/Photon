@@ -1677,12 +1677,41 @@ void UI::refreshSerialPorts(){
     std::vector<std::string> nextPorts;
 
 #ifdef _WIN32
-    for(int i = 1; i <= 64; ++i){
-        std::string name = "COM" + std::to_string(i);
-        COMMCONFIG commConfig = {};
-        DWORD commConfigSize = sizeof(commConfig);
-        if(GetDefaultCommConfigA(name.c_str(), &commConfig, &commConfigSize) != 0){
-            nextPorts.push_back(name);
+    auto parseComIndex = [](const std::string& name)->int{
+        if(name.size() <= 3){ return 0; }
+        return std::atoi(name.c_str() + 3);
+    };
+
+    // QueryDosDevice lets us enumerate all COM symbolic links without touching each port.
+    constexpr DWORD kDeviceBufferSize = 32768;
+    std::array<char, kDeviceBufferSize> deviceNames{};
+    const DWORD charsWritten = QueryDosDeviceA(nullptr, deviceNames.data(), kDeviceBufferSize);
+    if(charsWritten != 0){
+        const char* current = deviceNames.data();
+        while(*current != '\0'){
+            std::string deviceName(current);
+            if(deviceName.rfind("COM", 0) == 0){
+                nextPorts.push_back(deviceName);
+            }
+            current += deviceName.size() + 1;
+        }
+        std::sort(nextPorts.begin(), nextPorts.end(), [&](const std::string& lhs, const std::string& rhs){
+            const int leftIdx = parseComIndex(lhs);
+            const int rightIdx = parseComIndex(rhs);
+            if(leftIdx == rightIdx){ return lhs < rhs; }
+            return leftIdx < rightIdx;
+        });
+        nextPorts.erase(std::unique(nextPorts.begin(), nextPorts.end()), nextPorts.end());
+    }
+
+    if(nextPorts.empty()){
+        for(int i = 1; i <= 64; ++i){
+            std::string name = "COM" + std::to_string(i);
+            COMMCONFIG commConfig = {};
+            DWORD commConfigSize = sizeof(commConfig);
+            if(GetDefaultCommConfigA(name.c_str(), &commConfig, &commConfigSize) != 0){
+                nextPorts.push_back(name);
+            }
         }
     }
     windowsPortsInitialized = true;
