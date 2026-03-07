@@ -1661,9 +1661,16 @@ void UI::refreshSerialPorts(){
     std::vector<std::string> nextPorts;
 
 #ifdef _WIN32
-    char targetBuffer[256] = {};
     for(int i = 1; i <= 256; ++i){
         std::string name = "COM" + std::to_string(i);
+        COMMCONFIG commConfig = {};
+        DWORD commConfigSize = sizeof(commConfig);
+        if(GetDefaultCommConfigA(name.c_str(), &commConfig, &commConfigSize) != 0){
+            nextPorts.push_back(name);
+            continue;
+        }
+
+        char targetBuffer[512] = {};
         DWORD queryResult = QueryDosDeviceA(name.c_str(), targetBuffer, static_cast<DWORD>(sizeof(targetBuffer)));
         if(queryResult != 0){
             nextPorts.push_back(name);
