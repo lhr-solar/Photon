@@ -1658,21 +1658,23 @@ void UI::home(){
 }
 
 void UI::refreshSerialPorts(){
+    static auto lastRefresh = std::chrono::steady_clock::time_point{};
+    const auto now = std::chrono::steady_clock::now();
+    if(lastRefresh != std::chrono::steady_clock::time_point{} &&
+       (now - lastRefresh) < std::chrono::milliseconds(1000) &&
+       !ports.empty()){
+        return;
+    }
+    lastRefresh = now;
+
     std::vector<std::string> nextPorts;
 
 #ifdef _WIN32
-    for(int i = 1; i <= 256; ++i){
+    for(int i = 1; i <= 64; ++i){
         std::string name = "COM" + std::to_string(i);
         COMMCONFIG commConfig = {};
         DWORD commConfigSize = sizeof(commConfig);
         if(GetDefaultCommConfigA(name.c_str(), &commConfig, &commConfigSize) != 0){
-            nextPorts.push_back(name);
-            continue;
-        }
-
-        char targetBuffer[512] = {};
-        DWORD queryResult = QueryDosDeviceA(name.c_str(), targetBuffer, static_cast<DWORD>(sizeof(targetBuffer)));
-        if(queryResult != 0){
             nextPorts.push_back(name);
         }
     }
