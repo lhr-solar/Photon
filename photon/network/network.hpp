@@ -8,8 +8,13 @@
 #include <mutex>
 #include <memory>
 #include <vector>
+#include <thread>
 #include "spsc.hpp"
 #include "../parse/corsa.hpp"
+
+#ifndef _WIN32
+#include <termios.h>
+#endif
 
 class Network{
 private:
@@ -32,8 +37,19 @@ public:
     std::string IP ="3.141.38.115";
     std::string LOCAL_IP = "127.0.0.1";
     unsigned CORSA_PORT = 9996;
-    unsigned PORT = 9000;
+    unsigned PORT = 6500;
+    std::string baudRate = "9600";
+    std::string serialPort =
+#ifdef _WIN32
+        "COM1";
+#else
+        "/dev/ttyUSB0";
+#endif
+
     std::atomic<bool> running = true;
+    std::string currentBackend = "Assetto Corsa";
+    std::thread currentParser_t;
+    std::thread currentSource_t;
 
 /* end of network class */
 };

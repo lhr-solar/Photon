@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+#include <chrono>
 #include "../parse/corsa.hpp"
 
 // Windows
@@ -15,7 +16,7 @@ typedef SSIZE_T ssize_t;
 #include <sys/socket.h>
 #include <arpa/inet.h> // This contains inet_addr
 #include <unistd.h> // This contains close
-#define INVALID_SOCKET (UDP_SOCKET)(~0)
+#define INVALID_SOCKET (-1)
 #define SOCKET_ERROR (-1)
 #endif
 
@@ -29,9 +30,11 @@ const int receive_err = 7;
 
 struct UdpSocket{
     UdpSocket(const std::string& IP, unsigned port);
+    ~UdpSocket();
     ssize_t read(RTCarInfo* buf, std::size_t maxlen);
     ssize_t write(const uint8_t* buf, std::size_t len);
     void reconnect();
+    bool performHandshake();
 
 #ifdef _WIN32
     SOCKET sock;
@@ -39,5 +42,7 @@ struct UdpSocket{
     int sock;
 #endif
     sockaddr_in server{};
-    socklen_t slen;
+    socklen_t slen{};
+    bool subscribed = false;
+    std::chrono::steady_clock::time_point nextHandshakeTry{};
 };

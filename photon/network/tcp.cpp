@@ -5,15 +5,36 @@
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include <cerrno>
 
 #ifdef _WIN32
 #include <winsock2.h>
 #include <Ws2tcpip.h>
 #else
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
 #include "../engine/include.hpp"
+
+namespace {
+bool set_non_blocking(
+#ifdef _WIN32
+    SOCKET fd
+#else
+    int fd
+#endif
+) {
+#ifdef _WIN32
+    u_long mode = 1;
+    return ioctlsocket(fd, FIONBIO, &mode) == 0;
+#else
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0) { return false; }
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
+#endif
+}
+}
 
 TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
 #ifdef _WIN32
@@ -43,11 +64,12 @@ TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
             throw std::system_error(errno, std::system_category(), "socket creation failed");
 #endif
 
+        if (!set_non_blocking(_fd))
 #ifdef _WIN32
-        //u_long int imode = 1;
-        //ioctlsocket(_fd, FIONBIO, &imode);
+            throw std::system_error(WSAGetLastError(), std::system_category(), "failed to set socket non-blocking");
+#else
+            throw std::system_error(errno, std::system_category(), "failed to set socket non-blocking");
 #endif
-
 
         sockaddr_in serv_addr{};
         serv_addr.sin_family = AF_INET;
@@ -60,15 +82,22 @@ TcpSocket::TcpSocket(const std::string& serverIP, unsigned port){
             throw std::system_error(errno, std::system_category(), "pton failed");
 #endif
 
-        while(connect(_fd, (sockaddr*)&serv_addr, sizeof(serv_addr))
+        int connectResult = connect(_fd, (sockaddr*)&serv_addr, sizeof(serv_addr));
+        if(connectResult
 #ifdef _WIN32
               == SOCKET_ERROR
 #else
               < 0
 #endif
-        ){
-            std::cout << "[!] Unable to connect to server!" << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+        ) {
+#ifdef _WIN32
+            int err = WSAGetLastError();
+            if (err != WSAEINPROGRESS && err != WSAEWOULDBLOCK && err != WSAEALREADY && err != WSAEISCONN)
+                std::cout << "[!] Unable to connect to server (WSA " << err << ")" << std::endl;
+#else
+            if (errno != EINPROGRESS && errno != EWOULDBLOCK && errno != EALREADY && errno != EISCONN)
+                std::cout << "[!] Unable to connect to server (errno " << errno << ")" << std::endl;
+#endif
         }
 
         // server side
@@ -138,9 +167,15 @@ TcpSocket::~TcpSocket(){
 ssize_t TcpSocket::read(uint8_t* buf, std::size_t maxlen) {
 #ifdef _WIN32
     int n = ::recv(_fd, reinterpret_cast<char*>(buf), static_cast<int>(maxlen), 0);
-    return (n == SOCKET_ERROR) ? -1 : n;
+    if (n == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        if (err == WSAEWOULDBLOCK) { return 0; }
+        return -1;
+    }
+    return n;
 #else
-    ssize_t n = ::recv(_fd, buf, maxlen, 0);
+    ssize_t n = ::recv(_fd, buf, maxlen, MSG_DONTWAIT);
+    if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) { return 0; }
     return n;
 #endif
 }

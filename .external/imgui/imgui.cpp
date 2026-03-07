@@ -14301,6 +14301,7 @@ bool ImGui::IsWindowNavFocusable(ImGuiWindow* window)
 
     // Photon customization:
     // Restrict CTRL+TAB / windowing list to the two primary dock tabs only.
+    // ctrltab here
     return strcmp(window->Name, "Home##MainDockedTab") == 0
         || strcmp(window->Name, "Custom##CustomDockedTab") == 0;
 }

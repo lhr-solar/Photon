@@ -15,10 +15,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
 #include "implot3d.h"
+#include "imgui_node_editor.h"
 
 namespace {
 struct PlotDataSourceRef {
@@ -1418,9 +1420,7 @@ void drawGeneratorUI(Parse* parseINTF) {
 
 void UI::installPersistentSettings() {
     ImGuiContext* ctx = ImGui::GetCurrentContext();
-    if (!ctx) {
-        return;
-    }
+    if (!ctx) { return; }
     const ImGuiID typeHash = ImHashStr(kPlotSettingsTypeName);
     for (ImGuiSettingsHandler& existing : ctx->SettingsHandlers) {
         if (existing.TypeHash == typeHash) {
@@ -1551,11 +1551,7 @@ void UI::build(){
         ImGuiWindowFlags_NoBackground;
     // mainHere
     if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) {
-        ImGui::Text("This is home");
-        static int current = 0;
-        //ImGui::Combo("DBC Config", &current, availableDBC.data(), availableDBC.size());
-        //if(current == 0){ currentDBC = "assettoCorsa"; }
-        //if(current == 1){ currentDBC = "daybreak"; }
+        home();
     }
     ImGui::End();
 
@@ -1570,6 +1566,27 @@ void UI::build(){
         ? customTabsOnlyFlags
         : (customTabsOnlyFlags | ImGuiDockNodeFlags_KeepAliveOnly);
     ImGui::DockSpace(customDockspaceId, ImVec2(0.0f, 0.0f), customDockFlags);
+
+    if (customVisible) {
+        const PlotGeneratorState& generatedPlots = generatorState();
+        const bool hasOpenGeneratedPlot = std::any_of(generatedPlots.windows.begin(), generatedPlots.windows.end(),
+            [](const GeneratedPlotWindow& plot) { return plot.open; });
+        if (!hasOpenGeneratedPlot) {
+            const char* emptyText = "Press '\\' to create plots";
+            ImVec2 textSize = ImGui::CalcTextSize(emptyText);
+            ImVec2 windowPos = ImGui::GetWindowPos();
+            ImVec2 windowSize = ImGui::GetWindowSize();
+            ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+            const float targetY = (mainViewport != nullptr)
+                ? (mainViewport->Pos.y + (mainViewport->Size.y * 0.33f))
+                : (windowPos.y + (windowSize.y * 0.33f));
+            ImGui::GetWindowDrawList()->AddText(
+                ImVec2(windowPos.x + (windowSize.x * 0.5f) - (textSize.x * 0.5f), targetY - (textSize.y * 0.5f)),
+                IM_COL32(255, 255, 255, 255),
+                emptyText);
+        }
+    }
+
     ImGui::End();
     ImGui::PopStyleVar(3);
 
@@ -1581,6 +1598,111 @@ void UI::build(){
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
     if(showFps) fpsWindow();
     ImGui::Render();
+}
+
+void UI::networkUI(){
+        static int dbcIdx = 0;
+        static int networkIdx = 2;
+        ImGui::Combo("DBC", &dbcIdx, availableDBC.data(), availableDBC.size());
+        if(dbcIdx == 0){ currentDBC = "assettoCorsa"; }
+        if(dbcIdx == 1){ currentDBC = "daybreak"; }
+
+        ImGui::Combo("Network", &networkIdx, availableNetwork.data(), availableNetwork.size());
+        if(networkIdx == 0){ currentNetwork = "TCP";}
+        if(networkIdx == 1){ currentNetwork = "Serial";}
+        if(networkIdx == 2){ currentNetwork = "Assetto Corsa";}
+        if(currentNetwork == "Serial"){
+            static int baudIdx = 5;
+            static int portIdx = 0;
+            ImGui::Combo("Baud Rate", &baudIdx, baudRates.data(), baudRates.size());
+            if(baudRate != baudRates[baudIdx]){
+                rebuildSerial = true;
+                baudRate = baudRates[baudIdx];
+            }
+            refreshSerialPorts();
+            if(ports.empty()){
+                ImGui::Text("No serial ports detected");
+            } else {
+                if(portIdx < 0 || static_cast<size_t>(portIdx) >= ports.size()){ portIdx = 0; }
+                ImGui::Combo("Serial Port", &portIdx, ports.data(), ports.size());
+                if(portIdx >= 0 && static_cast<size_t>(portIdx) < discoveredSerialPorts.size()){
+                    if(serialPort != discoveredSerialPorts[portIdx]){
+                        rebuildSerial = true;
+                        serialPort = discoveredSerialPorts[portIdx];
+                    }
+                }
+            }
+        }
+}
+void UI::home(){
+    //nodeEditorDemo();
+    const ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
+    const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
+    const float contentWidth = contentMax.x - contentMin.x;
+    const float targetWidth = std::max(240.0f, contentWidth * 0.15f);
+
+    static float networkPanelHeight = 0.0f;
+    if(networkPanelHeight <= 0.0f){
+        networkPanelHeight = ImGui::GetFrameHeightWithSpacing() * 2.0f;
+    }
+
+    const float x = contentMin.x + ((contentWidth - targetWidth) * 0.5f);
+    const float y = std::max(contentMin.y, contentMax.y - networkPanelHeight);
+    ImGui::SetCursorPos(ImVec2(x, y));
+    ImGui::PushItemWidth(targetWidth);
+    ImGui::BeginGroup();
+    networkUI();
+    ImGui::EndGroup();
+    networkPanelHeight = ImGui::GetItemRectSize().y;
+    ImGui::PopItemWidth();
+}
+
+void UI::refreshSerialPorts(){
+    std::vector<std::string> nextPorts;
+
+#ifdef _WIN32
+    char targetBuffer[256] = {};
+    for(int i = 1; i <= 256; ++i){
+        std::string name = "COM" + std::to_string(i);
+        DWORD queryResult = QueryDosDeviceA(name.c_str(), targetBuffer, static_cast<DWORD>(sizeof(targetBuffer)));
+        if(queryResult != 0){
+            nextPorts.push_back(name);
+        }
+    }
+#else
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    for(const auto& entry : fs::directory_iterator("/dev", ec)){
+        if(ec){ break; }
+        const std::string name = entry.path().filename().string();
+        if(name.rfind("ttyUSB", 0) == 0 || name.rfind("ttyACM", 0) == 0 || name.rfind("ttyS", 0) == 0){
+            nextPorts.push_back(entry.path().string());
+        }
+    }
+    std::sort(nextPorts.begin(), nextPorts.end());
+#endif
+
+    if(nextPorts.empty()){
+#ifdef _WIN32
+        nextPorts.push_back(serialPort.empty() ? "COM1" : serialPort);
+#else
+        nextPorts.push_back(serialPort.empty() ? "/dev/ttyUSB0" : serialPort);
+#endif
+    }
+
+    if(nextPorts == discoveredSerialPorts && !ports.empty()){ return; }
+
+    discoveredSerialPorts = std::move(nextPorts);
+    ports.clear();
+    ports.reserve(discoveredSerialPorts.size());
+    for(const std::string& port : discoveredSerialPorts){
+        ports.push_back(port.c_str());
+    }
+
+    auto current = std::find(discoveredSerialPorts.begin(), discoveredSerialPorts.end(), serialPort);
+    if(current == discoveredSerialPorts.end()){
+        serialPort = discoveredSerialPorts.front();
+    }
 }
 
 void UI::bottomBar(){
@@ -1601,142 +1723,6 @@ void UI::bottomBar(){
     }
     ImGui::EndChild();
     ImGui::PopStyleColor();
-}
-
-void UI::genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name){
-    if (xAxis.size() < 2 || yAxis.size() != xAxis.size()) { return; }
-    constexpr double maxTime = 5.0;
-    const double windowStart = std::max(0.0, xAxis.back() - maxTime);
-    auto startIt = std::lower_bound(xAxis.begin(), xAxis.end(), windowStart);
-    const std::size_t startIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), startIt));
-
-    if (startIdx >= xAxis.size()) { return; }
-
-    double currentMin = yAxis[startIdx];
-    double currentMax = yAxis[startIdx];
-    for (std::size_t i = startIdx; i < yAxis.size(); ++i) {
-        currentMin = std::min(currentMin, yAxis[i]);
-        currentMax = std::max(currentMax, yAxis[i]);
-    }
-    if (std::abs(currentMax - currentMin) < 1e-3) {
-        double span = std::max(1.0, std::abs(currentMax));
-        currentMin -= span * 0.5;
-        currentMax += span * 0.5;
-    }
-    double pad = (currentMax - currentMin) * 0.1;
-    double yMin = currentMin - pad;
-    double yMax = currentMax + pad;
-
-    ImPlot::SetNextAxisLimits(ImAxis_X1, windowStart, xAxis.back(), ImPlotCond_Always);
-    ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
-    std::string plotLabel = std::string(name) + "##inlinePlot";
-
-    if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-FLT_MIN, 200.0f), ImPlotFlags_NoLegend)) {
-        const RenderSlice slice = makeRenderSlice(startIdx, xAxis.size());
-        const double* xData = xAxis.data() + slice.start;
-        const double* yData = yAxis.data() + slice.start;
-        const int count = slice.count;
-        ImPlot::SetNextLineStyle({1.0, 1.0, 1.0, 1.0});
-        ImPlot::PlotLine(name, xData, yData, count, 0, 0, static_cast<int>(sizeof(double) * slice.step));
-        ImPlot::EndPlot();
-    }
-}
-
-void UI::dynamicInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name){
-    if (xAxis.size() < 2 || yAxis.size() != xAxis.size()) { return; }
-
-    struct PlotState {
-        bool followLatest = true;
-        bool hasView = false;
-        double xMin = 0.0;
-        double xMax = 0.0;
-    };
-    static std::unordered_map<std::string, PlotState> plotStates;
-
-    constexpr double maxTime = 5.0;
-    const double dataStart = xAxis.front();
-    const double latestTime = xAxis.back();
-    const double liveWindowStart = std::max(dataStart, latestTime - maxTime);
-    const std::string key(name);
-    PlotState& state = plotStates[key];
-
-    double rangeStart = liveWindowStart;
-    double rangeEnd = latestTime;
-    if (!state.followLatest && state.hasView) {
-        rangeStart = std::max(dataStart, state.xMin);
-        rangeEnd = std::max(rangeStart, state.xMax);
-        if (rangeEnd > latestTime) {
-            const double span = rangeEnd - rangeStart;
-            rangeEnd = latestTime;
-            rangeStart = std::max(dataStart, rangeEnd - span);
-        }
-    }
-
-    auto minIt = std::lower_bound(xAxis.begin(), xAxis.end(), rangeStart);
-    auto maxIt = std::upper_bound(xAxis.begin(), xAxis.end(), rangeEnd);
-    if (minIt == xAxis.end() || minIt >= maxIt) {
-        minIt = xAxis.begin();
-        maxIt = xAxis.end();
-    }
-    const std::size_t startIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), minIt));
-    const std::size_t endIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), maxIt));
-
-    double currentMin = yAxis[startIdx];
-    double currentMax = yAxis[startIdx];
-    for (std::size_t i = startIdx; i < endIdx; ++i) {
-        currentMin = std::min(currentMin, yAxis[i]);
-        currentMax = std::max(currentMax, yAxis[i]);
-    }
-    if (std::abs(currentMax - currentMin) < 1e-3) {
-        const double span = std::max(1.0, std::abs(currentMax));
-        currentMin -= span * 0.5;
-        currentMax += span * 0.5;
-    }
-    const double pad = (currentMax - currentMin) * 0.1;
-    const double yMin = currentMin - pad;
-    const double yMax = currentMax + pad;
-
-    if (state.followLatest) {
-        ImPlot::SetNextAxisLimits(ImAxis_X1, liveWindowStart, latestTime, ImPlotCond_Always);
-    }
-    ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
-
-    std::string plotLabel = std::string(name) + "##dynamicInlinePlot";
-    if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-FLT_MIN, 200.0f), ImPlotFlags_NoLegend)) {
-        ImPlot::SetNextLineStyle({1.0, 1.0, 1.0, 1.0});
-        const RenderSlice slice = makeRenderSlice(startIdx, endIdx);
-        if (slice.count > 1) {
-            ImPlot::PlotLine(name, xAxis.data() + slice.start, yAxis.data() + slice.start,
-                             slice.count, 0, 0, static_cast<int>(sizeof(double) * slice.step));
-        }
-
-        const ImGuiIO& io = ImGui::GetIO();
-        const bool isNavigating =
-            ImPlot::IsPlotHovered() &&
-            (ImGui::IsMouseDragging(ImGuiMouseButton_Left) ||
-             ImGui::IsMouseDragging(ImGuiMouseButton_Right) ||
-             ImGui::IsMouseDragging(ImGuiMouseButton_Middle) ||
-             io.MouseWheel != 0.0f ||
-             io.MouseWheelH != 0.0f);
-        const bool recenterToLive =
-            ImPlot::IsPlotHovered() &&
-            io.KeyCtrl &&
-            ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-        if (recenterToLive) {
-            state.followLatest = true;
-            state.hasView = false;
-        }
-        if (isNavigating) {
-            state.followLatest = false;
-        }
-
-        const ImPlotRect limits = ImPlot::GetPlotLimits(ImAxis_X1, ImAxis_Y1);
-        state.xMin = limits.X.Min;
-        state.xMax = limits.X.Max;
-        state.hasView = true;
-
-        ImPlot::EndPlot();
-    }
 }
 
 void UI::fpsWindow(){
@@ -1804,6 +1790,112 @@ void UI::fpsWindow(){
     }
     ImGui::End();
     ImGui::PopStyleColor(4);
+}
+
+void UI::terminal() {
+    const ImGuiIO& io = ImGui::GetIO();
+    bool terminalHotkeyPressed =
+        ImGui::IsKeyPressed(ImGuiKey_GraveAccent) ||
+        hasInputChar('~');
+
+    if (terminalHotkeyPressed && !io.KeyCtrl && !io.KeyAlt && !io.KeySuper) {
+        showImGuiTerminalDemo = !showImGuiTerminalDemo;
+    }
+
+    if (showImGuiTerminalDemo) {
+        console.Draw("console", &terminalHotkeyPressed);
+    }
+}
+
+void UI::nodeEditorDemo() {
+    if (nodeEditorContext == nullptr) {
+        return;
+    }
+
+    namespace ed = ax::NodeEditor;
+    struct DemoLink {
+        ed::LinkId id;
+        ed::PinId inputId;
+        ed::PinId outputId;
+    };
+
+    static std::vector<DemoLink> links;
+    static int nextLinkId = 100;
+
+    ed::SetCurrentEditor(nodeEditorContext);
+    ed::Begin("Node Editor Demo");
+
+    const ed::NodeId nodeAId = 1;
+    const ed::PinId nodeAInputId = 2;
+    const ed::PinId nodeAOutputId = 3;
+
+    const ed::NodeId nodeBId = 4;
+    const ed::PinId nodeBInput1Id = 5;
+    const ed::PinId nodeBInput2Id = 6;
+    const ed::PinId nodeBOutputId = 7;
+
+    if (nodeEditorFirstFrame) {
+        ed::SetNodePosition(nodeAId, ImVec2(20.0f, 20.0f));
+        ed::SetNodePosition(nodeBId, ImVec2(260.0f, 80.0f));
+    }
+
+    ed::BeginNode(nodeAId);
+    ImGui::Text("Node A");
+    ed::BeginPin(nodeAInputId, ed::PinKind::Input);
+    ImGui::Text("-> In");
+    ed::EndPin();
+    ImGui::SameLine();
+    ed::BeginPin(nodeAOutputId, ed::PinKind::Output);
+    ImGui::Text("Out ->");
+    ed::EndPin();
+    ed::EndNode();
+
+    ed::BeginNode(nodeBId);
+    ImGui::Text("Node B");
+    ed::BeginPin(nodeBInput1Id, ed::PinKind::Input);
+    ImGui::Text("-> In1");
+    ed::EndPin();
+    ed::BeginPin(nodeBInput2Id, ed::PinKind::Input);
+    ImGui::Text("-> In2");
+    ed::EndPin();
+    ed::BeginPin(nodeBOutputId, ed::PinKind::Output);
+    ImGui::Text("Out ->");
+    ed::EndPin();
+    ed::EndNode();
+
+    for (const DemoLink& link : links) {
+        ed::Link(link.id, link.inputId, link.outputId);
+    }
+
+    if (ed::BeginCreate()) {
+        ed::PinId inputPinId;
+        ed::PinId outputPinId;
+        if (ed::QueryNewLink(&inputPinId, &outputPinId) && inputPinId && outputPinId) {
+            if (ed::AcceptNewItem()) {
+                links.push_back({ed::LinkId(nextLinkId++), inputPinId, outputPinId});
+            }
+        }
+    }
+    ed::EndCreate();
+
+    if (ed::BeginDelete()) {
+        ed::LinkId deletedLinkId;
+        while (ed::QueryDeletedLink(&deletedLinkId)) {
+            if (ed::AcceptDeletedItem()) {
+                links.erase(std::remove_if(links.begin(), links.end(),
+                           [&](const DemoLink& link) { return link.id == deletedLinkId; }),
+                           links.end());
+            }
+        }
+    }
+    ed::EndDelete();
+
+    ed::End();
+    if (nodeEditorFirstFrame) {
+        ed::NavigateToContent(0.0f);
+        nodeEditorFirstFrame = false;
+    }
+    ed::SetCurrentEditor(nullptr);
 }
 
 void UI::signalSearch(){
@@ -1890,7 +1982,7 @@ void UI::signalSearch(){
     ImGui::PopStyleColor(2);
     }
     bool popupFocused = false;
-    if(cmdShowPopup){ popupFocused = popupWindow(); } // this is what you are looking for
+    if(cmdShowPopup){ popupFocused = signalSearchPopup(); } // this is what you are looking for
     if(hidePrompt){ cmdOpen = false; }
     if(!windowFocused && !inputActive && !popupFocused && !justOpened){
         cmdOpen = false;
@@ -1898,22 +1990,7 @@ void UI::signalSearch(){
     }
 }
 
-void UI::terminal() {
-    const ImGuiIO& io = ImGui::GetIO();
-    bool terminalHotkeyPressed =
-        ImGui::IsKeyPressed(ImGuiKey_GraveAccent) ||
-        hasInputChar('~');
-
-    if (terminalHotkeyPressed && !io.KeyCtrl && !io.KeyAlt && !io.KeySuper) {
-        showImGuiTerminalDemo = !showImGuiTerminalDemo;
-    }
-
-    if (showImGuiTerminalDemo) {
-        console.Draw("console", &terminalHotkeyPressed);
-    }
-}
-
-bool UI::popupWindow(){
+bool UI::signalSearchPopup(){
     ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | 
                              ImGuiWindowFlags_NoSavedSettings  | 
                              ImGuiWindowFlags_NoTitleBar | 
@@ -1928,7 +2005,7 @@ bool UI::popupWindow(){
     bool childFocused = false;
     static int selected = 0;
     static ImVec2 popupWindowSize(360.0f, 420.0f);
-    static ImVec2 popupWideSize(900.0f, 330.0f);
+    static ImVec2 signalSearchPlotSize(900.0f, 330.0f);
     ImGuiViewport* vp = ImGui::GetMainViewport();
     if (!vp) {
         ImGui::PopStyleColor(2);
@@ -1944,7 +2021,7 @@ bool UI::popupWindow(){
         return ImVec2(std::clamp(pos.x, minX, std::max(minX, maxX)),
                       std::clamp(pos.y, minY, std::max(minY, maxY)));
     };
-    const float totalWidth = popupWindowSize.x + gap + popupWideSize.x;
+    const float totalWidth = popupWindowSize.x + gap + signalSearchPlotSize.x;
     ImVec2 popupWindowPos(center.x - totalWidth * 0.5f, center.y - popupWindowSize.y * 0.5f);
     popupWindowPos = clampPos(popupWindowPos, popupWindowSize);
     ImGui::SetNextWindowPos(popupWindowPos, ImGuiCond_Always);
@@ -1978,12 +2055,12 @@ bool UI::popupWindow(){
                     if (ImGui::IsItemFocused()) selected = static_cast<int>(idx);
                     if (isSelected){
                         ImGui::SetItemDefaultFocus();
-                        const float groupWidth = popupWindowSize.x + gap + popupWideSize.x;
+                        const float groupWidth = popupWindowSize.x + gap + signalSearchPlotSize.x;
                         ImVec2 groupOrigin(center.x - groupWidth * 0.5f, center.y);
-                        ImVec2 popupWidePos(groupOrigin.x + popupWindowSize.x + gap,
-                                            center.y - popupWideSize.y * 0.5f);
-                        popupWidePos = clampPos(popupWidePos, popupWideSize);
-                        childFocused = popupWide(msg.signals[idx], msg.time, popupWidePos, &popupWideSize);
+                        ImVec2 signalSearchPlotPos(groupOrigin.x + popupWindowSize.x + gap,
+                                            center.y - signalSearchPlotSize.y * 0.5f);
+                        signalSearchPlotPos = clampPos(signalSearchPlotPos, signalSearchPlotSize);
+                        childFocused = signalSearchPlot(msg.signals[idx], msg.time, signalSearchPlotPos, &signalSearchPlotSize);
                     }
                 }
             ImGui::EndListBox();
@@ -1994,7 +2071,7 @@ bool UI::popupWindow(){
     return (focused || childFocused);
 }
 
-bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize){
+bool UI::signalSearchPlot(const CanSignal& sig, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize){
     bool focused = false;
     ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | 
                              ImGuiWindowFlags_NoSavedSettings  | 
@@ -2043,6 +2120,45 @@ bool UI::popupWide(const CanSignal& sig, const std::vector<double>& time, ImVec2
     ImGui::End();
     ImGui::PopStyleColor(2);
     return focused;
+}
+
+void UI::genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name){
+    if (xAxis.size() < 2 || yAxis.size() != xAxis.size()) { return; }
+    constexpr double maxTime = 5.0;
+    const double windowStart = std::max(0.0, xAxis.back() - maxTime);
+    auto startIt = std::lower_bound(xAxis.begin(), xAxis.end(), windowStart);
+    const std::size_t startIdx = static_cast<std::size_t>(std::distance(xAxis.begin(), startIt));
+
+    if (startIdx >= xAxis.size()) { return; }
+
+    double currentMin = yAxis[startIdx];
+    double currentMax = yAxis[startIdx];
+    for (std::size_t i = startIdx; i < yAxis.size(); ++i) {
+        currentMin = std::min(currentMin, yAxis[i]);
+        currentMax = std::max(currentMax, yAxis[i]);
+    }
+    if (std::abs(currentMax - currentMin) < 1e-3) {
+        double span = std::max(1.0, std::abs(currentMax));
+        currentMin -= span * 0.5;
+        currentMax += span * 0.5;
+    }
+    double pad = (currentMax - currentMin) * 0.1;
+    double yMin = currentMin - pad;
+    double yMax = currentMax + pad;
+
+    ImPlot::SetNextAxisLimits(ImAxis_X1, windowStart, xAxis.back(), ImPlotCond_Always);
+    ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
+    std::string plotLabel = std::string(name) + "##inlinePlot";
+
+    if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-FLT_MIN, 200.0f), ImPlotFlags_NoLegend)) {
+        const RenderSlice slice = makeRenderSlice(startIdx, xAxis.size());
+        const double* xData = xAxis.data() + slice.start;
+        const double* yData = yAxis.data() + slice.start;
+        const int count = slice.count;
+        ImPlot::SetNextLineStyle({1.0, 1.0, 1.0, 1.0});
+        ImPlot::PlotLine(name, xData, yData, count, 0, 0, static_cast<int>(sizeof(double) * slice.step));
+        ImPlot::EndPlot();
+    }
 }
 
 int levenshtein(const std::string& a, const std::string& b) {
@@ -2167,7 +2283,7 @@ void UI::objWindow(VulkanObj& obj, std::string name){
     } ImGui::End();
 }
 
-void UI::showVideoDisplay(){
+void UI::videoWindow(){
     if (!videoSource.texture) { return; }
     if (ImGui::Begin("Custom Image", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImVec2 size = ImVec2(videoSource.textureSize.width, videoSource.textureSize.height);
@@ -2210,111 +2326,7 @@ void UI::background(){
     ImVec2 min = viewport->Pos;
     ImVec2 max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
     drawList->AddImage(this->backgroundShader.texture, min, max);
-    //static float alpha = 80;
-    //drawList->AddRectFilled(min, max, IM_COL32(0,0,0,alpha));
 }
-
-/*
-void UI::setStyle(){
-    ImGuiStyle &UIstyle = ImGui::GetStyle();
-    ImVec4* colors = UIstyle.Colors;
-
-    UIstyle.WindowRounding = 1.0f;
-    UIstyle.ChildRounding = 12.0f;
-    UIstyle.TabRounding = 0.0f;
-    UIstyle.PopupRounding = 12.0f;
-    UIstyle.PopupBorderSize = UIstyle.WindowBorderSize;
-    UIstyle.PopupRounding = UIstyle.WindowRounding;
-
-    colors[ImGuiCol_WindowBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.5f); 
-    colors[ImGuiCol_ChildBg] =
-        ImVec4(0.0f, 0.0f, 0.0f, 0.5f);
-    colors[ImGuiCol_PopupBg] = 
-        ImVec4(0.02f, 0.02f, 0.02f, 0.95f);
-
-    // Borders and separators
-    colors[ImGuiCol_Border] =
-        ImVec4(0.2f, 0.2f, 0.2f, 1.0f); 
-    colors[ImGuiCol_Separator] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-
-    // Text colors
-    colors[ImGuiCol_Text] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); 
-    colors[ImGuiCol_TextDisabled] =
-        ImVec4(0.5f, 0.5f, 0.5f, 1.0f); 
-
-    // Headers and title
-    colors[ImGuiCol_Header] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f); 
-    colors[ImGuiCol_HeaderHovered] =
-        ImVec4(0.25f, 0.25f, 0.25f, 1.0f); 
-    colors[ImGuiCol_HeaderActive] =
-        ImVec4(0.3f, 0.3f, 0.3f, 1.0f); 
-
-    colors[ImGuiCol_TitleBg] = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
-    colors[ImGuiCol_TitleBgActive] = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
-    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.0f, 0.0f, 0.0f, 0.7f);
-
-    // Buttons
-    colors[ImGuiCol_Button] = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-
-    // Sliders, checks, etc.
-    colors[ImGuiCol_SliderGrab] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-
-    colors[ImGuiCol_CheckMark] =
-        ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-
-    // Frame backgrounds
-    colors[ImGuiCol_FrameBg] = ImVec4(0.16f, 0.16f, 0.16f, 1.0f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.24f, 0.24f, 0.95f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.32f, 0.32f, 0.32f, 0.95f);
-
-    // Tabs
-    colors[ImGuiCol_Tab] = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
-    colors[ImGuiCol_TabHovered] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    colors[ImGuiCol_TabActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    colors[ImGuiCol_TabSelectedOverline] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    colors[ImGuiCol_TabUnfocused] = ImVec4(0.1f, 0.1f, 0.1f, 0.8f);
-    colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.2f, 0.2f, 0.2f, 0.8f);
-
-    // Resize grips
-    colors[ImGuiCol_ResizeGrip] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
-    colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.3f, 0.3f, 0.3f, 0.5f);
-    colors[ImGuiCol_ResizeGripActive] = ImVec4(0.4f, 0.4f, 0.4f, 0.7f);
-
-    // Scrollbar
-    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.5f);
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.2f, 0.2f, 0.2f, 0.7f);
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.3f, 0.3f, 0.3f, 0.8f);
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-
-    // Misc
-    colors[ImGuiCol_PlotLines] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-    colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    colors[ImGuiCol_PlotHistogram] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
-
-    colors[ImGuiCol_DragDropTarget] = ImVec4(1.0f, 1.0f, 1.0f, 0.9f);
-    colors[ImGuiCol_NavHighlight] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-
-    // Transparency handling
-    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.5f);
-
-    colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-
-    UIstyle.ScaleAllSizes(1.0f);
-    ImPlotStyle &plotStyle = ImPlot::GetStyle();
-    // Transparent plot backgrounds.
-    plotStyle.Colors[ImPlotCol_FrameBg] = ImVec4(0, 0, 0, 0.0f);
-    plotStyle.Colors[ImPlotCol_PlotBg] = ImVec4(0, 0, 0, 0.85f);
-    plotStyle.Colors[ImPlotCol_PlotBorder] = ImVec4(0, 0, 0, 0.0f);
-    plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(0, 0, 0, 0.0f);
-    plotStyle.Colors[ImPlotCol_LegendBorder] = ImVec4(0, 0, 0, 0.0f);
-}
-*/
 
 void UI::setStyle(){
     ImGuiStyle &style = ImGui::GetStyle();

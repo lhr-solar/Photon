@@ -38,13 +38,6 @@ public:
 
     std::mutex sampleMapMutex;
     std::unordered_map<uint16_t, std::unique_ptr<sample>> sampleMap;
-    enum {
-        TCP     = 0,
-        UDP     = 1,
-        SERIAL  = 2,
-        LOCAL   = 3,
-        CORSA   = 4,
-    } backend = CORSA;
     CanStore canStore {};
     std::string currentDBC = {};
     std::atomic<bool> running {true};

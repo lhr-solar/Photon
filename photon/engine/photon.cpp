@@ -65,10 +65,8 @@ void Photon::initThreads(){
     parse.canStore.loadStateFromHeader(assettoCorsa_dbc, assettoCorsa_dbc_size);
     parse.currentDBC = "assettoCorsa";
 
-    std::thread ac_t(&Network::corsaReader, &network);
-    ac_t.detach();
-    std::thread acp_t(&Parse::acParser, &parse, std::ref(network.corsaQueue));
-    acp_t.detach();
+    network.currentSource_t = std::thread(&Network::corsaReader, &network);
+    network.currentParser_t = std::thread(&Parse::acParser, &parse, std::ref(network.corsaQueue));
 }
 
 void Photon::renderLoop(){
@@ -127,20 +125,57 @@ void Photon::prepareFrame(){
 }
 
 void Photon::manageNetwork(){
-    // check ui.currentDBC
-    // check ui.currentProtocol
-    //gui.ui.currentDBC;
-    //parse.backend;
     if(gui.ui.currentDBC != parse.currentDBC){
         std::cout << "does not match!" << std::endl;
         if(gui.ui.currentDBC == "assettoCorsa"){
+            parse.canStore = {};
             parse.canStore.loadStateFromHeader(assettoCorsa_dbc, assettoCorsa_dbc_size);
             parse.currentDBC = "assettoCorsa";
         }
         if(gui.ui.currentDBC == "daybreak"){
+            parse.canStore = {};
             parse.canStore.loadStateFromHeader(daybreak_master_dbc, daybreak_master_dbc_size);
             parse.currentDBC = "daybreak";
         }
+    }
+    if(network.currentBackend != gui.ui.currentNetwork){
+        network.running = false;
+        parse.running = false;
+        network.currentParser_t.join();
+        network.currentSource_t.join();
+
+        network.currentBackend = gui.ui.currentNetwork;
+        network.running = true;
+        parse.running = true;
+
+        if(gui.ui.currentNetwork == "TCP"){
+            network.currentSource_t = std::thread(&Network::tcpReader, &network);
+            network.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.tcpQueue));
+        }
+        if(gui.ui.currentNetwork == "Serial"){
+            network.currentSource_t = std::thread(&Network::serialReader, &network);
+            network.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
+        }
+        if(gui.ui.currentNetwork == "Assetto Corsa"){
+            network.currentSource_t = std::thread(&Network::corsaReader, &network);
+            network.currentParser_t = std::thread(&Parse::acParser, &parse, std::ref(network.corsaQueue));
+        }
+    }
+    if(gui.ui.rebuildSerial){
+        network.running = false;
+        parse.running = false;
+        network.currentParser_t.join();
+        network.currentSource_t.join();
+        network.running = true;
+        parse.running = true;
+
+        network.baudRate = gui.ui.baudRate;
+        network.serialPort = gui.ui.serialPort;
+
+        network.currentSource_t = std::thread(&Network::serialReader, &network);
+        network.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
+
+        gui.ui.rebuildSerial = false;
     }
 }
 

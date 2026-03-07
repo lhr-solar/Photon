@@ -213,7 +213,7 @@ void Parse::parser(SPSCQueue<uint8_t>& queue){
             if (ch == '\n') { continue; }
             frame.push_back(ch);
 
-        } else { std::this_thread::yield(); }
+        }
     }
 };
 

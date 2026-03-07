@@ -15,6 +15,10 @@
 #include "console.hpp"
 #include "plot.hpp"
 
+namespace ax::NodeEditor {
+struct EditorContext;
+}
+
 struct UI{
     Parse *parseINTF;
     int fontSize = 24;
@@ -43,6 +47,8 @@ struct UI{
     int cmdSelected = -1;
     bool cmdShowPopup = false;
     bool showImGuiTerminalDemo = false;
+    ax::NodeEditor::EditorContext* nodeEditorContext = nullptr;
+    bool nodeEditorFirstFrame = true;
 
     VulkanShader accretionShader;
     VulkanShader backgroundShader;
@@ -63,13 +69,45 @@ struct UI{
             "assettoCorsa",
             "daybreak",
     };
-    enum {
-        TCP     = 0,
-        UDP     = 1,
-        SERIAL  = 2,
-        LOCAL   = 3,
-        CORSA   = 4,
-    } backend = CORSA;
+
+    std::string currentNetwork = "Assetto Corsa";
+    std::vector<const char*> availableNetwork ={
+        "TCP",
+        "Serial",
+        "Assetto Corsa",
+    };
+    std::string baudRate = "9600";
+    std::vector<const char*> baudRates = {
+        "600",
+        "1200",
+        "1800",
+        "2400",
+        "4800",
+        "9600",
+        "19200",
+        "38400U",
+    };
+    std::string serialPort =
+#ifdef _WIN32
+        "COM1";
+#else
+        "/dev/ttyUSB0";
+#endif
+    std::vector<std::string> discoveredSerialPorts = {
+#ifdef _WIN32
+        "COM1",
+#else
+        "/dev/ttyUSB0",
+#endif
+    };
+    std::vector<const char*> ports = {
+#ifdef _WIN32
+        "COM1",
+#else
+        "/dev/ttyUSB0",
+#endif
+    };
+    bool rebuildSerial = false;
 
     void setStyle();
     void setScale();
@@ -77,9 +115,10 @@ struct UI{
     void fpsWindow();
     void signalSearch();
     void terminal();
+    void nodeEditorDemo();
     void basePlate();
     void background();
-    void showVideoDisplay();
+    void videoWindow();
     void procedural(std::vector<Plot*> plots);
     void defaultWindow(std::string name);
     void orderedWindows(void(*functionArray[])(std::vector<std::vector<double>>&, int, const char*, const char*), size_t count);
@@ -88,13 +127,15 @@ struct UI{
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
     void genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
-    void dynamicInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
     void tempWork();
     void search();
     void installPersistentSettings();
-    bool popupWindow();
+    bool signalSearchPopup();
     void bottomBar();
-    bool popupWide(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
+    void home();
+    void networkUI();
+    void refreshSerialPorts();
+    bool signalSearchPlot(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
 };
 
 int distance(std::string a, std::string b);

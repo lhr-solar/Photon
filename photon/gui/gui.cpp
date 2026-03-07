@@ -12,6 +12,7 @@
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
+#include "imgui_node_editor.h"
 #include "../engine/include.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanBuffer.hpp"
@@ -68,6 +69,10 @@ Gui::~Gui(){
         }
     }
     ImGui::SaveIniSettingsToDisk("config.ini");
+    if (ui.nodeEditorContext != nullptr) {
+        ax::NodeEditor::DestroyEditor(ui.nodeEditorContext);
+        ui.nodeEditorContext = nullptr;
+    }
     ImGui::DestroyContext();
     ImPlot::DestroyContext();
     ImPlot3D::DestroyContext();
@@ -89,6 +94,9 @@ void Gui::prepareImGui(){
     ImGui::CreateContext();
     ImPlot::CreateContext();
     ImPlot3D::CreateContext();
+    ax::NodeEditor::Config nodeEditorConfig;
+    nodeEditorConfig.SettingsFile = nullptr;
+    ui.nodeEditorContext = ax::NodeEditor::CreateEditor(&nodeEditorConfig);
     logs("[+] Created ImX context!");
 
     ImGuiIO &io = ImGui::GetIO();
