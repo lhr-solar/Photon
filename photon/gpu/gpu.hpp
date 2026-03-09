@@ -46,30 +46,18 @@ public:
     VkDescriptorSet descriptorSet;
     VkDescriptorPool descriptorPool { VK_NULL_HANDLE };
 
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
-
     VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo {};
     uint32_t currentBuffer = 0;
+
     std::vector<VkFence> waitFences;
     struct {
 		VkSemaphore presentComplete;
 		VkSemaphore renderComplete;
 	} semaphores;
 
-    Camera camera;
     float frameTime = 1.0;
-    uint64_t frameCounter = 0;
     uint32_t frameIndex = 0;
-    const double targetFrameTime = 1000.0 / 300.0; // e.g. if you want 60 FPS → ~16.67ms per frame
-    float timerSpeed = 0.25f;
-    struct UBOVS{
-        glm::mat4 projection;
-        glm::mat4 modelView;
-        glm::vec4 lightPos;
-    } uboVS;
-    VulkanBuffer uniformBufferVS;
 
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
@@ -88,6 +76,7 @@ public:
     void preparePipelines(VkDevice device);
     static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, 
             VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
+    void cleanup();
 
 /* end of gpu class */
 };

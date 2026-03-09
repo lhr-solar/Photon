@@ -12,7 +12,7 @@
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
-#include "imgui_node_editor.h"
+#include "imnodes.h"
 #include "../engine/include.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanBuffer.hpp"
@@ -69,13 +69,10 @@ Gui::~Gui(){
         }
     }
     ImGui::SaveIniSettingsToDisk("config.ini");
-    if (ui.nodeEditorContext != nullptr) {
-        ax::NodeEditor::DestroyEditor(ui.nodeEditorContext);
-        ui.nodeEditorContext = nullptr;
-    }
-    ImGui::DestroyContext();
-    ImPlot::DestroyContext();
+    ImNodes::DestroyContext();
     ImPlot3D::DestroyContext();
+    ImPlot::DestroyContext();
+    ImGui::DestroyContext();
 };
 
 #ifdef XCB
@@ -94,9 +91,7 @@ void Gui::prepareImGui(){
     ImGui::CreateContext();
     ImPlot::CreateContext();
     ImPlot3D::CreateContext();
-    ax::NodeEditor::Config nodeEditorConfig;
-    nodeEditorConfig.SettingsFile = nullptr;
-    ui.nodeEditorContext = ax::NodeEditor::CreateEditor(&nodeEditorConfig);
+    ImNodes::CreateContext();
     logs("[+] Created ImX context!");
 
     ImGuiIO &io = ImGui::GetIO();
@@ -446,32 +441,16 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
-    //ui.videoSource.updateVideoFeed(vulkanDevice);
     ui.build();
     if (ui.fontSizeDirty) {
         refreshFontResources(vulkanDevice, descriptorSet);
         ui.fontSizeDirty = false;
     }
-
     if (ui.backgroundShader.dirty) {
         ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, descriptorPool, 
                 descriptorSetLayout);
         ui.backgroundShader.dirty = false;
     }
-    //if (ui.accretionShader.dirty) {
-        //ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, descriptorPool, 
-                //descriptorSetLayout);
-        //ui.accretionShader.dirty = false;
-    //}
-    //if (ui.triangle.dirty) {
-      //  ui.triangle.createResources(vulkanDevice, ui.triangle.extent, descriptorPool, 
-       //         descriptorSetLayout);
-     //   ui.triangle.dirty = false;
-    //}
-    //if(ui.viking.dirty){
-        //ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);
-        //ui.viking.dirty = false;
-    //}
 
     updateBuffers(vulkanDevice);
 
@@ -481,9 +460,6 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
         renderPassBeginInfo.framebuffer = frameBuffers[i];
         VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
         ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
-        //ui.accretionShader.recordShaderPass(drawCmdBuffers[i]);
-        //ui.triangle.recordShaderPass(drawCmdBuffers[i]);
-        //ui.viking.recordRenderPass(drawCmdBuffers[i]);
         vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         VkViewport viewport {};
         viewport.width = width;

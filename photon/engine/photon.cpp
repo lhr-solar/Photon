@@ -8,26 +8,15 @@
 #include "../gui/gui.hpp"
 #include "imgui.h"
 #include "assettoCorsa_dbc.hpp"
-#include "bps_dbc.hpp"
-#include "contactor_dbc.hpp"
-#include "controls_dbc.hpp"
-#include "daq_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
-#include "mppt_dbc.hpp"
-#include "prohelion_wavesculptor22_dbc.hpp"
-
-static_assert(assettoCorsa_dbc_size > 0, "Embedded DBC header generation failed");
 
 Photon::Photon(){ 
     logs("[+] Constructing Photon"); 
-    gui.ui.parseINTF = &parse;
+    gui.ui.parseInterface = &parse;
 };
 Photon::~Photon(){ 
     logs("[!] Destructuring Photon");
-    gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
-    if(gpu.descriptorPool != VK_NULL_HANDLE)
-        vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gpu.descriptorPool, nullptr);
-
+    gpu.cleanup();
 };
 
 void Photon::prepareScene(){
@@ -55,13 +44,6 @@ void Photon::prepareScene(){
 };
 
 void Photon::initThreads(){
-    //parse.canStore.loadStateFromHeader(daybreak_master_dbc, daybreak_master_dbc_size);
-    //std::thread tcp_t(&Network::tcpReader, &network);
-    //tcp_t.detach();
-    //std::thread parser_t(&Parse::parser, &parse, std::ref(network.tcpQueue));
-    //parser_t.detach();
-
-    // this should be controlled by ui.current
     parse.canStore.loadStateFromHeader(assettoCorsa_dbc, assettoCorsa_dbc_size);
     parse.currentDBC = "assettoCorsa";
 
@@ -87,7 +69,7 @@ void Photon::renderLoop(){
 				break;
 			}
 		}
-        if (prepared && !IsIconic(gui.window)) { renderFrame(); }
+        if (prepared && !IsIconic(gui.window)) { startFrame(); }
 	}
 #endif
 #ifdef XCB
@@ -98,30 +80,36 @@ void Photon::renderLoop(){
         while((event = xcb_poll_for_event(gui.connection))){
             gui.handleEvent(event); free(event);
         }
-        renderFrame();
+        startFrame();
     }
 #endif
     vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
 }
 
-void Photon::renderFrame(){
+void Photon::startFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
-    prepareFrame();
+    executeFrame();
     auto tEnd = std::chrono::high_resolution_clock::now();
     gpu.frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-    gpu.frameCounter++;
-    if(gpu.frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - gpu.frameTime))); gpu.frameTime = gpu.targetFrameTime;}
     gpu.frameTime /= 1000.0f;
 }
 
-void Photon::prepareFrame(){
-    if(!prepared) return;
-    //gpu.camera.update(gpu.frameTime); 
-    //gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
+void Photon::executeFrame(){
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)gui.width, (float)gui.height);
     io.DeltaTime = gpu.frameTime;
-    executeFrame();
+    manageNetwork();
+    getFrame();
+    if(!prepared) return;
+
+    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
+            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
+
+    gpu.submitInfo.commandBufferCount = 1;
+    gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
+    VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
+
+    pushFrame();
 }
 
 void Photon::manageNetwork(){
@@ -179,24 +167,7 @@ void Photon::manageNetwork(){
     }
 }
 
-void Photon::executeFrame(){
-    manageNetwork();
-    getFrame();
-    if (!prepared) { return; }
-
-    //for (auto& [id, msg] : gui.ui.parseINTF->canStore.canMessages) msg.updateMessage(gui.ui.parseINTF); // consider moving out of ui.build()
-    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
-            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
-
-    gpu.submitInfo.commandBufferCount = 1;
-    gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
-    VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
-
-    submitFrame();
-}
-
 void Photon::getFrame(){
-    // Acquire the next image from the swap chain
 	VkResult result = gpu.vulkanSwapchain.acquireNextImage(gpu.vulkanDevice.logicalDevice, gpu.semaphores.presentComplete, &gpu.currentBuffer);
 	if (result == VK_ERROR_SURFACE_LOST_KHR) {
         logs("[!] Swap chain surface lost; resetting render loop");
@@ -209,7 +180,7 @@ void Photon::getFrame(){
 	} else { VK_CHECK(result);}
 }
 
-void Photon::submitFrame(){
+void Photon::pushFrame(){
     VkResult result = gpu.vulkanSwapchain.queuePresent(gpu.vulkanDevice.graphicsQueue, gpu.currentBuffer, gpu.semaphores.renderComplete);
     if (result == VK_ERROR_SURFACE_LOST_KHR) {
         logs("[!] Swap chain surface lost during present; resetting rendering loop");
@@ -260,7 +231,6 @@ void Photon::windowResize(){
     for (auto& fence : gpu.waitFences) { vkDestroyFence(gpu.vulkanDevice.logicalDevice, fence, nullptr); }
     gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.drawCmdBuffers);
     vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
-    if ((gui.width > 0.0f) && (gui.height > 0.0f)) { gpu.camera.updateAspectRatio((float)gui.width / (float)gui.height); }
     gui.resized = true;
     prepared = true;
 }

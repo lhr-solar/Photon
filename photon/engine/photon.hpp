@@ -29,11 +29,10 @@ public:
     void prepareScene();
     void initThreads();
     void renderLoop();
-    void renderFrame();
-    void prepareFrame();
+    void startFrame();
     void executeFrame();
     void getFrame();
-    void submitFrame();
+    void pushFrame();
     void windowResize();
     void manageNetwork();
 /*end of photon class*/

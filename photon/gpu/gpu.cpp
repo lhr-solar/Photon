@@ -24,11 +24,6 @@ bool Gpu::initVulkan(){
     if(result != VK_SUCCESS)
         fatal("[!] Failed to setup GPU", result);
 
-    VkBool32 validFormat {false};
-    validFormat = getSupportedDepthFormat(vulkanDevice.physicalDevice, &depthFormat);
-    logs("[+] Using Depth Format : " << depthFormat);
-    assert(validFormat);
-
     return true;
 }
 
@@ -122,13 +117,11 @@ VkResult Gpu::setupVulkanDevice(){
     VkPhysicalDevice physicalDevice = physicalDevices[selectedDevice];
     vulkanDevice.initDevice(physicalDevice);
 
-    // TODO if we want to run headless, add interfaces for these, also consider your queues and extensions
-    requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT; 
-    // TODO if we want a dedicated transfer queue + better queue selection, improve the queue selection in the following
     VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, requestedQueueTypes));
 
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.graphics, 0, &vulkanDevice.graphicsQueue);
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.compute, 1, &vulkanDevice.computeQueue);
+    getSupportedDepthFormat(vulkanDevice.physicalDevice, &depthFormat);
     return VK_SUCCESS;
 }
 
@@ -229,7 +222,6 @@ void Gpu::setupDepthStencil(uint32_t width, uint32_t height){
 	imageViewCI.subresourceRange.baseArrayLayer = 0;
 	imageViewCI.subresourceRange.layerCount = 1;
 	imageViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-	// Stencil aspect should only be set on depth + stencil formats (VK_FORMAT_D16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8_UINT
 	if (depthFormat >= VK_FORMAT_D16_UNORM_S8_UINT) {
 		imageViewCI.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	}
@@ -332,28 +324,9 @@ void Gpu::setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapCha
 }
 
 void Gpu::prepareUniformBuffers(){
-    // Vertex shader uniform buffer block
-    VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-        &uniformBufferVS, sizeof(uboVS), &uboVS));
 }
 
 void Gpu::updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed){
-    // TODO: think about this _./~\._
-    // Vertex shader
-    uboVS.projection = camera.matrices.perspective;
-    uboVS.modelView  = camera.matrices.view * glm::mat4(1.0f);
-    // Light source
-    if (animateLight) {
-      lightTimer += frameTime * lightSpeed;
-      uboVS.lightPos.x =
-          sin(glm::radians(lightTimer * 360.0f)) * 15.0f;
-      uboVS.lightPos.z =
-          cos(glm::radians(lightTimer * 360.0f)) * 15.0f;
-    };
-    VK_CHECK(uniformBufferVS.map(VK_WHOLE_SIZE, 0));
-    memcpy(uniformBufferVS.mapped, &uboVS, sizeof(uboVS));
-    uniformBufferVS.unmap();
 }
 
 // TODO: make this modular
@@ -468,4 +441,10 @@ void Gpu::setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayou
     }
 
     vkCmdPipelineBarrier( cmdbuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+}
+
+void Gpu::cleanup(){
+    vulkanSwapchain.cleanup(instance, vulkanDevice.logicalDevice);
+    if(descriptorPool != VK_NULL_HANDLE)
+        vkDestroyDescriptorPool(vulkanDevice.logicalDevice, descriptorPool, nullptr);
 }

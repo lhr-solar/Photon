@@ -15,12 +15,8 @@
 #include "console.hpp"
 #include "plot.hpp"
 
-namespace ax::NodeEditor {
-struct EditorContext;
-}
-
 struct UI{
-    Parse *parseINTF;
+    Parse *parseInterface;
     int fontSize = 24;
     int fontSizeMin = 8;
     int fontSizeMax = 96;
@@ -47,8 +43,6 @@ struct UI{
     int cmdSelected = -1;
     bool cmdShowPopup = false;
     bool showImGuiTerminalDemo = false;
-    ax::NodeEditor::EditorContext* nodeEditorContext = nullptr;
-    bool nodeEditorFirstFrame = true;
 
     VulkanShader accretionShader;
     VulkanShader backgroundShader;
@@ -115,7 +109,6 @@ struct UI{
     void fpsWindow();
     void signalSearch();
     void terminal();
-    void nodeEditorDemo();
     void basePlate();
     void background();
     void videoWindow();

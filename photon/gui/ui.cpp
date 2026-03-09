@@ -20,7 +20,7 @@
 #include "imgui_internal.h"
 #include "implot.h"
 #include "implot3d.h"
-#include "imgui_node_editor.h"
+#include "imnodes.h"
 
 namespace {
 struct PlotDataSourceRef {
@@ -334,12 +334,12 @@ void resetGeneratorSourcesForType(PlotGeneratorState& state) {
     }
 }
 
-std::vector<SignalOption> collectSignalOptions(Parse* parseINTF) {
+std::vector<SignalOption> collectSignalOptions(Parse* parseInterface) {
     std::vector<SignalOption> options;
-    if (!parseINTF) { return options; }
-    options.reserve(parseINTF->canStore.canMessages.size() * 8);
+    if (!parseInterface) { return options; }
+    options.reserve(parseInterface->canStore.canMessages.size() * 8);
 
-    for (const auto& [canId, msg] : parseINTF->canStore.canMessages) {
+    for (const auto& [canId, msg] : parseInterface->canStore.canMessages) {
         for (size_t i = 0; i < msg.signals.size(); ++i) {
             char idBuf[16] = {0};
             std::snprintf(idBuf, sizeof(idBuf), "0x%03X", canId);
@@ -353,21 +353,21 @@ std::vector<SignalOption> collectSignalOptions(Parse* parseINTF) {
     return options;
 }
 
-const CanMessage* findMessage(Parse* parseINTF, int canId) {
-    if (!parseINTF) { return nullptr; }
-    auto it = parseINTF->canStore.canMessages.find(canId);
-    return (it == parseINTF->canStore.canMessages.end()) ? nullptr : &it->second;
+const CanMessage* findMessage(Parse* parseInterface, int canId) {
+    if (!parseInterface) { return nullptr; }
+    auto it = parseInterface->canStore.canMessages.find(canId);
+    return (it == parseInterface->canStore.canMessages.end()) ? nullptr : &it->second;
 }
 
-const CanSignal* findSignal(Parse* parseINTF, const PlotDataSourceRef& src) {
-    const CanMessage* msg = findMessage(parseINTF, src.canId);
+const CanSignal* findSignal(Parse* parseInterface, const PlotDataSourceRef& src) {
+    const CanMessage* msg = findMessage(parseInterface, src.canId);
     if (!msg) { return nullptr; }
     if (src.signalIndex < 0 || static_cast<size_t>(src.signalIndex) >= msg->signals.size()) { return nullptr; }
     return &msg->signals[static_cast<size_t>(src.signalIndex)];
 }
 
-std::string sourceName(Parse* parseINTF, const PlotDataSourceRef& src) {
-    const CanMessage* msg = findMessage(parseINTF, src.canId);
+std::string sourceName(Parse* parseInterface, const PlotDataSourceRef& src) {
+    const CanMessage* msg = findMessage(parseInterface, src.canId);
     if (!msg) { return "<missing message>"; }
     if (src.signalIndex < 0 || static_cast<size_t>(src.signalIndex) >= msg->signals.size()) { return "<missing signal>"; }
     char idBuf[16] = {0};
@@ -468,12 +468,12 @@ void updateFollowState(GeneratedPlotWindow& plot, LinkedTimeAxisState* linkedSta
     }
 }
 
-void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
+void renderTimeSeriesPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
     if (plot.sources.empty()) {
         ImGui::TextUnformatted("Missing data sources.");
         return;
     }
-    const CanMessage* primaryMsg = findMessage(parseINTF, plot.sources[0].canId);
+    const CanMessage* primaryMsg = findMessage(parseInterface, plot.sources[0].canId);
     if (!primaryMsg) {
         ImGui::TextUnformatted("Data source is not available.");
         return;
@@ -541,7 +541,7 @@ void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     std::vector<const CanSignal*> signals;
     signals.reserve(plot.sources.size());
     for (const PlotDataSourceRef& src : plot.sources) {
-        const CanSignal* signal = findSignal(parseINTF, src);
+        const CanSignal* signal = findSignal(parseInterface, src);
         if (!signal) { continue; }
         signals.push_back(signal);
         const size_t usableEnd = std::min(endIdx, signal->data.size());
@@ -733,11 +733,11 @@ void renderTimeSeriesPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     ImPlot::EndPlot();
 }
 
-void renderNonTimePlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
+void renderNonTimePlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
     std::vector<const CanSignal*> signals;
     signals.reserve(plot.sources.size());
     for (const PlotDataSourceRef& src : plot.sources) {
-        const CanSignal* signal = findSignal(parseINTF, src);
+        const CanSignal* signal = findSignal(parseInterface, src);
         if (signal) { signals.push_back(signal); }
     }
     if (signals.empty()) {
@@ -801,7 +801,7 @@ void renderNonTimePlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     ImPlot::EndPlot();
 }
 
-void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
+void render3DPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
     static int lastFrame = -1;
     static int frameBudget = 12000;
     const int frameNow = ImGui::GetFrameCount();
@@ -829,10 +829,10 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
             ImGui::TextUnformatted(threeDRequiredSourcesText(plot.typeIndex, plot.useSource1TimeAsX));
             return;
         }
-        const CanMessage* timeMsg = findMessage(parseINTF, plot.sources[0].canId);
-        const CanSignal* source1 = findSignal(parseINTF, plot.sources[0]);
-        const CanSignal* source2 = findSignal(parseINTF, plot.sources[1]);
-        const CanSignal* source3 = plot.useSource1TimeAsX ? nullptr : findSignal(parseINTF, plot.sources[2]);
+        const CanMessage* timeMsg = findMessage(parseInterface, plot.sources[0].canId);
+        const CanSignal* source1 = findSignal(parseInterface, plot.sources[0]);
+        const CanSignal* source2 = findSignal(parseInterface, plot.sources[1]);
+        const CanSignal* source3 = plot.useSource1TimeAsX ? nullptr : findSignal(parseInterface, plot.sources[2]);
         if (!timeMsg || !source1 || !source2 || (!plot.useSource1TimeAsX && !source3)) {
             ImPlot3D::EndPlot();
             ImGui::TextUnformatted("Missing source(s) for 3D line.");
@@ -892,7 +892,7 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
         std::vector<const CanSignal*> signals;
         signals.reserve(plot.sources.size());
         for (const PlotDataSourceRef& src : plot.sources) {
-            const CanSignal* signal = findSignal(parseINTF, src);
+            const CanSignal* signal = findSignal(parseInterface, src);
             if (signal) { signals.push_back(signal); }
         }
         if (signals.size() < requiredSources) {
@@ -900,7 +900,7 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
             ImGui::TextUnformatted(threeDRequiredSourcesText(plot.typeIndex, plot.useSource1TimeAsX));
             return;
         }
-        const CanMessage* timeMsg = plot.useSource1TimeAsX ? findMessage(parseINTF, plot.sources[0].canId) : nullptr;
+        const CanMessage* timeMsg = plot.useSource1TimeAsX ? findMessage(parseInterface, plot.sources[0].canId) : nullptr;
         if (plot.useSource1TimeAsX && !timeMsg) {
             ImPlot3D::EndPlot();
             ImGui::TextUnformatted("Missing source 1 message time for X axis.");
@@ -952,7 +952,7 @@ void render3DPlot(Parse* parseINTF, GeneratedPlotWindow& plot) {
     ImPlot3D::EndPlot();
 }
 
-void renderListWindow(Parse* parseINTF, GeneratedPlotWindow& plot, const std::vector<SignalOption>& options, bool allowAdd) {
+void renderListWindow(Parse* parseInterface, GeneratedPlotWindow& plot, const std::vector<SignalOption>& options, bool allowAdd) {
     if (ImGui::BeginTable("##signalList", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("Signal", ImGuiTableColumnFlags_WidthStretch, 0.7f);
         ImGui::TableSetupColumn("Latest", ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -961,10 +961,10 @@ void renderListWindow(Parse* parseINTF, GeneratedPlotWindow& plot, const std::ve
         for (const PlotDataSourceRef& src : plot.sources) {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(sourceName(parseINTF, src).c_str());
+            ImGui::TextUnformatted(sourceName(parseInterface, src).c_str());
 
             ImGui::TableSetColumnIndex(1);
-            const CanSignal* signal = findSignal(parseINTF, src);
+            const CanSignal* signal = findSignal(parseInterface, src);
             const char* valueText = "<n/a>";
             char valueBuf[64] = {0};
             if (signal && !signal->data.empty()) {
@@ -1015,9 +1015,9 @@ void renderListWindow(Parse* parseINTF, GeneratedPlotWindow& plot, const std::ve
     }
 }
 
-void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool customVisible) {
+void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool customVisible) {
     PlotGeneratorState& state = generatorState();
-    const std::vector<SignalOption> options = collectSignalOptions(parseINTF);
+    const std::vector<SignalOption> options = collectSignalOptions(parseInterface);
     const size_t countBefore = state.windows.size();
     auto pruneListWindowStates = [&]() {
         auto& listStates = listWindowStates();
@@ -1140,13 +1140,13 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool custom
                 ImGui::BringWindowToDisplayFront(current);
             }
             if (specFor(plot.typeIndex).is3D) {
-                render3DPlot(parseINTF, plot);
+                render3DPlot(parseInterface, plot);
             } else if (plot.typeIndex == PlotType_List) {
-                renderListWindow(parseINTF, plot, options, true);
+                renderListWindow(parseInterface, plot, options, true);
             } else if (specFor(plot.typeIndex).usesTimeAxis) {
-                renderTimeSeriesPlot(parseINTF, plot);
+                renderTimeSeriesPlot(parseInterface, plot);
             } else {
-                renderNonTimePlot(parseINTF, plot);
+                renderNonTimePlot(parseInterface, plot);
             }
         }
         ImGui::End();
@@ -1163,9 +1163,9 @@ void drawGeneratedPlots(Parse* parseINTF, ImGuiID customDockspaceId, bool custom
     pruneListWindowStates();
 }
 
-void drawGeneratorUI(Parse* parseINTF) {
+void drawGeneratorUI(Parse* parseInterface) {
     PlotGeneratorState& state = generatorState();
-    const std::vector<SignalOption> options = collectSignalOptions(parseINTF);
+    const std::vector<SignalOption> options = collectSignalOptions(parseInterface);
 
     const ImGuiIO& io = ImGui::GetIO();
     const bool generatorHotkeyPressed =
@@ -1254,13 +1254,13 @@ void drawGeneratorUI(Parse* parseINTF) {
             previewPlot.sources = state.sources;
             previewPlot.useSource1TimeAsX = state.useSource1TimeAsX;
             if (specFor(previewPlot.typeIndex).is3D) {
-                render3DPlot(parseINTF, previewPlot);
+                render3DPlot(parseInterface, previewPlot);
             } else if (previewPlot.typeIndex == PlotType_List) {
-                renderListWindow(parseINTF, previewPlot, options, false);
+                renderListWindow(parseInterface, previewPlot, options, false);
             } else if (specFor(previewPlot.typeIndex).usesTimeAxis) {
-                renderTimeSeriesPlot(parseINTF, previewPlot);
+                renderTimeSeriesPlot(parseInterface, previewPlot);
             } else {
-                renderNonTimePlot(parseINTF, previewPlot);
+                renderNonTimePlot(parseInterface, previewPlot);
             }
         }
         ImGui::EndChild();
@@ -1479,7 +1479,7 @@ void UI::build(){
     setScale();
 
     background();
-    for (auto& [id, msg] : parseINTF->canStore.canMessages) msg.updateMessage(parseINTF);
+    for (auto& [id, msg] : parseInterface->canStore.canMessages) msg.updateMessage(parseInterface);
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
@@ -1562,9 +1562,9 @@ void UI::build(){
         ImGui::Text("Hi :0");
     } ImGui::End();
 
-    drawGeneratedPlots(parseINTF, customDockspaceId, customVisible);
+    drawGeneratedPlots(parseInterface, customDockspaceId, customVisible);
     signalSearch();
-    drawGeneratorUI(parseINTF);
+    drawGeneratorUI(parseInterface);
     terminal();
 
     if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
@@ -1642,6 +1642,46 @@ void UI::home(){
     if(networkPanelHeight <= 0.0f){
         networkPanelHeight = ImGui::GetFrameHeightWithSpacing() * 2.0f;
     }
+
+    static bool nodesInitialized = false;
+    if(!nodesInitialized){
+        ImNodes::SetNodeGridSpacePos(1, ImVec2(80.0f, 80.0f));
+        ImNodes::SetNodeGridSpacePos(2, ImVec2(420.0f, 160.0f));
+        nodesInitialized = true;
+    }
+
+    const float nodeEditorHeight = std::max(
+            220.0f,
+            (contentMax.y - contentMin.y) - networkPanelHeight - ImGui::GetStyle().ItemSpacing.y * 2.0f);
+    ImGui::SetCursorPos(contentMin);
+    ImGui::BeginChild("HomeImNodesExample", ImVec2(contentWidth, nodeEditorHeight), true,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImNodes::BeginNodeEditor();
+    ImNodes::BeginNode(1);
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Input Node");
+    ImNodes::EndNodeTitleBar();
+    ImGui::TextUnformatted("source");
+    ImNodes::BeginOutputAttribute(3);
+    ImGui::Indent(40.0f);
+    ImGui::TextUnformatted("out");
+    ImNodes::EndOutputAttribute();
+    ImNodes::EndNode();
+
+    ImNodes::BeginNode(2);
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Process Node");
+    ImNodes::EndNodeTitleBar();
+    ImNodes::BeginInputAttribute(4);
+    ImGui::TextUnformatted("in");
+    ImNodes::EndInputAttribute();
+    ImGui::TextUnformatted("sink");
+    ImNodes::EndNode();
+
+    ImNodes::Link(1, 3, 4);
+    ImNodes::MiniMap(0.2f, ImNodesMiniMapLocation_BottomRight);
+    ImNodes::EndNodeEditor();
+    ImGui::EndChild();
 
     const float x = contentMin.x + ((contentWidth - targetWidth) * 0.5f);
     const float y = std::max(contentMin.y, contentMax.y - networkPanelHeight);
@@ -1850,97 +1890,6 @@ void UI::terminal() {
     }
 }
 
-void UI::nodeEditorDemo() {
-    if (nodeEditorContext == nullptr) {
-        return;
-    }
-
-    namespace ed = ax::NodeEditor;
-    struct DemoLink {
-        ed::LinkId id;
-        ed::PinId inputId;
-        ed::PinId outputId;
-    };
-
-    static std::vector<DemoLink> links;
-    static int nextLinkId = 100;
-
-    ed::SetCurrentEditor(nodeEditorContext);
-    ed::Begin("Node Editor Demo");
-
-    const ed::NodeId nodeAId = 1;
-    const ed::PinId nodeAInputId = 2;
-    const ed::PinId nodeAOutputId = 3;
-
-    const ed::NodeId nodeBId = 4;
-    const ed::PinId nodeBInput1Id = 5;
-    const ed::PinId nodeBInput2Id = 6;
-    const ed::PinId nodeBOutputId = 7;
-
-    if (nodeEditorFirstFrame) {
-        ed::SetNodePosition(nodeAId, ImVec2(20.0f, 20.0f));
-        ed::SetNodePosition(nodeBId, ImVec2(260.0f, 80.0f));
-    }
-
-    ed::BeginNode(nodeAId);
-    ImGui::Text("Node A");
-    ed::BeginPin(nodeAInputId, ed::PinKind::Input);
-    ImGui::Text("-> In");
-    ed::EndPin();
-    ImGui::SameLine();
-    ed::BeginPin(nodeAOutputId, ed::PinKind::Output);
-    ImGui::Text("Out ->");
-    ed::EndPin();
-    ed::EndNode();
-
-    ed::BeginNode(nodeBId);
-    ImGui::Text("Node B");
-    ed::BeginPin(nodeBInput1Id, ed::PinKind::Input);
-    ImGui::Text("-> In1");
-    ed::EndPin();
-    ed::BeginPin(nodeBInput2Id, ed::PinKind::Input);
-    ImGui::Text("-> In2");
-    ed::EndPin();
-    ed::BeginPin(nodeBOutputId, ed::PinKind::Output);
-    ImGui::Text("Out ->");
-    ed::EndPin();
-    ed::EndNode();
-
-    for (const DemoLink& link : links) {
-        ed::Link(link.id, link.inputId, link.outputId);
-    }
-
-    if (ed::BeginCreate()) {
-        ed::PinId inputPinId;
-        ed::PinId outputPinId;
-        if (ed::QueryNewLink(&inputPinId, &outputPinId) && inputPinId && outputPinId) {
-            if (ed::AcceptNewItem()) {
-                links.push_back({ed::LinkId(nextLinkId++), inputPinId, outputPinId});
-            }
-        }
-    }
-    ed::EndCreate();
-
-    if (ed::BeginDelete()) {
-        ed::LinkId deletedLinkId;
-        while (ed::QueryDeletedLink(&deletedLinkId)) {
-            if (ed::AcceptDeletedItem()) {
-                links.erase(std::remove_if(links.begin(), links.end(),
-                           [&](const DemoLink& link) { return link.id == deletedLinkId; }),
-                           links.end());
-            }
-        }
-    }
-    ed::EndDelete();
-
-    ed::End();
-    if (nodeEditorFirstFrame) {
-        ed::NavigateToContent(0.0f);
-        nodeEditorFirstFrame = false;
-    }
-    ed::SetCurrentEditor(nullptr);
-}
-
 void UI::signalSearch(){
     if(!cmdOpen && ImGui::IsKeyPressed(ImGuiKey_Slash)){
         cmdOpen = true;
@@ -2068,7 +2017,7 @@ bool UI::signalSearchPopup(){
     ImVec2 popupWindowPos(center.x - totalWidth * 0.5f, center.y - popupWindowSize.y * 0.5f);
     popupWindowPos = clampPos(popupWindowPos, popupWindowSize);
     ImGui::SetNextWindowPos(popupWindowPos, ImGuiCond_Always);
-    const CanMessage& msg = parseINTF->canStore.canMessages[activeCmdResult.canID];
+    const CanMessage& msg = parseInterface->canStore.canMessages[activeCmdResult.canID];
     if (msg.signals.empty()) {
         ImGui::Text("No signals available");
         ImGui::PopStyleColor(2);
@@ -2248,9 +2197,9 @@ void UI::search(){
     }
 
     std::vector<CmdResult> results;
-    results.reserve(parseINTF->canStore.canMessages.size());
+    results.reserve(parseInterface->canStore.canMessages.size());
 
-    for (auto& [id, msg] : parseINTF->canStore.canMessages) {
+    for (auto& [id, msg] : parseInterface->canStore.canMessages) {
         int d = distance(cmdBuffer, msg.name);
         results.emplace_back(msg.name, d, msg.canId);
     }
