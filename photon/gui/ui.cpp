@@ -1562,7 +1562,6 @@ void UI::build(){
         ImGui::Text("Hi :0");
     } ImGui::End();
 
-    ImGui::ShowDemoWindow();
     drawGeneratedPlots(parseInterface, customDockspaceId, customVisible);
     signalSearch();
     drawGeneratorUI(parseInterface);
