@@ -21,43 +21,43 @@ class Gpu{
 public:
     VkInstance instance{ VK_NULL_HANDLE };
     VulkanDevice vulkanDevice {VK_NULL_HANDLE} ;
-    VulkanSwapchain vulkanSwapchain;
+    VulkanSwapchain vulkanSwapchain = {};
 
     std::string title = "Photon";
     std::string name = "Photon";
     uint32_t apiVersion = VK_API_VERSION_1_0;
-    std::vector<VkLayerProperties> supportedInstanceLayers;
-    std::vector<const char*> enabledInstanceLayers;
-    std::vector<std::string> supportedInstanceExtensions;
-    std::vector<const char*> enabledInstanceExtensions;
-    std::vector<VkPhysicalDevice> physicalDevices;
+    std::vector<VkLayerProperties> supportedInstanceLayers = {};
+    std::vector<const char*> enabledInstanceLayers = {};
+    std::vector<std::string> supportedInstanceExtensions = {};
+    std::vector<const char*> enabledInstanceExtensions = {};
+    std::vector<VkPhysicalDevice> physicalDevices = {};
 
     VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-    VkFormat depthFormat;
+    VkFormat depthFormat{};
     struct {
         VkImage image;
         VkDeviceMemory memory;
         VkImageView view;
     } depthStencil{};
     VkRenderPass renderPass{ VK_NULL_HANDLE };
-    std::vector<VkFramebuffer> frameBuffers;
+    std::vector<VkFramebuffer> frameBuffers = {};
 
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkDescriptorSet descriptorSet;
+    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
+    VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
     VkDescriptorPool descriptorPool { VK_NULL_HANDLE };
 
     VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkSubmitInfo submitInfo {};
+    VkSubmitInfo submitInfo{};
+    VkCommandPool surfaceCommandPool{VK_NULL_HANDLE};
+    std::vector<VkCommandBuffer> drawCmdBuffers = {};
     uint32_t currentBuffer = 0;
 
-    std::vector<VkFence> waitFences;
     struct {
 		VkSemaphore presentComplete;
 		VkSemaphore renderComplete;
 	} semaphores;
 
     float frameTime = 1.0;
-    uint32_t frameIndex = 0;
 
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
@@ -67,6 +67,8 @@ public:
     bool initVulkan();
     void getValidationLayerSupport();
     void createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers);
+    void createSurfaceCommandPool(VkDevice device, uint32_t surfaceQueueNodeIndex);
+    void createSurfaceCommandBuffers(VkDevice device, std::vector<VkCommandBuffer>& drawCmdBuffers, uint32_t imageCount);
     void setupDepthStencil(uint32_t width, uint32_t height);
     void setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat);
     void setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height);

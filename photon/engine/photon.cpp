@@ -26,20 +26,20 @@ void Photon::prepareScene(){
 #ifdef WIN
     gpu.vulkanSwapchain.initSurface(gpu.instance, gui.windowInstance, gui.window, gpu.vulkanDevice.physicalDevice);
 #endif
-    gpu.vulkanSwapchain.createSurfaceCommandPool(gpu.vulkanDevice.logicalDevice);
+    gpu.createSurfaceCommandPool(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceQueueNodeIndex);
     gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, 
     gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
-    gpu.vulkanSwapchain.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice);
-    gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.drawCmdBuffers);
+    gpu.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers, gpu.vulkanSwapchain.imageCount);
+    gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers);
     gpu.setupRenderPass(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceFormat);
     gpu.setupDepthStencil(gui.width, gui.height);
-    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.buffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
+    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.swapChainBuffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
     gpu.setupDescriptors(gpu.vulkanDevice.logicalDevice);
     gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
     gui.prepareImGui();
     gui.initResources(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet);
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet,
-           gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
+           gpu.frameBuffers, gpu.drawCmdBuffers, gpu.currentBuffer);
     prepared = true;
 };
 
@@ -101,12 +101,11 @@ void Photon::executeFrame(){
     manageNetwork();
     getFrame();
     if(!prepared) return;
-
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
-            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
+            gpu.frameBuffers, gpu.drawCmdBuffers, gpu.currentBuffer);
 
     gpu.submitInfo.commandBufferCount = 1;
-    gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
+    gpu.submitInfo.pCommandBuffers = &gpu.drawCmdBuffers[gpu.currentBuffer];
     VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
 
     pushFrame();
@@ -218,18 +217,17 @@ void Photon::windowResize(){
     for (uint32_t i = 0; i < gpu.frameBuffers.size(); i++) {
 		vkDestroyFramebuffer(gpu.vulkanDevice.logicalDevice, gpu.frameBuffers[i], nullptr);
 	}
-    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.buffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
+    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.swapChainBuffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
     if ((gui.width > 0.0f) && (gui.height > 0.0f)) {
         ImGuiIO& io = ImGui::GetIO();
 		io.DisplaySize = ImVec2((float)(gui.width), (float)(gui.height));
 	}
-    vkFreeCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceCommandPool, gpu.vulkanSwapchain.drawCmdBuffers.size(), gpu.vulkanSwapchain.drawCmdBuffers.data());
-    gpu.vulkanSwapchain.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice);
+    vkFreeCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.surfaceCommandPool, gpu.drawCmdBuffers.size(), gpu.drawCmdBuffers.data());
+    gpu.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers, gpu.vulkanSwapchain.imageCount);
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet,
-            gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers, gpu.frameIndex);
+            gpu.frameBuffers, gpu.drawCmdBuffers, gpu.currentBuffer);
 
-    for (auto& fence : gpu.waitFences) { vkDestroyFence(gpu.vulkanDevice.logicalDevice, fence, nullptr); }
-    gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.drawCmdBuffers);
+    gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers);
     vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
     gui.resized = true;
     prepared = true;

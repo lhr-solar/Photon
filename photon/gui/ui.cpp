@@ -1562,6 +1562,7 @@ void UI::build(){
         ImGui::Text("Hi :0");
     } ImGui::End();
 
+    ImGui::ShowDemoWindow();
     drawGeneratedPlots(parseInterface, customDockspaceId, customVisible);
     signalSearch();
     drawGeneratorUI(parseInterface);
@@ -1832,7 +1833,6 @@ void UI::fpsWindow(){
                                    ImGuiWindowFlags_NoMove |
                                    ImGuiWindowFlags_NoSavedSettings |
                                    ImGuiWindowFlags_NoNav |
-                                   ImGuiWindowFlags_NoFocusOnAppearing |
                                    ImGuiWindowFlags_NoBackground |
                                    ImGuiWindowFlags_NoDocking;
 
@@ -2322,9 +2322,10 @@ void UI::background(){
 
 void UI::setStyle(){
     ImGuiStyle &style = ImGui::GetStyle();
-    style.WindowRounding = 8.0f;
-    style.GrabRounding = 8.0f;
-    style.FrameRounding = 4.0f;
+    style.TabRounding = 0.0f;
+    style.WindowRounding = 0.0f;
+    style.GrabRounding = 0.0f;
+    style.FrameRounding = 0.0f;
     style.FrameBorderSize = 0.0f;
     style.WindowBorderSize = 0.0f;
     style.DockingSeparatorSize = 1.0f;

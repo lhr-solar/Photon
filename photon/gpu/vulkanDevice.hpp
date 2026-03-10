@@ -5,18 +5,18 @@
 #include "vulkanBuffer.hpp"
 
 struct VulkanDevice {
-    VkPhysicalDevice physicalDevice;
-    VkDevice logicalDevice;
+    VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
+    VkDevice logicalDevice{VK_NULL_HANDLE};
 
     VkPhysicalDeviceProperties deviceProperties{};
 	VkPhysicalDeviceFeatures deviceFeatures{};
 	VkPhysicalDeviceMemoryProperties deviceMemoryProperties{};
-    std::vector<VkQueueFamilyProperties> queueFamilyProperties;
-    std::vector<std::string> supportedExtensions;
+    std::vector<VkQueueFamilyProperties> queueFamilyProperties = {};
+    std::vector<std::string> supportedExtensions = {};
 
     VkPhysicalDeviceFeatures enabledFeatures{};
 
-    std::vector<const char*> enabledDeviceExtensions;
+    std::vector<const char*> enabledDeviceExtensions = {};
 
     VkCommandPool graphicsCommandPool = VK_NULL_HANDLE;
     VkCommandPool computeCommandPool = VK_NULL_HANDLE;
@@ -28,9 +28,9 @@ struct VulkanDevice {
 		uint32_t transfer;
 	} queueFamilyIndices;
 
-    VkQueue graphicsQueue;
-    VkQueue computeQueue;
-    VkQueue transferQueue;
+    VkQueue graphicsQueue{VK_NULL_HANDLE};
+    VkQueue computeQueue{VK_NULL_HANDLE};
+    VkQueue transferQueue{VK_NULL_HANDLE};
 
     VkResult initDevice(VkPhysicalDevice physicalDevice);
     VkResult createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, std::vector<const char*> enabledExtensions, void* pNextChain, 

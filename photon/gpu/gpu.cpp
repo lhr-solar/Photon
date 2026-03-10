@@ -126,15 +126,6 @@ VkResult Gpu::setupVulkanDevice(){
 }
 
 void Gpu::createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers){
-    VkFenceCreateInfo fenceCreateInfo{};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    waitFences.resize(drawCmdBuffers.size());
-    for(auto& fence : waitFences){
-        vkCreateFence(device, &fenceCreateInfo, nullptr, &fence);
-    }
-    logs("[+] Created " << waitFences.size() << " Synchronization Primitives");
-
     VkSemaphoreCreateInfo semaphoreCreateInfo {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VK_CHECK(vkCreateSemaphore(vulkanDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &semaphores.presentComplete));
@@ -441,6 +432,28 @@ void Gpu::setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayou
     }
 
     vkCmdPipelineBarrier( cmdbuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+}
+
+void Gpu::createSurfaceCommandPool(VkDevice device, uint32_t surfaceQueueNodeIndex){
+    VkCommandPoolCreateInfo cmdPoolInfo = {};
+	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	cmdPoolInfo.queueFamilyIndex = surfaceQueueNodeIndex;
+	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    VK_CHECK(vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &surfaceCommandPool));
+    logs("[+] Created Command Pool for Queue Node Index " << surfaceQueueNodeIndex);
+}
+
+void Gpu::createSurfaceCommandBuffers(VkDevice device, std::vector<VkCommandBuffer>& drawCmdBuffers, uint32_t imageCount){
+    // create one command buffer for each swap chain image
+    drawCmdBuffers.resize(imageCount);
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo {};
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.commandPool = surfaceCommandPool;
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocateInfo.commandBufferCount = drawCmdBuffers.size();
+
+    VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, drawCmdBuffers.data()));
+    logs("[+] Allocated " << drawCmdBuffers.size() << " Command Buffers with level : " << commandBufferAllocateInfo.level);
 }
 
 void Gpu::cleanup(){

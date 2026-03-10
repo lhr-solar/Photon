@@ -9,7 +9,9 @@ set(FONT_FILES
     ${FONT_DIR}/berk.ttf
     ${FONT_DIR}/openSans.ttf
     ${FONT_DIR}/sansFlex.ttf
-
+    ${FONT_DIR}/HelveticaNeueMedium.otf
+    ${FONT_DIR}/HelveticaNeueRoman.otf
+    ${FONT_DIR}/HostGrotesk-Regular.ttf
 )
 
 set(FONT_HEADERS)

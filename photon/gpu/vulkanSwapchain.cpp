@@ -179,15 +179,6 @@ void VulkanSwapchain::initSurface(VkInstance instance, void* platformHandle, voi
 }
 #endif
 
-void VulkanSwapchain::createSurfaceCommandPool(VkDevice device){
-    VkCommandPoolCreateInfo cmdPoolInfo = {};
-	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	cmdPoolInfo.queueFamilyIndex = surfaceQueueNodeIndex;
-	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    VK_CHECK(vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &surfaceCommandPool));
-    logs("[+] Created Command Pool for Queue Node Index " << surfaceQueueNodeIndex);
-}
-
 VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, bool vsync, bool fullscreen, bool transparent, VkPhysicalDevice physicalDevice, VkDevice device){
     VkSwapchainKHR oldSwapChain = swapChain;
 
@@ -226,7 +217,6 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
     }
 
     VkExtent2D swapchainExtent = {};
-    // if width & height = UINT32_MAX, the size of the surface is set by the swapchain
     if(surfCaps.currentExtent.width == (uint32_t)-1){
         swapchainExtent.width = *width;
         swapchainExtent.height = *height;
@@ -236,10 +226,8 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
         *height = surfCaps.currentExtent.height;
     }
 
-    // spec required present mode
     VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 
-    // otherwise use lower-latency present mode
     if(!vsync){
         for (size_t i = 0; i < presentModeCount; i++){
             if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR){
@@ -296,9 +284,7 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
 	swapchainCI.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swapchainCI.queueFamilyIndexCount = 0;
 	swapchainCI.presentMode = swapchainPresentMode;
-	// Setting oldSwapChain to the saved handle of the previous swapchain aids in resource reuse and makes sure that we can still present already acquired images
 	swapchainCI.oldSwapchain = oldSwapChain;
-	// Setting clipped to VK_TRUE allows the implementation to discard rendering outside of the surface area
 	swapchainCI.clipped = VK_TRUE;
 	swapchainCI.compositeAlpha = compositeAlpha;
 
@@ -330,7 +316,7 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
     // delete the old swapchain
     if(oldSwapChain != VK_NULL_HANDLE){
         for(uint32_t i = 0; i < imageCount; i++){
-            vkDestroyImageView(device, buffers[i].view, nullptr);
+            vkDestroyImageView(device, swapChainBuffers[i].view, nullptr);
         }
         vkDestroySwapchainKHR(device, oldSwapChain, nullptr);
         logs("[!] Destroyed Old Swap Chain");
@@ -343,7 +329,7 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
     logs("[+] Using " << imageCount << " Swap Chain images");
 
     // get the swap chain buffers containing the image and imageView
-    buffers.resize(imageCount);
+    swapChainBuffers.resize(imageCount);
 
     for (uint32_t i = 0; i < imageCount; i++){
 		VkImageViewCreateInfo colorAttachmentView = {};
@@ -364,28 +350,15 @@ VkResult VulkanSwapchain::createSwapChain(uint32_t *width, uint32_t *height, boo
 		colorAttachmentView.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		colorAttachmentView.flags = 0;
 
-		buffers[i].image = images[i];
+		swapChainBuffers[i].image = images[i];
 
-		colorAttachmentView.image = buffers[i].image;
+		colorAttachmentView.image = swapChainBuffers[i].image;
 
-		VK_CHECK(vkCreateImageView(device, &colorAttachmentView, nullptr, &buffers[i].view));
+		VK_CHECK(vkCreateImageView(device, &colorAttachmentView, nullptr, &swapChainBuffers[i].view));
 	}
     logs("[+] Constructed Image View");
 
     return VK_SUCCESS;
-}
-
-void VulkanSwapchain::createSurfaceCommandBuffers(VkDevice device){
-    // create one command buffer for each swap chain image
-    drawCmdBuffers.resize(imageCount);
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo {};
-    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocateInfo.commandPool = surfaceCommandPool;
-    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferAllocateInfo.commandBufferCount = drawCmdBuffers.size();
-
-    VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, drawCmdBuffers.data()));
-    logs("[+] Allocated " << drawCmdBuffers.size() << " Command Buffers with level : " << commandBufferAllocateInfo.level);
 }
 
 VkResult VulkanSwapchain::acquireNextImage(VkDevice device, VkSemaphore presentCompleteSemaphore, uint32_t* imageIndex){
@@ -410,7 +383,7 @@ VkResult VulkanSwapchain::queuePresent(VkQueue queue, uint32_t imageIndex, VkSem
 
 void VulkanSwapchain::cleanup(VkInstance instance, VkDevice device){
     if (swapChain != VK_NULL_HANDLE){
-		for (uint32_t i = 0; i < imageCount; i++) {vkDestroyImageView(device, buffers[i].view, nullptr);}
+		for (uint32_t i = 0; i < imageCount; i++) {vkDestroyImageView(device, swapChainBuffers[i].view, nullptr);}
 	}
 	if (surface != VK_NULL_HANDLE){
 		vkDestroySwapchainKHR(device, swapChain, nullptr);

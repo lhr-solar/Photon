@@ -16,7 +16,6 @@
 #include "../engine/include.hpp"
 #include "../network/network.hpp"
 
-
 #ifdef XCB
 #include "xcb/xcb.h"
 #endif

@@ -28,9 +28,11 @@
 #include "triangle_vert_spv.hpp"
 #include "viking_frag_spv.hpp"
 #include "viking_vert_spv.hpp"
-#include "berk_ttf.hpp"
-#include "openSans_ttf.hpp"
+#include "HelveticaNeueMedium_ttf.hpp"
+#include "HelveticaNeueRoman_ttf.hpp"
 #include "sansFlex_ttf.hpp"
+#include "HostGrotesk_Regular_ttf.hpp"
+
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -100,13 +102,11 @@ void Gui::prepareImGui(){
     io.IniFilename = nullptr; // Manual ini load/save only, no periodic autosave.
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
-    //ImFont *font= io.Fonts->AddFontFromMemoryTTF((void *)berk_ttf, 
-            //static_cast<int>(berk_ttf_size), 18.0f, &fontConfig);
-    //ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)openSans_ttf,
-           //static_cast<int>(openSans_ttf_size), 18.0f, &fontConfig);
-    ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)sansFlex_ttf,
-           static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
-
+    ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)HelveticaNeueRoman_ttf,
+           static_cast<int>(HelveticaNeueRoman_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    float tighten = 0.92f; // <1.0 tightens spacing
+    for (ImFontGlyph& g : font->Glyphs)
+        g.AdvanceX *= tighten;
     if (font != nullptr) { io.FontDefault = font; }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -121,8 +121,11 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
     io.Fonts->Clear();
-    ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)sansFlex_ttf,
-            static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)HelveticaNeueRoman_ttf,
+            static_cast<int>(HelveticaNeueRoman_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    float tighten = 0.92f; // <1.0 tightens spacing
+    for (ImFontGlyph& g : font->Glyphs)
+        g.AdvanceX *= tighten;
     if (font != nullptr) {
         io.FontDefault = font;
     }
@@ -242,6 +245,7 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
 
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &fontWriteDescriptorSet, 0, nullptr);
     io.Fonts->TexID = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(descriptorSet));
+    ui.fontSizeDirty = false;
 }
 
 // initialize all vulkan resources used by the UI
@@ -278,7 +282,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     //ui.triangle.createResources(vulkanDevice, ui.triangle.extent, 
             //descriptorPool, descriptorSetLayout);
 
-    ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
+    //ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
 
     //ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size, "viking");
     //ui.viking.updateBuffers(vulkanDevice);
@@ -442,45 +446,38 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.pClearValues = clearValues;
 
     ui.build();
-    if (ui.fontSizeDirty) {
-        refreshFontResources(vulkanDevice, descriptorSet);
-        ui.fontSizeDirty = false;
-    }
-    if (ui.backgroundShader.dirty) {
-        ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, descriptorPool, 
-                descriptorSetLayout);
-        ui.backgroundShader.dirty = false;
-    }
+    if (ui.fontSizeDirty) refreshFontResources(vulkanDevice, descriptorSet);
+    if (ui.backgroundShader.dirty)
+        ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, descriptorPool, descriptorSetLayout);
 
     updateBuffers(vulkanDevice);
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    for (int32_t i = 0; i < drawCmdBuffers.size(); ++i) {
-        renderPassBeginInfo.framebuffer = frameBuffers[i];
-        VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
-        ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
-        vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        VkViewport viewport {};
-        viewport.width = width;
-        viewport.height = height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
+    int i = idx;
+    renderPassBeginInfo.framebuffer = frameBuffers[i];
+    VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
+    ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
+    vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    VkViewport viewport {};
+    viewport.width = width;
+    viewport.height = height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
 
-        VkRect2D rect2D {};
-	    rect2D.extent.width = width;
-	    rect2D.extent.height = height;
-	    rect2D.offset.x = 0;
-	    rect2D.offset.y = 0;
-        vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &rect2D);
+    VkRect2D rect2D {};
+    rect2D.extent.width = width;
+    rect2D.extent.height = height;
+    rect2D.offset.x = 0;
+    rect2D.offset.y = 0;
+    vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &rect2D);
 
-        vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-        drawFrame(drawCmdBuffers[i], descriptorSet);
-        vkCmdEndRenderPass(drawCmdBuffers[i]);
-        VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[i]));
-    };
+    drawFrame(drawCmdBuffers[i], descriptorSet);
+    vkCmdEndRenderPass(drawCmdBuffers[i]);
+    VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[i]));
 }
 
 void Gui::updateBuffers(VulkanDevice vulkanDevice){
