@@ -221,7 +221,7 @@ void Gpu::setupDepthStencil(uint32_t width, uint32_t height){
 };
 
 void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
-    std::array<VkAttachmentDescription, 2> attachments = {};
+    std::array<VkAttachmentDescription, 1> attachments = {};
     // Color attachment
     attachments[0].format = surfaceFormat.format;
     attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -231,15 +231,6 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    // Depth attachment
-    attachments[1].format = depthFormat;
-	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colorReference = {};
 	colorReference.attachment = 0;
@@ -253,7 +244,7 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
 	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpassDescription.colorAttachmentCount = 1;
 	subpassDescription.pColorAttachments = &colorReference;
-	subpassDescription.pDepthStencilAttachment = &depthReference;
+	subpassDescription.pDepthStencilAttachment = nullptr;//&depthReference;
 	subpassDescription.inputAttachmentCount = 0;
 	subpassDescription.pInputAttachments = nullptr;
 	subpassDescription.preserveAttachmentCount = 0;
@@ -261,7 +252,7 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
 	subpassDescription.pResolveAttachments = nullptr;
 
     // Subpass dependencies for layout transitions
-    std::array<VkSubpassDependency, 2> dependencies{};
+    std::array<VkSubpassDependency, 1> dependencies{};
 
 	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 	dependencies[0].dstSubpass = 0;
@@ -270,14 +261,6 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
 	dependencies[0].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 	dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 	dependencies[0].dependencyFlags = 0;
-
-	dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependencies[1].dstSubpass = 0;
-	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[1].srcAccessMask = 0;
-	dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-	dependencies[1].dependencyFlags = 0;
 
 	VkRenderPassCreateInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -295,16 +278,14 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
 
 void Gpu::setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height){
     frameBuffers.resize(imageCount);
-	for (uint32_t i = 0; i < frameBuffers.size(); i++)
-	{
-		const VkImageView attachments[2] = {
+	for (uint32_t i = 0; i < frameBuffers.size(); i++){
+		const VkImageView attachments[1] = {
 			swapChainBuffers[i].view,
-			depthStencil.view
 		};
 		VkFramebufferCreateInfo frameBufferCreateInfo{};
 		frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		frameBufferCreateInfo.renderPass = renderPass;
-		frameBufferCreateInfo.attachmentCount = 2;
+		frameBufferCreateInfo.attachmentCount = 1;
 		frameBufferCreateInfo.pAttachments = attachments;
 		frameBufferCreateInfo.width = width;
 		frameBufferCreateInfo.height = height;
@@ -431,7 +412,7 @@ void Gpu::setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayou
         break;
     }
 
-    vkCmdPipelineBarrier( cmdbuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+    vkCmdPipelineBarrier(cmdbuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
 void Gpu::createSurfaceCommandPool(VkDevice device, uint32_t surfaceQueueNodeIndex){

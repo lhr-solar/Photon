@@ -32,7 +32,7 @@ void Photon::prepareScene(){
     gpu.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers, gpu.vulkanSwapchain.imageCount);
     gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers);
     gpu.setupRenderPass(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceFormat);
-    gpu.setupDepthStencil(gui.width, gui.height);
+    //gpu.setupDepthStencil(gui.width, gui.height);
     gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.swapChainBuffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
     gpu.setupDescriptors(gpu.vulkanDevice.logicalDevice);
     gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
@@ -103,7 +103,6 @@ void Photon::executeFrame(){
     if(!prepared) return;
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
             gpu.frameBuffers, gpu.drawCmdBuffers, gpu.currentBuffer);
-
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.drawCmdBuffers[gpu.currentBuffer];
     VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
@@ -210,10 +209,7 @@ void Photon::windowResize(){
         logs("[!] Swap chain recreation failed with VkResult " << swapchainResult);
         return;
     }
-    vkDestroyImageView(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.view, nullptr);
-    vkDestroyImage(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.image, nullptr);
-	vkFreeMemory(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.memory, nullptr);
-    gpu.setupDepthStencil(gui.width, gui.height);
+
     for (uint32_t i = 0; i < gpu.frameBuffers.size(); i++) {
 		vkDestroyFramebuffer(gpu.vulkanDevice.logicalDevice, gpu.frameBuffers[i], nullptr);
 	}

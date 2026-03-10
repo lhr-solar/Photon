@@ -28,10 +28,7 @@
 #include "triangle_vert_spv.hpp"
 #include "viking_frag_spv.hpp"
 #include "viking_vert_spv.hpp"
-#include "HelveticaNeueMedium_ttf.hpp"
-#include "HelveticaNeueRoman_ttf.hpp"
 #include "sansFlex_ttf.hpp"
-#include "HostGrotesk_Regular_ttf.hpp"
 
 
 Gui::Gui(){};
@@ -40,19 +37,7 @@ Gui::~Gui(){
     xcb_destroy_window(connection, window);
 	xcb_disconnect(connection);
 #endif
-//    ui.backgroundShader.destroyResources(true, deviceHandle, guiDescriptorPool);
-//    ui.accretionShader.destroyResources(true, deviceHandle, guiDescriptorPool);
-//    ui.triangle.destroyResources(true, deviceHandle, guiDescriptorPool);
-//    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, guiDescriptorPool);
     if (deviceHandle != VK_NULL_HANDLE) {
-//        if (guiDescriptorPool != VK_NULL_HANDLE) {
-//            vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
-//            guiDescriptorPool = VK_NULL_HANDLE;
-//        }
-//        if (guiDescriptorSetLayout != VK_NULL_HANDLE) {
-//            vkDestroyDescriptorSetLayout(deviceHandle, guiDescriptorSetLayout, nullptr);
-//            guiDescriptorSetLayout = VK_NULL_HANDLE;
-//        }
         if (fontSampler != VK_NULL_HANDLE) {
             vkDestroySampler(deviceHandle, fontSampler, nullptr);
             fontSampler = VK_NULL_HANDLE;
@@ -252,9 +237,6 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet){
     deviceHandle = vulkanDevice.logicalDevice;
     ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
-    ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
-    ui.triangle.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
-    ui.videoSource.destroyVideoFeedResources(true, deviceHandle, descriptorPool);
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
     ui.vendorID = vulkanDevice.deviceProperties.vendorID;
@@ -268,25 +250,10 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     ui.videoSource.texture = static_cast<ImTextureID>(0);
     ui.videoSource.textureSize = {0, 0};
 
-    ui.backgroundShader.initShader({0, 0}, false, (uint32_t*)background_vert_spv, background_vert_spv_size, 
+    ui.backgroundShader.initShader({width, height}, false, (uint32_t*)background_vert_spv, background_vert_spv_size, 
             (uint32_t*)background_frag_spv, background_frag_spv_size, "background.frag");
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
             descriptorPool, descriptorSetLayout);
-    
-    //ui.accretionShader.initShader({512, 512}, false, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, 
-    //(uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "custom_shader.frag");
-    //ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, 
-            //descriptorPool, descriptorSetLayout);
-
-    //ui.triangle.initShader({512, 512}, false, (uint32_t *)triangle_vert_spv, triangle_vert_spv_size, (uint32_t*)triangle_frag_spv, triangle_frag_spv_size, "triangle.frag");
-    //ui.triangle.createResources(vulkanDevice, ui.triangle.extent, 
-            //descriptorPool, descriptorSetLayout);
-
-    //ui.videoSource.initVideoFeedResources(vulkanDevice, descriptorPool, descriptorSetLayout, fontSampler);
-
-    //ui.viking.initObj({512, 512}, (uint32_t*)viking_vert_spv, viking_vert_spv_size, (uint32_t*)viking_frag_spv, viking_frag_spv_size, "viking");
-    //ui.viking.updateBuffers(vulkanDevice);
-    //ui.viking.createResources(vulkanDevice, ui.viking.extent, descriptorPool, descriptorSetLayout);;
 
     // Pipeline layout & Push constants for UI rendering
     VkPushConstantRange pushConstantRange {};
@@ -345,23 +312,37 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
     pipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     pipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
 
-    VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo {};
-    pipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	pipelineViewportStateCreateInfo.viewportCount = 1;
-	pipelineViewportStateCreateInfo.scissorCount = 1;
-	pipelineViewportStateCreateInfo.flags = 0;
-
     VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo {};
     pipelineMultisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     pipelineMultisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     pipelineMultisampleStateCreateInfo.flags = 0;
 
-    std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkViewport viewport;
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = static_cast<float>(width);
+    viewport.height = static_cast<float>(height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor;
+    scissor.offset = {};
+    scissor.extent.width = width;
+    scissor.extent.height = height;
+
+    VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo;
+    pipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    pipelineViewportStateCreateInfo.pNext = NULL;
+    pipelineViewportStateCreateInfo.flags = 0;
+    pipelineViewportStateCreateInfo.viewportCount = 1;
+    pipelineViewportStateCreateInfo.pViewports = &viewport;
+    pipelineViewportStateCreateInfo.scissorCount = 1;
+    pipelineViewportStateCreateInfo.pScissors = &scissor;
 
     VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
     pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    pipelineDynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
-    pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+    pipelineDynamicStateCreateInfo.pDynamicStates = NULL;
+    pipelineDynamicStateCreateInfo.dynamicStateCount = 0;
     pipelineDynamicStateCreateInfo.flags = 0;
 
     std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
@@ -431,9 +412,8 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
 
 void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet,
         std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, uint32_t& idx){
-    VkClearValue clearValues[2];
+    VkClearValue clearValues[1];
     clearValues[0].color = {{0.0f, 0.00f, 0.00f, 1.0f}};
-    clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo renderPassBeginInfo {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -442,7 +422,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.renderArea.offset.y = 0;
     renderPassBeginInfo.renderArea.extent.width = width;
     renderPassBeginInfo.renderArea.extent.height = height;
-    renderPassBeginInfo.clearValueCount = 2;
+    renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = clearValues;
 
     ui.build();
@@ -454,30 +434,15 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    int i = idx;
-    renderPassBeginInfo.framebuffer = frameBuffers[i];
-    VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginInfo));
-    ui.backgroundShader.recordShaderPass(drawCmdBuffers[i]);
-    vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    VkViewport viewport {};
-    viewport.width = width;
-    viewport.height = height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
+    renderPassBeginInfo.framebuffer = frameBuffers[idx];
+    VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[idx], &cmdBufferBeginInfo));
+    ui.backgroundShader.recordShaderPass(drawCmdBuffers[idx]);
+    vkCmdBeginRenderPass(drawCmdBuffers[idx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindDescriptorSets(drawCmdBuffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-    VkRect2D rect2D {};
-    rect2D.extent.width = width;
-    rect2D.extent.height = height;
-    rect2D.offset.x = 0;
-    rect2D.offset.y = 0;
-    vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &rect2D);
-
-    vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-
-    drawFrame(drawCmdBuffers[i], descriptorSet);
-    vkCmdEndRenderPass(drawCmdBuffers[i]);
-    VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[i]));
+    drawFrame(drawCmdBuffers[idx], descriptorSet);
+    vkCmdEndRenderPass(drawCmdBuffers[idx]);
+    VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[idx]));
 }
 
 void Gui::updateBuffers(VulkanDevice vulkanDevice){

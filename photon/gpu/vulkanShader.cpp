@@ -150,10 +150,27 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
     blend.attachmentCount = 1;
     blend.pAttachments = &blendAttachment;
 
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    VkViewport viewport;
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor;
+    scissor.offset = {};
+    scissor.extent.width = extent.width;
+    scissor.extent.height = extent.height;
+
+    VkPipelineViewportStateCreateInfo viewportState;
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    viewportState.pNext = NULL;
+    viewportState.flags = 0;
     viewportState.viewportCount = 1;
+    viewportState.pViewports = &viewport;
     viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -166,11 +183,10 @@ void VulkanShader::createResources(VulkanDevice vulkanDevice, VkExtent2D extent,
     multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    std::vector<VkDynamicState> dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamic{};
     dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic.dynamicStateCount = static_cast<uint32_t>(dynamics.size());
-    dynamic.pDynamicStates = dynamics.data();
+    dynamic.dynamicStateCount = 0;
+    dynamic.pDynamicStates = NULL;
 
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -309,18 +325,6 @@ void VulkanShader::recordShaderPass(VkCommandBuffer commandBuffer){
     beginInfo.pClearValues = &clearValue;
 
     vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    VkViewport viewport{};
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.extent = extent;
-    scissor.offset = {0, 0};
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     pc.resolution = glm::vec2(static_cast<float>(extent.width), static_cast<float>(extent.height));
     pc.u_time     = (float)ImGui::GetTime();
