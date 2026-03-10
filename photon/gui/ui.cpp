@@ -22,7 +22,6 @@
 #include "implot3d.h"
 #include "imnodes.h"
 
-namespace {
 struct PlotDataSourceRef {
     int canId = -1;
     int signalIndex = -1;
@@ -1163,7 +1162,7 @@ void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool c
     pruneListWindowStates();
 }
 
-void drawGeneratorUI(Parse* parseInterface) {
+void UI::drawGeneratorUI() {
     PlotGeneratorState& state = generatorState();
     const std::vector<SignalOption> options = collectSignalOptions(parseInterface);
 
@@ -1416,7 +1415,6 @@ void drawGeneratorUI(Parse* parseInterface) {
         state.creating = false;
     }
 }
-} // namespace
 
 void UI::installPersistentSettings() {
     ImGuiContext* ctx = ImGui::GetCurrentContext();
@@ -1474,7 +1472,6 @@ void UI::setScale() {
 }
 
 void UI::build(){
-    static bool showFps = false;
     ImGui::NewFrame();
     setScale();
 
@@ -1486,21 +1483,7 @@ void UI::build(){
     ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
     ImGui::SetNextWindowViewport(vp->ID);
 
-    ImGuiWindowFlags host_flags =
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoBackground;
-
-    ImGui::Begin("Root", nullptr, host_flags);
-    ImGuiID root_id = ImGui::GetID("RootDockspace");
-    ImGui::DockSpace(root_id);
-    ImGui::End();
-
-    ImGuiWindowFlags main_dockspace_flags =
+    ImGuiWindowFlags root_flags =
         ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoMove |
@@ -1509,46 +1492,43 @@ void UI::build(){
         ImGuiWindowFlags_NoBackground |
         ImGuiWindowFlags_NoSavedSettings;
 
-    ImGuiID mainDockspaceId = 0;
     ImGui::SetNextWindowViewport(vp->ID);
     ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
 
-    if (ImGui::Begin("Main Host##MainDockHost", nullptr, main_dockspace_flags)) {
-        mainDockspaceId = ImGui::GetID("MainDockspace");
+    ImGuiID rootDockId = ImGui::GetID("RootDock");
+    if (ImGui::Begin("Root Dock##RootDock", nullptr, root_flags)) {
         const ImGuiDockNodeFlags lockedTabsOnlyFlags =
             ImGuiDockNodeFlags_NoUndocking |
             ImGuiDockNodeFlags_NoDockingSplit |
             ImGuiDockNodeFlags_NoDockingOverMe |
             ImGuiDockNodeFlags_NoDockingOverOther;
-        ImGui::DockSpace(mainDockspaceId, ImVec2(0.0f, 0.0f), lockedTabsOnlyFlags);
+        ImGui::DockSpace(rootDockId, ImVec2(0.0f, 0.0f), lockedTabsOnlyFlags);
 
-        if (ImGui::DockBuilderGetNode(mainDockspaceId) == nullptr) {
-            ImGui::DockBuilderRemoveNode(mainDockspaceId);
-            ImGui::DockBuilderAddNode(mainDockspaceId, ImGuiDockNodeFlags_DockSpace | lockedTabsOnlyFlags);
-            ImGui::DockBuilderSetNodeSize(mainDockspaceId, ImGui::GetContentRegionAvail());
-            ImGui::DockBuilderDockWindow("Home##MainDockedTab", mainDockspaceId);
-            ImGui::DockBuilderDockWindow("Custom##CustomDockedTab", mainDockspaceId);
-            ImGui::DockBuilderDockWindow("Debug##DebugDockedTab", mainDockspaceId);
-            ImGui::DockBuilderFinish(mainDockspaceId);
+        if (ImGui::DockBuilderGetNode(rootDockId) == nullptr) {
+            ImGui::DockBuilderRemoveNode(rootDockId);
+            ImGui::DockBuilderAddNode(rootDockId, ImGuiDockNodeFlags_DockSpace | lockedTabsOnlyFlags);
+            ImGui::DockBuilderSetNodeSize(rootDockId, ImGui::GetContentRegionAvail());
+            ImGui::DockBuilderDockWindow("Home##MainDockedTab", rootDockId);
+            ImGui::DockBuilderDockWindow("Custom##CustomDockedTab", rootDockId);
+            ImGui::DockBuilderDockWindow("Debug##DebugDockedTab", rootDockId);
+            ImGui::DockBuilderFinish(rootDockId);
         }
-    }
-    ImGui::End();
+    } ImGui::End();
 
-    if (mainDockspaceId != 0) ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
     ImGuiWindowFlags fixedTabFlags =
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoBackground;
 
-    if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) home();
+    if (rootDockId != 0) ImGui::SetNextWindowDockID(rootDockId, ImGuiCond_FirstUseEver);
+    if(ImGui::Begin("Debug##DebugDockedTab", nullptr, fixedTabFlags)) debug();
     ImGui::End();
-    if (mainDockspaceId != 0) ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
 
-    ImGuiID customDockspaceId = 0;
+    if (rootDockId != 0) ImGui::SetNextWindowDockID(rootDockId, ImGuiCond_FirstUseEver);
     bool customVisible = ImGui::Begin("Custom##CustomDockedTab", nullptr, fixedTabFlags);
-    customDockspaceId = ImGui::GetID("CustomDockspace");
+    ImGuiID customDockspaceId = ImGui::GetID("CustomDockspace");
     const ImGuiDockNodeFlags customTabsOnlyFlags = ImGuiDockNodeFlags_AutoHideTabBar;
     const ImGuiDockNodeFlags customDockFlags = customVisible
         ? customTabsOnlyFlags
@@ -1557,18 +1537,15 @@ void UI::build(){
     if (customVisible) emptyCustom();
     ImGui::End();
 
-    if (mainDockspaceId != 0) ImGui::SetNextWindowDockID(mainDockspaceId, ImGuiCond_FirstUseEver);
-    if(ImGui::Begin("Debug##DebugDockedTab", nullptr, fixedTabFlags)){
-        ImGui::Text("Hi :0");
-    } ImGui::End();
+    if (rootDockId != 0) ImGui::SetNextWindowDockID(rootDockId, ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Home##MainDockedTab", nullptr, fixedTabFlags)) home();
+    ImGui::End();
 
     drawGeneratedPlots(parseInterface, customDockspaceId, customVisible);
+    drawGeneratorUI();
     signalSearch();
-    drawGeneratorUI(parseInterface);
     terminal();
-
-    if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
-    if(showFps) fpsWindow();
+    fpsWindow();
     ImGui::Render();
 }
 
@@ -1631,6 +1608,10 @@ void UI::networkUI(){
             }
         }
 }
+
+void UI::debug(){
+    ImGui::Text("Hello ;3");
+};
 
 void UI::home(){
     const ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
@@ -1809,6 +1790,8 @@ void UI::bottomBar(){
 }
 
 void UI::fpsWindow(){
+    if(ImGui::IsKeyReleased(ImGuiKey_F3)) showFps = !showFps;
+    if(!showFps) return;
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 padding(12.0f, 12.0f);
     ImVec2 windowPos = ImVec2(io.DisplaySize.x - padding.x, padding.y);

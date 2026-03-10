@@ -34,6 +34,8 @@ struct UI{
         float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
     } renderSettings;
 
+
+    bool showFps = false;
     bool cmdOpen = false;
     bool cmdFF = false;
     char cmdBuffer[128] = {0};
@@ -108,6 +110,7 @@ struct UI{
     void build();
     void fpsWindow();
     void signalSearch();
+    void drawGeneratorUI();
     void terminal();
     void basePlate();
     void background();
@@ -126,6 +129,7 @@ struct UI{
     void emptyCustom();
     void bottomBar();
     void home();
+    void debug();
     void networkUI();
     void refreshSerialPorts();
     bool signalSearchPlot(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
