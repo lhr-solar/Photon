@@ -102,8 +102,8 @@ void Gui::prepareImGui(){
     io.IniFilename = nullptr; // Manual ini load/save only, no periodic autosave.
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
-    ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)HelveticaNeueRoman_ttf,
-           static_cast<int>(HelveticaNeueRoman_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)sansFlex_ttf,
+           static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
     float tighten = 0.92f; // <1.0 tightens spacing
     for (ImFontGlyph& g : font->Glyphs)
         g.AdvanceX *= tighten;
@@ -121,8 +121,8 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
     io.Fonts->Clear();
-    ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)HelveticaNeueRoman_ttf,
-            static_cast<int>(HelveticaNeueRoman_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)sansFlex_ttf,
+            static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
     float tighten = 0.92f; // <1.0 tightens spacing
     for (ImFontGlyph& g : font->Glyphs)
         g.AdvanceX *= tighten;
