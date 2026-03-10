@@ -32,7 +32,6 @@ void Photon::prepareScene(){
     gpu.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers, gpu.vulkanSwapchain.imageCount);
     gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.drawCmdBuffers);
     gpu.setupRenderPass(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceFormat);
-    //gpu.setupDepthStencil(gui.width, gui.height);
     gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.swapChainBuffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
     gpu.setupDescriptors(gpu.vulkanDevice.logicalDevice);
     gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
@@ -106,7 +105,6 @@ void Photon::executeFrame(){
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.drawCmdBuffers[gpu.currentBuffer];
     VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
-
     pushFrame();
 }
 
@@ -189,7 +187,7 @@ void Photon::pushFrame(){
         windowResize();
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) { return; }
 	} else { VK_CHECK(result); }
-	VK_CHECK(vkQueueWaitIdle(gpu.vulkanDevice.graphicsQueue));
+	VK_CHECK(vkQueueWaitIdle(gpu.vulkanDevice.graphicsQueue)); // replace this with fences :)
 }
 
 void Photon::windowResize(){

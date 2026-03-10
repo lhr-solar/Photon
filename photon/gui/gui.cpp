@@ -439,13 +439,14 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     ui.backgroundShader.recordShaderPass(drawCmdBuffers[idx]);
     vkCmdBeginRenderPass(drawCmdBuffers[idx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindDescriptorSets(drawCmdBuffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-
     drawFrame(drawCmdBuffers[idx], descriptorSet);
     vkCmdEndRenderPass(drawCmdBuffers[idx]);
     VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[idx]));
 }
 
 void Gui::updateBuffers(VulkanDevice vulkanDevice){
+    static VkDeviceSize dedicatedVertexSize = 8 * 1024 * 1024;
+    static VkDeviceSize dedicatedIndexSize  = 8 * 1024 * 1024;
     ImDrawData *imDrawData = ImGui::GetDrawData();
 
     // Note: Alignment is done inside buffer creation
@@ -457,8 +458,14 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
         return; 
     }
 
+    while(vertexBufferSize > dedicatedVertexSize) dedicatedVertexSize = dedicatedVertexSize * 2;
+    while(indexBufferSize > dedicatedIndexSize) dedicatedIndexSize = dedicatedIndexSize * 2;
+
+    vertexBufferSize = dedicatedVertexSize;
+    indexBufferSize = dedicatedIndexSize;
+
     // Vertex Buffer
-    if ((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexCount != imDrawData->TotalVtxCount)) {
+    if (((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexCount != imDrawData->TotalVtxCount)) && vertexBuffer.size < vertexBufferSize) {
       vertexBuffer.unmap();
       vertexBuffer.destroy();
       VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &vertexBuffer, vertexBufferSize, nullptr));
@@ -467,7 +474,7 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
     }
 
     // Index buffer
-    if ((indexBuffer.buffer == VK_NULL_HANDLE) || (indexCount < imDrawData->TotalIdxCount)) {
+    if (((indexBuffer.buffer == VK_NULL_HANDLE) || (indexCount < imDrawData->TotalIdxCount)) && indexBuffer.size < indexBufferSize) {
       indexBuffer.unmap();
       indexBuffer.destroy();
       VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &indexBuffer, indexBufferSize, 0));
@@ -479,7 +486,6 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
     ImDrawVert *vtxDst = (ImDrawVert *)vertexBuffer.mapped;
     ImDrawIdx *idxDst = (ImDrawIdx *)indexBuffer.mapped;
 
-    // TODO profile this, consider SIMD
     for (int n = 0; n < imDrawData->CmdListsCount; n++) {
       const ImDrawList *cmd_list = imDrawData->CmdLists[n];
       memcpy(vtxDst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));

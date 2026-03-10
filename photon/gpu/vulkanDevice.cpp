@@ -256,11 +256,9 @@ VkResult VulkanDevice::createBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
 	}
     VK_CHECK(vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer->memory));
 
-    /*
-    logs("[Buffer] size=" << size/1024 << "KB"
+    std::cout << "[Buffer] size=" << size/1024 << "KB"
      << " | alloc=" << memAlloc.allocationSize/1024 << "KB"
-     << " | flags=0x" << std::hex << usageFlags << std::dec);
-     */
+     << " | flags=0x" << std::hex << usageFlags << std::dec << std::endl;
 
     buffer->alignment = memReqs.alignment;
     buffer->size = size;
