@@ -1,11 +1,13 @@
 param(
-    [string]$arg = "Debug"
+    [string]$arg = "Debug",
+    [switch]$EnableValidation
 )
 
 # run ".\winBuild.ps1 help" for help
 if ($arg -eq "help") {
     Write-Host "[?] run '.\winBuild.ps1' to compile debug version"
     Write-Host "[?] run '.\winBuild.ps1 Release' to compile release version"
+    Write-Host "[?] add '-EnableValidation' to enable Vulkan validation layers"
     Write-Host "[?] run '.\winBuild.ps1 clean' to remove build artifacts"
     exit 0
 }
@@ -22,8 +24,11 @@ if ($arg -eq "clean") {
 $BUILD_TYPE = $arg
 $ARTIFACT_ROOT = Join-Path $PSScriptRoot "artifacts"
 
-$env:VK_INSTANCE_LAYERS = "VK_LAYER_KHRONOS_validation"
-$env:VK_DEBUG = "1"
+if ($EnableValidation) {
+    $env:VK_INSTANCE_LAYERS = "VK_LAYER_KHRONOS_validation"
+    $env:VK_DEBUG = "1"
+    Write-Host "[+] Vulkan validation layers enabled"
+}
 
 $clangTool = Get-Command clang-cl -ErrorAction SilentlyContinue
 if (-not $clangTool) {
