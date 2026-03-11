@@ -11,7 +11,9 @@
 #include <iomanip>
 #include <limits>
 #include <unordered_map>
+#include <unordered_set>
 #include <array>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -55,6 +57,11 @@ RenderSlice makeRenderSlice(size_t start, size_t end, size_t maxPoints = kMaxRen
 struct SignalOption {
     PlotDataSourceRef ref;
     std::string label;
+};
+
+struct SourceMatch {
+    int optionIndex = -1;
+    int score = 0;
 };
 
 struct PlotTypeSpec {
@@ -125,6 +132,7 @@ struct GeneratedPlotWindow {
     double xMin = 0.0;
     double xMax = 0.0;
     bool useSource1TimeAsX = true;
+    std::string title;
 };
 
 struct PlotGeneratorState {
@@ -136,9 +144,14 @@ struct PlotGeneratorState {
     int sourceSelected = -1;
     int activeSourceIndex = 0;
     bool useSource1TimeAsX = true;
+    size_t sourceMatchesSignature = std::numeric_limits<size_t>::max();
+    std::string sourceMatchesQuery;
+    std::vector<SourceMatch> sourceMatches;
     int nextId = 1;
     std::vector<GeneratedPlotWindow> windows;
 };
+
+void refreshGeneratedPlotWindowTitle(GeneratedPlotWindow& plot);
 
 PlotGeneratorState& generatorState() {
     static PlotGeneratorState state;
@@ -228,6 +241,7 @@ void plotSettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const cha
             window.useSource1TimeAsX = (std::atoi(extra.c_str() + 9) != 0);
         }
     }
+    refreshGeneratedPlotWindowTitle(window);
 
     state.nextId = std::max(state.nextId, window.id + 1);
     state.windows.push_back(std::move(window));
@@ -280,7 +294,7 @@ const char* threeDRequiredSourcesText(int typeIndex, bool useSource1TimeAsX) {
     return line ? "3D line requires 3 sources (X, Y, Z)." : "3D plots require 3 valid sources (X, Y, Z).";
 }
 
-std::string threeDSourceLabel(size_t sourceIndex, bool useSource1TimeAsX) {
+const char* threeDSourceLabel(size_t sourceIndex, bool useSource1TimeAsX) {
     if (useSource1TimeAsX) {
         return (sourceIndex == 0) ? "Y Source" : "Z Source";
     }
@@ -300,6 +314,17 @@ void apply3DSourceCount(bool useSource1TimeAsX,
 
 std::string generatedPlotWindowTitle(const GeneratedPlotWindow& plot) {
     return std::string(specFor(plot.typeIndex).label) + " " + std::to_string(plot.id);
+}
+
+void refreshGeneratedPlotWindowTitle(GeneratedPlotWindow& plot) {
+    plot.title = generatedPlotWindowTitle(plot);
+}
+
+const std::string& windowTitleFor(GeneratedPlotWindow& plot) {
+    if (plot.title.empty()) {
+        refreshGeneratedPlotWindowTitle(plot);
+    }
+    return plot.title;
 }
 
 ImGuiID largestLeafDockNode(ImGuiID nodeId) {
@@ -333,23 +358,75 @@ void resetGeneratorSourcesForType(PlotGeneratorState& state) {
     }
 }
 
-std::vector<SignalOption> collectSignalOptions(Parse* parseInterface) {
+uint64_t sourceRefKey(int canId, int signalIndex) {
+    return (static_cast<uint64_t>(static_cast<uint32_t>(canId)) << 32u) |
+           static_cast<uint32_t>(signalIndex);
+}
+
+uint64_t sourceRefKey(const PlotDataSourceRef& src) {
+    return sourceRefKey(src.canId, src.signalIndex);
+}
+
+struct SignalOptionsCache {
+    Parse* parseInterface = nullptr;
+    size_t signature = 0;
     std::vector<SignalOption> options;
-    if (!parseInterface) { return options; }
-    options.reserve(parseInterface->canStore.canMessages.size() * 8);
+    std::unordered_map<uint64_t, int> optionIndexByRef;
+};
+
+SignalOptionsCache& signalOptionsCache() {
+    static SignalOptionsCache cache;
+    return cache;
+}
+
+size_t computeSignalOptionsSignature(Parse* parseInterface) {
+    if (!parseInterface) { return 0; }
+    size_t sig = parseInterface->canStore.canMessages.size();
+    for (const auto& [canId, msg] : parseInterface->canStore.canMessages) {
+        sig ^= (std::hash<int>{}(canId) + 0x9e3779b97f4a7c15ull + (sig << 6u) + (sig >> 2u));
+        sig ^= (std::hash<size_t>{}(msg.signals.size()) + 0x9e3779b97f4a7c15ull + (sig << 6u) + (sig >> 2u));
+    }
+    return sig;
+}
+
+void rebuildSignalOptionsCache(Parse* parseInterface, size_t signature) {
+    SignalOptionsCache& cache = signalOptionsCache();
+    cache.options.clear();
+    cache.optionIndexByRef.clear();
+    cache.parseInterface = parseInterface;
+    cache.signature = signature;
+    if (!parseInterface) { return; }
+
+    cache.options.reserve(parseInterface->canStore.canMessages.size() * 8);
+    cache.optionIndexByRef.reserve(parseInterface->canStore.canMessages.size() * 8);
 
     for (const auto& [canId, msg] : parseInterface->canStore.canMessages) {
+        char idBuf[16] = {0};
+        std::snprintf(idBuf, sizeof(idBuf), "0x%03X", canId);
         for (size_t i = 0; i < msg.signals.size(); ++i) {
-            char idBuf[16] = {0};
-            std::snprintf(idBuf, sizeof(idBuf), "0x%03X", canId);
             SignalOption opt;
             opt.ref.canId = canId;
             opt.ref.signalIndex = static_cast<int>(i);
-            opt.label = std::string(idBuf) + " : " + msg.name + " / " + msg.signals[i].name;
-            options.push_back(std::move(opt));
+            opt.label.reserve(16 + msg.name.size() + msg.signals[i].name.size());
+            opt.label.append(idBuf).append(" : ").append(msg.name).append(" / ").append(msg.signals[i].name);
+            const int optionIndex = static_cast<int>(cache.options.size());
+            cache.optionIndexByRef.emplace(sourceRefKey(opt.ref), optionIndex);
+            cache.options.push_back(std::move(opt));
         }
     }
-    return options;
+}
+
+const SignalOptionsCache& getSignalOptionsCache(Parse* parseInterface) {
+    SignalOptionsCache& cache = signalOptionsCache();
+    const size_t signature = computeSignalOptionsSignature(parseInterface);
+    if (cache.parseInterface != parseInterface || cache.signature != signature) {
+        rebuildSignalOptionsCache(parseInterface, signature);
+    }
+    return cache;
+}
+
+const std::vector<SignalOption>& collectSignalOptions(Parse* parseInterface) {
+    return getSignalOptionsCache(parseInterface).options;
 }
 
 const CanMessage* findMessage(Parse* parseInterface, int canId) {
@@ -374,19 +451,10 @@ std::string sourceName(Parse* parseInterface, const PlotDataSourceRef& src) {
     return std::string(idBuf) + "/" + msg->signals[static_cast<size_t>(src.signalIndex)].name;
 }
 
-int findOptionIndex(const std::vector<SignalOption>& options, const PlotDataSourceRef& src) {
-    for (size_t i = 0; i < options.size(); ++i) {
-        if (options[i].ref.canId == src.canId && options[i].ref.signalIndex == src.signalIndex) {
-            return static_cast<int>(i);
-        }
-    }
-    return -1;
+int findOptionIndex(const SignalOptionsCache& cache, const PlotDataSourceRef& src) {
+    auto it = cache.optionIndexByRef.find(sourceRefKey(src));
+    return (it == cache.optionIndexByRef.end()) ? -1 : it->second;
 }
-
-struct SourceMatch {
-    int optionIndex = -1;
-    int score = 0;
-};
 
 struct LinkedTimeAxisState {
     bool hasRange = false;
@@ -409,8 +477,17 @@ std::unordered_map<int, ListWindowState>& listWindowStates() {
     return states;
 }
 
-std::vector<SourceMatch> buildSourceMatches(const std::vector<SignalOption>& options, const char* query) {
-    std::vector<SourceMatch> matches;
+struct SourceMatchLess {
+    const std::vector<SignalOption>* options = nullptr;
+    bool operator()(const SourceMatch& a, const SourceMatch& b) const {
+        if (a.score != b.score) { return a.score < b.score; }
+        return (*options)[static_cast<size_t>(a.optionIndex)].label <
+               (*options)[static_cast<size_t>(b.optionIndex)].label;
+    }
+};
+
+void buildSourceMatches(const std::vector<SignalOption>& options, const char* query, std::vector<SourceMatch>& matches) {
+    matches.clear();
     matches.reserve(options.size());
 
     const bool hasQuery = (query != nullptr && query[0] != '\0');
@@ -421,12 +498,78 @@ std::vector<SourceMatch> buildSourceMatches(const std::vector<SignalOption>& opt
         matches.push_back(m);
     }
 
-    std::sort(matches.begin(), matches.end(), [&](const SourceMatch& a, const SourceMatch& b) {
-        if (a.score != b.score) { return a.score < b.score; }
-        return options[static_cast<size_t>(a.optionIndex)].label <
-               options[static_cast<size_t>(b.optionIndex)].label;
-    });
-    return matches;
+    SourceMatchLess less;
+    less.options = &options;
+    std::sort(matches.begin(), matches.end(), less);
+}
+
+struct PlotScratchBuffers {
+    std::vector<const CanSignal*> signals;
+    std::vector<double> values;
+    std::vector<const char*> labels;
+};
+
+bool generatedPlotWindowClosed(const GeneratedPlotWindow& window) {
+    return !window.open;
+}
+
+void pruneListWindowStatesForActiveWindows(const std::vector<GeneratedPlotWindow>& windows) {
+    auto& listStates = listWindowStates();
+    std::unordered_set<int> activeIds;
+    activeIds.reserve(windows.size());
+    for (const GeneratedPlotWindow& window : windows) {
+        activeIds.insert(window.id);
+    }
+    for (auto it = listStates.begin(); it != listStates.end();) {
+        if (activeIds.find(it->first) == activeIds.end()) {
+            it = listStates.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+int clampByBudget(int wantedCost, int units, int minUnits, int costPerUnit, int& frameBudget) {
+    if (units <= 0 || costPerUnit <= 0) { return 0; }
+    const int allowed = std::max(minUnits, std::min(units, frameBudget / costPerUnit));
+    const int actualCost = std::min(wantedCost, allowed * costPerUnit);
+    frameBudget = std::max(0, frameBudget - actualCost);
+    return allowed;
+}
+
+void plotSettingsClearAll(ImGuiContext*, ImGuiSettingsHandler*) {
+    clearPlotSettings();
+}
+
+int parseComIndexFromName(const std::string& name) {
+    if (name.size() <= 3) { return 0; }
+    return std::atoi(name.c_str() + 3);
+}
+
+bool lessComPortName(const std::string& lhs, const std::string& rhs) {
+    const int leftIdx = parseComIndexFromName(lhs);
+    const int rightIdx = parseComIndexFromName(rhs);
+    if (leftIdx == rightIdx) { return lhs < rhs; }
+    return leftIdx < rightIdx;
+}
+
+ImVec2 clampPosToViewport(const ImGuiViewport* vp, const ImVec2& pos, const ImVec2& size) {
+    const float minX = vp->Pos.x + 8.0f;
+    const float minY = vp->Pos.y + 8.0f;
+    const float maxX = vp->Pos.x + vp->Size.x - size.x - 8.0f;
+    const float maxY = vp->Pos.y + vp->Size.y - size.y - 8.0f;
+    return ImVec2(std::clamp(pos.x, minX, std::max(minX, maxX)),
+                  std::clamp(pos.y, minY, std::max(minY, maxY)));
+}
+
+bool lessCmdResult(const UI::CmdResult& a, const UI::CmdResult& b) {
+    if (a.distance != b.distance) { return a.distance < b.distance; }
+    return a.name < b.name;
+}
+
+PlotScratchBuffers& plotScratchBuffers() {
+    static thread_local PlotScratchBuffers scratch;
+    return scratch;
 }
 
 void updateFollowState(GeneratedPlotWindow& plot, LinkedTimeAxisState* linkedState = nullptr) {
@@ -537,7 +680,9 @@ void renderTimeSeriesPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
     bool hasY = false;
     double yMin = std::numeric_limits<double>::max();
     double yMax = std::numeric_limits<double>::lowest();
-    std::vector<const CanSignal*> signals;
+    PlotScratchBuffers& scratch = plotScratchBuffers();
+    std::vector<const CanSignal*>& signals = scratch.signals;
+    signals.clear();
     signals.reserve(plot.sources.size());
     for (const PlotDataSourceRef& src : plot.sources) {
         const CanSignal* signal = findSignal(parseInterface, src);
@@ -574,8 +719,9 @@ void renderTimeSeriesPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
     }
     ImPlot::SetNextAxisLimits(ImAxis_Y1, yMin, yMax, ImPlotCond_Always);
 
-    std::string plotId = "##generatedPlot_" + std::to_string(plot.id);
-    if (!ImPlot::BeginPlot(plotId.c_str(), ImVec2(-FLT_MIN, -FLT_MIN))) {
+    char plotId[64] = {0};
+    std::snprintf(plotId, sizeof(plotId), "##generatedPlot_%d", plot.id);
+    if (!ImPlot::BeginPlot(plotId, ImVec2(-FLT_MIN, -FLT_MIN))) {
         return;
     }
 
@@ -665,12 +811,12 @@ void renderTimeSeriesPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
             const RenderSlice slice = makeRenderSlice(startIdx, endIdx, 512);
             int groupCount = slice.count;
             if (itemCount > 0 && groupCount > 0) {
-                std::vector<double> values(static_cast<size_t>(itemCount * groupCount), 0.0);
-                std::vector<const char*> labels(static_cast<size_t>(itemCount), nullptr);
-                std::vector<std::string> labelStorage(static_cast<size_t>(itemCount));
+                std::vector<double>& values = scratch.values;
+                std::vector<const char*>& labels = scratch.labels;
+                values.assign(static_cast<size_t>(itemCount * groupCount), 0.0);
+                labels.resize(static_cast<size_t>(itemCount));
                 for (int item = 0; item < itemCount; ++item) {
-                    labelStorage[static_cast<size_t>(item)] = signals[static_cast<size_t>(item)]->name;
-                    labels[static_cast<size_t>(item)] = labelStorage[static_cast<size_t>(item)].c_str();
+                    labels[static_cast<size_t>(item)] = signals[static_cast<size_t>(item)]->name.c_str();
                     for (int group = 0; group < groupCount; ++group) {
                         const size_t idx = slice.start + static_cast<size_t>(group) * slice.step;
                         if (idx < signals[static_cast<size_t>(item)]->data.size()) {
@@ -733,7 +879,9 @@ void renderTimeSeriesPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
 }
 
 void renderNonTimePlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
-    std::vector<const CanSignal*> signals;
+    PlotScratchBuffers& scratch = plotScratchBuffers();
+    std::vector<const CanSignal*>& signals = scratch.signals;
+    signals.clear();
     signals.reserve(plot.sources.size());
     for (const PlotDataSourceRef& src : plot.sources) {
         const CanSignal* signal = findSignal(parseInterface, src);
@@ -744,21 +892,22 @@ void renderNonTimePlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
         return;
     }
 
-    std::string plotId = "##generatedPlot_" + std::to_string(plot.id);
-    if (!ImPlot::BeginPlot(plotId.c_str(), ImVec2(-FLT_MIN, -FLT_MIN))) {
+    char plotId[64] = {0};
+    std::snprintf(plotId, sizeof(plotId), "##generatedPlot_%d", plot.id);
+    if (!ImPlot::BeginPlot(plotId, ImVec2(-FLT_MIN, -FLT_MIN))) {
         return;
     }
 
     switch (plot.typeIndex) {
         case PlotType_Pie: {
-            std::vector<double> values(signals.size(), 0.0);
-            std::vector<const char*> labels(signals.size(), nullptr);
-            std::vector<std::string> labelStorage(signals.size());
+            std::vector<double>& values = scratch.values;
+            std::vector<const char*>& labels = scratch.labels;
+            values.resize(signals.size());
+            labels.resize(signals.size());
             for (size_t i = 0; i < signals.size(); ++i) {
                 const auto& data = signals[i]->data;
                 values[i] = data.empty() ? 0.0 : data.back();
-                labelStorage[i] = signals[i]->name;
-                labels[i] = labelStorage[i].c_str();
+                labels[i] = signals[i]->name.c_str();
             }
             ImPlot::PlotPieChart(labels.data(), values.data(), static_cast<int>(values.size()), 0.5, 0.5, 0.4, "%.2f");
             break;
@@ -808,16 +957,9 @@ void render3DPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
         lastFrame = frameNow;
         frameBudget = 12000;
     }
-    auto clampByBudget = [&](int wantedCost, int units, int minUnits, int costPerUnit) -> int {
-        if (units <= 0 || costPerUnit <= 0) { return 0; }
-        const int allowed = std::max(minUnits, std::min(units, frameBudget / costPerUnit));
-        const int actualCost = std::min(wantedCost, allowed * costPerUnit);
-        frameBudget = std::max(0, frameBudget - actualCost);
-        return allowed;
-    };
-
-    std::string plotId = "##generatedPlot3D_" + std::to_string(plot.id);
-    if (!ImPlot3D::BeginPlot(plotId.c_str(), ImVec2(-FLT_MIN, -FLT_MIN), ImPlot3DFlags_None)) {
+    char plotId[64] = {0};
+    std::snprintf(plotId, sizeof(plotId), "##generatedPlot3D_%d", plot.id);
+    if (!ImPlot3D::BeginPlot(plotId, ImVec2(-FLT_MIN, -FLT_MIN), ImPlot3DFlags_None)) {
         return;
     }
 
@@ -855,7 +997,7 @@ void render3DPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
         auto minIt = std::lower_bound(samplingTime.begin(), samplingTime.begin() + static_cast<std::ptrdiff_t>(count), windowStart);
         const size_t startIdx = static_cast<size_t>(std::distance(samplingTime.begin(), minIt));
         const RenderSlice slice = makeRenderSlice(startIdx, count, kMaxRenderablePoints3DLine);
-        const int allowed = clampByBudget(slice.count * 2, slice.count, 2, 2);
+        const int allowed = clampByBudget(slice.count * 2, slice.count, 2, 2, frameBudget);
 
         double xMin = std::numeric_limits<double>::max();
         double xMax = std::numeric_limits<double>::lowest();
@@ -888,7 +1030,9 @@ void render3DPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
         }
     } else {
         const size_t requiredSources = static_cast<size_t>(required3DSources(plot.useSource1TimeAsX));
-        std::vector<const CanSignal*> signals;
+        PlotScratchBuffers& scratch = plotScratchBuffers();
+        std::vector<const CanSignal*>& signals = scratch.signals;
+        signals.clear();
         signals.reserve(plot.sources.size());
         for (const PlotDataSourceRef& src : plot.sources) {
             const CanSignal* signal = findSignal(parseInterface, src);
@@ -921,7 +1065,7 @@ void render3DPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
         if (plot.typeIndex == PlotType_3DScatter) {
         const size_t start = (count > kMaxRenderablePoints3DScatter) ? (count - kMaxRenderablePoints3DScatter) : 0;
         const RenderSlice slice = makeRenderSlice(start, count, kMaxRenderablePoints3DScatter);
-        const int allowed = clampByBudget(slice.count * 12, slice.count, 2, 12);
+        const int allowed = clampByBudget(slice.count * 12, slice.count, 2, 12, frameBudget);
         if (allowed > 1) {
             ImPlot3D::PlotScatter("3D Scatter", xs.data() + slice.start, ys.data() + slice.start, zs.data() + slice.start,
                                   allowed, 0, 0, static_cast<int>(sizeof(double) * slice.step));
@@ -933,7 +1077,7 @@ void render3DPlot(Parse* parseInterface, GeneratedPlotWindow& plot) {
         const size_t usable = count - start;
         const int side = std::min(kMaxSurfaceSide, std::max(2, static_cast<int>(std::sqrt(static_cast<double>(usable)))));
         int pointCount = side * side;
-        int allowedPointCount = clampByBudget(pointCount * 8, pointCount, 4, 8);
+        int allowedPointCount = clampByBudget(pointCount * 8, pointCount, 4, 8, frameBudget);
         int allowedSide = static_cast<int>(std::sqrt(static_cast<double>(allowedPointCount)));
         allowedSide = std::max(2, std::min(side, allowedSide));
         pointCount = allowedSide * allowedSide;
@@ -960,7 +1104,16 @@ void renderListWindow(Parse* parseInterface, GeneratedPlotWindow& plot, const st
         for (const PlotDataSourceRef& src : plot.sources) {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(sourceName(parseInterface, src).c_str());
+            const CanMessage* msg = findMessage(parseInterface, src.canId);
+            if (!msg) {
+                ImGui::TextUnformatted("<missing message>");
+            } else if (src.signalIndex < 0 || static_cast<size_t>(src.signalIndex) >= msg->signals.size()) {
+                ImGui::TextUnformatted("<missing signal>");
+            } else {
+                char sourceBuf[128] = {0};
+                std::snprintf(sourceBuf, sizeof(sourceBuf), "0x%03X/%s", src.canId, msg->signals[static_cast<size_t>(src.signalIndex)].name.c_str());
+                ImGui::TextUnformatted(sourceBuf);
+            }
 
             ImGui::TableSetColumnIndex(1);
             const CanSignal* signal = findSignal(parseInterface, src);
@@ -1016,20 +1169,8 @@ void renderListWindow(Parse* parseInterface, GeneratedPlotWindow& plot, const st
 
 void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool customVisible) {
     PlotGeneratorState& state = generatorState();
-    const std::vector<SignalOption> options = collectSignalOptions(parseInterface);
+    const std::vector<SignalOption>* options = nullptr;
     const size_t countBefore = state.windows.size();
-    auto pruneListWindowStates = [&]() {
-        auto& listStates = listWindowStates();
-        for (auto it = listStates.begin(); it != listStates.end();) {
-            const bool exists = std::any_of(state.windows.begin(), state.windows.end(),
-                                            [&](const GeneratedPlotWindow& w) { return w.id == it->first; });
-            if (!exists) {
-                it = listStates.erase(it);
-            } else {
-                ++it;
-            }
-        }
-    };
 
     if (customDockspaceId != 0 && ImGui::DockBuilderGetNode(customDockspaceId) != nullptr) {
         bool hasEstablishedLayout = false;
@@ -1043,7 +1184,7 @@ void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool c
         bool dockChanged = false;
         for (GeneratedPlotWindow& plot : state.windows) {
             if (!plot.open || !plot.needsInitialDock) { continue; }
-            const std::string windowTitle = generatedPlotWindowTitle(plot);
+            const std::string& windowTitle = windowTitleFor(plot);
             ImGuiID targetNode = customDockspaceId;
 
             if (hasEstablishedLayout) {
@@ -1081,7 +1222,7 @@ void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool c
     if (!customVisible) {
         for (GeneratedPlotWindow& plot : state.windows) {
             if (!plot.open) { continue; }
-            const std::string windowTitle = generatedPlotWindowTitle(plot);
+            const std::string& windowTitle = windowTitleFor(plot);
             ImGuiWindow* existing = ImGui::FindWindowByName(windowTitle.c_str());
             const bool isUndocked = (existing != nullptr) && (existing->DockNode == nullptr);
             if (isUndocked) {
@@ -1089,18 +1230,18 @@ void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool c
             }
         }
         state.windows.erase(std::remove_if(state.windows.begin(), state.windows.end(),
-            [](const GeneratedPlotWindow& window) { return !window.open; }),
+            generatedPlotWindowClosed),
             state.windows.end());
         if (state.windows.size() != countBefore) {
             ImGui::MarkIniSettingsDirty();
             persistIniNowIfAvailable();
         }
-        pruneListWindowStates();
+        pruneListWindowStatesForActiveWindows(state.windows);
         return;
     }
 
     for (GeneratedPlotWindow& plot : state.windows) {
-        std::string windowTitle = generatedPlotWindowTitle(plot);
+        const std::string& windowTitle = windowTitleFor(plot);
         ImGuiWindow* existing = ImGui::FindWindowByName(windowTitle.c_str());
         const bool wasFloatingDockNode =
             (existing != nullptr) &&
@@ -1141,7 +1282,10 @@ void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool c
             if (specFor(plot.typeIndex).is3D) {
                 render3DPlot(parseInterface, plot);
             } else if (plot.typeIndex == PlotType_List) {
-                renderListWindow(parseInterface, plot, options, true);
+                if (options == nullptr) {
+                    options = &getSignalOptionsCache(parseInterface).options;
+                }
+                renderListWindow(parseInterface, plot, *options, true);
             } else if (specFor(plot.typeIndex).usesTimeAxis) {
                 renderTimeSeriesPlot(parseInterface, plot);
             } else {
@@ -1153,18 +1297,17 @@ void drawGeneratedPlots(Parse* parseInterface, ImGuiID customDockspaceId, bool c
         ImGui::PopStyleVar();
     }
     state.windows.erase(std::remove_if(state.windows.begin(), state.windows.end(),
-        [](const GeneratedPlotWindow& window) { return !window.open; }),
+        generatedPlotWindowClosed),
         state.windows.end());
     if (state.windows.size() != countBefore) {
         ImGui::MarkIniSettingsDirty();
         persistIniNowIfAvailable();
     }
-    pruneListWindowStates();
+    pruneListWindowStatesForActiveWindows(state.windows);
 }
 
 void UI::drawGeneratorUI() {
     PlotGeneratorState& state = generatorState();
-    const std::vector<SignalOption> options = collectSignalOptions(parseInterface);
 
     const ImGuiIO& io = ImGui::GetIO();
     const bool generatorHotkeyPressed =
@@ -1184,6 +1327,8 @@ void UI::drawGeneratorUI() {
     }
 
     if (!state.creating) { return; }
+    const SignalOptionsCache& optionCache = getSignalOptionsCache(parseInterface);
+    const std::vector<SignalOption>& options = optionCache.options;
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImVec2 center = vp ? vp->GetCenter() : ImVec2(0, 0);
@@ -1295,16 +1440,17 @@ void UI::drawGeneratorUI() {
         ImGui::SeparatorText("Assigned Signals");
         for (size_t i = 0; i < state.sources.size(); ++i) {
             const bool selectedRow = (static_cast<int>(i) == state.activeSourceIndex);
-            int selectedIndex = findOptionIndex(options, state.sources[i]);
-            std::string sourceLabel = (selectedIndex >= 0) ? options[static_cast<size_t>(selectedIndex)].label : "<unassigned>";
-            std::string lineLabel;
+            int selectedIndex = findOptionIndex(optionCache, state.sources[i]);
+            const char* sourceLabel = (selectedIndex >= 0) ? options[static_cast<size_t>(selectedIndex)].label.c_str() : "<unassigned>";
+            char lineLabel[64] = {0};
             if (spec.is3D) {
-                lineLabel = threeDSourceLabel(i, state.useSource1TimeAsX);
+                std::snprintf(lineLabel, sizeof(lineLabel), "%s", threeDSourceLabel(i, state.useSource1TimeAsX));
             } else {
-                lineLabel = "Source " + std::to_string(i + 1);
+                std::snprintf(lineLabel, sizeof(lineLabel), "Source %zu", i + 1);
             }
-            std::string rowText = lineLabel + ": " + sourceLabel;
-            if (ImGui::Selectable(rowText.c_str(), selectedRow, ImGuiSelectableFlags_AllowDoubleClick)) {
+            char rowText[640] = {0};
+            std::snprintf(rowText, sizeof(rowText), "%s: %s", lineLabel, sourceLabel);
+            if (ImGui::Selectable(rowText, selectedRow, ImGuiSelectableFlags_AllowDoubleClick)) {
                 state.activeSourceIndex = static_cast<int>(i);
                 state.createFF = true;
             }
@@ -1324,7 +1470,13 @@ void UI::drawGeneratorUI() {
             if (state.createFF) { state.createFF = false; }
             inputActive = ImGui::IsItemActive();
 
-            std::vector<SourceMatch> matches = buildSourceMatches(options, state.sourceQuery);
+            const size_t optionsSignature = optionCache.signature;
+            if (state.sourceMatchesSignature != optionsSignature || state.sourceMatchesQuery != state.sourceQuery) {
+                buildSourceMatches(options, state.sourceQuery, state.sourceMatches);
+                state.sourceMatchesSignature = optionsSignature;
+                state.sourceMatchesQuery = state.sourceQuery;
+            }
+            const std::vector<SourceMatch>& matches = state.sourceMatches;
             if (!matches.empty()) {
                 if (state.sourceSelected < 0 || state.sourceSelected >= static_cast<int>(matches.size())) {
                     state.sourceSelected = 0;
@@ -1370,7 +1522,7 @@ void UI::drawGeneratorUI() {
 
     bool allSelected = !state.sources.empty();
     for (const PlotDataSourceRef& src : state.sources) {
-        if (findOptionIndex(options, src) < 0) {
+        if (findOptionIndex(optionCache, src) < 0) {
             allSelected = false;
             break;
         }
@@ -1394,6 +1546,7 @@ void UI::drawGeneratorUI() {
         window.typeIndex = state.typeIndex;
         window.sources = state.sources;
         window.useSource1TimeAsX = state.useSource1TimeAsX;
+        refreshGeneratedPlotWindowTitle(window);
         state.windows.push_back(std::move(window));
         ImGui::MarkIniSettingsDirty();
         persistIniNowIfAvailable();
@@ -1429,7 +1582,7 @@ void UI::installPersistentSettings() {
     ImGuiSettingsHandler handler;
     handler.TypeName = kPlotSettingsTypeName;
     handler.TypeHash = typeHash;
-    handler.ClearAllFn = [](ImGuiContext*, ImGuiSettingsHandler*) { clearPlotSettings(); };
+    handler.ClearAllFn = plotSettingsClearAll;
     handler.ReadOpenFn = plotSettingsReadOpen;
     handler.ReadLineFn = plotSettingsReadLine;
     handler.WriteAllFn = plotSettingsWriteAll;
@@ -1695,11 +1848,6 @@ void UI::refreshSerialPorts(){
     std::vector<std::string> nextPorts;
 
 #ifdef _WIN32
-    auto parseComIndex = [](const std::string& name)->int{
-        if(name.size() <= 3){ return 0; }
-        return std::atoi(name.c_str() + 3);
-    };
-
     // QueryDosDevice lets us enumerate all COM symbolic links without touching each port.
     constexpr DWORD kDeviceBufferSize = 32768;
     std::array<char, kDeviceBufferSize> deviceNames{};
@@ -1713,12 +1861,7 @@ void UI::refreshSerialPorts(){
             }
             current += deviceName.size() + 1;
         }
-        std::sort(nextPorts.begin(), nextPorts.end(), [&](const std::string& lhs, const std::string& rhs){
-            const int leftIdx = parseComIndex(lhs);
-            const int rightIdx = parseComIndex(rhs);
-            if(leftIdx == rightIdx){ return lhs < rhs; }
-            return leftIdx < rightIdx;
-        });
+        std::sort(nextPorts.begin(), nextPorts.end(), lessComPortName);
         nextPorts.erase(std::unique(nextPorts.begin(), nextPorts.end()), nextPorts.end());
     }
 
@@ -1987,17 +2130,9 @@ bool UI::signalSearchPopup(){
     }
     ImVec2 center = vp->GetCenter();
     const float gap = 20.0f;
-    auto clampPos = [&](const ImVec2& pos, const ImVec2& size) {
-        const float minX = vp->Pos.x + 8.0f;
-        const float minY = vp->Pos.y + 8.0f;
-        const float maxX = vp->Pos.x + vp->Size.x - size.x - 8.0f;
-        const float maxY = vp->Pos.y + vp->Size.y - size.y - 8.0f;
-        return ImVec2(std::clamp(pos.x, minX, std::max(minX, maxX)),
-                      std::clamp(pos.y, minY, std::max(minY, maxY)));
-    };
     const float totalWidth = popupWindowSize.x + gap + signalSearchPlotSize.x;
     ImVec2 popupWindowPos(center.x - totalWidth * 0.5f, center.y - popupWindowSize.y * 0.5f);
-    popupWindowPos = clampPos(popupWindowPos, popupWindowSize);
+    popupWindowPos = clampPosToViewport(vp, popupWindowPos, popupWindowSize);
     ImGui::SetNextWindowPos(popupWindowPos, ImGuiCond_Always);
     const CanMessage& msg = parseInterface->canStore.canMessages[activeCmdResult.canID];
     if (msg.signals.empty()) {
@@ -2033,7 +2168,7 @@ bool UI::signalSearchPopup(){
                         ImVec2 groupOrigin(center.x - groupWidth * 0.5f, center.y);
                         ImVec2 signalSearchPlotPos(groupOrigin.x + popupWindowSize.x + gap,
                                             center.y - signalSearchPlotSize.y * 0.5f);
-                        signalSearchPlotPos = clampPos(signalSearchPlotPos, signalSearchPlotSize);
+                        signalSearchPlotPos = clampPosToViewport(vp, signalSearchPlotPos, signalSearchPlotSize);
                         childFocused = signalSearchPlot(msg.signals[idx], msg.time, signalSearchPlotPos, &signalSearchPlotSize);
                     }
                 }
@@ -2191,13 +2326,7 @@ void UI::search(){
         return;
     }
 
-    std::sort(
-        results.begin(),
-        results.end(),
-        [](const CmdResult& a, const CmdResult& b) {
-            if (a.distance != b.distance) return a.distance < b.distance;
-            return a.name < b.name;
-        });
+    std::sort(results.begin(), results.end(), lessCmdResult);
 
     cmdResults = std::move(results);
 
