@@ -31,5 +31,5 @@ cmake -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE .. -DCMAKE_C_COMPILER=/usr/bin/gcc
 bear -- ninja -j$(nproc)
 
 cd ..
-mv ./artifacts/photon/Photon .
+mv ./artifacts/photon/Release/Photon .
 ./Photon

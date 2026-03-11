@@ -106,6 +106,7 @@ void Photon::executeFrame(){
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.drawCmdBuffers[gpu.currentBuffer];
     VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, gpu.fences[gpu.currentBuffer]));
+    gpu.currentBuffer = (gpu.currentBuffer + 1) % gpu.vulkanSwapchain.imageCount ;
     pushFrame();
 }
 

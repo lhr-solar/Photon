@@ -63,6 +63,7 @@ public:
 
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
     VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
+    uint32_t pickBestDevice();
     VkResult createInstance();
     VkResult setupVulkanDevice();
 

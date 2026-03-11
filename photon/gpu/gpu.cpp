@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <array>
+#include <limits>
 #include <string.h>
 
 #include "vulkan/vulkan_core.h"
@@ -112,9 +113,11 @@ VkResult Gpu::setupVulkanDevice(){
     physicalDevices.resize(gpuCount);
 	VK_CHECK(vkEnumeratePhysicalDevices(instance, &gpuCount, physicalDevices.data()));
 
-    // select first device by default, may want to expand this in the future
-    uint32_t selectedDevice = 0;
+    uint32_t selectedDevice = pickBestDevice();
     VkPhysicalDevice physicalDevice = physicalDevices[selectedDevice];
+    VkPhysicalDeviceProperties props{};
+    vkGetPhysicalDeviceProperties(physicalDevice, &props);
+    logs("[GPU] Selected physical device #" << selectedDevice << ": " << props.deviceName);
     vulkanDevice.initDevice(physicalDevice);
 
     VK_CHECK(vulkanDevice.createLogicalDevice(vulkanDevice.enabledFeatures, vulkanDevice.enabledDeviceExtensions, nullptr, requestedQueueTypes));
@@ -123,6 +126,73 @@ VkResult Gpu::setupVulkanDevice(){
     vkGetDeviceQueue(vulkanDevice.logicalDevice, vulkanDevice.queueFamilyIndices.compute, 1, &vulkanDevice.computeQueue);
     getSupportedDepthFormat(vulkanDevice.physicalDevice, &depthFormat);
     return VK_SUCCESS;
+}
+
+uint32_t Gpu::pickBestDevice(){
+    if (physicalDevices.empty())
+        return 0;
+
+    int64_t bestScore = std::numeric_limits<int64_t>::min();
+    uint32_t bestIndex = 0;
+
+    for (uint32_t i = 0; i < physicalDevices.size(); i++) {
+        const VkPhysicalDevice device = physicalDevices[i];
+
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(device, &props);
+
+        VkPhysicalDeviceMemoryProperties memoryProps{};
+        vkGetPhysicalDeviceMemoryProperties(device, &memoryProps);
+
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        if (queueFamilyCount > 0)
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+        bool hasGraphics = false;
+        bool hasCompute = false;
+        for (const auto& queueFamily : queueFamilies) {
+            hasGraphics = hasGraphics || ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0);
+            hasCompute = hasCompute || ((queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0);
+        }
+
+        VkDeviceSize totalLocalVram = 0;
+        for (uint32_t heap = 0; heap < memoryProps.memoryHeapCount; heap++) {
+            if (memoryProps.memoryHeaps[heap].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+                totalLocalVram += memoryProps.memoryHeaps[heap].size;
+            }
+        }
+
+        int64_t score = 0;
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score += 10000;
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) score += 3000;
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU) score += 1000;
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) score -= 10000;
+        if (hasGraphics) score += 1000;
+        if (hasCompute) score += 500;
+
+        const int64_t vramGiB = static_cast<int64_t>(totalLocalVram / (1024ull * 1024ull * 1024ull));
+        score += std::min<int64_t>(vramGiB, 32) * 50;
+
+        score += static_cast<int64_t>(props.apiVersion);
+        score += static_cast<int64_t>(props.limits.maxImageDimension2D);
+
+        logs("[GPU] Candidate #" << i
+             << " \"" << props.deviceName << "\""
+             << " type=" << props.deviceType
+             << " localVRAM=" << vramGiB << "GiB"
+             << " graphics=" << (hasGraphics ? "yes" : "no")
+             << " compute=" << (hasCompute ? "yes" : "no")
+             << " score=" << score);
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestIndex = i;
+        }
+    }
+
+    return bestIndex;
 }
 
 void Gpu::createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers){
