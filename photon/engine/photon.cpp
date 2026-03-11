@@ -95,12 +95,12 @@ void Photon::startFrame(){
 }
 
 void Photon::executeFrame(){
+    getFrame();
+    if(!prepared) return;
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)gui.width, (float)gui.height);
     io.DeltaTime = gpu.frameTime;
     manageNetwork();
-    getFrame();
-    if(!prepared) return;
     gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.descriptorPool, gpu.descriptorSetLayout, gpu.descriptorSet, 
             gpu.frameBuffers, gpu.drawCmdBuffers, gpu.currentBuffer);
     gpu.submitInfo.commandBufferCount = 1;
@@ -190,7 +190,6 @@ void Photon::pushFrame(){
         windowResize();
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) { return; }
 	} else { VK_CHECK(result); }
-	//VK_CHECK(vkQueueWaitIdle(gpu.vulkanDevice.graphicsQueue)); // replace this with fences :)
 }
 
 void Photon::windowResize(){
