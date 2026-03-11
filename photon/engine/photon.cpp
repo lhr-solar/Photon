@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "assettoCorsa_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
+#include "vulkan_core.h"
 
 Photon::Photon(){ 
     logs("[+] Constructing Photon"); 
@@ -104,7 +105,7 @@ void Photon::executeFrame(){
             gpu.frameBuffers, gpu.drawCmdBuffers, gpu.currentBuffer);
     gpu.submitInfo.commandBufferCount = 1;
     gpu.submitInfo.pCommandBuffers = &gpu.drawCmdBuffers[gpu.currentBuffer];
-    VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
+    VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, gpu.fences[gpu.currentBuffer]));
     pushFrame();
 }
 
@@ -164,7 +165,9 @@ void Photon::manageNetwork(){
 }
 
 void Photon::getFrame(){
+    vkWaitForFences(gpu.vulkanDevice.logicalDevice, 1, &gpu.fences[gpu.currentBuffer], VK_TRUE, UINT64_MAX);
 	VkResult result = gpu.vulkanSwapchain.acquireNextImage(gpu.vulkanDevice.logicalDevice, gpu.semaphores.presentComplete, &gpu.currentBuffer);
+    vkResetFences(gpu.vulkanDevice.logicalDevice, 1, &gpu.fences[gpu.currentBuffer]);
 	if (result == VK_ERROR_SURFACE_LOST_KHR) {
         logs("[!] Swap chain surface lost; resetting render loop");
         prepared = false;
@@ -187,7 +190,7 @@ void Photon::pushFrame(){
         windowResize();
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) { return; }
 	} else { VK_CHECK(result); }
-	VK_CHECK(vkQueueWaitIdle(gpu.vulkanDevice.graphicsQueue)); // replace this with fences :)
+	//VK_CHECK(vkQueueWaitIdle(gpu.vulkanDevice.graphicsQueue)); // replace this with fences :)
 }
 
 void Photon::windowResize(){

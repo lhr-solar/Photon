@@ -57,6 +57,8 @@ public:
 		VkSemaphore renderComplete;
 	} semaphores;
 
+    std::vector<VkFence> fences = {};
+
     float frameTime = 1.0;
 
     VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);

@@ -465,19 +465,19 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
     indexBufferSize = dedicatedIndexSize;
 
     // Vertex Buffer
-    if (((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexCount != imDrawData->TotalVtxCount)) && vertexBuffer.size < vertexBufferSize) {
+    if (((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexCount != imDrawData->TotalVtxCount)) && (vertexBuffer.size < vertexBufferSize)) {
       vertexBuffer.unmap();
       vertexBuffer.destroy();
-      VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &vertexBuffer, vertexBufferSize, nullptr));
+      VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexBuffer, vertexBufferSize, nullptr));
       vertexCount = imDrawData->TotalVtxCount;
       vertexBuffer.map(VK_WHOLE_SIZE, 0);
     }
 
     // Index buffer
-    if (((indexBuffer.buffer == VK_NULL_HANDLE) || (indexCount < imDrawData->TotalIdxCount)) && indexBuffer.size < indexBufferSize) {
+    if (((indexBuffer.buffer == VK_NULL_HANDLE) || (indexCount < imDrawData->TotalIdxCount)) && (indexBuffer.size < indexBufferSize)) {
       indexBuffer.unmap();
       indexBuffer.destroy();
-      VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &indexBuffer, indexBufferSize, 0));
+      VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &indexBuffer, indexBufferSize, 0));
       indexCount = imDrawData->TotalIdxCount;
       indexBuffer.map(VK_WHOLE_SIZE, 0);
     }
@@ -493,8 +493,6 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
       vtxDst += cmd_list->VtxBuffer.Size;
       idxDst += cmd_list->IdxBuffer.Size;
     }
-    vertexBuffer.flush(VK_WHOLE_SIZE, 0);
-    indexBuffer.flush(VK_WHOLE_SIZE, 0);
 }
 
 void Gui::drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet){
