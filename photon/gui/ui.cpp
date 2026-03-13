@@ -1764,6 +1764,8 @@ void UI::networkUI(){
 
 void UI::debug(){
     ImGui::Text("Hello ;3");
+    shaderWindow(accretionShader, "acc");
+    gltfWindow(daybreakModel, "daybreak");
 };
 
 void UI::home(){
@@ -2383,6 +2385,30 @@ void UI::objWindow(VulkanObj& obj, std::string name){
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
         ImGui::Image(obj.outTexture, drawSize);
+    } ImGui::End();
+}
+
+void UI::gltfWindow(GltfModel& model, std::string windowName){
+    ImGui::SetNextWindowSize(ImVec2(model.extent.width, model.extent.height), ImGuiCond_FirstUseEver);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
+    if(ImGui::Begin(windowName.data(), NULL, flags)){
+        ImVec2 contentSize = ImGui::GetContentRegionAvail();
+        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
+            contentSize = ImVec2(model.extent.width, model.extent.height);
+        }
+        const float delta = 0.5f;
+        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
+            if(std::fabs(contentSize.x - model.extent.width) > delta ||
+               std::fabs(contentSize.y - model.extent.height) > delta){
+                model.extent.width = contentSize.x;
+                model.extent.height = contentSize.y;
+                model.dirty = true;
+            }
+        }
+        ImVec2 drawSize(model.extent.width, model.extent.height);
+        drawSize.x = std::max(drawSize.x, 1.0f);
+        drawSize.y = std::max(drawSize.y, 1.0f);
+        ImGui::Image(model.texture, drawSize);
     } ImGui::End();
 }
 

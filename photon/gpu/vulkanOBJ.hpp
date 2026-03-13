@@ -73,4 +73,3 @@ struct VulkanObj{
     void recordRenderPass(VkCommandBuffer commandBuffer);
     void updateBuffers(VulkanDevice device);
 };
-

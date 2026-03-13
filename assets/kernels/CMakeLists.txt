@@ -19,6 +19,10 @@ set(KERNEL_SOURCES
     ${KERNEL_DIR}/triangle.frag
     ${KERNEL_DIR}/viking.vert
     ${KERNEL_DIR}/viking.frag
+    ${KERNEL_DIR}/gltf.vert
+    ${KERNEL_DIR}/gltf.frag
+    ${KERNEL_DIR}/postProcess.vert
+    ${KERNEL_DIR}/postProcess.frag
 )
 
 # convert GLSL to SPIR-V

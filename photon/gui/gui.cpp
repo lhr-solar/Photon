@@ -237,6 +237,10 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet){
     deviceHandle = vulkanDevice.logicalDevice;
     ui.backgroundShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.accretionShader.destroyResources(true, vulkanDevice.logicalDevice, descriptorPool);
+    ui.daybreakModel.destroyResources(false, vulkanDevice.logicalDevice, descriptorPool);
+    ui.daybreakModel.imguiDescriptorSet = VK_NULL_HANDLE;
+    ui.daybreakModel.texture = 0;
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
     ui.vendorID = vulkanDevice.deviceProperties.vendorID;
@@ -254,6 +258,17 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
             (uint32_t*)background_frag_spv, background_frag_spv_size, "background.frag");
     ui.backgroundShader.createResources(vulkanDevice, {width, height}, 
             descriptorPool, descriptorSetLayout);
+
+    ui.accretionShader.initShader({640, 640}, false, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size, 
+            (uint32_t*)custom_shader_frag_spv, custom_shader_frag_spv_size, "background.frag");
+    ui.accretionShader.createResources(vulkanDevice, {640, 640}, 
+            descriptorPool, descriptorSetLayout);
+
+    if (!ui.daybreakModel.ready) {
+        ui.daybreakModel.initModel("assets/models/daybreak.glb", vulkanDevice.logicalDevice, vulkanDevice.graphicsQueue,
+                vulkanDevice.deviceMemoryProperties, vulkanDevice.graphicsCommandPool, {640, 640});
+    }
+    ui.daybreakModel.createResources(vulkanDevice, {640, 640}, descriptorPool, descriptorSetLayout);
 
     // Pipeline layout & Push constants for UI rendering
     VkPushConstantRange pushConstantRange {};
@@ -429,6 +444,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     if (ui.fontSizeDirty) refreshFontResources(vulkanDevice, descriptorSet);
     if (ui.backgroundShader.dirty)
         ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, descriptorPool, descriptorSetLayout);
+    if(ui.accretionShader.dirty)
+        ui.accretionShader.createResources(vulkanDevice, ui.accretionShader.extent, descriptorPool, descriptorSetLayout);
+    if(ui.daybreakModel.dirty)
+        ui.daybreakModel.createResources(vulkanDevice, ui.daybreakModel.extent, descriptorPool, descriptorSetLayout);
 
     updateBuffers(vulkanDevice);
 
@@ -437,6 +456,8 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.framebuffer = frameBuffers[idx];
     VK_CHECK(vkBeginCommandBuffer(drawCmdBuffers[idx], &cmdBufferBeginInfo));
     ui.backgroundShader.recordShaderPass(drawCmdBuffers[idx]);
+    ui.accretionShader.recordShaderPass(drawCmdBuffers[idx]);
+    ui.daybreakModel.recordShaderPass(drawCmdBuffers[idx]);
     vkCmdBeginRenderPass(drawCmdBuffers[idx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindDescriptorSets(drawCmdBuffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
     drawFrame(drawCmdBuffers[idx], descriptorSet);
