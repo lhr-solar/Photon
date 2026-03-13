@@ -128,6 +128,7 @@ ENDIF(WIN32)
 add_subdirectory(assets/kernels)
 add_subdirectory(assets/fonts)
 add_subdirectory(assets/dbc)
+add_subdirectory(assets/models)
 add_subdirectory(photon)
 
 if (WIN32)

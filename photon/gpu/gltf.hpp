@@ -5,6 +5,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "vulkanDevice.hpp"
+#include <string>
 #include <vector>
 
 struct alignas(16) GltfMVP {
@@ -155,7 +156,8 @@ struct GltfModel{
     void deleteGLTF();
 
 
-    void initModel(std::string path, VkDevice LogicalDevice, VkQueue& Queue, VkPhysicalDeviceMemoryProperties& memoryProperties, VkCommandPool& commandPool, VkExtent2D extent);
+    void initModel(const unsigned char* bytes, size_t length, const std::string& debugName, VkDevice LogicalDevice, VkQueue& Queue,
+                   VkPhysicalDeviceMemoryProperties& memoryProperties, VkCommandPool& commandPool, VkExtent2D extent);
     void createResources(VulkanDevice vulkanDevice, VkExtent2D extent, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout);
     void destroyResources(bool releaseDescriptor, VkDevice deviceHandle, VkDescriptorPool descriptorPool);
     void updateBuffers(uint32_t frameIndex, const GltfMVP& mvp);

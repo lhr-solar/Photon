@@ -78,7 +78,8 @@ std::vector<GltfVertex> generateSphere(float radius, uint32_t stacks, uint32_t s
 }
 }
 
-void GltfModel::initModel(std::string path, VkDevice LogicalDevice, VkQueue& Queue, VkPhysicalDeviceMemoryProperties &MemoryProperties, VkCommandPool& CommandPool, VkExtent2D initialExtent){
+void GltfModel::initModel(const unsigned char* bytes, size_t length, const std::string& debugName, VkDevice LogicalDevice, VkQueue& Queue,
+        VkPhysicalDeviceMemoryProperties &MemoryProperties, VkCommandPool& CommandPool, VkExtent2D initialExtent){
     logicalDevice = LogicalDevice;
     queue = Queue;
     memoryProperties = MemoryProperties;
@@ -90,8 +91,12 @@ void GltfModel::initModel(std::string path, VkDevice LogicalDevice, VkQueue& Que
     initialized = false;
     frameCounter = 0;
     std::cout << "[+] Init GLTF" << std::endl;
+    if (bytes == nullptr || length == 0) {
+        std::cerr << "[!] Empty glTF byte payload for " << debugName << "\n";
+        return;
+    }
     std::string err = {}, warn = {};
-    bool ok = loader.LoadBinaryFromFile(&model, &err, &warn, path);
+    bool ok = loader.LoadBinaryFromMemory(&model, &err, &warn, bytes, static_cast<unsigned int>(length), "assets/models");
     if(!warn.empty()) std::cout << warn << std::endl;
     if(!err.empty()) std::cout << err << std::endl;
     if (!ok) {
@@ -229,7 +234,7 @@ void GltfModel::initModel(std::string path, VkDevice LogicalDevice, VkQueue& Que
 
     ready = true;
     std::cout << "[+] Loaded " << vertices.size() << " glTF vertices and " << drawItems.size()
-              << " draw items from " << path << std::endl;
+              << " draw items from " << debugName << std::endl;
 };
 
 void GltfModel::deleteGLTF(){

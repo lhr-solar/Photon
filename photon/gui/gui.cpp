@@ -28,6 +28,7 @@
 #include "triangle_vert_spv.hpp"
 #include "viking_frag_spv.hpp"
 #include "viking_vert_spv.hpp"
+#include "daybreak_glb.hpp"
 #include "sansFlex_ttf.hpp"
 
 
@@ -265,7 +266,8 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDe
             descriptorPool, descriptorSetLayout);
 
     if (!ui.daybreakModel.ready) {
-        ui.daybreakModel.initModel("assets/models/daybreak.glb", vulkanDevice.logicalDevice, vulkanDevice.graphicsQueue,
+        ui.daybreakModel.initModel(daybreak_glb, daybreak_glb_size, "assets/models/daybreak.glb",
+                vulkanDevice.logicalDevice, vulkanDevice.graphicsQueue,
                 vulkanDevice.deviceMemoryProperties, vulkanDevice.graphicsCommandPool, {640, 640});
     }
     ui.daybreakModel.createResources(vulkanDevice, {640, 640}, descriptorPool, descriptorSetLayout);
