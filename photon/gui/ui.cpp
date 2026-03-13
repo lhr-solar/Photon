@@ -1776,8 +1776,9 @@ void UI::networkUI(){
 
 void UI::debug(){
     ImGui::Text("Hello ;3");
-    shaderWindow(accretionShader, "acc");
-    gltfWindow(daybreakModel, "daybreak");
+    gltfWidget(daybreakModel, {640, 640});
+    //shaderWindow(accretionShader, "acc");
+    //gltfWindow(daybreakModel, "daybreak");
 };
 
 void UI::home(){
@@ -2388,19 +2389,24 @@ void UI::gltfWindow(GltfModel& model, std::string windowName){
     ImGui::SetNextWindowSize(ImVec2(model.extent.width, model.extent.height), ImGuiCond_FirstUseEver);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin(windowName.data(), NULL, flags)){
-        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), model.extent);
-        if (nextExtent.width != model.extent.width || nextExtent.height != model.extent.height) {
-            model.extent = nextExtent;
-            model.dirty = true;
-        }
-        ImVec2 drawSize(model.extent.width, model.extent.height);
-        drawSize.x = std::max(drawSize.x, 1.0f);
-        drawSize.y = std::max(drawSize.y, 1.0f);
-        ImGui::Image(model.texture, drawSize);
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            model.wasClicked = true;
-        }
+        gltfWidget(model, ImGui::GetContentRegionAvail());
     } ImGui::End();
+}
+
+void UI::gltfWidget(GltfModel& model, ImVec2 size) {
+    const VkExtent2D nextExtent = quantizeContentExtent(size, model.extent);
+    if (nextExtent.width != model.extent.width || nextExtent.height != model.extent.height) {
+        model.extent = nextExtent;
+        model.dirty = true;
+    }
+
+    ImVec2 drawSize(static_cast<float>(model.extent.width), static_cast<float>(model.extent.height));
+    drawSize.x = std::max(drawSize.x, 1.0f);
+    drawSize.y = std::max(drawSize.y, 1.0f);
+    ImGui::Image(model.texture, drawSize);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+        model.wasClicked = true;
+    }
 }
 
 void UI::videoWindow(){

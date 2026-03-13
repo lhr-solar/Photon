@@ -123,6 +123,7 @@ struct UI{
     void shaderWindow(VulkanShader& shader, std::string windowName);
     void objWindow(VulkanObj& obj, std::string windowName);
     void gltfWindow(GltfModel& model, std::string windowName);
+    void gltfWidget(GltfModel& model, ImVec2 size);
     void GenericPlot(const std::vector<double>& yAxis, const std::vector<double>& xAxis, std::string name);
     void GenericPlotTab(const std::vector<double>& yAxis, const std::vector<double>& xAxis, const char* name);
     void genericInlinePlot(const std::vector<double>& xAxis, const std::vector<double>& yAxis, const char* name);
