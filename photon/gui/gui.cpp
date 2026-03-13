@@ -125,6 +125,7 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
         logs("[!] Failed to rebuild sansFlex font atlas");
     }
     */
+    io.FontDefault = font;
     io.FontGlobalScale = 1.0f;
     io.Fonts->Build();
 
