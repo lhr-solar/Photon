@@ -114,6 +114,7 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
     io.Fonts->Clear();
     ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)sansFlex_ttf,
             static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    /*
     if (font != nullptr) {
         float tighten = 0.92f; // <1.0 tightens spacing
         for (ImFontGlyph& g : font->Glyphs) {
@@ -123,6 +124,7 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
     } else {
         logs("[!] Failed to rebuild sansFlex font atlas");
     }
+    */
     io.FontGlobalScale = 1.0f;
     io.Fonts->Build();
 

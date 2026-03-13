@@ -92,19 +92,19 @@ struct GltfModel{
        float pitch = 0.0;
     } camera;
 
-    VkDevice logicalDevice;
-    VkPhysicalDeviceMemoryProperties memoryProperties;
-    VkQueue queue;
+    VkDevice logicalDevice{VK_NULL_HANDLE};
+    VkPhysicalDeviceMemoryProperties memoryProperties{};
+    VkQueue queue{VK_NULL_HANDLE};
     VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
     VkDescriptorPool internalDescriptorPool{VK_NULL_HANDLE};
     VkDescriptorSet imguiDescriptorSet{VK_NULL_HANDLE};
-    VkCommandPool commandPool;
+    VkCommandPool commandPool{VK_NULL_HANDLE};
     VkRenderPass postRenderPass{VK_NULL_HANDLE};
     VkRenderPass renderPass{VK_NULL_HANDLE};
     VkBuffer vertexBuffer{VK_NULL_HANDLE};
     VkDeviceMemory vertexBufferMemory{VK_NULL_HANDLE};
 
-    VkVertexInputBindingDescription vBindingDescription;
+    VkVertexInputBindingDescription vBindingDescription{};
     std::vector<VkVertexInputAttributeDescription> vAttributeDescriptions;
 
     TextureResource fallbackWhiteTexture{};
@@ -120,9 +120,9 @@ struct GltfModel{
     std::vector<VkDescriptorSet> materialDescriptorSets;
     VkDescriptorSet postDescriptorSet{VK_NULL_HANDLE};
 
-    VkDescriptorSetLayout uniformDescriptorSetLayout;
-    VkViewport viewport;
-    VkRect2D scissor;
+    VkDescriptorSetLayout uniformDescriptorSetLayout{VK_NULL_HANDLE};
+    VkViewport viewport{};
+    VkRect2D scissor{};
 
     VkPipelineLayout gltfPipelineLayout{VK_NULL_HANDLE};
     VkPipelineLayout postPipelineLayout{VK_NULL_HANDLE};
