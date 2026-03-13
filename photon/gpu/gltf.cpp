@@ -1531,21 +1531,20 @@ void GltfModel::createMaterialResources() {
 }
 
 void GltfModel::recordShaderPass(VkCommandBuffer commandBuffer){
-    if (!ready || gltfPipeline == VK_NULL_HANDLE || postPipeline == VK_NULL_HANDLE) {
-        return;
-    }
-    if (extent.width == 0 || extent.height == 0) {
-        return;
-    }
+    if (!ready || gltfPipeline == VK_NULL_HANDLE || postPipeline == VK_NULL_HANDLE) return;
+    if (extent.width == 0 || extent.height == 0) return;
 
     width = extent.width;
     height = extent.height;
 
     const uint32_t frameIndex = frameUniformMapped.empty() ? 0u : (frameCounter++ % static_cast<uint32_t>(frameUniformMapped.size()));
     const float timeSeconds = static_cast<float>(ImGui::GetTime());
+    const float deltaSeconds = std::clamp(ImGui::GetIO().DeltaTime, 1.0f / 240.0f, 0.1f);
 
     GltfMVP mvp{};
-    mvp.model = glm::mat4(1.0f);
+    const glm::mat4 standUpRotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    const glm::mat4 spinRotation = glm::rotate(glm::mat4(1.0f), timeSeconds * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
     const float orbitRadius = 2.6f;
     const glm::vec3 camPos = glm::vec3(std::cos(timeSeconds * 0.35f) * orbitRadius,
                                        std::sin(timeSeconds * 0.35f) * orbitRadius,
@@ -1555,6 +1554,22 @@ void GltfModel::recordShaderPass(VkCommandBuffer commandBuffer){
     mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 32.0f);
     mvp.proj[1][1] *= -1.0f;
     mvp.camPos = glm::vec4(camPos, 1.0f);
+
+    if(wasClicked){
+        jumpVelocity = 1.2f;
+        wasClicked = false;
+    }
+
+    jumpVelocity -= 1.5f * deltaSeconds;
+    jumpHeight = std::max(0.0f, jumpHeight + jumpVelocity * deltaSeconds);
+    if (jumpHeight <= 0.0f && jumpVelocity < 0.0f) {
+        jumpHeight = 0.0f;
+        jumpVelocity = 0.0f;
+    }
+
+    const glm::mat4 jumpTranslation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, jumpHeight));
+    mvp.model = jumpTranslation * spinRotation * standUpRotation;
+
     updateBuffers(frameIndex, mvp);
 
     VkImageSubresourceRange colorRange{};

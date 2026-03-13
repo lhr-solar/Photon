@@ -91,6 +91,9 @@ struct GltfModel{
        float yaw = 0.0;
        float pitch = 0.0;
     } camera;
+    bool wasClicked = false;
+    float jumpHeight = 0.0f;
+    float jumpVelocity = 0.0f;
 
     VkDevice logicalDevice{VK_NULL_HANDLE};
     VkPhysicalDeviceMemoryProperties memoryProperties{};

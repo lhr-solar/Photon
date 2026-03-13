@@ -2409,6 +2409,9 @@ void UI::gltfWindow(GltfModel& model, std::string windowName){
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
         ImGui::Image(model.texture, drawSize);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            model.wasClicked = true;
+        }
     } ImGui::End();
 }
 
