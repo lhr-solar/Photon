@@ -90,15 +90,15 @@ void GltfModel::initModel(const unsigned char* bytes, size_t length, const std::
     dirty = false;
     initialized = false;
     frameCounter = 0;
-    std::cout << "[+] Init GLTF" << std::endl;
+    //std::cout << "[+] Init GLTF" << std::endl;
     if (bytes == nullptr || length == 0) {
-        std::cerr << "[!] Empty glTF byte payload for " << debugName << "\n";
+        //std::cerr << "[!] Empty glTF byte payload for " << debugName << "\n";
         return;
     }
     std::string err = {}, warn = {};
     bool ok = loader.LoadBinaryFromMemory(&model, &err, &warn, bytes, static_cast<unsigned int>(length), "assets/models");
-    if(!warn.empty()) std::cout << warn << std::endl;
-    if(!err.empty()) std::cout << err << std::endl;
+    //if(!warn.empty()) std::cout << warn << std::endl;
+    //if(!err.empty()) std::cout << err << std::endl;
     if (!ok) {
         std::cerr << "[!] Failed to load glTF. Falling back to procedural geometry.\n";
         return;
@@ -233,8 +233,10 @@ void GltfModel::initModel(const unsigned char* bytes, size_t length, const std::
     createFallbackTexture();
 
     ready = true;
+    /*
     std::cout << "[+] Loaded " << vertices.size() << " glTF vertices and " << drawItems.size()
               << " draw items from " << debugName << std::endl;
+              */
 };
 
 void GltfModel::deleteGLTF(){
