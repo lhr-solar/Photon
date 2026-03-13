@@ -32,6 +32,24 @@ uint32_t findMemoryTypeLocal(const VkPhysicalDeviceMemoryProperties& memoryPrope
     return UINT32_MAX;
 }
 
+VkFormat pickDepthFormat(VkPhysicalDevice physicalDevice) {
+    const std::array<VkFormat, 5> candidates = {
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+        VK_FORMAT_D16_UNORM
+    };
+    for (VkFormat format : candidates) {
+        VkFormatProperties props{};
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+        if ((props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
+            return format;
+        }
+    }
+    return VK_FORMAT_UNDEFINED;
+}
+
 std::vector<GltfVertex> generateSphere(float radius, uint32_t stacks, uint32_t slices) {
     std::vector<GltfVertex> vertices;
     vertices.reserve(static_cast<size_t>(stacks) * static_cast<size_t>(slices) * 6);
@@ -1236,7 +1254,15 @@ void GltfModel::buildGltfPipeline(){
         .renderPass = renderPass,
         .subpass = 0,
     };
-    VK_CHECK(vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &gpCI, nullptr, &gltfPipeline));
+    VkResult pipelineResult = vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &gpCI, nullptr, &gltfPipeline);
+    if (pipelineResult != VK_SUCCESS) {
+        logs("[!] glTF pipeline creation failed with VkResult=" << pipelineResult
+             << " colorFormat=" << sceneColorFormat
+             << " depthFormat=" << sceneDepthFormat
+             << " width=" << width
+             << " height=" << height);
+        VK_CHECK(pipelineResult);
+    }
 }
 void GltfModel::buildPostPipeline() {
     VkPushConstantRange pcR = {
@@ -1354,7 +1380,14 @@ void GltfModel::buildPostPipeline() {
         .renderPass = postRenderPass,
         .subpass = 0,
     };
-    VK_CHECK(vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &gpCI, nullptr, &postPipeline));
+    VkResult pipelineResult = vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &gpCI, nullptr, &postPipeline);
+    if (pipelineResult != VK_SUCCESS) {
+        logs("[!] glTF post pipeline creation failed with VkResult=" << pipelineResult
+             << " colorFormat=" << sceneColorFormat
+             << " width=" << width
+             << " height=" << height);
+        VK_CHECK(pipelineResult);
+    }
 }
 
 void GltfModel::createMaterialResources() {
@@ -1760,12 +1793,15 @@ void GltfModel::initShaders(){
 }
 
 void GltfModel::createImages() {
-    constexpr VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM;
-    VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
+    sceneColorFormat = VK_FORMAT_R8G8B8A8_UNORM;
+    sceneDepthFormat = pickDepthFormat(physicalDevice);
+    if (sceneDepthFormat == VK_FORMAT_UNDEFINED) {
+        fatal("[!] No supported depth format for glTF renderer", -1);
+    }
 
     VkAttachmentDescription sceneAttachments[2] = {};
     sceneAttachments[0] = {
-        .format = colorFormat,
+        .format = sceneColorFormat,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1775,7 +1811,7 @@ void GltfModel::createImages() {
         .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     };
     sceneAttachments[1] = {
-        .format = depthFormat,
+        .format = sceneDepthFormat,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -1808,7 +1844,7 @@ void GltfModel::createImages() {
     VK_CHECK(vkCreateRenderPass(logicalDevice, &sceneRpCI, nullptr, &renderPass));
 
     VkAttachmentDescription postColorAttachment = {
-        .format = colorFormat,
+        .format = sceneColorFormat,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -1877,11 +1913,11 @@ void GltfModel::createImages() {
         VK_CHECK(vkCreateImageView(logicalDevice, &viewCI, nullptr, &view));
     };
 
-    createImage(colorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
+    createImage(sceneColorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
             sceneColorImage, sceneColorImageMemory, sceneColorImageView);
-    createImage(depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT,
+    createImage(sceneDepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT,
             sceneDepthImage, sceneDepthImageMemory, sceneDepthImageView);
-    createImage(colorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
+    createImage(sceneColorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
             outputImage, outputImageMemory, outputImageView);
 
     VkSamplerCreateInfo samplerCI = {

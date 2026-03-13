@@ -137,6 +137,8 @@ struct GltfModel{
     VkImage sceneColorImage{VK_NULL_HANDLE};
     VkDeviceMemory sceneColorImageMemory{VK_NULL_HANDLE};
     VkImageView sceneColorImageView{VK_NULL_HANDLE};
+    VkFormat sceneColorFormat{VK_FORMAT_R8G8B8A8_UNORM};
+    VkFormat sceneDepthFormat{VK_FORMAT_UNDEFINED};
     VkImage sceneDepthImage{VK_NULL_HANDLE};
     VkDeviceMemory sceneDepthImageMemory{VK_NULL_HANDLE};
     VkImageView sceneDepthImageView{VK_NULL_HANDLE};
