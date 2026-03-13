@@ -50,6 +50,12 @@ VkFormat pickDepthFormat(VkPhysicalDevice physicalDevice) {
     return VK_FORMAT_UNDEFINED;
 }
 
+bool hasStencilComponent(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+           format == VK_FORMAT_D24_UNORM_S8_UINT ||
+           format == VK_FORMAT_D16_UNORM_S8_UINT;
+}
+
 std::vector<GltfVertex> generateSphere(float radius, uint32_t stacks, uint32_t slices) {
     std::vector<GltfVertex> vertices;
     vertices.reserve(static_cast<size_t>(stacks) * static_cast<size_t>(slices) * 6);
@@ -363,6 +369,10 @@ void GltfModel::createResources(VulkanDevice vulkanDevice, VkExtent2D newExtent,
         return;
     }
 
+    logicalDevice = vulkanDevice.logicalDevice;
+    memoryProperties = vulkanDevice.deviceMemoryProperties;
+    queue = vulkanDevice.graphicsQueue;
+    commandPool = vulkanDevice.graphicsCommandPool;
     physicalDevice = vulkanDevice.physicalDevice;
     if (newExtent.width > 0 && newExtent.height > 0) {
         extent = newExtent;
@@ -1078,6 +1088,7 @@ void GltfModel::createFallbackTexture() {
 }
 
 void GltfModel::buildGltfPipeline(){
+    logs("[gltf] buildGltfPipeline begin");
     VkPushConstantRange pcR = {
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         .offset = 0,
@@ -1096,6 +1107,7 @@ void GltfModel::buildGltfPipeline(){
         .pBindings = &frameBinding,
     };
     VK_CHECK(vkCreateDescriptorSetLayout(logicalDevice, &frameDslCI, nullptr, &uniformDescriptorSetLayout));
+    logs("[gltf] created frame descriptor set layout");
 
     std::array<VkDescriptorSetLayoutBinding, 6> materialBindings = {{
         {
@@ -1141,6 +1153,7 @@ void GltfModel::buildGltfPipeline(){
         .pBindings = materialBindings.data(),
     };
     VK_CHECK(vkCreateDescriptorSetLayout(logicalDevice, &materialDslCI, nullptr, &materialDescriptorSetLayout));
+    logs("[gltf] created material descriptor set layout");
 
     std::array<VkDescriptorSetLayout, 2> pipelineLayouts = {
         uniformDescriptorSetLayout,
@@ -1154,6 +1167,7 @@ void GltfModel::buildGltfPipeline(){
         .pPushConstantRanges = &pcR,
     };
     VK_CHECK(vkCreatePipelineLayout(logicalDevice, &plCI, nullptr, &gltfPipelineLayout));
+    logs("[gltf] created gltf pipeline layout");
 
     viewport = {
         .x = 0.0f,
@@ -1254,6 +1268,7 @@ void GltfModel::buildGltfPipeline(){
         .renderPass = renderPass,
         .subpass = 0,
     };
+    logs("[gltf] creating graphics pipeline");
     VkResult pipelineResult = vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &gpCI, nullptr, &gltfPipeline);
     if (pipelineResult != VK_SUCCESS) {
         logs("[!] glTF pipeline creation failed with VkResult=" << pipelineResult
@@ -1915,7 +1930,10 @@ void GltfModel::createImages() {
 
     createImage(sceneColorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
             sceneColorImage, sceneColorImageMemory, sceneColorImageView);
-    createImage(sceneDepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT,
+    const VkImageAspectFlags depthAspectMask = hasStencilComponent(sceneDepthFormat)
+        ? (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)
+        : VK_IMAGE_ASPECT_DEPTH_BIT;
+    createImage(sceneDepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthAspectMask,
             sceneDepthImage, sceneDepthImageMemory, sceneDepthImageView);
     createImage(sceneColorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
             outputImage, outputImageMemory, outputImageView);
