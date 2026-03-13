@@ -395,7 +395,7 @@ void GltfModel::createResources(VulkanDevice vulkanDevice, VkExtent2D newExtent,
     if (hadGpuResources) {
         // Resize tears down resources that may still be referenced by earlier submissions.
         // Waiting here is expensive but correct, and this path should only trigger on rebuild.
-        VK_CHECK(vkDeviceWaitIdle(logicalDevice));
+        //VK_CHECK(vkDeviceWaitIdle(logicalDevice));
     }
 
     destroyResources(false, logicalDevice, descriptorPool);
