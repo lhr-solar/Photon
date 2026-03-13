@@ -380,6 +380,24 @@ void GltfModel::createResources(VulkanDevice vulkanDevice, VkExtent2D newExtent,
         height = newExtent.height;
     }
 
+    const bool hadGpuResources =
+        sceneFramebuffer != VK_NULL_HANDLE ||
+        postFramebuffer != VK_NULL_HANDLE ||
+        gltfPipeline != VK_NULL_HANDLE ||
+        postPipeline != VK_NULL_HANDLE ||
+        renderPass != VK_NULL_HANDLE ||
+        postRenderPass != VK_NULL_HANDLE ||
+        vertexBuffer != VK_NULL_HANDLE ||
+        sceneColorImage != VK_NULL_HANDLE ||
+        sceneDepthImage != VK_NULL_HANDLE ||
+        outputImage != VK_NULL_HANDLE ||
+        internalDescriptorPool != VK_NULL_HANDLE;
+    if (hadGpuResources) {
+        // Resize tears down resources that may still be referenced by earlier submissions.
+        // Waiting here is expensive but correct, and this path should only trigger on rebuild.
+        VK_CHECK(vkDeviceWaitIdle(logicalDevice));
+    }
+
     destroyResources(false, logicalDevice, descriptorPool);
 
     if (fallbackWhiteTexture.sampler == VK_NULL_HANDLE) {
@@ -1580,7 +1598,9 @@ void GltfModel::recordShaderPass(VkCommandBuffer commandBuffer){
     colorRange.layerCount = 1;
 
     VkImageSubresourceRange depthRange{};
-    depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    depthRange.aspectMask = hasStencilComponent(sceneDepthFormat)
+        ? (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)
+        : VK_IMAGE_ASPECT_DEPTH_BIT;
     depthRange.baseMipLevel = 0;
     depthRange.levelCount = 1;
     depthRange.baseArrayLayer = 0;
