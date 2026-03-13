@@ -80,6 +80,7 @@ struct GltfModel{
     bool initialized = false;
     VkExtent2D extent{640, 640};
     unsigned long long texture = 0;
+    std::vector<unsigned char> sourceBytes;
     std::vector<GltfVertex> vertices;
     uint32_t width = 640;
     uint32_t height = 640;

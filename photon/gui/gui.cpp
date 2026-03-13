@@ -90,10 +90,15 @@ void Gui::prepareImGui(){
     fontConfig.FontDataOwnedByAtlas = false;
     ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)sansFlex_ttf,
            static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
-    float tighten = 0.92f; // <1.0 tightens spacing
-    for (ImFontGlyph& g : font->Glyphs)
-        g.AdvanceX *= tighten;
-    if (font != nullptr) { io.FontDefault = font; }
+    if (font != nullptr) {
+        float tighten = 0.92f; // <1.0 tightens spacing
+        for (ImFontGlyph& g : font->Glyphs) {
+            g.AdvanceX *= tighten;
+        }
+        io.FontDefault = font;
+    } else {
+        logs("[!] Failed to load sansFlex font into ImGui atlas");
+    }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.FontGlobalScale = 1.0f;
@@ -109,11 +114,14 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
     io.Fonts->Clear();
     ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)sansFlex_ttf,
             static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
-    float tighten = 0.92f; // <1.0 tightens spacing
-    for (ImFontGlyph& g : font->Glyphs)
-        g.AdvanceX *= tighten;
     if (font != nullptr) {
+        float tighten = 0.92f; // <1.0 tightens spacing
+        for (ImFontGlyph& g : font->Glyphs) {
+            g.AdvanceX *= tighten;
+        }
         io.FontDefault = font;
+    } else {
+        logs("[!] Failed to rebuild sansFlex font atlas");
     }
     io.FontGlobalScale = 1.0f;
     io.Fonts->Build();

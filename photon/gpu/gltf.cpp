@@ -92,15 +92,20 @@ void GltfModel::initModel(const unsigned char* bytes, size_t length, const std::
     frameCounter = 0;
     //std::cout << "[+] Init GLTF" << std::endl;
     if (bytes == nullptr || length == 0) {
-        //std::cerr << "[!] Empty glTF byte payload for " << debugName << "\n";
+        std::cerr << "[!] Empty glTF byte payload for " << debugName << "\n";
         return;
     }
+
+    model = tinygltf::Model{};
+    loader = tinygltf::TinyGLTF{};
+    sourceBytes.assign(bytes, bytes + length);
+
     std::string err = {}, warn = {};
-    bool ok = loader.LoadBinaryFromMemory(&model, &err, &warn, bytes, static_cast<unsigned int>(length), "assets/models");
-    //if(!warn.empty()) std::cout << warn << std::endl;
-    //if(!err.empty()) std::cout << err << std::endl;
+    bool ok = loader.LoadBinaryFromMemory(&model, &err, &warn, sourceBytes.data(), static_cast<unsigned int>(sourceBytes.size()), "assets/models");
+    if(!warn.empty()) std::cout << warn << std::endl;
+    if(!err.empty()) std::cout << err << std::endl;
     if (!ok) {
-        std::cerr << "[!] Failed to load glTF. Falling back to procedural geometry.\n";
+        std::cerr << "[!] Failed to load glTF from memory. Falling back to procedural geometry.\n";
         return;
     }
 
@@ -628,8 +633,17 @@ void GltfModel::appendPrimitiveVertices(const tinygltf::Model& model,
     }
 
     const tinygltf::Accessor& posAccessor = model.accessors[posIt->second];
+    if (posAccessor.bufferView < 0 || static_cast<size_t>(posAccessor.bufferView) >= model.bufferViews.size()) {
+        return;
+    }
     const tinygltf::BufferView& posView = model.bufferViews[posAccessor.bufferView];
+    if (posView.buffer < 0 || static_cast<size_t>(posView.buffer) >= model.buffers.size()) {
+        return;
+    }
     const tinygltf::Buffer& posBuffer = model.buffers[posView.buffer];
+    if (posView.byteOffset + posAccessor.byteOffset >= posBuffer.data.size()) {
+        return;
+    }
     const uint8_t* posData = posBuffer.data.data() + posView.byteOffset + posAccessor.byteOffset;
     const size_t posStride = posAccessor.ByteStride(posView) ? posAccessor.ByteStride(posView) : sizeof(float) * 3;
 
@@ -639,11 +653,17 @@ void GltfModel::appendPrimitiveVertices(const tinygltf::Model& model,
     auto normalIt = primitive.attributes.find("NORMAL");
     if (normalIt != primitive.attributes.end()) {
         const tinygltf::Accessor& normalAccessor = model.accessors[normalIt->second];
-        const tinygltf::BufferView& normalView = model.bufferViews[normalAccessor.bufferView];
-        const tinygltf::Buffer& normalBuffer = model.buffers[normalView.buffer];
-        normalData = normalBuffer.data.data() + normalView.byteOffset + normalAccessor.byteOffset;
-        normalStride = normalAccessor.ByteStride(normalView) ? normalAccessor.ByteStride(normalView) : sizeof(float) * 3;
-        hasNormals = true;
+        if (normalAccessor.bufferView >= 0 && static_cast<size_t>(normalAccessor.bufferView) < model.bufferViews.size()) {
+            const tinygltf::BufferView& normalView = model.bufferViews[normalAccessor.bufferView];
+            if (normalView.buffer >= 0 && static_cast<size_t>(normalView.buffer) < model.buffers.size()) {
+                const tinygltf::Buffer& normalBuffer = model.buffers[normalView.buffer];
+                if (normalView.byteOffset + normalAccessor.byteOffset < normalBuffer.data.size()) {
+                    normalData = normalBuffer.data.data() + normalView.byteOffset + normalAccessor.byteOffset;
+                    normalStride = normalAccessor.ByteStride(normalView) ? normalAccessor.ByteStride(normalView) : sizeof(float) * 3;
+                    hasNormals = true;
+                }
+            }
+        }
     }
 
     bool hasUV0 = false;
@@ -652,11 +672,17 @@ void GltfModel::appendPrimitiveVertices(const tinygltf::Model& model,
     auto uvIt = primitive.attributes.find("TEXCOORD_0");
     if (uvIt != primitive.attributes.end()) {
         const tinygltf::Accessor& uvAccessor = model.accessors[uvIt->second];
-        const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
-        const tinygltf::Buffer& uvBuffer = model.buffers[uvView.buffer];
-        uvData = uvBuffer.data.data() + uvView.byteOffset + uvAccessor.byteOffset;
-        uvStride = uvAccessor.ByteStride(uvView) ? uvAccessor.ByteStride(uvView) : sizeof(float) * 2;
-        hasUV0 = true;
+        if (uvAccessor.bufferView >= 0 && static_cast<size_t>(uvAccessor.bufferView) < model.bufferViews.size()) {
+            const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
+            if (uvView.buffer >= 0 && static_cast<size_t>(uvView.buffer) < model.buffers.size()) {
+                const tinygltf::Buffer& uvBuffer = model.buffers[uvView.buffer];
+                if (uvView.byteOffset + uvAccessor.byteOffset < uvBuffer.data.size()) {
+                    uvData = uvBuffer.data.data() + uvView.byteOffset + uvAccessor.byteOffset;
+                    uvStride = uvAccessor.ByteStride(uvView) ? uvAccessor.ByteStride(uvView) : sizeof(float) * 2;
+                    hasUV0 = true;
+                }
+            }
+        }
     }
 
     bool hasColor = false;
@@ -668,17 +694,23 @@ void GltfModel::appendPrimitiveVertices(const tinygltf::Model& model,
     auto colorIt = primitive.attributes.find("COLOR_0");
     if (colorIt != primitive.attributes.end()) {
         const tinygltf::Accessor& colorAccessor = model.accessors[colorIt->second];
-        const tinygltf::BufferView& colorView = model.bufferViews[colorAccessor.bufferView];
-        const tinygltf::Buffer& colorBuffer = model.buffers[colorView.buffer];
-        colorData = colorBuffer.data.data() + colorView.byteOffset + colorAccessor.byteOffset;
-        colorStride = colorAccessor.ByteStride(colorView) ?
-            colorAccessor.ByteStride(colorView) :
-            (tinygltf::GetNumComponentsInType(colorAccessor.type) *
-             tinygltf::GetComponentSizeInBytes(colorAccessor.componentType));
-        colorType = colorAccessor.type;
-        colorComponentType = colorAccessor.componentType;
-        colorNormalized = colorAccessor.normalized;
-        hasColor = true;
+        if (colorAccessor.bufferView >= 0 && static_cast<size_t>(colorAccessor.bufferView) < model.bufferViews.size()) {
+            const tinygltf::BufferView& colorView = model.bufferViews[colorAccessor.bufferView];
+            if (colorView.buffer >= 0 && static_cast<size_t>(colorView.buffer) < model.buffers.size()) {
+                const tinygltf::Buffer& colorBuffer = model.buffers[colorView.buffer];
+                if (colorView.byteOffset + colorAccessor.byteOffset < colorBuffer.data.size()) {
+                    colorData = colorBuffer.data.data() + colorView.byteOffset + colorAccessor.byteOffset;
+                    colorStride = colorAccessor.ByteStride(colorView) ?
+                        colorAccessor.ByteStride(colorView) :
+                        (tinygltf::GetNumComponentsInType(colorAccessor.type) *
+                         tinygltf::GetComponentSizeInBytes(colorAccessor.componentType));
+                    colorType = colorAccessor.type;
+                    colorComponentType = colorAccessor.componentType;
+                    colorNormalized = colorAccessor.normalized;
+                    hasColor = true;
+                }
+            }
+        }
     }
 
     auto readColor = [&](uint32_t vertexIndex) -> glm::vec3 {
@@ -775,8 +807,17 @@ void GltfModel::appendPrimitiveVertices(const tinygltf::Model& model,
     }
 
     const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
+    if (indexAccessor.bufferView < 0 || static_cast<size_t>(indexAccessor.bufferView) >= model.bufferViews.size()) {
+        return;
+    }
     const tinygltf::BufferView& indexView = model.bufferViews[indexAccessor.bufferView];
+    if (indexView.buffer < 0 || static_cast<size_t>(indexView.buffer) >= model.buffers.size()) {
+        return;
+    }
     const tinygltf::Buffer& indexBuffer = model.buffers[indexView.buffer];
+    if (indexView.byteOffset + indexAccessor.byteOffset >= indexBuffer.data.size()) {
+        return;
+    }
     const uint8_t* indexData = indexBuffer.data.data() + indexView.byteOffset + indexAccessor.byteOffset;
     const size_t indexStride = indexAccessor.ByteStride(indexView) ?
         indexAccessor.ByteStride(indexView) :
@@ -972,17 +1013,24 @@ void GltfModel::loadGltfTextures() {
             continue;
         }
         const tinygltf::Image& image = model.images[tex.source];
-        if (image.image.empty() || image.component < 3) {
+        if (image.width <= 0 || image.height <= 0 || image.image.empty() || image.component < 3) {
             continue;
         }
 
         std::vector<unsigned char> rgba;
         const unsigned char* src = image.image.data();
+        const size_t pixelCount = static_cast<size_t>(image.width) * static_cast<size_t>(image.height);
         if (image.component == 4) {
-            rgba.assign(src, src + image.width * image.height * 4);
+            if (image.image.size() < pixelCount * 4) {
+                continue;
+            }
+            rgba.assign(src, src + pixelCount * 4);
         } else {
-            rgba.resize(static_cast<size_t>(image.width) * image.height * 4);
-            for (int p = 0; p < image.width * image.height; p++) {
+            if (image.image.size() < pixelCount * static_cast<size_t>(image.component)) {
+                continue;
+            }
+            rgba.resize(pixelCount * 4);
+            for (size_t p = 0; p < pixelCount; p++) {
                 rgba[p * 4 + 0] = src[p * image.component + 0];
                 rgba[p * 4 + 1] = src[p * image.component + 1];
                 rgba[p * 4 + 2] = src[p * image.component + 2];

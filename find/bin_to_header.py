@@ -19,7 +19,7 @@ with open(out, "w") as f:
     f.write("#pragma once\n")
     f.write("#include <cstddef>\n")
     f.write("#include <cstdint>\n")
-    f.write(f"const unsigned char {var}[] = {{\n    ")
+    f.write(f"alignas(16) const unsigned char {var}[] = {{\n    ")
     for i, v in enumerate(values):
         if i and i % 12 == 0:
             f.write("\n    ")
