@@ -234,9 +234,6 @@ void GltfModel::initModel(const unsigned char* bytes, size_t length, const std::
         drawItems.push_back({0u, static_cast<uint32_t>(vertices.size()), 0u});
     }
 
-    loadGltfTextures();
-    createFallbackTexture();
-
     ready = true;
     /*
     std::cout << "[+] Loaded " << vertices.size() << " glTF vertices and " << drawItems.size()
@@ -356,6 +353,13 @@ void GltfModel::createResources(VulkanDevice vulkanDevice, VkExtent2D newExtent,
     }
 
     destroyResources(false, logicalDevice, descriptorPool);
+
+    if (fallbackWhiteTexture.sampler == VK_NULL_HANDLE) {
+        createFallbackTexture();
+    }
+    if (gltfTexturesSrgb.empty() && !model.textures.empty()) {
+        loadGltfTextures();
+    }
 
     initShaders();
     createVertexBuffer();
