@@ -565,6 +565,76 @@ bool lessComPortName(const std::string& lhs, const std::string& rhs) {
     return leftIdx < rightIdx;
 }
 
+#ifdef _WIN32
+std::vector<std::string> enumerateWindowsSerialPorts() {
+    std::vector<std::string> ports;
+
+    HKEY key = nullptr;
+    const LSTATUS openStatus = RegOpenKeyExA(
+        HKEY_LOCAL_MACHINE,
+        "HARDWARE\\DEVICEMAP\\SERIALCOMM",
+        0,
+        KEY_QUERY_VALUE,
+        &key);
+    if(openStatus != ERROR_SUCCESS){
+        return ports;
+    }
+
+    DWORD valueCount = 0;
+    DWORD maxValueNameLen = 0;
+    DWORD maxValueLen = 0;
+    const LSTATUS queryStatus = RegQueryInfoKeyA(
+        key,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        &valueCount,
+        &maxValueNameLen,
+        &maxValueLen,
+        nullptr,
+        nullptr);
+    if(queryStatus != ERROR_SUCCESS){
+        RegCloseKey(key);
+        return ports;
+    }
+
+    std::vector<char> valueName(maxValueNameLen + 1, '\0');
+    std::vector<std::byte> valueData(maxValueLen + sizeof(char16_t), std::byte{0});
+    for(DWORD index = 0; index < valueCount; ++index){
+        DWORD nameLen = maxValueNameLen + 1;
+        DWORD dataLen = maxValueLen;
+        DWORD type = 0;
+        const LSTATUS enumStatus = RegEnumValueA(
+            key,
+            index,
+            valueName.data(),
+            &nameLen,
+            nullptr,
+            &type,
+            reinterpret_cast<LPBYTE>(valueData.data()),
+            &dataLen);
+        if(enumStatus != ERROR_SUCCESS){
+            continue;
+        }
+
+        if(type == REG_SZ && dataLen > 0){
+            const char* portName = reinterpret_cast<const char*>(valueData.data());
+            if(*portName != '\0'){
+                ports.emplace_back(portName);
+            }
+        }
+    }
+
+    RegCloseKey(key);
+    std::sort(ports.begin(), ports.end(), lessComPortName);
+    ports.erase(std::unique(ports.begin(), ports.end()), ports.end());
+    return ports;
+}
+#endif
+
 ImVec2 clampPosToViewport(const ImGuiViewport* vp, const ImVec2& pos, const ImVec2& size) {
     const float minX = vp->Pos.x + 8.0f;
     const float minY = vp->Pos.y + 8.0f;
@@ -1844,8 +1914,6 @@ void UI::home(){
 }
 
 void UI::refreshSerialPorts(){
-    static bool windowsPortsInitialized = false;
-#ifndef _WIN32
     static auto lastRefresh = std::chrono::steady_clock::time_point{};
     const auto now = std::chrono::steady_clock::now();
     if(lastRefresh != std::chrono::steady_clock::time_point{} &&
@@ -1854,43 +1922,11 @@ void UI::refreshSerialPorts(){
         return;
     }
     lastRefresh = now;
-#else
-    if(windowsPortsInitialized && !ports.empty()){
-        return;
-    }
-#endif
 
     std::vector<std::string> nextPorts;
 
 #ifdef _WIN32
-    // QueryDosDevice lets us enumerate all COM symbolic links without touching each port.
-    constexpr DWORD kDeviceBufferSize = 32768;
-    std::array<char, kDeviceBufferSize> deviceNames{};
-    const DWORD charsWritten = QueryDosDeviceA(nullptr, deviceNames.data(), kDeviceBufferSize);
-    if(charsWritten != 0){
-        const char* current = deviceNames.data();
-        while(*current != '\0'){
-            std::string deviceName(current);
-            if(deviceName.rfind("COM", 0) == 0){
-                nextPorts.push_back(deviceName);
-            }
-            current += deviceName.size() + 1;
-        }
-        std::sort(nextPorts.begin(), nextPorts.end(), lessComPortName);
-        nextPorts.erase(std::unique(nextPorts.begin(), nextPorts.end()), nextPorts.end());
-    }
-
-    if(nextPorts.empty()){
-        for(int i = 1; i <= 64; ++i){
-            std::string name = "COM" + std::to_string(i);
-            COMMCONFIG commConfig = {};
-            DWORD commConfigSize = sizeof(commConfig);
-            if(GetDefaultCommConfigA(name.c_str(), &commConfig, &commConfigSize) != 0){
-                nextPorts.push_back(name);
-            }
-        }
-    }
-    windowsPortsInitialized = true;
+    nextPorts = enumerateWindowsSerialPorts();
 #else
     namespace fs = std::filesystem;
     std::error_code ec;
