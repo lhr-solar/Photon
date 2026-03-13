@@ -24,6 +24,18 @@
 #include "implot3d.h"
 #include "imnodes.h"
 
+namespace {
+VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
+    if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) {
+        return fallback;
+    }
+
+    const uint32_t width = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.x)));
+    const uint32_t height = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.y)));
+    return {width, height};
+}
+}
+
 struct PlotDataSourceRef {
     int canId = -1;
     int signalIndex = -1;
@@ -2343,18 +2355,10 @@ void UI::shaderWindow(VulkanShader& shader, std::string windowName){
     ImGui::SetNextWindowSize(ImVec2(shader.extent.width, shader.extent.height), ImGuiCond_FirstUseEver);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin(windowName.data(), NULL, flags)){
-        ImVec2 contentSize = ImGui::GetContentRegionAvail();
-        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
-            contentSize = ImVec2(shader.extent.width, shader.extent.height);
-        }
-        const float delta = 0.5f;
-        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
-            if(std::fabs(contentSize.x - shader.extent.width) > delta ||
-               std::fabs(contentSize.y - shader.extent.height) > delta){
-                shader.extent.width = contentSize.x;
-                shader.extent.height = contentSize.y;
-                shader.dirty = true;
-            }
+        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), shader.extent);
+        if (nextExtent.width != shader.extent.width || nextExtent.height != shader.extent.height) {
+            shader.extent = nextExtent;
+            shader.dirty = true;
         }
         ImVec2 drawSize(shader.extent.width, shader.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
@@ -2368,18 +2372,10 @@ void UI::objWindow(VulkanObj& obj, std::string name){
     ImGui::SetNextWindowSize(ImVec2(obj.extent.width, obj.extent.height), ImGuiCond_FirstUseEver);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin(name.data(), NULL, flags)){
-        ImVec2 contentSize = ImGui::GetContentRegionAvail();
-        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
-            contentSize = ImVec2(obj.extent.width, obj.extent.height);
-        }
-        const float delta = 0.5f;
-        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
-            if(std::fabs(contentSize.x - obj.extent.width) > delta ||
-               std::fabs(contentSize.y - obj.extent.height) > delta){
-                obj.extent.width = contentSize.x;
-                obj.extent.height = contentSize.y;
-                obj.dirty = true;
-            }
+        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), obj.extent);
+        if (nextExtent.width != obj.extent.width || nextExtent.height != obj.extent.height) {
+            obj.extent = nextExtent;
+            obj.dirty = true;
         }
         ImVec2 drawSize(obj.extent.width, obj.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
@@ -2392,18 +2388,10 @@ void UI::gltfWindow(GltfModel& model, std::string windowName){
     ImGui::SetNextWindowSize(ImVec2(model.extent.width, model.extent.height), ImGuiCond_FirstUseEver);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin(windowName.data(), NULL, flags)){
-        ImVec2 contentSize = ImGui::GetContentRegionAvail();
-        if(contentSize.x <= 1.0f || contentSize.y <= 1.0f){
-            contentSize = ImVec2(model.extent.width, model.extent.height);
-        }
-        const float delta = 0.5f;
-        if(contentSize.x > 1.0f && contentSize.y > 1.0f){
-            if(std::fabs(contentSize.x - model.extent.width) > delta ||
-               std::fabs(contentSize.y - model.extent.height) > delta){
-                model.extent.width = contentSize.x;
-                model.extent.height = contentSize.y;
-                model.dirty = true;
-            }
+        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), model.extent);
+        if (nextExtent.width != model.extent.width || nextExtent.height != model.extent.height) {
+            model.extent = nextExtent;
+            model.dirty = true;
         }
         ImVec2 drawSize(model.extent.width, model.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
