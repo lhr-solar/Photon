@@ -62,10 +62,10 @@ public:
 
     Inputs inputs;
 
-    VulkanBuffer vertexBuffer;
-    int32_t vertexCount = 0;
-    VulkanBuffer indexBuffer;
-    int32_t indexCount = 0;
+    std::vector<VulkanBuffer> vertexBuffers;
+    std::vector<int32_t> vertexCounts;
+    std::vector<VulkanBuffer> indexBuffers;
+    std::vector<int32_t> indexCounts;
 
     bool quit = false;
 
@@ -95,8 +95,8 @@ public:
     void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet);
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet descriptorSet,
             std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers, uint32_t& idx);
-    void updateBuffers(VulkanDevice vulkanDevice);
-    void drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet);
+    void updateBuffers(VulkanDevice vulkanDevice, uint32_t frameIndex);
+    void drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet, uint32_t frameIndex);
 
 #ifdef XCB
     void initWindow();

@@ -56,6 +56,14 @@ Gui::~Gui(){
             fontMemory = VK_NULL_HANDLE;
         }
     }
+    for (auto& buffer : vertexBuffers) {
+        buffer.unmap();
+        buffer.destroy();
+    }
+    for (auto& buffer : indexBuffers) {
+        buffer.unmap();
+        buffer.destroy();
+    }
     ImGui::SaveIniSettingsToDisk("config.ini");
     ImNodes::DestroyContext();
     ImPlot3D::DestroyContext();
@@ -451,7 +459,7 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     if(ui.daybreakModel.dirty)
         ui.daybreakModel.createResources(vulkanDevice, ui.daybreakModel.extent, descriptorPool, descriptorSetLayout);
 
-    updateBuffers(vulkanDevice);
+    updateBuffers(vulkanDevice, idx);
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -462,12 +470,12 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     ui.daybreakModel.recordShaderPass(drawCmdBuffers[idx]);
     vkCmdBeginRenderPass(drawCmdBuffers[idx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindDescriptorSets(drawCmdBuffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-    drawFrame(drawCmdBuffers[idx], descriptorSet);
+    drawFrame(drawCmdBuffers[idx], descriptorSet, idx);
     vkCmdEndRenderPass(drawCmdBuffers[idx]);
     VK_CHECK(vkEndCommandBuffer(drawCmdBuffers[idx]));
 }
 
-void Gui::updateBuffers(VulkanDevice vulkanDevice){
+void Gui::updateBuffers(VulkanDevice vulkanDevice, uint32_t frameIndex){
     static VkDeviceSize dedicatedVertexSize = 8 * 1024 * 1024;
     static VkDeviceSize dedicatedIndexSize  = 8 * 1024 * 1024;
     ImDrawData *imDrawData = ImGui::GetDrawData();
@@ -487,23 +495,35 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
     vertexBufferSize = dedicatedVertexSize;
     indexBufferSize = dedicatedIndexSize;
 
+    if (frameIndex >= vertexBuffers.size()) {
+        vertexBuffers.resize(frameIndex + 1);
+        vertexCounts.resize(frameIndex + 1, 0);
+        indexBuffers.resize(frameIndex + 1);
+        indexCounts.resize(frameIndex + 1, 0);
+    }
+
+    VulkanBuffer& vertexBuffer = vertexBuffers[frameIndex];
+    VulkanBuffer& indexBuffer = indexBuffers[frameIndex];
+    int32_t& vertexCount = vertexCounts[frameIndex];
+    int32_t& indexCount = indexCounts[frameIndex];
+
     // Vertex Buffer
-    if (((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexCount != imDrawData->TotalVtxCount)) && (vertexBuffer.size < vertexBufferSize)) {
+    if ((vertexBuffer.buffer == VK_NULL_HANDLE) || (vertexBuffer.size < vertexBufferSize)) {
       vertexBuffer.unmap();
       vertexBuffer.destroy();
       VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexBuffer, vertexBufferSize, nullptr));
-      vertexCount = imDrawData->TotalVtxCount;
       vertexBuffer.map(VK_WHOLE_SIZE, 0);
     }
+    vertexCount = imDrawData->TotalVtxCount;
 
     // Index buffer
-    if (((indexBuffer.buffer == VK_NULL_HANDLE) || (indexCount < imDrawData->TotalIdxCount)) && (indexBuffer.size < indexBufferSize)) {
+    if ((indexBuffer.buffer == VK_NULL_HANDLE) || (indexBuffer.size < indexBufferSize)) {
       indexBuffer.unmap();
       indexBuffer.destroy();
       VK_CHECK(vulkanDevice.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &indexBuffer, indexBufferSize, 0));
-      indexCount = imDrawData->TotalIdxCount;
       indexBuffer.map(VK_WHOLE_SIZE, 0);
     }
+    indexCount = imDrawData->TotalIdxCount;
 
     // Upload data
     ImDrawVert *vtxDst = (ImDrawVert *)vertexBuffer.mapped;
@@ -518,7 +538,7 @@ void Gui::updateBuffers(VulkanDevice vulkanDevice){
     }
 }
 
-void Gui::drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet){
+void Gui::drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet, uint32_t frameIndex){
     ImGuiIO &io = ImGui::GetIO();
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiGraphicsPipeline);
     VkViewport viewport {};
@@ -541,7 +561,9 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet
     int32_t vertexOffset = 0;
     int32_t indexOffset = 0;
 
-    if (imDrawData->CmdListsCount > 0) {
+    if (imDrawData->CmdListsCount > 0 && frameIndex < vertexBuffers.size() && frameIndex < indexBuffers.size()) {
+      VulkanBuffer& vertexBuffer = vertexBuffers[frameIndex];
+      VulkanBuffer& indexBuffer = indexBuffers[frameIndex];
       VkDeviceSize offsets[1] = {0};
       vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offsets);
       vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
