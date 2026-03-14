@@ -430,7 +430,7 @@ constexpr const char* kPlotSettingsTypeName = "PhotonPlots";
 constexpr const char* kPlotSettingsSectionName = "State";
 
 int& persistedFontSize() {
-    static int value = 24;
+    static int value = 16;
     return value;
 }
 
@@ -444,7 +444,7 @@ void clearPlotSettings() {
     PlotGeneratorState& state = generatorState();
     state.windows.clear();
     state.nextId = 1;
-    persistedFontSize() = 24;
+    persistedFontSize() = 16;
 }
 
 void* plotSettingsReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* name) {
