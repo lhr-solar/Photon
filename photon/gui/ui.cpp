@@ -2000,6 +2000,7 @@ void UI::networkUI(){
         ImGui::Combo("DBC", &dbcIdx, availableDBC.data(), availableDBC.size());
         if(dbcIdx == 0){ currentDBC = "assettoCorsa"; }
         if(dbcIdx == 1){ currentDBC = "daybreak"; }
+        if(dbcIdx == 2){ currentDBC = "vehicle-with-undisclosed-name"; }
 
         ImGui::Combo("Network", &networkIdx, availableNetwork.data(), availableNetwork.size());
         if(networkIdx == 0){ currentNetwork = "Server";}
@@ -2276,7 +2277,7 @@ void UI::drawCanMessageNode(const CanMessage& msg){
     const int canId = msg.canId;
     ImNodes::BeginNode(proceduralMessageNodeId(canId));
     ImNodes::BeginNodeTitleBar();
-    ImGui::TextUnformatted("Can Message");
+    ImGui::TextUnformatted("Message");
     ImNodes::EndNodeTitleBar();
     ImNodes::BeginInputAttribute(proceduralMessageInAttrId(canId));
     ImGui::TextUnformatted("store");
@@ -2293,12 +2294,18 @@ void UI::drawCanMessageNode(const CanMessage& msg){
 void UI::drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal){
     ImNodes::BeginNode(proceduralSignalNodeId(canId, signalIndex));
     ImNodes::BeginNodeTitleBar();
-    ImGui::TextUnformatted("Can Signal");
+    ImGui::TextUnformatted("Signal");
     ImNodes::EndNodeTitleBar();
     ImNodes::BeginInputAttribute(proceduralSignalInAttrId(canId, signalIndex));
     ImGui::TextUnformatted("message");
     ImNodes::EndInputAttribute();
     ImGui::TextUnformatted(signal.name.c_str());
+    ImGui::Text("[%d : %d]", signal.startBit, signal.startBit + signal.length);
+    ImGui::TextUnformatted(signal.endianness == 0 ? "Big Endian" : "Little Endian");
+    ImGui::TextUnformatted(signal.isSigned ? "Signed" : "Not Signed");
+    //ImGui::Text("val * %.6g + %.6g", signal.scale, signal.offset);
+    //ImGui::Text("Range: [%.6g, %.6g]", signal.min, signal.max);
+    ImGui::Text("clamp(value * %.6g + %.6g, %.6g, %.6g)", signal.scale, signal.offset, signal.min, signal.max);
     ImNodes::EndNode();
 }
 

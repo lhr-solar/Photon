@@ -65,6 +65,7 @@ struct UI{
     std::vector<const char*> availableDBC = {
             "assettoCorsa",
             "daybreak",
+            "vehicle-with-undisclosed-name",
     };
 
     std::string currentNetwork = "Assetto Corsa";

@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "assettoCorsa_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
+#include "vehicle_with_undisclosed_name_dbc.hpp"
 #include "vulkan_core.h"
 
 Photon::Photon(){ 
@@ -125,6 +126,11 @@ void Photon::manageNetwork(){
             parse.canStore = {};
             parse.canStore.loadStateFromHeader(daybreak_master_dbc, daybreak_master_dbc_size);
             parse.currentDBC = "daybreak";
+        }
+        if(gui.ui.currentDBC == "vehicle-with-undisclosed-name"){
+            parse.canStore = {};
+            parse.canStore.loadStateFromHeader(vehicle_with_undisclosed_name_dbc, vehicle_with_undisclosed_name_dbc_size);
+            parse.currentDBC = "vehicle-with-undisclosed-name";
         }
     }
     if(network.currentBackend != gui.ui.currentNetwork){
