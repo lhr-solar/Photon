@@ -12,6 +12,29 @@
 #include "vehicle_with_undisclosed_name_dbc.hpp"
 #include "vulkan_core.h"
 
+namespace {
+constexpr const char* kCustomDbcPrefix = "custom-file:";
+
+bool isCustomDbcSelection(const std::string& selection) {
+    return selection.rfind(kCustomDbcPrefix, 0) == 0;
+}
+
+std::string customDbcPathFromSelection(const std::string& selection) {
+    if (!isCustomDbcSelection(selection)) {
+        return {};
+    }
+    return selection.substr(std::char_traits<char>::length(kCustomDbcPrefix));
+}
+
+int dbcSelectionIndexFromValue(const std::string& selection) {
+    if (selection == "assettoCorsa") { return 0; }
+    if (selection == "daybreak") { return 1; }
+    if (selection == "vehicle-with-undisclosed-name") { return 2; }
+    if (isCustomDbcSelection(selection)) { return 3; }
+    return 0;
+}
+}
+
 Photon::Photon(){ 
     logs("[+] Constructing Photon"); 
     gui.ui.parseInterface = &parse;
@@ -117,20 +140,55 @@ void Photon::executeFrame(){
 void Photon::manageNetwork(){
     if(gui.ui.currentDBC != parse.currentDBC){
         std::cout << "does not match!" << std::endl;
+        const std::string previousDBC = parse.currentDBC;
+        bool loaded = false;
+        std::string errorMessage;
         if(gui.ui.currentDBC == "assettoCorsa"){
-            parse.canStore = {};
-            parse.canStore.loadStateFromHeader(assettoCorsa_dbc, assettoCorsa_dbc_size);
-            parse.currentDBC = "assettoCorsa";
+            loaded = parse.canStore.loadStateFromHeader(assettoCorsa_dbc, assettoCorsa_dbc_size, &errorMessage);
+            if (loaded) {
+                parse.currentDBC = "assettoCorsa";
+                gui.ui.dbcStatusMessage.clear();
+                gui.ui.dbcStatusIsError = false;
+            }
         }
         if(gui.ui.currentDBC == "daybreak"){
-            parse.canStore = {};
-            parse.canStore.loadStateFromHeader(daybreak_master_dbc, daybreak_master_dbc_size);
-            parse.currentDBC = "daybreak";
+            loaded = parse.canStore.loadStateFromHeader(daybreak_master_dbc, daybreak_master_dbc_size, &errorMessage);
+            if (loaded) {
+                parse.currentDBC = "daybreak";
+                gui.ui.dbcStatusMessage.clear();
+                gui.ui.dbcStatusIsError = false;
+            }
         }
         if(gui.ui.currentDBC == "vehicle-with-undisclosed-name"){
-            parse.canStore = {};
-            parse.canStore.loadStateFromHeader(vehicle_with_undisclosed_name_dbc, vehicle_with_undisclosed_name_dbc_size);
-            parse.currentDBC = "vehicle-with-undisclosed-name";
+            loaded = parse.canStore.loadStateFromHeader(vehicle_with_undisclosed_name_dbc, vehicle_with_undisclosed_name_dbc_size, &errorMessage);
+            if (loaded) {
+                parse.currentDBC = "vehicle-with-undisclosed-name";
+                gui.ui.dbcStatusMessage.clear();
+                gui.ui.dbcStatusIsError = false;
+            }
+        }
+        if(isCustomDbcSelection(gui.ui.currentDBC)){
+            const std::string filePath = customDbcPathFromSelection(gui.ui.currentDBC);
+            if (filePath.empty()) {
+                errorMessage = "No custom DBC file path was provided.";
+            } else {
+                loaded = parse.canStore.loadStateFromFile(filePath, &errorMessage);
+                if (loaded) {
+                    parse.currentDBC = gui.ui.currentDBC;
+                    gui.ui.customDbcLoadedPath = filePath;
+                    gui.ui.dbcStatusMessage = "Loaded custom DBC: " + filePath;
+                    gui.ui.dbcStatusIsError = false;
+                }
+            }
+        }
+        if (!loaded) {
+            if (errorMessage.empty()) {
+                errorMessage = "Failed to load DBC.";
+            }
+            gui.ui.dbcStatusMessage = errorMessage;
+            gui.ui.dbcStatusIsError = true;
+            gui.ui.currentDBC = previousDBC;
+            gui.ui.dbcSelectionIndex = dbcSelectionIndexFromValue(previousDBC);
         }
     }
     if(network.currentBackend != gui.ui.currentNetwork){

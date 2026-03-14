@@ -19,6 +19,9 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#ifdef _WIN32
+#include <commdlg.h>
+#endif
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
@@ -26,6 +29,92 @@
 #include "imnodes.h"
 
 namespace {
+constexpr const char* kCustomDbcPrefix = "custom-file:";
+
+bool isCustomDbcSelection(const std::string& selection) {
+    return selection.rfind(kCustomDbcPrefix, 0) == 0;
+}
+
+std::string makeCustomDbcSelection(const std::string& filePath) {
+    return std::string(kCustomDbcPrefix) + filePath;
+}
+
+std::string customDbcPathFromSelection(const std::string& selection) {
+    if (!isCustomDbcSelection(selection)) {
+        return {};
+    }
+    return selection.substr(std::strlen(kCustomDbcPrefix));
+}
+
+int dbcSelectionIndexFromValue(const std::string& selection) {
+    if (selection == "assettoCorsa") { return 0; }
+    if (selection == "daybreak") { return 1; }
+    if (selection == "vehicle-with-undisclosed-name") { return 2; }
+    if (isCustomDbcSelection(selection)) { return 3; }
+    return 0;
+}
+
+void copyStringToBuffer(const std::string& value, char* buffer, size_t bufferSize) {
+    if (buffer == nullptr || bufferSize == 0) {
+        return;
+    }
+    std::snprintf(buffer, bufferSize, "%s", value.c_str());
+}
+
+std::string trimWhitespace(std::string text) {
+    const auto begin = text.find_first_not_of(" \t\r\n");
+    if (begin == std::string::npos) {
+        return {};
+    }
+    const auto end = text.find_last_not_of(" \t\r\n");
+    return text.substr(begin, end - begin + 1);
+}
+
+#ifndef _WIN32
+std::string runFilePickerCommand(const char* command) {
+    FILE* pipe = popen(command, "r");
+    if (pipe == nullptr) {
+        return {};
+    }
+
+    char buffer[1024];
+    std::string output;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        output += buffer;
+    }
+
+    const int status = pclose(pipe);
+    if (status != 0) {
+        return {};
+    }
+    return trimWhitespace(output);
+}
+#endif
+
+std::string openDbcFilePicker() {
+#ifdef _WIN32
+    char fileBuffer[MAX_PATH] = {0};
+    OPENFILENAMEA dialog{};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.lpstrFilter = "DBC Files\0*.dbc;*.DBC\0All Files\0*.*\0";
+    dialog.lpstrFile = fileBuffer;
+    dialog.nMaxFile = static_cast<DWORD>(sizeof(fileBuffer));
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    dialog.lpstrTitle = "Select DBC File";
+    if (GetOpenFileNameA(&dialog) == TRUE) {
+        return fileBuffer;
+    }
+    return {};
+#else
+    std::string path = runFilePickerCommand("command -v zenity >/dev/null 2>&1 && zenity --file-selection --title='Select DBC File' --file-filter='DBC files | *.dbc *.DBC' --file-filter='All files | *' 2>/dev/null");
+    if (!path.empty()) {
+        return path;
+    }
+    path = runFilePickerCommand("command -v kdialog >/dev/null 2>&1 && kdialog --getopenfilename . '*.dbc *.DBC|DBC files' 2>/dev/null");
+    return path;
+#endif
+}
+
 VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
     if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) {
         return fallback;
@@ -2150,7 +2239,15 @@ void UI::home(){
     const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
     const float contentWidth = contentMax.x - contentMin.x;
     const float contentHeight = contentMax.y - contentMin.y;
-    static int dbcIdx = 0;
+    if (dbcSelectionIndex != 3 || isCustomDbcSelection(currentDBC)) {
+        dbcSelectionIndex = dbcSelectionIndexFromValue(currentDBC);
+    }
+    if (isCustomDbcSelection(currentDBC)) {
+        const std::string selectedCustomPath = customDbcPathFromSelection(currentDBC);
+        if (!selectedCustomPath.empty() && std::strcmp(customDbcPath, selectedCustomPath.c_str()) != 0) {
+            copyStringToBuffer(selectedCustomPath, customDbcPath, sizeof(customDbcPath));
+        }
+    }
     const float controlWidth = std::max(1.0f, contentWidth * 0.10f);
     const float labelWidth = ImGui::CalcTextSize("SocketCAN / PCAN").x;
     const float comboOffsetX = labelWidth + ImGui::GetStyle().ItemInnerSpacing.x;
@@ -2166,10 +2263,77 @@ void UI::home(){
 
     ImGui::SetCursorPos(contentMin);
     ImGui::BeginGroup();
-    labeledCombo("DBC", "##dbc", &dbcIdx, availableDBC);
-    if(dbcIdx == 0){ currentDBC = "assettoCorsa"; }
-    if(dbcIdx == 1){ currentDBC = "daybreak"; }
-    if(dbcIdx == 2){ currentDBC = "vehicle-with-undisclosed-name"; }
+    const int previousDbcSelectionIndex = dbcSelectionIndex;
+    labeledCombo("DBC", "##dbc", &dbcSelectionIndex, availableDBC);
+    if (dbcSelectionIndex != previousDbcSelectionIndex) {
+        if (dbcSelectionIndex == 0) {
+            currentDBC = "assettoCorsa";
+            dbcStatusMessage.clear();
+            dbcStatusIsError = false;
+        }
+        if (dbcSelectionIndex == 1) {
+            currentDBC = "daybreak";
+            dbcStatusMessage.clear();
+            dbcStatusIsError = false;
+        }
+        if (dbcSelectionIndex == 2) {
+            currentDBC = "vehicle-with-undisclosed-name";
+            dbcStatusMessage.clear();
+            dbcStatusIsError = false;
+        }
+    }
+
+    if (dbcSelectionIndex == 3) {
+        ImGui::Spacing();
+        const float startX = ImGui::GetCursorPosX();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("DBC file");
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::SetCursorPosX(startX + comboOffsetX);
+        ImGui::SetNextItemWidth(std::max(controlWidth * 2.5f, 280.0f));
+        const bool submittedPath = ImGui::InputText("##custom_dbc_path", customDbcPath, sizeof(customDbcPath), ImGuiInputTextFlags_EnterReturnsTrue);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Browse...")) {
+            const std::string filePath = openDbcFilePicker();
+            if (!filePath.empty()) {
+                copyStringToBuffer(filePath, customDbcPath, sizeof(customDbcPath));
+                currentDBC = makeCustomDbcSelection(filePath);
+                dbcStatusMessage = "Loading custom DBC...";
+                dbcStatusIsError = false;
+            } else {
+                dbcStatusMessage = "No file selected.";
+                dbcStatusIsError = false;
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Load") || submittedPath) {
+            const std::string filePath = trimWhitespace(customDbcPath);
+            if (filePath.empty()) {
+                dbcStatusMessage = "Select a DBC file or enter a path first.";
+                dbcStatusIsError = true;
+            } else {
+                copyStringToBuffer(filePath, customDbcPath, sizeof(customDbcPath));
+                currentDBC = makeCustomDbcSelection(filePath);
+                dbcStatusMessage = "Loading custom DBC...";
+                dbcStatusIsError = false;
+            }
+        }
+
+        if (!customDbcLoadedPath.empty()) {
+            ImGui::TextWrapped("Loaded: %s", customDbcLoadedPath.c_str());
+        }
+    }
+
+    if (!dbcStatusMessage.empty()) {
+        const ImVec4 statusColor = dbcStatusIsError
+            ? ImVec4(0.95f, 0.35f, 0.35f, 1.0f)
+            : ImVec4(0.35f, 0.85f, 0.45f, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, statusColor);
+        ImGui::TextWrapped("%s", dbcStatusMessage.c_str());
+        ImGui::PopStyleColor();
+    }
     ImGui::EndGroup();
 
     const float nextControlY = ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y + ImGui::GetStyle().ItemSpacing.y;

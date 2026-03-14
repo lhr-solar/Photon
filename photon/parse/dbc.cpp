@@ -3,6 +3,8 @@
 #include "../engine/include.hpp"
 #include <cstdint>
 #include <array>
+#include <cerrno>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -127,7 +129,7 @@ uint64_t buildLittleEndianPayload(const std::array<uint8_t, 8>& bytes, int dlc){
     return payload;
 }
 
-bool parseDbcFromStream(CanStore& store, std::istream& stream, const std::string& sourceLabel) {
+bool parseDbcFromStream(CanStore& store, std::istream& stream, const std::string& sourceLabel, std::string* errorMessage) {
     std::string line;
     uint32_t currentId = 0;
     int messageCountLocal = 0;
@@ -324,29 +326,63 @@ bool parseDbcFromStream(CanStore& store, std::istream& stream, const std::string
           << store.canMessages.size());
 
     store.dump();
-    return (messageCountLocal > 0);
+    if (messageCountLocal <= 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = "No CAN messages were found in the DBC file.";
+        }
+        return false;
+    }
+
+    if (errorMessage != nullptr) {
+        errorMessage->clear();
+    }
+    return true;
 }
 
 }  // namespace
 
-bool CanStore::loadStateFromFile(std::string filePath){
+bool CanStore::loadStateFromFile(const std::string& filePath, std::string* errorMessage){
     std::ifstream file(filePath);
     if (!file.is_open()) {
         logs("[DBC Loader] Failed to open " << filePath);
+        if (errorMessage != nullptr) {
+            *errorMessage = "Failed to open file: " + filePath;
+            if (errno != 0) {
+                *errorMessage += " (" + std::string(std::strerror(errno)) + ")";
+            }
+        }
         return false;
     }
-    return parseDbcFromStream(*this, file, filePath);
+
+    CanStore parsed;
+    parsed.totalBandwidth = totalBandwidth;
+    if (!parseDbcFromStream(parsed, file, filePath, errorMessage)) {
+        return false;
+    }
+
+    *this = std::move(parsed);
+    return true;
 }
 
-bool CanStore::loadStateFromHeader(const unsigned char* headerData, size_t headerSize) {
+bool CanStore::loadStateFromHeader(const unsigned char* headerData, size_t headerSize, std::string* errorMessage) {
     if (headerData == nullptr || headerSize == 0) {
         logs("[DBC Loader] Header data is empty");
+        if (errorMessage != nullptr) {
+            *errorMessage = "Embedded DBC data is empty.";
+        }
         return false;
     }
 
     std::string dbcText(reinterpret_cast<const char*>(headerData), headerSize);
     std::istringstream stream(dbcText);
-    return parseDbcFromStream(*this, stream, "embedded header");
+    CanStore parsed;
+    parsed.totalBandwidth = totalBandwidth;
+    if (!parseDbcFromStream(parsed, stream, "embedded header", errorMessage)) {
+        return false;
+    }
+
+    *this = std::move(parsed);
+    return true;
 }
 
 void CanStore::dump() {

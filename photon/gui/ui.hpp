@@ -66,7 +66,13 @@ struct UI{
             "assettoCorsa",
             "daybreak",
             "vehicle-with-undisclosed-name",
+            "Custom file...",
     };
+    int dbcSelectionIndex = 0;
+    char customDbcPath[1024] = {0};
+    std::string customDbcLoadedPath;
+    std::string dbcStatusMessage;
+    bool dbcStatusIsError = false;
 
     std::string currentNetwork = "Assetto Corsa";
     std::vector<const char*> availableNetwork ={

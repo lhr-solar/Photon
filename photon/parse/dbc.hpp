@@ -55,7 +55,7 @@ struct CanMessage{
 struct CanStore{
     double totalBandwidth = 1.0; // total data stored
     std::map<int, CanMessage> canMessages;
-    bool loadStateFromFile(std::string filePath);
-    bool loadStateFromHeader(const unsigned char* headerData, size_t headerSize);
+    bool loadStateFromFile(const std::string& filePath, std::string* errorMessage = nullptr);
+    bool loadStateFromHeader(const unsigned char* headerData, size_t headerSize, std::string* errorMessage = nullptr);
     void dump();
 };
