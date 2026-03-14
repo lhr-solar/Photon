@@ -134,6 +134,12 @@ struct UI{
         int canId = -1;
         int linkId = 4000000;
     } proceduralDataLink;
+    struct {
+        bool connected = false;
+        int canId = -1;
+        int signalIndex = -1;
+        int linkId = 4000001;
+    } plotSignalLink;
     int selectedProceduralCanId = -1;
     int lastProceduralCanId = -1;
     char proceduralMessageQuery[128] = {0};
@@ -172,6 +178,7 @@ struct UI{
     void dbcNodes();
     void drawSineNode();
     void drawDataNode();
+    void drawPlotNode();
     void drawCanStoreNode();
     void drawCanMessageNode(const CanMessage& msg);
     void drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal, double outValue);

@@ -86,6 +86,7 @@ uint8_t parseHexByteOrDefault(const char* text, uint8_t fallback) {
 constexpr int kControlNodeId = 5;
 constexpr int kSinNodeId = 6;
 constexpr int kDataNodeId = 8;
+constexpr int kPlotNodeId = 10;
 constexpr int kProceduralStoreNodeId = 1000;
 constexpr int kProceduralStoreOutAttrId = 1001;
 constexpr int kProceduralMessageNodeBase = 10000;
@@ -115,6 +116,10 @@ int proceduralSignalNodeId(int canId, int signalIndex) {
 
 int proceduralSignalInAttrId(int canId, int signalIndex) {
     return proceduralSignalNodeId(canId, signalIndex) + 1;
+}
+
+int proceduralSignalOutAttrId(int canId, int signalIndex) {
+    return proceduralSignalNodeId(canId, signalIndex) + 2;
 }
 
 int proceduralStoreLinkId(int canId) {
@@ -2072,6 +2077,7 @@ void UI::dbcNodes(){
         ImNodes::SetNodeGridSpacePos(kControlNodeId, ImVec2(760.0f, 80.0f));
         ImNodes::SetNodeGridSpacePos(kSinNodeId, ImVec2(80.0f, 320.0f));
         ImNodes::SetNodeGridSpacePos(kDataNodeId, ImVec2(420.0f, 320.0f));
+        ImNodes::SetNodeGridSpacePos(kPlotNodeId, ImVec2(1220.0f, 320.0f));
         ImNodes::SetNodeGridSpacePos(kProceduralStoreNodeId, ImVec2(80.0f, 620.0f));
         nodesInitialized = true;
     }
@@ -2084,6 +2090,7 @@ void UI::dbcNodes(){
 
     drawSineNode();
     drawDataNode();
+    drawPlotNode();
     proceduralDBCNodes();
     controlsNode();
 
@@ -2103,14 +2110,41 @@ void UI::dbcNodes(){
                   startAttr == proceduralMessageDataInAttrId(selectedProceduralCanId)){
             proceduralDataLink.connected = true;
             proceduralDataLink.canId = selectedProceduralCanId;
+        } else if(parseInterface != nullptr && endAttr == 11){
+            for(const auto& [canId, msg] : parseInterface->canStore.canMessages){
+                for(size_t signalIndex = 0; signalIndex < msg.signals.size(); ++signalIndex){
+                    if(startAttr == proceduralSignalOutAttrId(canId, static_cast<int>(signalIndex))){
+                        plotSignalLink.connected = true;
+                        plotSignalLink.canId = canId;
+                        plotSignalLink.signalIndex = static_cast<int>(signalIndex);
+                        goto plot_link_created;
+                    }
+                }
+            }
+        } else if(parseInterface != nullptr && startAttr == 11){
+            for(const auto& [canId, msg] : parseInterface->canStore.canMessages){
+                for(size_t signalIndex = 0; signalIndex < msg.signals.size(); ++signalIndex){
+                    if(endAttr == proceduralSignalOutAttrId(canId, static_cast<int>(signalIndex))){
+                        plotSignalLink.connected = true;
+                        plotSignalLink.canId = canId;
+                        plotSignalLink.signalIndex = static_cast<int>(signalIndex);
+                        goto plot_link_created;
+                    }
+                }
+            }
         }
     }
+plot_link_created:;
 
     int destroyedLinkId = 0;
     if(ImNodes::IsLinkDestroyed(&destroyedLinkId)){
         if(proceduralDataLink.connected && destroyedLinkId == proceduralDataLink.linkId){
             proceduralDataLink.connected = false;
             proceduralDataLink.canId = -1;
+        } else if(plotSignalLink.connected && destroyedLinkId == plotSignalLink.linkId){
+            plotSignalLink.connected = false;
+            plotSignalLink.canId = -1;
+            plotSignalLink.signalIndex = -1;
         }
     }
 
@@ -2123,6 +2157,21 @@ void UI::dbcNodes(){
                 if(linkId == proceduralDataLink.linkId){
                     proceduralDataLink.connected = false;
                     proceduralDataLink.canId = -1;
+                    break;
+                }
+            }
+        }
+    }
+    if(plotSignalLink.connected){
+        int selectedLinkCount = ImNodes::NumSelectedLinks();
+        if(selectedLinkCount > 0 && ImGui::IsKeyPressed(ImGuiKey_Delete, false)){
+            std::vector<int> selectedLinks(static_cast<size_t>(selectedLinkCount));
+            ImNodes::GetSelectedLinks(selectedLinks.data());
+            for(int linkId : selectedLinks){
+                if(linkId == plotSignalLink.linkId){
+                    plotSignalLink.connected = false;
+                    plotSignalLink.canId = -1;
+                    plotSignalLink.signalIndex = -1;
                     break;
                 }
             }
@@ -2221,6 +2270,59 @@ void UI::drawDataNode(){
     ImGui::Indent(40.0f);
     ImGui::TextUnformatted("data");
     ImNodes::EndOutputAttribute();
+    ImNodes::EndNode();
+}
+
+void UI::drawPlotNode(){
+    constexpr int plotNodeInAttrId = 11;
+    static GeneratedPlotWindow plotNodeState = []{
+        GeneratedPlotWindow plot;
+        plot.id = -2000;
+        plot.typeIndex = PlotType_Line;
+        plot.followLatest = true;
+        plot.open = true;
+        plot.needsInitialDock = false;
+        plot.initialDockNode = 0;
+        plot.forceInitialDock = false;
+        plot.undockedInteracting = false;
+        plot.requestRedock = false;
+        return plot;
+    }();
+
+    ImNodes::BeginNode(kPlotNodeId);
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Plot");
+    ImNodes::EndNodeTitleBar();
+    ImNodes::BeginInputAttribute(plotNodeInAttrId);
+    ImGui::TextUnformatted("signal");
+    ImNodes::EndInputAttribute();
+
+    const CanMessage* msg = nullptr;
+    const CanSignal* signal = nullptr;
+    if(plotSignalLink.connected){
+        msg = findMessage(parseInterface, plotSignalLink.canId);
+        if(msg != nullptr &&
+           plotSignalLink.signalIndex >= 0 &&
+           static_cast<size_t>(plotSignalLink.signalIndex) < msg->signals.size()){
+            signal = &msg->signals[static_cast<size_t>(plotSignalLink.signalIndex)];
+        }
+    }
+
+    if(msg == nullptr || signal == nullptr){
+        ImGui::TextUnformatted("<no signal connected>");
+    } else {
+        ImGui::TextUnformatted(signal->name.c_str());
+        plotNodeState.sources.resize(1);
+        plotNodeState.sources[0].canId = plotSignalLink.canId;
+        plotNodeState.sources[0].signalIndex = plotSignalLink.signalIndex;
+        plotNodeState.followLatest = true;
+        plotNodeState.hasView = false;
+        if(ImGui::BeginChild("##plotNodeRegion", ImVec2(320.0f, 180.0f), true, ImGuiWindowFlags_NoScrollbar)){
+            renderTimeSeriesPlot(parseInterface, plotNodeState);
+        }
+        ImGui::EndChild();
+    }
+
     ImNodes::EndNode();
 }
 
@@ -2361,6 +2463,10 @@ void UI::drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal, 
     ImGui::TextUnformatted(typeLabel);
     ImGui::Text("clamp(value * %.6g + %.6g, %.6g, %.6g)", signal.scale, signal.offset, signal.min, signal.max);
     ImGui::Text("outValue: %.6g", outValue);
+    ImNodes::BeginOutputAttribute(proceduralSignalOutAttrId(canId, signalIndex));
+    ImGui::Indent(40.0f);
+    ImGui::TextUnformatted("signal");
+    ImNodes::EndOutputAttribute();
     ImNodes::EndNode();
 }
 
@@ -2382,6 +2488,11 @@ void UI::proceduralDBCNodes(){
     if(selectionChanged && proceduralDataLink.connected){
         proceduralDataLink.connected = false;
         proceduralDataLink.canId = -1;
+    }
+    if(selectionChanged && plotSignalLink.connected && plotSignalLink.canId != canId){
+        plotSignalLink.connected = false;
+        plotSignalLink.canId = -1;
+        plotSignalLink.signalIndex = -1;
     }
     const ImVec2 storePos = ImNodes::GetNodeGridSpacePos(kProceduralStoreNodeId);
     const ImVec2 messagePos = ImVec2(storePos.x + 440.0f, storePos.y + 110.0f);
@@ -2415,6 +2526,14 @@ void UI::proceduralDBCNodes(){
         ImNodes::Link(proceduralSignalLinkId(canId, static_cast<int>(signalIndex)),
                       proceduralMessageOutAttrId(canId),
                       proceduralSignalInAttrId(canId, static_cast<int>(signalIndex)));
+    }
+    if(plotSignalLink.connected &&
+       plotSignalLink.canId == canId &&
+       plotSignalLink.signalIndex >= 0 &&
+       static_cast<size_t>(plotSignalLink.signalIndex) < msg.signals.size()){
+        ImNodes::Link(plotSignalLink.linkId,
+                      proceduralSignalOutAttrId(canId, plotSignalLink.signalIndex),
+                      11);
     }
     lastProceduralCanId = canId;
 }
