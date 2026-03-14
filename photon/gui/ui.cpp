@@ -2764,7 +2764,11 @@ void UI::refreshCanPorts(){
     std::vector<std::string> nextPorts;
 
 #ifdef _WIN32
-    nextPorts = enumerateWindowsPcanChannels();
+    if(discoveredCanPorts.empty()){
+        nextPorts.push_back(canPort.empty() ? "PCAN_USBBUS1" : canPort);
+    } else {
+        nextPorts = discoveredCanPorts;
+    }
 #else
     namespace fs = std::filesystem;
     std::error_code ec;
