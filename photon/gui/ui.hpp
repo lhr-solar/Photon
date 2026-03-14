@@ -140,6 +140,7 @@ struct UI{
         int signalIndex = -1;
         int linkId = 4000001;
     } plotSignalLink;
+    int activeEditableLinkId = -1;
     int selectedProceduralCanId = -1;
     int lastProceduralCanId = -1;
     char proceduralMessageQuery[128] = {0};

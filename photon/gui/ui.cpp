@@ -2007,19 +2007,30 @@ void UI::emptyCustom(){
 void UI::networkUI(){
         static int dbcIdx = 0;
         static int networkIdx = 2;
-        ImGui::Combo("DBC", &dbcIdx, availableDBC.data(), availableDBC.size());
-        if(dbcIdx == 0){ currentDBC = "assettoCorsa"; }
-        if(dbcIdx == 1){ currentDBC = "daybreak"; }
-        if(dbcIdx == 2){ currentDBC = "vehicle-with-undisclosed-name"; }
+        (void)dbcIdx;
+        const float columnWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x * 0.10f);
+        const float labelWidth = ImGui::CalcTextSize("Serial Port").x;
+        const float comboOffsetX = labelWidth + ImGui::GetStyle().ItemInnerSpacing.x;
+        const auto labeledCombo = [&](const char* label, const char* id, int* currentItem, auto& items) {
+            const float startX = ImGui::GetCursorPosX();
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted(label);
+            ImGui::SameLine(0.0f, 0.0f);
+            ImGui::SetCursorPosX(startX + comboOffsetX);
+            ImGui::SetNextItemWidth(columnWidth);
+            ImGui::Combo(id, currentItem, items.data(), items.size());
+        };
 
-        ImGui::Combo("Network", &networkIdx, availableNetwork.data(), availableNetwork.size());
+        ImGui::BeginGroup();
+        labeledCombo("Network", "##network", &networkIdx, availableNetwork);
         if(networkIdx == 0){ currentNetwork = "Server";}
         if(networkIdx == 1){ currentNetwork = "Serial";}
         if(networkIdx == 2){ currentNetwork = "Assetto Corsa";}
+
         if(currentNetwork == "Serial"){
             static int baudIdx = 5;
             static int portIdx = 0;
-            ImGui::Combo("Baud Rate", &baudIdx, baudRates.data(), baudRates.size());
+            labeledCombo("Baud Rate", "##baud_rate", &baudIdx, baudRates);
             if(baudRate != baudRates[baudIdx]){
                 rebuildSerial = true;
                 baudRate = baudRates[baudIdx];
@@ -2029,7 +2040,7 @@ void UI::networkUI(){
                 ImGui::Text("No serial ports detected");
             } else {
                 if(portIdx < 0 || static_cast<size_t>(portIdx) >= ports.size()){ portIdx = 0; }
-                ImGui::Combo("Serial Port", &portIdx, ports.data(), ports.size());
+                labeledCombo("Serial Port", "##serial_port", &portIdx, ports);
                 if(portIdx >= 0 && static_cast<size_t>(portIdx) < discoveredSerialPorts.size()){
                     if(serialPort != discoveredSerialPorts[portIdx]){
                         rebuildSerial = true;
@@ -2038,6 +2049,7 @@ void UI::networkUI(){
                 }
             }
         }
+        ImGui::EndGroup();
 }
 
 void UI::debug(){
@@ -2049,22 +2061,61 @@ void UI::home(){
     const ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
     const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
     const float contentWidth = contentMax.x - contentMin.x;
-    const float targetWidth = std::max(240.0f, contentWidth * 0.15f);
-    gltfWidget(daybreakModel, {640, 640});
-    static float networkPanelHeight = 0.0f;
-    if(networkPanelHeight <= 0.0f){
-        networkPanelHeight = ImGui::GetFrameHeightWithSpacing() * 2.0f;
-    }
+    const float contentHeight = contentMax.y - contentMin.y;
+    static int dbcIdx = 0;
+    const float controlWidth = std::max(1.0f, contentWidth * 0.10f);
+    const float labelWidth = ImGui::CalcTextSize("Serial Port").x;
+    const float comboOffsetX = labelWidth + ImGui::GetStyle().ItemInnerSpacing.x;
+    const auto labeledCombo = [&](const char* label, const char* id, int* currentItem, auto& items) {
+        const float startX = ImGui::GetCursorPosX();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(label);
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::SetCursorPosX(startX + comboOffsetX);
+        ImGui::SetNextItemWidth(controlWidth);
+        ImGui::Combo(id, currentItem, items.data(), items.size());
+    };
 
-    const float x = contentMin.x + ((contentWidth - targetWidth) * 0.5f);
-    const float y = std::max(contentMin.y, contentMax.y - networkPanelHeight);
-    ImGui::SetCursorPos(ImVec2(x, y));
-    ImGui::PushItemWidth(targetWidth);
+    ImGui::SetCursorPos(contentMin);
+    ImGui::BeginGroup();
+    labeledCombo("DBC", "##dbc", &dbcIdx, availableDBC);
+    if(dbcIdx == 0){ currentDBC = "assettoCorsa"; }
+    if(dbcIdx == 1){ currentDBC = "daybreak"; }
+    if(dbcIdx == 2){ currentDBC = "vehicle-with-undisclosed-name"; }
+    ImGui::EndGroup();
+
+    const float nextControlY = ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y + ImGui::GetStyle().ItemSpacing.y;
+    ImGui::SetCursorPos(ImVec2(contentMin.x, nextControlY));
     ImGui::BeginGroup();
     networkUI();
     ImGui::EndGroup();
-    networkPanelHeight = ImGui::GetItemRectSize().y;
-    ImGui::PopItemWidth();
+
+    const ImVec2 modelSize(
+        std::max(1.0f, contentWidth * 0.20f),
+        std::max(1.0f, contentHeight * 0.35f)
+    );
+    const ImVec2 modelPos(
+        std::max(contentMin.x, contentMax.x - modelSize.x),
+        contentMin.y
+    );
+
+    ImGui::SetCursorPos(modelPos);
+    gltfWidget(daybreakModel, modelSize);
+    {
+        const char* overlayText = "no GPS found...";
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        const ImVec2 imageMin = ImGui::GetItemRectMin();
+        const ImVec2 imageMax = ImGui::GetItemRectMax();
+        const ImVec2 textSize = ImGui::CalcTextSize(overlayText);
+        const float padding = 8.0f;
+        const ImVec2 textPos(
+            imageMax.x - textSize.x - padding,
+            imageMax.y - textSize.y - padding
+        );
+
+        drawList->AddText(ImVec2(textPos.x + 1.0f, textPos.y + 1.0f), IM_COL32(0, 0, 0, 160), overlayText);
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 220), overlayText);
+    }
 }
 
 void UI::dbcNodes(){
@@ -2092,7 +2143,7 @@ void UI::dbcNodes(){
     drawDataNode();
     drawPlotNode();
     proceduralDBCNodes();
-    controlsNode();
+    //controlsNode();
 
     ImNodes::MiniMap(0.2f, ImNodesMiniMapLocation_BottomRight);
     ImNodes::EndNodeEditor();
@@ -2141,40 +2192,43 @@ plot_link_created:;
         if(proceduralDataLink.connected && destroyedLinkId == proceduralDataLink.linkId){
             proceduralDataLink.connected = false;
             proceduralDataLink.canId = -1;
+            if(activeEditableLinkId == destroyedLinkId){
+                activeEditableLinkId = -1;
+            }
         } else if(plotSignalLink.connected && destroyedLinkId == plotSignalLink.linkId){
             plotSignalLink.connected = false;
             plotSignalLink.canId = -1;
             plotSignalLink.signalIndex = -1;
+            if(activeEditableLinkId == destroyedLinkId){
+                activeEditableLinkId = -1;
+            }
         }
     }
 
+    int hoveredLinkId = 0;
+    if(ImNodes::IsLinkHovered(&hoveredLinkId) && ImGui::IsMouseClicked(ImGuiMouseButton_Left)){
+        if((proceduralDataLink.connected && hoveredLinkId == proceduralDataLink.linkId) ||
+           (plotSignalLink.connected && hoveredLinkId == plotSignalLink.linkId)){
+            activeEditableLinkId = hoveredLinkId;
+        }
+    }
+    if(ImGui::IsMouseClicked(ImGuiMouseButton_Left) && (!ImNodes::IsLinkHovered(&hoveredLinkId))){
+        activeEditableLinkId = -1;
+    }
+
     if(proceduralDataLink.connected){
-        int selectedLinkCount = ImNodes::NumSelectedLinks();
-        if(selectedLinkCount > 0 && ImGui::IsKeyPressed(ImGuiKey_Delete, false)){
-            std::vector<int> selectedLinks(static_cast<size_t>(selectedLinkCount));
-            ImNodes::GetSelectedLinks(selectedLinks.data());
-            for(int linkId : selectedLinks){
-                if(linkId == proceduralDataLink.linkId){
-                    proceduralDataLink.connected = false;
-                    proceduralDataLink.canId = -1;
-                    break;
-                }
-            }
+        if(activeEditableLinkId == proceduralDataLink.linkId && ImGui::IsKeyPressed(ImGuiKey_Delete, false)){
+            proceduralDataLink.connected = false;
+            proceduralDataLink.canId = -1;
+            activeEditableLinkId = -1;
         }
     }
     if(plotSignalLink.connected){
-        int selectedLinkCount = ImNodes::NumSelectedLinks();
-        if(selectedLinkCount > 0 && ImGui::IsKeyPressed(ImGuiKey_Delete, false)){
-            std::vector<int> selectedLinks(static_cast<size_t>(selectedLinkCount));
-            ImNodes::GetSelectedLinks(selectedLinks.data());
-            for(int linkId : selectedLinks){
-                if(linkId == plotSignalLink.linkId){
-                    plotSignalLink.connected = false;
-                    plotSignalLink.canId = -1;
-                    plotSignalLink.signalIndex = -1;
-                    break;
-                }
-            }
+        if(activeEditableLinkId == plotSignalLink.linkId && ImGui::IsKeyPressed(ImGuiKey_Delete, false)){
+            plotSignalLink.connected = false;
+            plotSignalLink.canId = -1;
+            plotSignalLink.signalIndex = -1;
+            activeEditableLinkId = -1;
         }
     }
 
@@ -2486,10 +2540,16 @@ void UI::proceduralDBCNodes(){
     const int messageNodeId = proceduralMessageNodeId(canId);
     const bool selectionChanged = (lastProceduralCanId != canId);
     if(selectionChanged && proceduralDataLink.connected){
+        if(activeEditableLinkId == proceduralDataLink.linkId){
+            activeEditableLinkId = -1;
+        }
         proceduralDataLink.connected = false;
         proceduralDataLink.canId = -1;
     }
     if(selectionChanged && plotSignalLink.connected && plotSignalLink.canId != canId){
+        if(activeEditableLinkId == plotSignalLink.linkId){
+            activeEditableLinkId = -1;
+        }
         plotSignalLink.connected = false;
         plotSignalLink.canId = -1;
         plotSignalLink.signalIndex = -1;
