@@ -157,6 +157,11 @@ struct SignalOption {
     std::string label;
 };
 
+struct MessageOption {
+    int canId = -1;
+    std::string label;
+};
+
 struct SourceMatch {
     int optionIndex = -1;
     int score = 0;
@@ -472,8 +477,19 @@ struct SignalOptionsCache {
     std::unordered_map<uint64_t, int> optionIndexByRef;
 };
 
+struct MessageOptionsCache {
+    Parse* parseInterface = nullptr;
+    size_t signature = 0;
+    std::vector<MessageOption> options;
+};
+
 SignalOptionsCache& signalOptionsCache() {
     static SignalOptionsCache cache;
+    return cache;
+}
+
+MessageOptionsCache& messageOptionsCache() {
+    static MessageOptionsCache cache;
     return cache;
 }
 
@@ -483,6 +499,16 @@ size_t computeSignalOptionsSignature(Parse* parseInterface) {
     for (const auto& [canId, msg] : parseInterface->canStore.canMessages) {
         sig ^= (std::hash<int>{}(canId) + 0x9e3779b97f4a7c15ull + (sig << 6u) + (sig >> 2u));
         sig ^= (std::hash<size_t>{}(msg.signals.size()) + 0x9e3779b97f4a7c15ull + (sig << 6u) + (sig >> 2u));
+    }
+    return sig;
+}
+
+size_t computeMessageOptionsSignature(Parse* parseInterface) {
+    if (!parseInterface) { return 0; }
+    size_t sig = parseInterface->canStore.canMessages.size();
+    for (const auto& [canId, msg] : parseInterface->canStore.canMessages) {
+        sig ^= (std::hash<int>{}(canId) + 0x9e3779b97f4a7c15ull + (sig << 6u) + (sig >> 2u));
+        sig ^= (std::hash<std::string>{}(msg.name) + 0x9e3779b97f4a7c15ull + (sig << 6u) + (sig >> 2u));
     }
     return sig;
 }
@@ -514,11 +540,39 @@ void rebuildSignalOptionsCache(Parse* parseInterface, size_t signature) {
     }
 }
 
+void rebuildMessageOptionsCache(Parse* parseInterface, size_t signature) {
+    MessageOptionsCache& cache = messageOptionsCache();
+    cache.options.clear();
+    cache.parseInterface = parseInterface;
+    cache.signature = signature;
+    if (!parseInterface) { return; }
+
+    cache.options.reserve(parseInterface->canStore.canMessages.size());
+    for (const auto& [canId, msg] : parseInterface->canStore.canMessages) {
+        MessageOption opt;
+        opt.canId = canId;
+        char idBuf[16] = {0};
+        std::snprintf(idBuf, sizeof(idBuf), "0x%03X", canId);
+        opt.label.reserve(16 + msg.name.size());
+        opt.label.append(idBuf).append("  ").append(msg.name);
+        cache.options.push_back(std::move(opt));
+    }
+}
+
 const SignalOptionsCache& getSignalOptionsCache(Parse* parseInterface) {
     SignalOptionsCache& cache = signalOptionsCache();
     const size_t signature = computeSignalOptionsSignature(parseInterface);
     if (cache.parseInterface != parseInterface || cache.signature != signature) {
         rebuildSignalOptionsCache(parseInterface, signature);
+    }
+    return cache;
+}
+
+const MessageOptionsCache& getMessageOptionsCache(Parse* parseInterface) {
+    MessageOptionsCache& cache = messageOptionsCache();
+    const size_t signature = computeMessageOptionsSignature(parseInterface);
+    if (cache.parseInterface != parseInterface || cache.signature != signature) {
+        rebuildMessageOptionsCache(parseInterface, signature);
     }
     return cache;
 }
@@ -599,6 +653,25 @@ void buildSourceMatches(const std::vector<SignalOption>& options, const char* qu
     SourceMatchLess less;
     less.options = &options;
     std::sort(matches.begin(), matches.end(), less);
+}
+
+void buildMessageMatches(const std::vector<MessageOption>& options, const char* query, std::vector<SourceMatch>& matches) {
+    matches.clear();
+    matches.reserve(options.size());
+
+    const bool hasQuery = (query != nullptr && query[0] != '\0');
+    for (size_t i = 0; i < options.size(); ++i) {
+        SourceMatch m;
+        m.optionIndex = static_cast<int>(i);
+        m.score = hasQuery ? distance(query, options[i].label) : 0;
+        matches.push_back(m);
+    }
+
+    std::sort(matches.begin(), matches.end(), [&options](const SourceMatch& a, const SourceMatch& b) {
+        if (a.score != b.score) { return a.score < b.score; }
+        return options[static_cast<size_t>(a.optionIndex)].label <
+               options[static_cast<size_t>(b.optionIndex)].label;
+    });
 }
 
 struct PlotScratchBuffers {
@@ -2106,18 +2179,95 @@ void UI::drawDataNode(){
 }
 
 void UI::drawCanStoreNode(){
+    float reservedNodeWidth = 0.0f;
+    float listWidth = 260.0f;
+    const ImGuiStyle& style = ImGui::GetStyle();
+    if(parseInterface != nullptr){
+        const MessageOptionsCache& optionCache = getMessageOptionsCache(parseInterface);
+        const std::vector<MessageOption>& options = optionCache.options;
+        if(proceduralMessageMatchesSignature != optionCache.signature || proceduralMessageMatchesQuery != proceduralMessageQuery){
+            std::vector<SourceMatch> matches;
+            buildMessageMatches(options, proceduralMessageQuery, matches);
+            proceduralMessageMatchIndices.clear();
+            proceduralMessageMatchIndices.reserve(matches.size());
+            for(const SourceMatch& match : matches){
+                if(match.optionIndex >= 0 && match.optionIndex < static_cast<int>(options.size())){
+                    proceduralMessageMatchIndices.push_back(match.optionIndex);
+                }
+            }
+            proceduralMessageMatchesSignature = optionCache.signature;
+            proceduralMessageMatchesQuery = proceduralMessageQuery;
+        }
+
+        reservedNodeWidth = ImGui::CalcTextSize("Can Store").x;
+        char summaryText[64] = {};
+        std::snprintf(summaryText, sizeof(summaryText), "Messages: %zu", parseInterface->canStore.canMessages.size());
+        reservedNodeWidth = std::max(reservedNodeWidth, ImGui::CalcTextSize(summaryText).x);
+        if(parseInterface->canStore.canMessages.empty()){
+            reservedNodeWidth = std::max(reservedNodeWidth, ImGui::CalcTextSize("No messages available").x);
+        } else {
+            reservedNodeWidth = std::max(reservedNodeWidth, 240.0f);
+            if(proceduralMessageMatchIndices.empty()){
+                reservedNodeWidth = std::max(reservedNodeWidth, ImGui::CalcTextSize("No matching messages").x);
+            }
+            for(int optionIndex : proceduralMessageMatchIndices){
+                const float labelWidth = ImGui::CalcTextSize(options[static_cast<size_t>(optionIndex)].label.c_str()).x;
+                const float requiredWidth =
+                    labelWidth +
+                    style.FramePadding.x * 2.0f +
+                    style.WindowPadding.x * 2.0f +
+                    style.ItemSpacing.x +
+                    style.ScrollbarSize;
+                listWidth = std::max(listWidth, requiredWidth);
+            }
+            reservedNodeWidth = std::max(reservedNodeWidth, listWidth);
+        }
+        reservedNodeWidth = std::max(reservedNodeWidth, 40.0f + ImGui::CalcTextSize("message").x);
+    }
+
     ImNodes::BeginNode(kProceduralStoreNodeId);
     ImNodes::BeginNodeTitleBar();
     ImGui::TextUnformatted("Can Store");
     ImNodes::EndNodeTitleBar();
+    if(reservedNodeWidth > 0.0f){
+        ImGui::Dummy(ImVec2(reservedNodeWidth, 0.0f));
+    }
     if(parseInterface == nullptr){
         ImGui::TextUnformatted("<no parse interface>");
     } else {
+        const MessageOptionsCache& optionCache = getMessageOptionsCache(parseInterface);
+        const std::vector<MessageOption>& options = optionCache.options;
         ImGui::Text("Messages: %zu", parseInterface->canStore.canMessages.size());
+        if(parseInterface->canStore.canMessages.empty()){
+            selectedProceduralCanId = -1;
+            ImGui::TextUnformatted("No messages available");
+        } else {
+            if(parseInterface->canStore.canMessages.find(selectedProceduralCanId) == parseInterface->canStore.canMessages.end()){
+                selectedProceduralCanId = parseInterface->canStore.canMessages.begin()->first;
+            }
+
+            ImGui::SetNextItemWidth(listWidth);
+            ImGui::InputText("##canStoreSearch", proceduralMessageQuery, IM_ARRAYSIZE(proceduralMessageQuery));
+            const float rowHeight = ImGui::GetTextLineHeightWithSpacing();
+            const float listHeight = std::min(10.0f, std::max(1.0f, static_cast<float>(proceduralMessageMatchIndices.size()))) * rowHeight;
+            if(ImGui::BeginChild("##canStoreMessages", ImVec2(listWidth, listHeight), true)){
+                if(proceduralMessageMatchIndices.empty()){
+                    ImGui::TextUnformatted("No matching messages");
+                } else {
+                    for(int optionIndex : proceduralMessageMatchIndices){
+                        const MessageOption& option = options[static_cast<size_t>(optionIndex)];
+                        if(ImGui::Selectable(option.label.c_str(), selectedProceduralCanId == option.canId)){
+                            selectedProceduralCanId = option.canId;
+                        }
+                    }
+                }
+            }
+            ImGui::EndChild();
+        }
     }
     ImNodes::BeginOutputAttribute(kProceduralStoreOutAttrId);
     ImGui::Indent(40.0f);
-    ImGui::TextUnformatted("messages");
+    ImGui::TextUnformatted("message");
     ImNodes::EndOutputAttribute();
     ImNodes::EndNode();
 }
@@ -2157,37 +2307,38 @@ void UI::proceduralDBCNodes(){
     if(parseInterface == nullptr){
         return;
     }
+    auto selectedIt = parseInterface->canStore.canMessages.find(selectedProceduralCanId);
+    if(selectedIt == parseInterface->canStore.canMessages.end()){
+        return;
+    }
 
     static std::unordered_set<int> positionedNodes;
-    int messageIndex = 0;
-    int globalSignalIndex = 0;
-    for(const auto& [canId, msg] : parseInterface->canStore.canMessages){
-        const int messageNodeId = proceduralMessageNodeId(canId);
-        if(positionedNodes.insert(messageNodeId).second){
-            ImNodes::SetNodeGridSpacePos(messageNodeId, ImVec2(380.0f, 620.0f + messageIndex * 180.0f));
-        }
-
-        drawCanMessageNode(msg);
-        ImNodes::Link(proceduralStoreLinkId(canId), kProceduralStoreOutAttrId, proceduralMessageInAttrId(canId));
-
-        for(size_t signalIndex = 0; signalIndex < msg.signals.size(); ++signalIndex){
-            const int signalNodeId = proceduralSignalNodeId(canId, static_cast<int>(signalIndex));
-            if(positionedNodes.insert(signalNodeId).second){
-                ImNodes::SetNodeGridSpacePos(signalNodeId, ImVec2(760.0f, 620.0f + globalSignalIndex * 110.0f));
-            }
-
-            drawCanSignalNode(canId, static_cast<int>(signalIndex), msg.signals[signalIndex]);
-            ImNodes::Link(proceduralSignalLinkId(canId, static_cast<int>(signalIndex)),
-                          proceduralMessageOutAttrId(canId),
-                          proceduralSignalInAttrId(canId, static_cast<int>(signalIndex)));
-            ++globalSignalIndex;
-        }
-
-        if(msg.signals.empty()){
-            ++globalSignalIndex;
-        }
-        ++messageIndex;
+    const int canId = selectedIt->first;
+    const CanMessage& msg = selectedIt->second;
+    const int messageNodeId = proceduralMessageNodeId(canId);
+    const bool selectionChanged = (lastProceduralCanId != canId);
+    const ImVec2 storePos = ImNodes::GetNodeGridSpacePos(kProceduralStoreNodeId);
+    const ImVec2 messagePos = ImVec2(storePos.x + 440.0f, storePos.y + 110.0f);
+    if(positionedNodes.insert(messageNodeId).second || selectionChanged){
+        ImNodes::SetNodeGridSpacePos(messageNodeId, messagePos);
     }
+
+    drawCanMessageNode(msg);
+    ImNodes::Link(proceduralStoreLinkId(canId), kProceduralStoreOutAttrId, proceduralMessageInAttrId(canId));
+
+    for(size_t signalIndex = 0; signalIndex < msg.signals.size(); ++signalIndex){
+        const int signalNodeId = proceduralSignalNodeId(canId, static_cast<int>(signalIndex));
+        const ImVec2 signalPos = ImVec2(messagePos.x + 420.0f, messagePos.y + 30.0f + static_cast<float>(signalIndex) * 110.0f);
+        if(positionedNodes.insert(signalNodeId).second || selectionChanged){
+            ImNodes::SetNodeGridSpacePos(signalNodeId, signalPos);
+        }
+
+        drawCanSignalNode(canId, static_cast<int>(signalIndex), msg.signals[signalIndex]);
+        ImNodes::Link(proceduralSignalLinkId(canId, static_cast<int>(signalIndex)),
+                      proceduralMessageOutAttrId(canId),
+                      proceduralSignalInAttrId(canId, static_cast<int>(signalIndex)));
+    }
+    lastProceduralCanId = canId;
 }
 
 void UI::makeNodes(){

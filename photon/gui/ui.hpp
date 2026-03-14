@@ -128,6 +128,12 @@ struct UI{
         double frequency = 1.0;
         double phase = 0.0;
     } sinNode;
+    int selectedProceduralCanId = -1;
+    int lastProceduralCanId = -1;
+    char proceduralMessageQuery[128] = {0};
+    std::vector<int> proceduralMessageMatchIndices;
+    std::string proceduralMessageMatchesQuery;
+    size_t proceduralMessageMatchesSignature = 0;
 
     void setStyle();
     void setScale();
