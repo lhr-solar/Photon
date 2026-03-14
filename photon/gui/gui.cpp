@@ -31,6 +31,24 @@
 #include "daybreak_glb.hpp"
 #include "sansFlex_ttf.hpp"
 
+namespace {
+ImFont* addUiFont(ImGuiIO& io, int fontSize) {
+    ImFontConfig fontConfig;
+    fontConfig.FontDataOwnedByAtlas = false;
+    ImFont* font = io.Fonts->AddFontFromMemoryTTF(
+        (void*)sansFlex_ttf,
+        static_cast<int>(sansFlex_ttf_size),
+        static_cast<float>(fontSize),
+        &fontConfig);
+    if (font != nullptr) {
+        const float tighten = 0.92f;
+        for (ImFontGlyph& glyph : font->Glyphs) {
+            glyph.AdvanceX *= tighten;
+        }
+    }
+    return font;
+}
+}
 
 Gui::Gui(){};
 Gui::~Gui(){
@@ -39,22 +57,7 @@ Gui::~Gui(){
 	xcb_disconnect(connection);
 #endif
     if (deviceHandle != VK_NULL_HANDLE) {
-        if (fontSampler != VK_NULL_HANDLE) {
-            vkDestroySampler(deviceHandle, fontSampler, nullptr);
-            fontSampler = VK_NULL_HANDLE;
-        }
-        if (fontView != VK_NULL_HANDLE) {
-            vkDestroyImageView(deviceHandle, fontView, nullptr);
-            fontView = VK_NULL_HANDLE;
-        }
-        if (fontImage != VK_NULL_HANDLE) {
-            vkDestroyImage(deviceHandle, fontImage, nullptr);
-            fontImage = VK_NULL_HANDLE;
-        }
-        if (fontMemory != VK_NULL_HANDLE) {
-            vkFreeMemory(deviceHandle, fontMemory, nullptr);
-            fontMemory = VK_NULL_HANDLE;
-        }
+        destroyFontResources(deviceHandle);
     }
     for (auto& buffer : vertexBuffers) {
         buffer.unmap();
@@ -94,15 +97,12 @@ void Gui::prepareImGui(){
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
     io.IniFilename = nullptr; // Manual ini load/save only, no periodic autosave.
-    ImFontConfig fontConfig;
-    fontConfig.FontDataOwnedByAtlas = false;
-    ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)sansFlex_ttf,
-           static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    ui.installPersistentSettings();
+    ImGui::LoadIniSettingsFromDisk("config.ini");
+    ui.fontSize = std::clamp(persistedFontSize(), ui.fontSizeMin, ui.fontSizeMax);
+    ui.fontSizeSynced = true;
+    ImFont *font = addUiFont(io, ui.fontSize);
     if (font != nullptr) {
-        float tighten = 0.92f; // <1.0 tightens spacing
-        for (ImFontGlyph& g : font->Glyphs) {
-            g.AdvanceX *= tighten;
-        }
         io.FontDefault = font;
     } else {
         logs("[!] Failed to load sansFlex font into ImGui atlas");
@@ -111,18 +111,32 @@ void Gui::prepareImGui(){
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
     io.FontGlobalScale = 1.0f;
-    ui.installPersistentSettings();
-    ImGui::LoadIniSettingsFromDisk("config.ini");
     ui.setStyle();
+}
+
+void Gui::destroyFontResources(VkDevice logicalDevice) {
+    if (fontSampler != VK_NULL_HANDLE) {
+        vkDestroySampler(logicalDevice, fontSampler, nullptr);
+        fontSampler = VK_NULL_HANDLE;
+    }
+    if (fontView != VK_NULL_HANDLE) {
+        vkDestroyImageView(logicalDevice, fontView, nullptr);
+        fontView = VK_NULL_HANDLE;
+    }
+    if (fontImage != VK_NULL_HANDLE) {
+        vkDestroyImage(logicalDevice, fontImage, nullptr);
+        fontImage = VK_NULL_HANDLE;
+    }
+    if (fontMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(logicalDevice, fontMemory, nullptr);
+        fontMemory = VK_NULL_HANDLE;
+    }
 }
 
 void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descriptorSet){
     ImGuiIO &io = ImGui::GetIO();
-    ImFontConfig fontConfig;
-    fontConfig.FontDataOwnedByAtlas = false;
     io.Fonts->Clear();
-    ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)sansFlex_ttf,
-            static_cast<int>(sansFlex_ttf_size), static_cast<float>(ui.fontSize), &fontConfig);
+    ImFont* font = addUiFont(io, ui.fontSize);
     io.FontDefault = font;
     io.FontGlobalScale = 1.0f;
     io.Fonts->Build();
@@ -133,21 +147,10 @@ void Gui::refreshFontResources(VulkanDevice vulkanDevice, VkDescriptorSet descri
     io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
     VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
 
-    if (fontSampler != VK_NULL_HANDLE) {
-        vkDestroySampler(vulkanDevice.logicalDevice, fontSampler, nullptr);
-        fontSampler = VK_NULL_HANDLE;
-    }
-    if (fontView != VK_NULL_HANDLE) {
-        vkDestroyImageView(vulkanDevice.logicalDevice, fontView, nullptr);
-        fontView = VK_NULL_HANDLE;
-    }
-    if (fontImage != VK_NULL_HANDLE) {
-        vkDestroyImage(vulkanDevice.logicalDevice, fontImage, nullptr);
-        fontImage = VK_NULL_HANDLE;
-    }
-    if (fontMemory != VK_NULL_HANDLE) {
-        vkFreeMemory(vulkanDevice.logicalDevice, fontMemory, nullptr);
-        fontMemory = VK_NULL_HANDLE;
+    if (fontSampler != VK_NULL_HANDLE || fontView != VK_NULL_HANDLE ||
+        fontImage != VK_NULL_HANDLE || fontMemory != VK_NULL_HANDLE) {
+        vkDeviceWaitIdle(vulkanDevice.logicalDevice);
+        destroyFontResources(vulkanDevice.logicalDevice);
     }
 
     VkImageCreateInfo imageCreateInfo {};
@@ -451,8 +454,10 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = clearValues;
 
+    if (ui.fontSizeDirty) {
+        refreshFontResources(vulkanDevice, descriptorSet);
+    }
     ui.build();
-    if (ui.fontSizeDirty) refreshFontResources(vulkanDevice, descriptorSet);
     if (ui.backgroundShader.dirty)
         ui.backgroundShader.createResources(vulkanDevice, ui.backgroundShader.extent, descriptorPool, descriptorSetLayout);
     if(ui.accretionShader.dirty)

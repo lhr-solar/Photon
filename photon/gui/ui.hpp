@@ -190,4 +190,5 @@ struct UI{
     bool signalSearchPlot(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
 };
 
+int& persistedFontSize();
 int distance(std::string a, std::string b);
