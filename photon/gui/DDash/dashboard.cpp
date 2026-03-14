@@ -408,17 +408,22 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
         }
 
         //  Speed
+        ImVec2 sSz;
         {
             char speedTxt[8];
             snprintf(speedTxt, sizeof(speedTxt), "%d", state.speed);
             ImGuiIO& io = ImGui::GetIO();
             ImFont* bigFont = (io.Fonts->Fonts.Size > 3)
                                   ? io.Fonts->Fonts[3] : nullptr;
-            float fontSize = (bigFont ? bigFont->FontSize : 48.0f) * 1.80f;
-            ImVec2 sSz = bigFont
+            
+            // Limit font size based on radius to avoid clashing
+            float maxFontSize = radius * 1.5f;
+            float fontSize = std::min((bigFont ? bigFont->FontSize : 48.0f) * 1.80f, maxFontSize);
+            
+            sSz = bigFont
                 ? bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, speedTxt)
                 : ImGui::CalcTextSize(speedTxt);
-            float textY = center.y - sSz.y * 0.8f;
+            float textY = center.y - sSz.y * 0.75f;
             dl->AddText(bigFont, fontSize,
                         ImVec2(cX - sSz.x * 0.5f, textY),
                         ColorToU32(Colors::Foreground()), speedTxt);
@@ -427,9 +432,13 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
         // Status icons below speed
         //    left-turn | cruise control | brake | regen | right-turn
         {
-            float iconY       = center.y + radius * 0.35f;
-            float iconSpacing = 56.0f;
-            float iconSize    = 48.0f;
+            // Dynamically scale icons so they don't overlap speed or FNR
+            float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
+            float iconSize    = std::max(20.0f, maxIconSize);
+            
+            // Place icons nicely between the arc center and the FNR text
+            float iconY       = center.y + sSz.y * 0.25f + iconSize * 0.5f + 4.0f;
+            float iconSpacing = iconSize * 1.2f;
 
             // Left Turn Signal
             {
@@ -470,9 +479,11 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
 
         // FNR gear display below icons
         {
-            float iconBottomY = center.y + radius * 0.35f + 48.0f * 0.5f;
-            float fnrY = iconBottomY + 12.0f;
-            float fnrH = 72.0f;            const char* letters[] = {"F", "N", "R"};
+            float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
+            float iconSize    = std::max(20.0f, maxIconSize);
+            float iconBottomY = center.y + sSz.y * 0.25f + iconSize + 4.0f;
+            float fnrY = iconBottomY + 8.0f;
+            float fnrH = 50.0f; // Give it less hardcoded vertical space            const char* letters[] = {"F", "N", "R"};
             const Gear  vals[]    = {Gear::Forward, Gear::Neutral, Gear::Reverse};
             float spacing = 96.0f;
             float totalW  = spacing * 2.0f;
@@ -489,7 +500,8 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                 bool sel = (state.gear == vals[i]);
                 ImVec4 col = sel ? Colors::Primary()
                                  : Colors::MutedForeground();
-                float fs = sel ? 72.0f : 56.0f;
+                float maxFs = std::min(72.0f, fnrH * 1.2f);
+                float fs = sel ? maxFs : maxFs * 0.75f;
                 ImFont* useFont = baseFont;
                 ImVec2 lSz = useFont
                     ? useFont->CalcTextSizeA(fs, FLT_MAX, 0, letters[i])
@@ -504,8 +516,10 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
 
         // CAN Fault display below FNR
         if (state.canFault || state.canFaultRecoverable) {
-            float iconBottomY2 = center.y + radius * 0.35f + 48.0f * 0.5f;
-            float fnrBottom = iconBottomY2 + 12.0f + 72.0f;
+            float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
+            float iconSize    = std::max(20.0f, maxIconSize);
+            float iconBottomY2 = center.y + sSz.y * 0.25f + iconSize + 4.0f;
+            float fnrBottom = iconBottomY2 + 8.0f + 50.0f;
             float faultY = fnrBottom + 8.0f;
 
             ImGuiIO& ioF = ImGui::GetIO();

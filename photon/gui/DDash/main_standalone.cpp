@@ -18,6 +18,7 @@ int APIENTRY WinMain(_In_ HINSTANCE hinstance,
     Photon photon;
     photon.gui.title = "LHR Dashboard";
     photon.gui.ui.dashboardOnly = true;
+    photon.gui.settings.fullscreen = true;
     photon.gpu.initVulkan();
     photon.gui.initWindow(hinstance);
     photon.prepareScene();
@@ -32,6 +33,7 @@ int main() {
     Photon photon;
     photon.gui.title = "LHR Dashboard";
     photon.gui.ui.dashboardOnly = true;
+    photon.gui.settings.fullscreen = true;
     photon.gpu.initVulkan();
     photon.gui.initWindow();
     photon.prepareScene();
