@@ -116,9 +116,11 @@ using TPCANHandle = WORD;
 using TPCANStatus = DWORD;
 using TPCANMessageType = BYTE;
 using TPCANBaudrate = WORD;
+using TPCANParameter = BYTE;
 
 constexpr TPCANStatus kPcanErrorOk = 0x00000U;
 constexpr TPCANStatus kPcanErrorQrcvEmpty = 0x00020U;
+constexpr TPCANParameter kPcanReceiveEvent = 0x03U;
 
 constexpr TPCANMessageType kPcanMessageStandard = 0x00U;
 constexpr TPCANMessageType kPcanMessageRtr = 0x01U;
@@ -145,6 +147,7 @@ using CanInitializeFn = TPCANStatus (__stdcall *)(TPCANHandle, TPCANBaudrate, BY
 using CanReadFn = TPCANStatus (__stdcall *)(TPCANHandle, TPCANMsg*, void*);
 using CanUninitializeFn = TPCANStatus (__stdcall *)(TPCANHandle);
 using CanGetErrorTextFn = TPCANStatus (__stdcall *)(TPCANStatus, WORD, LPSTR);
+using CanSetValueFn = TPCANStatus (__stdcall *)(TPCANHandle, TPCANParameter, void*, DWORD);
 
 struct PcanApi {
     HMODULE library = nullptr;
@@ -152,6 +155,7 @@ struct PcanApi {
     CanReadFn read = nullptr;
     CanUninitializeFn uninitialize = nullptr;
     CanGetErrorTextFn getErrorText = nullptr;
+    CanSetValueFn setValue = nullptr;
 };
 
 PcanApi loadPcanApi() {
@@ -164,7 +168,8 @@ PcanApi loadPcanApi() {
     api.read = reinterpret_cast<CanReadFn>(GetProcAddress(api.library, "CAN_Read"));
     api.uninitialize = reinterpret_cast<CanUninitializeFn>(GetProcAddress(api.library, "CAN_Uninitialize"));
     api.getErrorText = reinterpret_cast<CanGetErrorTextFn>(GetProcAddress(api.library, "CAN_GetErrorText"));
-    if(api.initialize == nullptr || api.read == nullptr || api.uninitialize == nullptr){
+    api.setValue = reinterpret_cast<CanSetValueFn>(GetProcAddress(api.library, "CAN_SetValue"));
+    if(api.initialize == nullptr || api.read == nullptr || api.uninitialize == nullptr || api.setValue == nullptr){
         FreeLibrary(api.library);
         api = {};
     }
@@ -542,10 +547,42 @@ void Network::canReader(){
             hasLoggedInitialConnection = true;
         }
 
+        HANDLE receiveEvent = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+        if(receiveEvent == nullptr){
+            logs("[!] Failed to create PCAN receive event for " << canInterface);
+            api.uninitialize(channel);
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        if(api.setValue(channel, kPcanReceiveEvent, &receiveEvent, sizeof(receiveEvent)) != kPcanErrorOk){
+            logs("[!] Failed to register PCAN receive event for " << canInterface);
+            CloseHandle(receiveEvent);
+            api.uninitialize(channel);
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
         while(running){
-            TPCANMsg frame = {};
-            const TPCANStatus readStatus = api.read(channel, &frame, nullptr);
-            if(readStatus == kPcanErrorOk){
+            const DWORD waitResult = WaitForSingleObject(receiveEvent, 100);
+            if(waitResult == WAIT_TIMEOUT){
+                continue;
+            }
+            if(waitResult != WAIT_OBJECT_0){
+                logs("[!] Failed while waiting for PCAN receive event on " << canInterface);
+                break;
+            }
+
+            while(running){
+                TPCANMsg frame = {};
+                const TPCANStatus readStatus = api.read(channel, &frame, nullptr);
+                if(readStatus == kPcanErrorQrcvEmpty){
+                    break;
+                }
+                if(readStatus != kPcanErrorOk){
+                    logs("[!] PCAN read failed on " << canInterface << " (" << pcanStatusText(api, readStatus) << ")");
+                    goto pcan_reader_cleanup;
+                }
                 if((frame.MSGTYPE & kPcanMessageStatus) != 0 || (frame.MSGTYPE & kPcanMessageRtr) != 0){
                     continue;
                 }
@@ -563,18 +600,12 @@ void Network::canReader(){
                 }
                 serialized += '\r';
                 pushFrameBytes(canQueue, serialized);
-                continue;
             }
-
-            if(readStatus == kPcanErrorQrcvEmpty){
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                continue;
-            }
-
-            logs("[!] PCAN read failed on " << canInterface << " (" << pcanStatusText(api, readStatus) << ")");
-            break;
         }
 
+pcan_reader_cleanup:
+        api.setValue(channel, kPcanReceiveEvent, nullptr, 0);
+        CloseHandle(receiveEvent);
         api.uninitialize(channel);
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
