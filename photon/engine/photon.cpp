@@ -90,7 +90,10 @@ void Photon::startFrame(){
     auto tStart = std::chrono::high_resolution_clock::now();
     executeFrame();
     auto tEnd = std::chrono::high_resolution_clock::now();
-    gpu.frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+    float deltaTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+    gui.deltaTime    = deltaTime;
+    gui.ui.deltaTime = deltaTime;
+    gpu.frameTime    = deltaTime;
     gpu.frameTime /= 1000.0f;
 }
 

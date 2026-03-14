@@ -34,8 +34,7 @@ struct UI{
         std::array<float, 50> frameTimes{};
         float frameTimeMin = 9999.0f, frameTimeMax = 0.0f;
     } renderSettings;
-
-
+    float deltaTime = 0.0;
     bool showFps = false;
     bool cmdOpen = false;
     bool cmdFF = false;
@@ -107,6 +106,29 @@ struct UI{
     };
     bool rebuildSerial = false;
 
+    struct {
+        std::array<uint8_t, 8> data = {};
+        std::array<std::array<char, 3>, 8> inputText = {{
+            {{'0', '\0', '\0'}},
+            {{'0', '\0', '\0'}},
+            {{'0', '\0', '\0'}},
+            {{'0', '\0', '\0'}},
+            {{'0', '\0', '\0'}},
+            {{'0', '\0', '\0'}},
+            {{'0', '\0', '\0'}},
+            {{'0', '\0', '\0'}},
+        }};
+    } dataNode;
+
+    struct {
+        char amplitudeText[32] = "255";
+        char frequencyText[32] = "1";
+        int64_t outValue = 0;
+        int64_t amplitude = 255;
+        double frequency = 1.0;
+        double phase = 0.0;
+    } sinNode;
+
     void setStyle();
     void setScale();
     void build();
@@ -135,6 +157,15 @@ struct UI{
     void home();
     void debug();
     void networkUI();
+    void dbcNodes();
+    void drawSineNode();
+    void drawDataNode();
+    void drawCanStoreNode();
+    void drawCanMessageNode(const CanMessage& msg);
+    void drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal);
+    void proceduralDBCNodes();
+    void makeNodes();
+    void controlsNode();
     void refreshSerialPorts();
     bool signalSearchPlot(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
 };

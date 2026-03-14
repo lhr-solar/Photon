@@ -109,6 +109,7 @@ void Gui::prepareImGui(){
     }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
     io.FontGlobalScale = 1.0f;
     ui.installPersistentSettings();
     ImGui::LoadIniSettingsFromDisk("config.ini");
@@ -558,15 +559,16 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet
 
     // Render commands
     ImDrawData *imDrawData = ImGui::GetDrawData();
-    int32_t vertexOffset = 0;
-    int32_t indexOffset = 0;
+    int32_t globalVertexOffset = 0;
+    uint32_t globalIndexOffset = 0;
 
     if (imDrawData->CmdListsCount > 0 && frameIndex < vertexBuffers.size() && frameIndex < indexBuffers.size()) {
       VulkanBuffer& vertexBuffer = vertexBuffers[frameIndex];
       VulkanBuffer& indexBuffer = indexBuffers[frameIndex];
       VkDeviceSize offsets[1] = {0};
       vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offsets);
-      vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+      const VkIndexType indexType = (sizeof(ImDrawIdx) == sizeof(uint16_t)) ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+      vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, indexType);
       VkDescriptorSet boundSet = VK_NULL_HANDLE;
       for (int32_t i = 0; i < imDrawData->CmdListsCount; i++) {
         const ImDrawList *cmd_list = imDrawData->CmdLists[i];
@@ -589,10 +591,15 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet
           scissorRect.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
           scissorRect.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
           vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
-          vkCmdDrawIndexed(commandBuffer, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
-          indexOffset += pcmd->ElemCount;
+          vkCmdDrawIndexed(commandBuffer,
+                           pcmd->ElemCount,
+                           1,
+                           globalIndexOffset + static_cast<uint32_t>(pcmd->IdxOffset),
+                           globalVertexOffset + static_cast<int32_t>(pcmd->VtxOffset),
+                           0);
         }
-        vertexOffset += cmd_list->VtxBuffer.Size;
+        globalIndexOffset += static_cast<uint32_t>(cmd_list->IdxBuffer.Size);
+        globalVertexOffset += cmd_list->VtxBuffer.Size;
       }
     }
 }

@@ -84,6 +84,7 @@ public:
         float     u_time;
         float     pad;
     }pc;
+    float deltaTime = 0.0;
 
     Gui();
     ~Gui();

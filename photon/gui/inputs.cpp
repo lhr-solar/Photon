@@ -3,7 +3,7 @@
 #include <xcb/xcb.h>
 #endif
 
-#ifdef WIN
+#if defined(_WIN32)
 #include <windowsx.h>
 #endif
 
@@ -90,6 +90,7 @@ ImGuiKey Inputs::translateKey(uint32_t key){
         case KEY_BACKSLASH:     return ImGuiKey_Backslash;
         case KEY_GRAVE:         return ImGuiKey_GraveAccent;
         case KEY_PERIOD:        return ImGuiKey_Period;
+        case KEY_SCROLL_LOCK:   return ImGuiKey_ScrollLock;
         case KEY_F1:            return ImGuiKey_F1;
         case KEY_F2:            return ImGuiKey_F2;
         case KEY_F3:            return ImGuiKey_F3;
@@ -342,7 +343,7 @@ ImGuiKey Inputs::translateWin32Key(uint32_t key){
 }
 #endif
 
-#ifdef WIN
+#if defined(_WIN32)
 LRESULT Inputs::handleWin32Message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool &quitFlag, uint32_t &destWidth, uint32_t &destHeight){
     ImGuiContext* context = ImGui::GetCurrentContext();
     ImGuiIO* io = context ? &ImGui::GetIO() : nullptr;

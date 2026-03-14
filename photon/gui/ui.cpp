@@ -34,6 +34,92 @@ VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
     const uint32_t height = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.y)));
     return {width, height};
 }
+
+int64_t parseSignedTextOrDefault(const char* text, int64_t fallback) {
+    if (text == nullptr || text[0] == '\0') {
+        return fallback;
+    }
+    char* end = nullptr;
+    const long long value = std::strtoll(text, &end, 10);
+    if (end == text) {
+        return fallback;
+    }
+    return static_cast<int64_t>(value);
+}
+
+uint32_t parseUnsignedTextOrDefault(const char* text, uint32_t fallback) {
+    if (text == nullptr || text[0] == '\0') {
+        return fallback;
+    }
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(text, &end, 10);
+    if (end == text) {
+        return fallback;
+    }
+    return static_cast<uint32_t>(value);
+}
+
+double parseDoubleTextOrDefault(const char* text, double fallback) {
+    if (text == nullptr || text[0] == '\0') {
+        return fallback;
+    }
+    char* end = nullptr;
+    const double value = std::strtod(text, &end);
+    if (end == text) {
+        return fallback;
+    }
+    return value;
+}
+
+uint8_t parseHexByteOrDefault(const char* text, uint8_t fallback) {
+    if (text == nullptr || text[0] == '\0') {
+        return fallback;
+    }
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(text, &end, 16);
+    if (end == text) {
+        return fallback;
+    }
+    return static_cast<uint8_t>(value & 0xFFu);
+}
+
+constexpr int kControlNodeId = 5;
+constexpr int kSinNodeId = 6;
+constexpr int kDataNodeId = 8;
+constexpr int kProceduralStoreNodeId = 1000;
+constexpr int kProceduralStoreOutAttrId = 1001;
+constexpr int kProceduralMessageNodeBase = 10000;
+constexpr int kProceduralSignalNodeBase = 1000000;
+constexpr int kProceduralStoreLinkBase = 2000000;
+constexpr int kProceduralSignalLinkBase = 3000000;
+
+int proceduralMessageNodeId(int canId) {
+    return kProceduralMessageNodeBase + (canId * 8);
+}
+
+int proceduralMessageInAttrId(int canId) {
+    return proceduralMessageNodeId(canId) + 1;
+}
+
+int proceduralMessageOutAttrId(int canId) {
+    return proceduralMessageNodeId(canId) + 2;
+}
+
+int proceduralSignalNodeId(int canId, int signalIndex) {
+    return kProceduralSignalNodeBase + (canId * 256) + (signalIndex * 2);
+}
+
+int proceduralSignalInAttrId(int canId, int signalIndex) {
+    return proceduralSignalNodeId(canId, signalIndex) + 1;
+}
+
+int proceduralStoreLinkId(int canId) {
+    return kProceduralStoreLinkBase + canId;
+}
+
+int proceduralSignalLinkId(int canId, int signalIndex) {
+    return kProceduralSignalLinkBase + (canId * 256) + signalIndex;
+}
 }
 
 struct PlotDataSourceRef {
@@ -1411,10 +1497,37 @@ void UI::drawGeneratorUI() {
     if (!state.creating) { return; }
     const SignalOptionsCache& optionCache = getSignalOptionsCache(parseInterface);
     const std::vector<SignalOption>& options = optionCache.options;
+    std::vector<SourceMatch> previewMatches;
+    const std::vector<SourceMatch>* widthMatches = &state.sourceMatches;
+    const size_t optionsSignature = optionCache.signature;
+    if (state.sourceMatchesSignature != optionsSignature || state.sourceMatchesQuery != state.sourceQuery) {
+        buildSourceMatches(options, state.sourceQuery, previewMatches);
+        widthMatches = &previewMatches;
+    }
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImVec2 center = vp ? vp->GetCenter() : ImVec2(0, 0);
+    const ImGuiStyle& style = ImGui::GetStyle();
+    float maxSuggestionWidth = 0.0f;
+    for (const SourceMatch& match : *widthMatches) {
+        if (match.optionIndex < 0 || match.optionIndex >= static_cast<int>(options.size())) { continue; }
+        maxSuggestionWidth = std::max(maxSuggestionWidth,
+                                      ImGui::CalcTextSize(options[static_cast<size_t>(match.optionIndex)].label.c_str()).x);
+    }
+    const float previewColumnWidth = 340.0f;
+    const float assignedColumnWidth = 340.0f;
+    const float minSearchColumnWidth = 320.0f;
+    const float desiredSearchColumnWidth = std::max(
+        minSearchColumnWidth,
+        maxSuggestionWidth + style.FramePadding.x * 2.0f + style.CellPadding.x * 2.0f + style.ScrollbarSize + 24.0f);
+    const float availableViewportWidth = vp ? vp->WorkSize.x : io.DisplaySize.x;
+    const float maxWindowWidth = std::max(720.0f, availableViewportWidth - 48.0f);
+    const float desiredWindowWidth = std::min(
+        maxWindowWidth,
+        previewColumnWidth + assignedColumnWidth + desiredSearchColumnWidth +
+            style.WindowPadding.x * 2.0f + style.CellPadding.x * 6.0f + style.ItemSpacing.x * 2.0f);
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(desiredWindowWidth, 0.0f), ImGuiCond_Always);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                              ImGuiWindowFlags_AlwaysAutoResize |
                              ImGuiWindowFlags_NoMove |
@@ -1447,9 +1560,9 @@ void UI::drawGeneratorUI() {
         maxSourcesForCurrentConfig = minSourcesForCurrentConfig;
     }
     if (ImGui::BeginTable("##configureLayout", 3, ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch, 0.34f);
-        ImGui::TableSetupColumn("Assigned", ImGuiTableColumnFlags_WidthStretch, 0.34f);
-        ImGui::TableSetupColumn("Search", ImGuiTableColumnFlags_WidthStretch, 0.32f);
+        ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch, previewColumnWidth);
+        ImGui::TableSetupColumn("Assigned", ImGuiTableColumnFlags_WidthStretch, assignedColumnWidth);
+        ImGui::TableSetupColumn("Search", ImGuiTableColumnFlags_WidthStretch, desiredSearchColumnWidth);
         ImGui::TableNextRow();
 
         ImGui::TableSetColumnIndex(0);
@@ -1528,7 +1641,7 @@ void UI::drawGeneratorUI() {
             if (spec.is3D) {
                 std::snprintf(lineLabel, sizeof(lineLabel), "%s", threeDSourceLabel(i, state.useSource1TimeAsX));
             } else {
-                std::snprintf(lineLabel, sizeof(lineLabel), "Source %zu", i + 1);
+                std::snprintf(lineLabel, sizeof(lineLabel), "Signal %zu", i + 1);
             }
             char rowText[640] = {0};
             std::snprintf(rowText, sizeof(rowText), "%s: %s", lineLabel, sourceLabel);
@@ -1552,7 +1665,6 @@ void UI::drawGeneratorUI() {
             if (state.createFF) { state.createFF = false; }
             inputActive = ImGui::IsItemActive();
 
-            const size_t optionsSignature = optionCache.signature;
             if (state.sourceMatchesSignature != optionsSignature || state.sourceMatchesQuery != state.sourceQuery) {
                 buildSourceMatches(options, state.sourceQuery, state.sourceMatches);
                 state.sourceMatchesSignature = optionsSignature;
@@ -1846,9 +1958,7 @@ void UI::networkUI(){
 
 void UI::debug(){
     ImGui::Text("Hello ;3");
-    gltfWidget(daybreakModel, {640, 640});
-    //shaderWindow(accretionShader, "acc");
-    //gltfWindow(daybreakModel, "daybreak");
+    dbcNodes();
 };
 
 void UI::home(){
@@ -1856,51 +1966,11 @@ void UI::home(){
     const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
     const float contentWidth = contentMax.x - contentMin.x;
     const float targetWidth = std::max(240.0f, contentWidth * 0.15f);
-
+    gltfWidget(daybreakModel, {640, 640});
     static float networkPanelHeight = 0.0f;
     if(networkPanelHeight <= 0.0f){
         networkPanelHeight = ImGui::GetFrameHeightWithSpacing() * 2.0f;
     }
-
-    static bool nodesInitialized = false;
-    if(!nodesInitialized){
-        ImNodes::SetNodeGridSpacePos(1, ImVec2(80.0f, 80.0f));
-        ImNodes::SetNodeGridSpacePos(2, ImVec2(420.0f, 160.0f));
-        nodesInitialized = true;
-    }
-
-    const float nodeEditorHeight = std::max(
-            220.0f,
-            (contentMax.y - contentMin.y) - networkPanelHeight - ImGui::GetStyle().ItemSpacing.y * 2.0f);
-    ImGui::SetCursorPos(contentMin);
-    ImGui::BeginChild("HomeImNodesExample", ImVec2(contentWidth, nodeEditorHeight), true,
-                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-    ImNodes::BeginNodeEditor();
-    ImNodes::BeginNode(1);
-    ImNodes::BeginNodeTitleBar();
-    ImGui::TextUnformatted("Input Node");
-    ImNodes::EndNodeTitleBar();
-    ImGui::TextUnformatted("source");
-    ImNodes::BeginOutputAttribute(3);
-    ImGui::Indent(40.0f);
-    ImGui::TextUnformatted("out");
-    ImNodes::EndOutputAttribute();
-    ImNodes::EndNode();
-
-    ImNodes::BeginNode(2);
-    ImNodes::BeginNodeTitleBar();
-    ImGui::TextUnformatted("Process Node");
-    ImNodes::EndNodeTitleBar();
-    ImNodes::BeginInputAttribute(4);
-    ImGui::TextUnformatted("in");
-    ImNodes::EndInputAttribute();
-    ImGui::TextUnformatted("sink");
-    ImNodes::EndNode();
-
-    ImNodes::Link(1, 3, 4);
-    ImNodes::MiniMap(0.2f, ImNodesMiniMapLocation_BottomRight);
-    ImNodes::EndNodeEditor();
-    ImGui::EndChild();
 
     const float x = contentMin.x + ((contentWidth - targetWidth) * 0.5f);
     const float y = std::max(contentMin.y, contentMax.y - networkPanelHeight);
@@ -1912,6 +1982,228 @@ void UI::home(){
     networkPanelHeight = ImGui::GetItemRectSize().y;
     ImGui::PopItemWidth();
 }
+
+void UI::dbcNodes(){
+    const ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
+    const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
+    const float contentWidth = contentMax.x - contentMin.x;
+
+    static bool nodesInitialized = false;
+    if(!nodesInitialized){
+        ImNodes::SetNodeGridSpacePos(kControlNodeId, ImVec2(760.0f, 80.0f));
+        ImNodes::SetNodeGridSpacePos(kSinNodeId, ImVec2(80.0f, 320.0f));
+        ImNodes::SetNodeGridSpacePos(kDataNodeId, ImVec2(420.0f, 320.0f));
+        ImNodes::SetNodeGridSpacePos(kProceduralStoreNodeId, ImVec2(80.0f, 620.0f));
+        nodesInitialized = true;
+    }
+
+    const float nodeEditorHeight = std::max( 220.0f, (contentMax.y - contentMin.y) - ImGui::GetStyle().ItemSpacing.y * 2.0f);
+    ImGui::SetCursorPos(contentMin);
+    ImGui::BeginChild("HomeImNodesExample", ImVec2(contentWidth, nodeEditorHeight), true,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImNodes::BeginNodeEditor();
+
+    drawSineNode();
+    drawDataNode();
+    proceduralDBCNodes();
+    controlsNode();
+
+    ImNodes::MiniMap(0.2f, ImNodesMiniMapLocation_BottomRight);
+    ImNodes::EndNodeEditor();
+    ImGui::EndChild();
+};
+
+void UI::drawSineNode(){
+    constexpr int sinNodeOutAttrId = 7;
+
+    sinNode.amplitude = parseSignedTextOrDefault(sinNode.amplitudeText, sinNode.amplitude);
+    sinNode.frequency = parseDoubleTextOrDefault(sinNode.frequencyText, sinNode.frequency);
+    const double deltaSeconds = std::max(0.0, static_cast<double>(deltaTime) / 1000.0);
+    sinNode.phase += deltaSeconds * sinNode.frequency * (2.0 * IM_PI);
+    sinNode.phase = std::fmod(sinNode.phase, 2.0 * IM_PI);
+    if(sinNode.phase < 0.0){
+        sinNode.phase += 2.0 * IM_PI;
+    }
+    sinNode.outValue = static_cast<int64_t>(std::llround(std::sin(sinNode.phase) * static_cast<double>(sinNode.amplitude)));
+
+    char sinOutValueText[64] = {};
+    std::snprintf(sinOutValueText, sizeof(sinOutValueText), "outValue: %lld", static_cast<long long>(sinNode.outValue));
+    static float sinNodeReservedWidth = 0.0f;
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float sinNodeProposedWidth = std::max({
+        ImGui::CalcTextSize("Sine").x,
+        ImGui::CalcTextSize("Amplitude").x,
+        ImGui::CalcTextSize("Frequency").x,
+        ImGui::CalcTextSize(sinOutValueText).x,
+        40.0f + ImGui::CalcTextSize("outValue").x,
+        120.0f
+    }) + style.FramePadding.x * 2.0f + style.ItemSpacing.x;
+    sinNodeReservedWidth = std::max(sinNodeReservedWidth, sinNodeProposedWidth);
+
+    ImNodes::BeginNode(kSinNodeId);
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Sine");
+    ImNodes::EndNodeTitleBar();
+    ImGui::Dummy(ImVec2(sinNodeReservedWidth, 0.0f));
+    ImGui::PushItemWidth(120.0f);
+    ImGui::TextUnformatted("Amplitude");
+    ImGui::InputText("##sinAmplitude", sinNode.amplitudeText, IM_ARRAYSIZE(sinNode.amplitudeText),
+                     ImGuiInputTextFlags_CharsDecimal);
+    ImGui::TextUnformatted("Frequency");
+    ImGui::InputText("##sinFrequency", sinNode.frequencyText, IM_ARRAYSIZE(sinNode.frequencyText),
+                     ImGuiInputTextFlags_CharsScientific);
+    ImGui::PopItemWidth();
+    ImGui::TextUnformatted(sinOutValueText);
+    ImNodes::BeginOutputAttribute(sinNodeOutAttrId);
+    ImGui::Indent(40.0f);
+    ImGui::TextUnformatted("outValue");
+    ImNodes::EndOutputAttribute();
+    ImNodes::EndNode();
+}
+
+void UI::drawDataNode(){
+    constexpr int dataNodeOutAttrId = 9;
+
+    for(size_t byteIndex = 0; byteIndex < dataNode.data.size(); ++byteIndex){
+        dataNode.data[byteIndex] = parseHexByteOrDefault(dataNode.inputText[byteIndex].data(), dataNode.data[byteIndex]);
+    }
+
+    ImNodes::BeginNode(kDataNodeId);
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Data");
+    ImNodes::EndNodeTitleBar();
+    float widestByteLabel = 0.0f;
+    for(int byteIndex = 7; byteIndex >= 0; --byteIndex){
+        char label[16] = {};
+        std::snprintf(label, sizeof(label), "[%d]", byteIndex);
+        widestByteLabel = std::max(widestByteLabel, ImGui::CalcTextSize(label).x);
+    }
+    if(ImGui::BeginTable("##dataBytes", 2, ImGuiTableFlags_SizingFixedFit)){
+        ImGui::TableSetupColumn("byteLabel", ImGuiTableColumnFlags_WidthFixed, widestByteLabel);
+        ImGui::TableSetupColumn("byteValue", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+        for(int byteIndex = 7; byteIndex >= 0; --byteIndex){
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            char label[16] = {};
+            std::snprintf(label, sizeof(label), "[%d]", byteIndex);
+            ImGui::TextUnformatted(label);
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(52.0f);
+            char inputId[24] = {};
+            std::snprintf(inputId, sizeof(inputId), "##dataByte%d", byteIndex);
+            ImGui::InputText(inputId, dataNode.inputText[static_cast<size_t>(byteIndex)].data(),
+                             dataNode.inputText[static_cast<size_t>(byteIndex)].size(),
+                             ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+        }
+        ImGui::EndTable();
+    }
+    ImNodes::BeginOutputAttribute(dataNodeOutAttrId);
+    ImGui::Indent(40.0f);
+    ImGui::TextUnformatted("data");
+    ImNodes::EndOutputAttribute();
+    ImNodes::EndNode();
+}
+
+void UI::drawCanStoreNode(){
+    ImNodes::BeginNode(kProceduralStoreNodeId);
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Can Store");
+    ImNodes::EndNodeTitleBar();
+    if(parseInterface == nullptr){
+        ImGui::TextUnformatted("<no parse interface>");
+    } else {
+        ImGui::Text("Messages: %zu", parseInterface->canStore.canMessages.size());
+    }
+    ImNodes::BeginOutputAttribute(kProceduralStoreOutAttrId);
+    ImGui::Indent(40.0f);
+    ImGui::TextUnformatted("messages");
+    ImNodes::EndOutputAttribute();
+    ImNodes::EndNode();
+}
+
+void UI::drawCanMessageNode(const CanMessage& msg){
+    const int canId = msg.canId;
+    ImNodes::BeginNode(proceduralMessageNodeId(canId));
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Can Message");
+    ImNodes::EndNodeTitleBar();
+    ImNodes::BeginInputAttribute(proceduralMessageInAttrId(canId));
+    ImGui::TextUnformatted("store");
+    ImNodes::EndInputAttribute();
+    ImGui::TextUnformatted(msg.name.c_str());
+    ImGui::Text("canId: 0x%03X", canId);
+    ImNodes::BeginOutputAttribute(proceduralMessageOutAttrId(canId));
+    ImGui::Indent(40.0f);
+    ImGui::TextUnformatted("signals");
+    ImNodes::EndOutputAttribute();
+    ImNodes::EndNode();
+}
+
+void UI::drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal){
+    ImNodes::BeginNode(proceduralSignalNodeId(canId, signalIndex));
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Can Signal");
+    ImNodes::EndNodeTitleBar();
+    ImNodes::BeginInputAttribute(proceduralSignalInAttrId(canId, signalIndex));
+    ImGui::TextUnformatted("message");
+    ImNodes::EndInputAttribute();
+    ImGui::TextUnformatted(signal.name.c_str());
+    ImNodes::EndNode();
+}
+
+void UI::proceduralDBCNodes(){
+    drawCanStoreNode();
+    if(parseInterface == nullptr){
+        return;
+    }
+
+    static std::unordered_set<int> positionedNodes;
+    int messageIndex = 0;
+    int globalSignalIndex = 0;
+    for(const auto& [canId, msg] : parseInterface->canStore.canMessages){
+        const int messageNodeId = proceduralMessageNodeId(canId);
+        if(positionedNodes.insert(messageNodeId).second){
+            ImNodes::SetNodeGridSpacePos(messageNodeId, ImVec2(380.0f, 620.0f + messageIndex * 180.0f));
+        }
+
+        drawCanMessageNode(msg);
+        ImNodes::Link(proceduralStoreLinkId(canId), kProceduralStoreOutAttrId, proceduralMessageInAttrId(canId));
+
+        for(size_t signalIndex = 0; signalIndex < msg.signals.size(); ++signalIndex){
+            const int signalNodeId = proceduralSignalNodeId(canId, static_cast<int>(signalIndex));
+            if(positionedNodes.insert(signalNodeId).second){
+                ImNodes::SetNodeGridSpacePos(signalNodeId, ImVec2(760.0f, 620.0f + globalSignalIndex * 110.0f));
+            }
+
+            drawCanSignalNode(canId, static_cast<int>(signalIndex), msg.signals[signalIndex]);
+            ImNodes::Link(proceduralSignalLinkId(canId, static_cast<int>(signalIndex)),
+                          proceduralMessageOutAttrId(canId),
+                          proceduralSignalInAttrId(canId, static_cast<int>(signalIndex)));
+            ++globalSignalIndex;
+        }
+
+        if(msg.signals.empty()){
+            ++globalSignalIndex;
+        }
+        ++messageIndex;
+    }
+}
+
+void UI::makeNodes(){
+
+};
+
+void UI::controlsNode(){
+    ImNodes::BeginNode(5);
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted("Node Controls");
+    ImNodes::EndNodeTitleBar();
+    ImGui::TextUnformatted("Connect nodes by dragging Output Pins to Input Pins");
+    ImGui::TextUnformatted("Remove a Link by clicking it and pressing Delete");
+    ImGui::TextUnformatted("Pan the Canvas with Middle Mouse Button");
+    ImNodes::EndNode();
+};
 
 void UI::refreshSerialPorts(){
     static auto lastRefresh = std::chrono::steady_clock::time_point{};
@@ -2567,4 +2859,35 @@ void UI::setStyle(){
     //plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(0, 0, 0, 0.0f);
     //plotStyle.Colors[ImPlotCol_LegendBorder] = ImVec4(0, 0, 0, 0.0f);
 
+    ImNodesStyle &nodeStyle = ImNodes::GetStyle();
+    const auto packNodeColor = [](const ImVec4 &color) {
+        return ImGui::ColorConvertFloat4ToU32(color);
+    };
+
+    nodeStyle.Colors[ImNodesCol_NodeBackground] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_NodeBackgroundHovered] = packNodeColor(lightGray);
+    nodeStyle.Colors[ImNodesCol_NodeBackgroundSelected] = packNodeColor(lightGray);
+    nodeStyle.Colors[ImNodesCol_NodeOutline] = packNodeColor(ImVec4{0.32f, 0.32f, 0.32f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_TitleBar] = packNodeColor(darkGray);
+    nodeStyle.Colors[ImNodesCol_TitleBarHovered] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_TitleBarSelected] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_Link] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_LinkHovered] = packNodeColor(ImVec4{0.20f, 0.90f, 0.90f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_LinkSelected] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_Pin] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_PinHovered] = packNodeColor(ImVec4{0.20f, 0.90f, 0.90f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_BoxSelector] = packNodeColor(ImVec4{0.00f, 0.75f, 0.75f, 0.20f});
+    nodeStyle.Colors[ImNodesCol_BoxSelectorOutline] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_GridBackground] = packNodeColor(almostBlack);
+    nodeStyle.Colors[ImNodesCol_GridLine] = packNodeColor(ImVec4{0.18f, 0.18f, 0.18f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_MiniMapBackground] = packNodeColor(darkGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapBackgroundHovered] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapOutline] = packNodeColor(ImVec4{0.32f, 0.32f, 0.32f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_MiniMapOutlineHovered] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeBackground] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeBackgroundHovered] = packNodeColor(lightGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeBackgroundSelected] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeOutline] = packNodeColor(ImVec4{0.32f, 0.32f, 0.32f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_MiniMapLink] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_MiniMapLinkSelected] = packNodeColor(ImVec4{0.20f, 0.90f, 0.90f, 1.00f});
 }
