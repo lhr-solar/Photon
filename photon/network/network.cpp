@@ -16,6 +16,8 @@
 #include <cstdlib>
 #include <cstdio>
 #include <sstream>
+#include <algorithm>
+#include <cctype>
 #include "../engine/include.hpp"
 
 namespace {
@@ -128,13 +130,19 @@ constexpr TPCANMessageType kPcanMessageExtended = 0x02U;
 constexpr TPCANMessageType kPcanMessageStatus = 0x80U;
 
 constexpr TPCANBaudrate kPcanBaud1M = 0x0014U;
+constexpr TPCANBaudrate kPcanBaud800K = 0x0016U;
 constexpr TPCANBaudrate kPcanBaud500K = 0x001CU;
 constexpr TPCANBaudrate kPcanBaud250K = 0x011CU;
 constexpr TPCANBaudrate kPcanBaud125K = 0x031CU;
 constexpr TPCANBaudrate kPcanBaud100K = 0x432FU;
+constexpr TPCANBaudrate kPcanBaud95K = 0xC34EU;
+constexpr TPCANBaudrate kPcanBaud83K = 0x852BU;
 constexpr TPCANBaudrate kPcanBaud50K = 0x472FU;
+constexpr TPCANBaudrate kPcanBaud47K = 0x1414U;
+constexpr TPCANBaudrate kPcanBaud33K = 0x8B2FU;
 constexpr TPCANBaudrate kPcanBaud20K = 0x532FU;
 constexpr TPCANBaudrate kPcanBaud10K = 0x672FU;
+constexpr TPCANBaudrate kPcanBaud5K = 0x7F7FU;
 
 struct TPCANMsg {
     DWORD ID;
@@ -209,19 +217,46 @@ TPCANHandle channelHandleFromName(const std::string& name) {
     return (it == kHandleMap.end()) ? 0x00U : it->second;
 }
 
-TPCANBaudrate pcanBaudrateFromString(const std::string& bitRate) {
+struct PcanBaudrateSelection {
+    TPCANBaudrate value;
+    std::string sanitizedInput;
+    bool defaulted = false;
+};
+
+PcanBaudrateSelection pcanBaudrateFromString(const std::string& bitRate) {
+    std::string sanitized = bitRate;
+    sanitized.erase(std::remove_if(sanitized.begin(), sanitized.end(), [](unsigned char ch){
+        return std::isspace(ch) || ch == '_';
+    }), sanitized.end());
+
     static const std::unordered_map<std::string, TPCANBaudrate> kBitrates = {
+        {"5000", kPcanBaud5K},
         {"10000", kPcanBaud10K},
         {"20000", kPcanBaud20K},
+        {"33333", kPcanBaud33K},
         {"50000", kPcanBaud50K},
+        {"47619", kPcanBaud47K},
+        {"83333", kPcanBaud83K},
+        {"95000", kPcanBaud95K},
         {"100000", kPcanBaud100K},
         {"125000", kPcanBaud125K},
         {"250000", kPcanBaud250K},
         {"500000", kPcanBaud500K},
+        {"800000", kPcanBaud800K},
         {"1000000", kPcanBaud1M},
     };
-    const auto it = kBitrates.find(bitRate);
-    return (it == kBitrates.end()) ? kPcanBaud500K : it->second;
+    const auto it = kBitrates.find(sanitized);
+    if(it != kBitrates.end()){
+        return {it->second, sanitized, false};
+    }
+    if(sanitized.size() > 2 && sanitized[0] == '0' && (sanitized[1] == 'x' || sanitized[1] == 'X')){
+        char* end = nullptr;
+        const unsigned long rawValue = std::strtoul(sanitized.c_str(), &end, 16);
+        if(end != nullptr && *end == '\0' && rawValue <= 0xFFFFUL){
+            return {static_cast<TPCANBaudrate>(rawValue), sanitized, false};
+        }
+    }
+    return {kPcanBaud500K, "500000", true};
 }
 #endif
 }
@@ -519,7 +554,7 @@ void Network::canReader(){
     bool hasLoggedInitialConnection = false;
     bool hasLoggedInitFailure = false;
     const TPCANHandle channel = channelHandleFromName(canInterface);
-    const TPCANBaudrate bitrate = pcanBaudrateFromString(canBitRate);
+    const PcanBaudrateSelection bitrate = pcanBaudrateFromString(canBitRate);
     if(channel == 0x00U){
         logs("[!] Unknown PCAN channel " << canInterface);
         unloadPcanApi(api);
@@ -528,13 +563,18 @@ void Network::canReader(){
         }
         return;
     }
+    if(bitrate.defaulted){
+        logs("[!] Unknown PCAN bitrate \"" << canBitRate << "\"; defaulting to 500000 (BTR0BTR1=0x"
+             << std::hex << bitrate.value << std::dec << ")");
+    }
 
     while(running){
-        const TPCANStatus initStatus = api.initialize(channel, bitrate, 0, 0, 0);
+        const TPCANStatus initStatus = api.initialize(channel, bitrate.value, 0, 0, 0);
         if(initStatus != kPcanErrorOk){
             if(!hasLoggedInitFailure){
-                logs("[!] Failed to initialize " << canInterface << " at bitrate " << canBitRate
-                     << " (" << pcanStatusText(api, initStatus) << ")");
+                logs("[!] Failed to initialize " << canInterface << " at bitrate " << bitrate.sanitizedInput
+                     << " (BTR0BTR1=0x" << std::hex << bitrate.value << std::dec
+                     << ", " << pcanStatusText(api, initStatus) << ")");
                 hasLoggedInitFailure = true;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(250));
@@ -543,7 +583,8 @@ void Network::canReader(){
 
         hasLoggedInitFailure = false;
         if(!hasLoggedInitialConnection){
-            logs("[+] Connected to CAN interface " << canInterface);
+            logs("[+] Connected to CAN interface " << canInterface << " at bitrate " << bitrate.sanitizedInput
+                 << " (BTR0BTR1=0x" << std::hex << bitrate.value << std::dec << ")");
             hasLoggedInitialConnection = true;
         }
 

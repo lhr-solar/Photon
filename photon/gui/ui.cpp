@@ -10,6 +10,7 @@
 #include <sstream>
 #include <iomanip>
 #include <limits>
+#include <iterator>
 #include <unordered_map>
 #include <unordered_set>
 #include <array>
@@ -2208,8 +2209,14 @@ void UI::networkUI(){
             }
         }
         if(currentNetwork == "SocketCAN / PCAN"){
-            static int canBitRateIdx = 6;
+            static int canBitRateIdx = 11;
             static int canPortIdx = 0;
+            if(canBitRateIdx < 0 || static_cast<size_t>(canBitRateIdx) >= canBitRates.size() || canBitRate != canBitRates[canBitRateIdx]){
+                const auto it = std::find_if(canBitRates.begin(), canBitRates.end(), [&](const char* value){
+                    return canBitRate == value;
+                });
+                canBitRateIdx = (it == canBitRates.end()) ? 0 : static_cast<int>(std::distance(canBitRates.begin(), it));
+            }
             labeledCombo("Bit Rate", "##can_bitrate", &canBitRateIdx, canBitRates);
             if(canBitRate != canBitRates[canBitRateIdx]){
                 rebuildCan = true;

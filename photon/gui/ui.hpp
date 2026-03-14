@@ -121,13 +121,19 @@ struct UI{
 #endif
     std::string canBitRate = "500000";
     std::vector<const char*> canBitRates = {
+        "5000",
         "10000",
         "20000",
+        "33333",
         "50000",
+        "47619",
+        "83333",
+        "95000",
         "100000",
         "125000",
         "250000",
         "500000",
+        "800000",
         "1000000",
     };
     std::vector<std::string> discoveredCanPorts = {
