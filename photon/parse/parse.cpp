@@ -102,9 +102,6 @@ void Parse::handleFrame(const std::string& frame){
     if(canId == 2){
         std::string t = frame;
         t.pop_back();
-        //std::cout << " : " << t << " : ";
-        //for(uint8_t v : value)
-            //std::cout << std::dec << +v << " ";
     }
     writeSample(canId, value);
 }
@@ -133,15 +130,12 @@ bool Parse::decodeFrame(const std::string& frame, uint16_t& canId, std::array<ui
     }
 
     value = {};
-    //if(canId == 2) std::cout << " : ";
     for (int i = 0; i < dataLength; ++i) {
         uint8_t h = hexValue(frame[5 + i*2]);
         uint8_t l = hexValue(frame[6 + i*2]);
         if (h < 0 || l < 0) { return false; }
         int v = (h<<4)+l;
         value[i] = v;
-        //if(canId == 2)
-            //std::cout << std::dec << v << " ";
     }
     return true;
 }

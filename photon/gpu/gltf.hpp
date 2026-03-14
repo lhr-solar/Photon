@@ -94,6 +94,7 @@ struct GltfModel{
     bool wasClicked = false;
     float jumpHeight = 0.0f;
     float jumpVelocity = 0.0f;
+    float deltaSeconds = 1.0f / 60.0f;
 
     VkDevice logicalDevice{VK_NULL_HANDLE};
     VkPhysicalDeviceMemoryProperties memoryProperties{};

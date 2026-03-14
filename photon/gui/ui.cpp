@@ -105,6 +105,10 @@ int proceduralMessageOutAttrId(int canId) {
     return proceduralMessageNodeId(canId) + 2;
 }
 
+int proceduralMessageDataInAttrId(int canId) {
+    return proceduralMessageNodeId(canId) + 3;
+}
+
 int proceduralSignalNodeId(int canId, int signalIndex) {
     return kProceduralSignalNodeBase + (canId * 256) + (signalIndex * 2);
 }
@@ -120,6 +124,7 @@ int proceduralStoreLinkId(int canId) {
 int proceduralSignalLinkId(int canId, int signalIndex) {
     return kProceduralSignalLinkBase + (canId * 256) + signalIndex;
 }
+
 }
 
 struct PlotDataSourceRef {
@@ -2084,6 +2089,46 @@ void UI::dbcNodes(){
 
     ImNodes::MiniMap(0.2f, ImNodesMiniMapLocation_BottomRight);
     ImNodes::EndNodeEditor();
+
+    int startAttr = 0;
+    int endAttr = 0;
+    if(ImNodes::IsLinkCreated(&startAttr, &endAttr)){
+        if(selectedProceduralCanId >= 0 &&
+           startAttr == 9 &&
+           endAttr == proceduralMessageDataInAttrId(selectedProceduralCanId)){
+            proceduralDataLink.connected = true;
+            proceduralDataLink.canId = selectedProceduralCanId;
+        } else if(selectedProceduralCanId >= 0 &&
+                  endAttr == 9 &&
+                  startAttr == proceduralMessageDataInAttrId(selectedProceduralCanId)){
+            proceduralDataLink.connected = true;
+            proceduralDataLink.canId = selectedProceduralCanId;
+        }
+    }
+
+    int destroyedLinkId = 0;
+    if(ImNodes::IsLinkDestroyed(&destroyedLinkId)){
+        if(proceduralDataLink.connected && destroyedLinkId == proceduralDataLink.linkId){
+            proceduralDataLink.connected = false;
+            proceduralDataLink.canId = -1;
+        }
+    }
+
+    if(proceduralDataLink.connected){
+        int selectedLinkCount = ImNodes::NumSelectedLinks();
+        if(selectedLinkCount > 0 && ImGui::IsKeyPressed(ImGuiKey_Delete, false)){
+            std::vector<int> selectedLinks(static_cast<size_t>(selectedLinkCount));
+            ImNodes::GetSelectedLinks(selectedLinks.data());
+            for(int linkId : selectedLinks){
+                if(linkId == proceduralDataLink.linkId){
+                    proceduralDataLink.connected = false;
+                    proceduralDataLink.canId = -1;
+                    break;
+                }
+            }
+        }
+    }
+
     ImGui::EndChild();
 };
 
@@ -2282,6 +2327,9 @@ void UI::drawCanMessageNode(const CanMessage& msg){
     ImNodes::BeginInputAttribute(proceduralMessageInAttrId(canId));
     ImGui::TextUnformatted("store");
     ImNodes::EndInputAttribute();
+    ImNodes::BeginInputAttribute(proceduralMessageDataInAttrId(canId));
+    ImGui::TextUnformatted("data");
+    ImNodes::EndInputAttribute();
     ImGui::TextUnformatted(msg.name.c_str());
     ImGui::Text("canId: 0x%03X", canId);
     ImNodes::BeginOutputAttribute(proceduralMessageOutAttrId(canId));
@@ -2291,7 +2339,14 @@ void UI::drawCanMessageNode(const CanMessage& msg){
     ImNodes::EndNode();
 }
 
-void UI::drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal){
+void UI::drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal, double outValue){
+    const char* typeLabel = "Int";
+    if(signal.type == vFLOAT){
+        typeLabel = "Float";
+    } else if(signal.type == vDOUBLE){
+        typeLabel = "Double";
+    }
+
     ImNodes::BeginNode(proceduralSignalNodeId(canId, signalIndex));
     ImNodes::BeginNodeTitleBar();
     ImGui::TextUnformatted("Signal");
@@ -2303,9 +2358,9 @@ void UI::drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal){
     ImGui::Text("[%d : %d]", signal.startBit, signal.startBit + signal.length);
     ImGui::TextUnformatted(signal.endianness == 0 ? "Big Endian" : "Little Endian");
     ImGui::TextUnformatted(signal.isSigned ? "Signed" : "Not Signed");
-    //ImGui::Text("val * %.6g + %.6g", signal.scale, signal.offset);
-    //ImGui::Text("Range: [%.6g, %.6g]", signal.min, signal.max);
+    ImGui::TextUnformatted(typeLabel);
     ImGui::Text("clamp(value * %.6g + %.6g, %.6g, %.6g)", signal.scale, signal.offset, signal.min, signal.max);
+    ImGui::Text("outValue: %.6g", outValue);
     ImNodes::EndNode();
 }
 
@@ -2324,6 +2379,10 @@ void UI::proceduralDBCNodes(){
     const CanMessage& msg = selectedIt->second;
     const int messageNodeId = proceduralMessageNodeId(canId);
     const bool selectionChanged = (lastProceduralCanId != canId);
+    if(selectionChanged && proceduralDataLink.connected){
+        proceduralDataLink.connected = false;
+        proceduralDataLink.canId = -1;
+    }
     const ImVec2 storePos = ImNodes::GetNodeGridSpacePos(kProceduralStoreNodeId);
     const ImVec2 messagePos = ImVec2(storePos.x + 440.0f, storePos.y + 110.0f);
     if(positionedNodes.insert(messageNodeId).second || selectionChanged){
@@ -2332,6 +2391,12 @@ void UI::proceduralDBCNodes(){
 
     drawCanMessageNode(msg);
     ImNodes::Link(proceduralStoreLinkId(canId), kProceduralStoreOutAttrId, proceduralMessageInAttrId(canId));
+    const bool useLinkedData = proceduralDataLink.connected && proceduralDataLink.canId == canId;
+    std::vector<double> decodedSignalValues;
+    if(useLinkedData){
+        ImNodes::Link(proceduralDataLink.linkId, 9, proceduralMessageDataInAttrId(canId));
+        decodedSignalValues = msg.decodeSignalValues(dataNode.data);
+    }
 
     for(size_t signalIndex = 0; signalIndex < msg.signals.size(); ++signalIndex){
         const int signalNodeId = proceduralSignalNodeId(canId, static_cast<int>(signalIndex));
@@ -2340,7 +2405,13 @@ void UI::proceduralDBCNodes(){
             ImNodes::SetNodeGridSpacePos(signalNodeId, signalPos);
         }
 
-        drawCanSignalNode(canId, static_cast<int>(signalIndex), msg.signals[signalIndex]);
+        double outValue = 0.0;
+        if(useLinkedData){
+            outValue = (signalIndex < decodedSignalValues.size()) ? decodedSignalValues[signalIndex] : 0.0;
+        } else if(!msg.signals[signalIndex].data.empty()){
+            outValue = msg.signals[signalIndex].data.back();
+        }
+        drawCanSignalNode(canId, static_cast<int>(signalIndex), msg.signals[signalIndex], outValue);
         ImNodes::Link(proceduralSignalLinkId(canId, static_cast<int>(signalIndex)),
                       proceduralMessageOutAttrId(canId),
                       proceduralSignalInAttrId(canId, static_cast<int>(signalIndex)));
@@ -2880,6 +2951,7 @@ void UI::gltfWindow(GltfModel& model, std::string windowName){
 }
 
 void UI::gltfWidget(GltfModel& model, ImVec2 size) {
+    model.deltaSeconds = std::max(0.0f, deltaTime / 1000.0f);
     const VkExtent2D nextExtent = quantizeContentExtent(size, model.extent);
     if (nextExtent.width != model.extent.width || nextExtent.height != model.extent.height) {
         model.extent = nextExtent;

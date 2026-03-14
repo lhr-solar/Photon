@@ -129,6 +129,11 @@ struct UI{
         double frequency = 1.0;
         double phase = 0.0;
     } sinNode;
+    struct {
+        bool connected = false;
+        int canId = -1;
+        int linkId = 4000000;
+    } proceduralDataLink;
     int selectedProceduralCanId = -1;
     int lastProceduralCanId = -1;
     char proceduralMessageQuery[128] = {0};
@@ -169,7 +174,7 @@ struct UI{
     void drawDataNode();
     void drawCanStoreNode();
     void drawCanMessageNode(const CanMessage& msg);
-    void drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal);
+    void drawCanSignalNode(int canId, int signalIndex, const CanSignal& signal, double outValue);
     void proceduralDBCNodes();
     void makeNodes();
     void controlsNode();

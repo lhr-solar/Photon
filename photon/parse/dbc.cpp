@@ -9,6 +9,50 @@
 
 namespace {
 
+    /*
+uint64_t extractLe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitLength){
+    if (bitLength <= 0) return 0;
+    if (dlc < 0) return 0;
+    if (dlc > 8) dlc = 8;
+    if (startBit < 0) return 0;
+    if (startBit + bitLength > dlc * 8) return 0;
+
+    uint64_t value = 0;
+    for (int i = 0; i < bitLength; ++i) {
+        const int srcBit = startBit + i;
+        const int byteIdx = srcBit / 8;
+        const int bitIdx = srcBit % 8;
+        const uint64_t bit = (static_cast<uint64_t>(bytes[byteIdx]) >> bitIdx) & 0x1ULL;
+        value |= (bit << i);
+    }
+    return value;
+}
+
+uint64_t extractBe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitLength) {
+    if (bitLength <= 0) return 0;
+    if (dlc < 0) return 0;
+    if (dlc > 8) dlc = 8;
+    if (startBit < 0) return 0;
+    if (bitLength > 64) return 0;
+
+    uint64_t value = 0;
+    int currentBit = startBit;
+    for (int i = 0; i < bitLength; ++i) {
+        const int byteIdx = currentBit / 8;
+        const int bitIdx = currentBit % 8;
+        if (byteIdx < 0 || byteIdx >= dlc) {
+            return 0;
+        }
+
+        const uint64_t bit = (static_cast<uint64_t>(bytes[byteIdx]) >> bitIdx) & 0x1ULL;
+        value = (value << 1) | bit;
+
+        currentBit = (bitIdx == 0) ? (currentBit + 15) : (currentBit - 1);
+    }
+    return value;
+}
+*/
+
 uint64_t extractLe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitLength){
     if (bitLength <= 0) return 0;
     if (dlc < 0) return 0;
@@ -332,6 +376,45 @@ void CanStore::dump() {
         logs("=============================");
 }
 
+double CanMessage::decodeSignalValue(const std::array<uint8_t, 8>& value, const CanSignal& sg) const {
+    const uint64_t raw = (sg.endianness == 0)
+        ? extractBe(value, dlc, sg.startBit, sg.length)
+        : extractLe(value, dlc, sg.startBit, sg.length);
+
+    if(sg.type == vINT){
+        uint64_t bits = static_cast<uint64_t>(raw);
+        uint64_t parsedValue = std::bit_cast<uint64_t>(bits);
+        parsedValue = static_cast<uint64_t>((parsedValue + sg.offset) * sg.scale);
+        return static_cast<double>(parsedValue);
+    }
+
+    if(sg.type == vFLOAT){
+        uint32_t bits = static_cast<uint32_t>(raw);
+        float parsedValue = std::bit_cast<float>(bits);
+        parsedValue = static_cast<float>((parsedValue + sg.offset) * sg.scale);
+        return static_cast<double>(parsedValue);
+    }
+
+    if(sg.type == vDOUBLE){
+        uint64_t bits = static_cast<uint64_t>(raw);
+        double parsedValue = std::bit_cast<double>(bits);
+        parsedValue = (parsedValue + sg.offset) * sg.scale;
+        return parsedValue;
+    }
+
+    std::cout << canId << " " << sg.name << " failed" << std::endl;
+    return 0.0;
+}
+
+std::vector<double> CanMessage::decodeSignalValues(const std::array<uint8_t, 8>& value) const {
+    std::vector<double> decodedValues;
+    decodedValues.reserve(signals.size());
+    for(const auto& signal : signals){
+        decodedValues.push_back(decodeSignalValue(value, signal));
+    }
+    return decodedValues;
+}
+
 void CanMessage::updateMessage(Parse* networkSource){
     std::array<uint8_t, 8> value;
     ImGuiIO &io = ImGui::GetIO();
@@ -365,39 +448,7 @@ void CanMessage::updateMessage(Parse* networkSource){
     const int byteCount = dlc > 8 ? 8 : (dlc < 0 ? 0 : dlc);
     double totalBytes = static_cast<double>(time.size()) * sizeof(double);
     for(auto& sg : signals){
-        uint64_t raw{};
-        raw = (sg.endianness == 0) ? extractBe(value, dlc, sg.startBit, sg.length) : 
-                                     extractLe(value, dlc, sg.startBit, sg.length);
-        int failed = 1;
-        if(sg.type == vINT){
-            uint64_t bits = static_cast<uint64_t>(raw);
-            uint64_t value = std::bit_cast<uint64_t>(bits);
-            value = (value + sg.offset) * sg.scale;
-            //logs(canId << " : " << value);
-            sg.data.push_back(static_cast<double>(value));
-            failed = 0;
-        }
-
-        if(sg.type == vFLOAT){
-            uint32_t bits = static_cast<uint32_t>(raw);
-            float value = std::bit_cast<float>(bits);
-            value = (value + sg.offset) * sg.scale;
-            //logs(canId << " : " << value);
-            sg.data.push_back(static_cast<double>(value));
-            failed = 0;
-        }
-
-        if(sg.type == vDOUBLE){
-            uint64_t bits = static_cast<uint64_t>(raw);
-            double value = std::bit_cast<double>(bits);
-            value = (value + sg.offset) * sg.scale;
-            //logs(canId << " : " << value);
-            sg.data.push_back(static_cast<double>(value));
-            failed = 0;
-        }
-
-        if(failed) std::cout << canId << " " << sg.name << " failed" << std::endl;
-
+        sg.data.push_back(decodeSignalValue(value, sg));
         totalBytes += static_cast<double>(sg.data.size()) * sizeof(double);
     }
 

@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <cstddef>
+#include <array>
 
 struct Parse;
 
@@ -46,6 +47,8 @@ struct CanMessage{
     std::vector<double> time {0.0};
     std::vector<CanSignal> signals{};
 
+    double decodeSignalValue(const std::array<uint8_t, 8>& value, const CanSignal& signal) const;
+    std::vector<double> decodeSignalValues(const std::array<uint8_t, 8>& value) const;
     void updateMessage(Parse* networkSource);
 };
 

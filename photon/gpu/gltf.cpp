@@ -1557,7 +1557,7 @@ void GltfModel::recordShaderPass(VkCommandBuffer commandBuffer){
 
     const uint32_t frameIndex = frameUniformMapped.empty() ? 0u : (frameCounter++ % static_cast<uint32_t>(frameUniformMapped.size()));
     const float timeSeconds = static_cast<float>(ImGui::GetTime());
-    const float deltaSeconds = std::clamp(ImGui::GetIO().DeltaTime, 1.0f / 240.0f, 0.1f);
+    const float frameDeltaSeconds = std::max(0.0f, deltaSeconds);
 
     GltfMVP mvp{};
     const glm::mat4 standUpRotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -1578,8 +1578,8 @@ void GltfModel::recordShaderPass(VkCommandBuffer commandBuffer){
         wasClicked = false;
     }
 
-    jumpVelocity -= 1.5f * deltaSeconds;
-    jumpHeight = std::max(0.0f, jumpHeight + jumpVelocity * deltaSeconds);
+    jumpVelocity -= 4.2f * frameDeltaSeconds;
+    jumpHeight = std::max(0.0f, jumpHeight + jumpVelocity * frameDeltaSeconds);
     if (jumpHeight <= 0.0f && jumpVelocity < 0.0f) {
         jumpHeight = 0.0f;
         jumpVelocity = 0.0f;
