@@ -111,6 +111,113 @@ bool configureCanInterface(const std::string& interfaceName, const std::string& 
 
     return true;
 }
+#else
+using TPCANHandle = WORD;
+using TPCANStatus = DWORD;
+using TPCANMessageType = BYTE;
+using TPCANBaudrate = WORD;
+
+constexpr TPCANStatus kPcanErrorOk = 0x00000U;
+constexpr TPCANStatus kPcanErrorQrcvEmpty = 0x00020U;
+
+constexpr TPCANMessageType kPcanMessageStandard = 0x00U;
+constexpr TPCANMessageType kPcanMessageRtr = 0x01U;
+constexpr TPCANMessageType kPcanMessageExtended = 0x02U;
+constexpr TPCANMessageType kPcanMessageStatus = 0x80U;
+
+constexpr TPCANBaudrate kPcanBaud1M = 0x0014U;
+constexpr TPCANBaudrate kPcanBaud500K = 0x001CU;
+constexpr TPCANBaudrate kPcanBaud250K = 0x011CU;
+constexpr TPCANBaudrate kPcanBaud125K = 0x031CU;
+constexpr TPCANBaudrate kPcanBaud100K = 0x432FU;
+constexpr TPCANBaudrate kPcanBaud50K = 0x472FU;
+constexpr TPCANBaudrate kPcanBaud20K = 0x532FU;
+constexpr TPCANBaudrate kPcanBaud10K = 0x672FU;
+
+struct TPCANMsg {
+    DWORD ID;
+    TPCANMessageType MSGTYPE;
+    BYTE LEN;
+    BYTE DATA[8];
+};
+
+using CanInitializeFn = TPCANStatus (__stdcall *)(TPCANHandle, TPCANBaudrate, BYTE, DWORD, WORD);
+using CanReadFn = TPCANStatus (__stdcall *)(TPCANHandle, TPCANMsg*, void*);
+using CanUninitializeFn = TPCANStatus (__stdcall *)(TPCANHandle);
+using CanGetErrorTextFn = TPCANStatus (__stdcall *)(TPCANStatus, WORD, LPSTR);
+
+struct PcanApi {
+    HMODULE library = nullptr;
+    CanInitializeFn initialize = nullptr;
+    CanReadFn read = nullptr;
+    CanUninitializeFn uninitialize = nullptr;
+    CanGetErrorTextFn getErrorText = nullptr;
+};
+
+PcanApi loadPcanApi() {
+    PcanApi api;
+    api.library = LoadLibraryA("PCANBasic.dll");
+    if(api.library == nullptr){
+        return api;
+    }
+    api.initialize = reinterpret_cast<CanInitializeFn>(GetProcAddress(api.library, "CAN_Initialize"));
+    api.read = reinterpret_cast<CanReadFn>(GetProcAddress(api.library, "CAN_Read"));
+    api.uninitialize = reinterpret_cast<CanUninitializeFn>(GetProcAddress(api.library, "CAN_Uninitialize"));
+    api.getErrorText = reinterpret_cast<CanGetErrorTextFn>(GetProcAddress(api.library, "CAN_GetErrorText"));
+    if(api.initialize == nullptr || api.read == nullptr || api.uninitialize == nullptr){
+        FreeLibrary(api.library);
+        api = {};
+    }
+    return api;
+}
+
+void unloadPcanApi(PcanApi& api) {
+    if(api.library != nullptr){
+        FreeLibrary(api.library);
+        api = {};
+    }
+}
+
+std::string pcanStatusText(const PcanApi& api, TPCANStatus status) {
+    if(api.getErrorText == nullptr){
+        std::ostringstream oss;
+        oss << "status=0x" << std::hex << status;
+        return oss.str();
+    }
+    char buffer[256] = {};
+    if(api.getErrorText(status, 0x09U, buffer) != kPcanErrorOk){
+        std::ostringstream oss;
+        oss << "status=0x" << std::hex << status;
+        return oss.str();
+    }
+    return buffer;
+}
+
+TPCANHandle channelHandleFromName(const std::string& name) {
+    static const std::unordered_map<std::string, TPCANHandle> kHandleMap = {
+        {"PCAN_USBBUS1", 0x51U}, {"PCAN_USBBUS2", 0x52U}, {"PCAN_USBBUS3", 0x53U}, {"PCAN_USBBUS4", 0x54U},
+        {"PCAN_USBBUS5", 0x55U}, {"PCAN_USBBUS6", 0x56U}, {"PCAN_USBBUS7", 0x57U}, {"PCAN_USBBUS8", 0x58U},
+        {"PCAN_USBBUS9", 0x509U}, {"PCAN_USBBUS10", 0x50AU}, {"PCAN_USBBUS11", 0x50BU}, {"PCAN_USBBUS12", 0x50CU},
+        {"PCAN_USBBUS13", 0x50DU}, {"PCAN_USBBUS14", 0x50EU}, {"PCAN_USBBUS15", 0x50FU}, {"PCAN_USBBUS16", 0x510U},
+    };
+    const auto it = kHandleMap.find(name);
+    return (it == kHandleMap.end()) ? 0x00U : it->second;
+}
+
+TPCANBaudrate pcanBaudrateFromString(const std::string& bitRate) {
+    static const std::unordered_map<std::string, TPCANBaudrate> kBitrates = {
+        {"10000", kPcanBaud10K},
+        {"20000", kPcanBaud20K},
+        {"50000", kPcanBaud50K},
+        {"100000", kPcanBaud100K},
+        {"125000", kPcanBaud125K},
+        {"250000", kPcanBaud250K},
+        {"500000", kPcanBaud500K},
+        {"1000000", kPcanBaud1M},
+    };
+    const auto it = kBitrates.find(bitRate);
+    return (it == kBitrates.end()) ? kPcanBaud500K : it->second;
+}
 #endif
 }
 
@@ -395,8 +502,82 @@ void Network::serialReader(){
 };
 
 void Network::canReader(){
-    while(running){
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    PcanApi api = loadPcanApi();
+    if(api.library == nullptr){
+        logs("[!] PCANBasic.dll not found; Windows CAN input requires the PEAK PCAN-Basic runtime");
+        while(running){
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        }
+        return;
     }
+
+    bool hasLoggedInitialConnection = false;
+    bool hasLoggedInitFailure = false;
+    const TPCANHandle channel = channelHandleFromName(canInterface);
+    const TPCANBaudrate bitrate = pcanBaudrateFromString(canBitRate);
+    if(channel == 0x00U){
+        logs("[!] Unknown PCAN channel " << canInterface);
+        unloadPcanApi(api);
+        while(running){
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        }
+        return;
+    }
+
+    while(running){
+        const TPCANStatus initStatus = api.initialize(channel, bitrate, 0, 0, 0);
+        if(initStatus != kPcanErrorOk){
+            if(!hasLoggedInitFailure){
+                logs("[!] Failed to initialize " << canInterface << " at bitrate " << canBitRate
+                     << " (" << pcanStatusText(api, initStatus) << ")");
+                hasLoggedInitFailure = true;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        hasLoggedInitFailure = false;
+        if(!hasLoggedInitialConnection){
+            logs("[+] Connected to CAN interface " << canInterface);
+            hasLoggedInitialConnection = true;
+        }
+
+        while(running){
+            TPCANMsg frame = {};
+            const TPCANStatus readStatus = api.read(channel, &frame, nullptr);
+            if(readStatus == kPcanErrorOk){
+                if((frame.MSGTYPE & kPcanMessageStatus) != 0 || (frame.MSGTYPE & kPcanMessageRtr) != 0){
+                    continue;
+                }
+                if((frame.MSGTYPE & kPcanMessageExtended) != 0 || frame.ID > 0x7FFu){
+                    continue;
+                }
+
+                std::string serialized;
+                serialized.reserve(1 + 3 + 1 + static_cast<size_t>(frame.LEN) * 2 + 1);
+                serialized += 't';
+                serialized += toHex(static_cast<uint16_t>(frame.ID & 0x7FFu), 3);
+                serialized += toHex(static_cast<uint8_t>(frame.LEN & 0x0Fu), 1);
+                for(uint8_t i = 0; i < frame.LEN && i < 8; ++i){
+                    serialized += toHex(frame.DATA[i], 2);
+                }
+                serialized += '\r';
+                pushFrameBytes(canQueue, serialized);
+                continue;
+            }
+
+            if(readStatus == kPcanErrorQrcvEmpty){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+
+            logs("[!] PCAN read failed on " << canInterface << " (" << pcanStatusText(api, readStatus) << ")");
+            break;
+        }
+
+        api.uninitialize(channel);
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    unloadPcanApi(api);
 }
 #endif

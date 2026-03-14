@@ -131,6 +131,71 @@ int proceduralSignalLinkId(int canId, int signalIndex) {
     return kProceduralSignalLinkBase + (canId * 256) + signalIndex;
 }
 
+#ifdef _WIN32
+using TPCANHandle = WORD;
+using TPCANStatus = DWORD;
+using TPCANParameter = BYTE;
+
+constexpr TPCANStatus kPcanErrorOk = 0x00000U;
+constexpr TPCANParameter kPcanChannelCondition = 0x0DU;
+constexpr DWORD kPcanChannelAvailable = 0x01U;
+constexpr DWORD kPcanChannelOccupied = 0x02U;
+
+using CanGetValueFn = TPCANStatus (__stdcall *)(TPCANHandle, TPCANParameter, void*, DWORD);
+
+struct PcanChannelInfo {
+    TPCANHandle handle;
+    const char* name;
+};
+
+constexpr std::array<PcanChannelInfo, 16> kPcanUsbChannels = {{
+    {0x51U, "PCAN_USBBUS1"},
+    {0x52U, "PCAN_USBBUS2"},
+    {0x53U, "PCAN_USBBUS3"},
+    {0x54U, "PCAN_USBBUS4"},
+    {0x55U, "PCAN_USBBUS5"},
+    {0x56U, "PCAN_USBBUS6"},
+    {0x57U, "PCAN_USBBUS7"},
+    {0x58U, "PCAN_USBBUS8"},
+    {0x509U, "PCAN_USBBUS9"},
+    {0x50AU, "PCAN_USBBUS10"},
+    {0x50BU, "PCAN_USBBUS11"},
+    {0x50CU, "PCAN_USBBUS12"},
+    {0x50DU, "PCAN_USBBUS13"},
+    {0x50EU, "PCAN_USBBUS14"},
+    {0x50FU, "PCAN_USBBUS15"},
+    {0x510U, "PCAN_USBBUS16"},
+}};
+
+std::vector<std::string> enumerateWindowsPcanChannels() {
+    std::vector<std::string> channels;
+    HMODULE library = LoadLibraryA("PCANBasic.dll");
+    if(library == nullptr){
+        return channels;
+    }
+
+    const auto canGetValue = reinterpret_cast<CanGetValueFn>(GetProcAddress(library, "CAN_GetValue"));
+    if(canGetValue == nullptr){
+        FreeLibrary(library);
+        return channels;
+    }
+
+    for(const PcanChannelInfo& channel : kPcanUsbChannels){
+        DWORD condition = 0;
+        const TPCANStatus status = canGetValue(channel.handle, kPcanChannelCondition, &condition, sizeof(condition));
+        if(status != kPcanErrorOk){
+            continue;
+        }
+        if((condition & (kPcanChannelAvailable | kPcanChannelOccupied)) != 0){
+            channels.emplace_back(channel.name);
+        }
+    }
+
+    FreeLibrary(library);
+    return channels;
+}
+#endif
+
 }
 
 struct PlotDataSourceRef {
@@ -2052,9 +2117,6 @@ void UI::networkUI(){
             }
         }
         if(currentNetwork == "SocketCAN / PCAN"){
-#ifdef _WIN32
-            ImGui::TextUnformatted("SocketCAN / PCAN input is only available on Linux");
-#else
             static int canBitRateIdx = 6;
             static int canPortIdx = 0;
             labeledCombo("Bit Rate", "##can_bitrate", &canBitRateIdx, canBitRates);
@@ -2075,7 +2137,6 @@ void UI::networkUI(){
                     }
                 }
             }
-#endif
         }
         ImGui::EndGroup();
 }
@@ -2702,7 +2763,9 @@ void UI::refreshCanPorts(){
 
     std::vector<std::string> nextPorts;
 
-#ifndef _WIN32
+#ifdef _WIN32
+    nextPorts = enumerateWindowsPcanChannels();
+#else
     namespace fs = std::filesystem;
     std::error_code ec;
     for(const auto& entry : fs::directory_iterator("/sys/class/net", ec)){
@@ -2718,7 +2781,13 @@ void UI::refreshCanPorts(){
 #endif
 
     if(nextPorts.empty()){
-        nextPorts.push_back(canPort.empty() ? "can0" : canPort);
+        nextPorts.push_back(
+#ifdef _WIN32
+            canPort.empty() ? "PCAN_USBBUS1" : canPort
+#else
+            canPort.empty() ? "can0" : canPort
+#endif
+        );
     }
 
     if(nextPorts == discoveredCanPorts && !canPorts.empty()){ return; }

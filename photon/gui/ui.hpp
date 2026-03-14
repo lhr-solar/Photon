@@ -107,7 +107,12 @@ struct UI{
 #endif
     };
     bool rebuildSerial = false;
-    std::string canPort = "can0";
+    std::string canPort =
+#ifdef _WIN32
+        "PCAN_USBBUS1";
+#else
+        "can0";
+#endif
     std::string canBitRate = "500000";
     std::vector<const char*> canBitRates = {
         "10000",
@@ -120,10 +125,18 @@ struct UI{
         "1000000",
     };
     std::vector<std::string> discoveredCanPorts = {
+#ifdef _WIN32
+        "PCAN_USBBUS1",
+#else
         "can0",
+#endif
     };
     std::vector<const char*> canPorts = {
+#ifdef _WIN32
+        "PCAN_USBBUS1",
+#else
         "can0",
+#endif
     };
     bool rebuildCan = false;
 

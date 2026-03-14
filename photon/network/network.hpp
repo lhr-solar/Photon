@@ -47,7 +47,12 @@ public:
 #else
         "/dev/ttyUSB0";
 #endif
-    std::string canInterface = "can0";
+    std::string canInterface =
+#ifdef _WIN32
+        "PCAN_USBBUS1";
+#else
+        "can0";
+#endif
     std::string canBitRate = "500000";
 
     std::atomic<bool> running = true;
