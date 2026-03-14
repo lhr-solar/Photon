@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include "console.hpp"
 #include "imgui_internal.h"
 #include "implot.h"
@@ -2006,10 +2007,10 @@ void UI::emptyCustom(){
 
 void UI::networkUI(){
         static int dbcIdx = 0;
-        static int networkIdx = 2;
+        static int networkIdx = 3;
         (void)dbcIdx;
         const float columnWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x * 0.10f);
-        const float labelWidth = ImGui::CalcTextSize("Serial Port").x;
+        const float labelWidth = ImGui::CalcTextSize("SocketCAN / PCAN").x;
         const float comboOffsetX = labelWidth + ImGui::GetStyle().ItemInnerSpacing.x;
         const auto labeledCombo = [&](const char* label, const char* id, int* currentItem, auto& items) {
             const float startX = ImGui::GetCursorPosX();
@@ -2025,7 +2026,8 @@ void UI::networkUI(){
         labeledCombo("Network", "##network", &networkIdx, availableNetwork);
         if(networkIdx == 0){ currentNetwork = "Server";}
         if(networkIdx == 1){ currentNetwork = "Serial";}
-        if(networkIdx == 2){ currentNetwork = "Assetto Corsa";}
+        if(networkIdx == 2){ currentNetwork = "SocketCAN / PCAN";}
+        if(networkIdx == 3){ currentNetwork = "Assetto Corsa";}
 
         if(currentNetwork == "Serial"){
             static int baudIdx = 5;
@@ -2049,11 +2051,36 @@ void UI::networkUI(){
                 }
             }
         }
+        if(currentNetwork == "SocketCAN / PCAN"){
+#ifdef _WIN32
+            ImGui::TextUnformatted("SocketCAN / PCAN input is only available on Linux");
+#else
+            static int canBitRateIdx = 6;
+            static int canPortIdx = 0;
+            labeledCombo("Bit Rate", "##can_bitrate", &canBitRateIdx, canBitRates);
+            if(canBitRate != canBitRates[canBitRateIdx]){
+                rebuildCan = true;
+                canBitRate = canBitRates[canBitRateIdx];
+            }
+            refreshCanPorts();
+            if(canPorts.empty()){
+                ImGui::TextUnformatted("No CAN interfaces detected");
+            } else {
+                if(canPortIdx < 0 || static_cast<size_t>(canPortIdx) >= canPorts.size()){ canPortIdx = 0; }
+                labeledCombo("Interface", "##can_port", &canPortIdx, canPorts);
+                if(canPortIdx >= 0 && static_cast<size_t>(canPortIdx) < discoveredCanPorts.size()){
+                    if(canPort != discoveredCanPorts[canPortIdx]){
+                        rebuildCan = true;
+                        canPort = discoveredCanPorts[canPortIdx];
+                    }
+                }
+            }
+#endif
+        }
         ImGui::EndGroup();
 }
 
 void UI::debug(){
-    ImGui::Text("Hello ;3");
     dbcNodes();
 };
 
@@ -2064,7 +2091,7 @@ void UI::home(){
     const float contentHeight = contentMax.y - contentMin.y;
     static int dbcIdx = 0;
     const float controlWidth = std::max(1.0f, contentWidth * 0.10f);
-    const float labelWidth = ImGui::CalcTextSize("Serial Port").x;
+    const float labelWidth = ImGui::CalcTextSize("SocketCAN / PCAN").x;
     const float comboOffsetX = labelWidth + ImGui::GetStyle().ItemInnerSpacing.x;
     const auto labeledCombo = [&](const char* label, const char* id, int* currentItem, auto& items) {
         const float startX = ImGui::GetCursorPosX();
@@ -2660,6 +2687,52 @@ void UI::refreshSerialPorts(){
     auto current = std::find(discoveredSerialPorts.begin(), discoveredSerialPorts.end(), serialPort);
     if(current == discoveredSerialPorts.end()){
         serialPort = discoveredSerialPorts.front();
+    }
+}
+
+void UI::refreshCanPorts(){
+    static auto lastRefresh = std::chrono::steady_clock::time_point{};
+    const auto now = std::chrono::steady_clock::now();
+    if(lastRefresh != std::chrono::steady_clock::time_point{} &&
+       (now - lastRefresh) < std::chrono::milliseconds(1000) &&
+       !canPorts.empty()){
+        return;
+    }
+    lastRefresh = now;
+
+    std::vector<std::string> nextPorts;
+
+#ifndef _WIN32
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    for(const auto& entry : fs::directory_iterator("/sys/class/net", ec)){
+        if(ec){ break; }
+        std::ifstream typeFile(entry.path() / "type");
+        int type = 0;
+        if(!(typeFile >> type)){ continue; }
+        if(type == 280){
+            nextPorts.push_back(entry.path().filename().string());
+        }
+    }
+    std::sort(nextPorts.begin(), nextPorts.end());
+#endif
+
+    if(nextPorts.empty()){
+        nextPorts.push_back(canPort.empty() ? "can0" : canPort);
+    }
+
+    if(nextPorts == discoveredCanPorts && !canPorts.empty()){ return; }
+
+    discoveredCanPorts = std::move(nextPorts);
+    canPorts.clear();
+    canPorts.reserve(discoveredCanPorts.size());
+    for(const std::string& port : discoveredCanPorts){
+        canPorts.push_back(port.c_str());
+    }
+
+    auto current = std::find(discoveredCanPorts.begin(), discoveredCanPorts.end(), canPort);
+    if(current == discoveredCanPorts.end()){
+        canPort = discoveredCanPorts.front();
     }
 }
 

@@ -32,4 +32,5 @@ bear -- ninja -j$(nproc)
 
 cd ..
 mv ./artifacts/photon/Release/Photon .
+mv ./artifacts/photon/Debug/Photon .
 ./Photon

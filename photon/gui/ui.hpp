@@ -72,6 +72,7 @@ struct UI{
     std::vector<const char*> availableNetwork ={
         "Server",
         "Serial",
+        "SocketCAN / PCAN",
         "Assetto Corsa",
     };
     std::string baudRate = "9600";
@@ -106,6 +107,25 @@ struct UI{
 #endif
     };
     bool rebuildSerial = false;
+    std::string canPort = "can0";
+    std::string canBitRate = "500000";
+    std::vector<const char*> canBitRates = {
+        "10000",
+        "20000",
+        "50000",
+        "100000",
+        "125000",
+        "250000",
+        "500000",
+        "1000000",
+    };
+    std::vector<std::string> discoveredCanPorts = {
+        "can0",
+    };
+    std::vector<const char*> canPorts = {
+        "can0",
+    };
+    bool rebuildCan = false;
 
     struct {
         std::array<uint8_t, 8> data = {};
@@ -187,6 +207,7 @@ struct UI{
     void makeNodes();
     void controlsNode();
     void refreshSerialPorts();
+    void refreshCanPorts();
     bool signalSearchPlot(const CanSignal& signal, const std::vector<double>& time, ImVec2 pos, ImVec2* outSize = nullptr);
 };
 

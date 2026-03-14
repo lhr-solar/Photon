@@ -25,6 +25,7 @@ public:
     void tcpReader();
     void udpReader();
     void serialReader();
+    void canReader();
     void localReader();
     void corsaReader();
     void parser();
@@ -32,6 +33,7 @@ public:
     SPSCQueue<uint8_t> tcpQueue;
     SPSCQueue<uint8_t> udpQueue;
     SPSCQueue<uint8_t> serialQueue;
+    SPSCQueue<uint8_t> canQueue;
     SPSCQueue<uint8_t> localQueue;
     SPSCQueue<RTCarInfo> corsaQueue;
     std::string IP ="3.141.38.115";
@@ -45,6 +47,8 @@ public:
 #else
         "/dev/ttyUSB0";
 #endif
+    std::string canInterface = "can0";
+    std::string canBitRate = "500000";
 
     std::atomic<bool> running = true;
     std::string currentBackend = "Assetto Corsa";

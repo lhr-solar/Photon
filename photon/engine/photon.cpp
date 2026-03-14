@@ -142,6 +142,10 @@ void Photon::manageNetwork(){
         network.currentBackend = gui.ui.currentNetwork;
         network.running = true;
         parse.running = true;
+        network.baudRate = gui.ui.baudRate;
+        network.serialPort = gui.ui.serialPort;
+        network.canInterface = gui.ui.canPort;
+        network.canBitRate = gui.ui.canBitRate;
 
         if(gui.ui.currentNetwork == "Server"){
             network.currentSource_t = std::thread(&Network::tcpReader, &network);
@@ -151,12 +155,16 @@ void Photon::manageNetwork(){
             network.currentSource_t = std::thread(&Network::serialReader, &network);
             parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
         }
+        if(gui.ui.currentNetwork == "SocketCAN / PCAN"){
+            network.currentSource_t = std::thread(&Network::canReader, &network);
+            parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.canQueue));
+        }
         if(gui.ui.currentNetwork == "Assetto Corsa"){
             network.currentSource_t = std::thread(&Network::corsaReader, &network);
             parse.currentParser_t = std::thread(&Parse::acParser, &parse, std::ref(network.corsaQueue));
         }
     }
-    if(gui.ui.rebuildSerial){
+    if(gui.ui.rebuildSerial && gui.ui.currentNetwork == "Serial"){
         network.running = false;
         parse.running = false;
         parse.currentParser_t.join();
@@ -171,6 +179,22 @@ void Photon::manageNetwork(){
         parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.serialQueue));
 
         gui.ui.rebuildSerial = false;
+    }
+    if(gui.ui.rebuildCan && gui.ui.currentNetwork == "SocketCAN / PCAN"){
+        network.running = false;
+        parse.running = false;
+        parse.currentParser_t.join();
+        network.currentSource_t.join();
+        network.running = true;
+        parse.running = true;
+
+        network.canInterface = gui.ui.canPort;
+        network.canBitRate = gui.ui.canBitRate;
+
+        network.currentSource_t = std::thread(&Network::canReader, &network);
+        parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.canQueue));
+
+        gui.ui.rebuildCan = false;
     }
 }
 

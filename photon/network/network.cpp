@@ -14,6 +14,8 @@
 #include <iostream>
 #include <cerrno>
 #include <cstdlib>
+#include <cstdio>
+#include <sstream>
 #include "../engine/include.hpp"
 
 namespace {
@@ -53,6 +55,63 @@ DWORD toWindowsBaud(const std::string& baudRate) {
     }
 }
 #endif
+
+std::string toHex(uint16_t value, size_t width) {
+    std::string out(width, '0');
+    for(size_t i = 0; i < width; ++i){
+        const size_t shift = (width - i - 1) * 4;
+        const uint8_t nibble = static_cast<uint8_t>((value >> shift) & 0xFu);
+        out[i] = static_cast<char>((nibble < 10) ? ('0' + nibble) : ('a' + (nibble - 10)));
+    }
+    return out;
+}
+
+std::string toHex(uint8_t value, size_t width) {
+    std::string out(width, '0');
+    for(size_t i = 0; i < width; ++i){
+        const size_t shift = (width - i - 1) * 4;
+        const uint8_t nibble = static_cast<uint8_t>((value >> shift) & 0xFu);
+        out[i] = static_cast<char>((nibble < 10) ? ('0' + nibble) : ('a' + (nibble - 10)));
+    }
+    return out;
+}
+
+void pushFrameBytes(SPSCQueue<uint8_t>& queue, const std::string& frame) {
+    for(const char ch : frame){
+        while(!queue.try_push(static_cast<uint8_t>(ch))){
+            logs("[!] Network Buffer full!");
+            std::this_thread::yield();
+        }
+    }
+}
+
+#ifndef _WIN32
+bool configureCanInterface(const std::string& interfaceName, const std::string& bitRate) {
+    const auto runCommand = [](const std::string& command) {
+        return std::system(command.c_str()) == 0;
+    };
+
+    std::ostringstream downCommand;
+    downCommand << "ip link set " << interfaceName << " down >/dev/null 2>&1";
+    if(!runCommand(downCommand.str())){
+        return false;
+    }
+
+    std::ostringstream configCommand;
+    configCommand << "ip link set " << interfaceName << " type can bitrate " << bitRate << " >/dev/null 2>&1";
+    if(!runCommand(configCommand.str())){
+        return false;
+    }
+
+    std::ostringstream upCommand;
+    upCommand << "ip link set " << interfaceName << " up >/dev/null 2>&1";
+    if(!runCommand(upCommand.str())){
+        return false;
+    }
+
+    return true;
+}
+#endif
 }
 
 #define QUEUE_CAPACITY 4096
@@ -60,6 +119,7 @@ Network::Network() :
     tcpQueue    (QUEUE_CAPACITY), 
     udpQueue    (QUEUE_CAPACITY), 
     serialQueue (QUEUE_CAPACITY), 
+    canQueue    (QUEUE_CAPACITY),
     localQueue  (QUEUE_CAPACITY),
     corsaQueue  (QUEUE_CAPACITY){
     running = true;
@@ -81,7 +141,7 @@ void Network::tcpReader(){
         }
         if (bytesRead > 0) {
             for (std::size_t i = 0; i < static_cast<std::size_t>(bytesRead); i++) {
-                while (!tcpQueue.try_push(buffer[i])) { std::cout << "[!] Network Buffer full!" << std::endl; std::this_thread::yield(); }
+                while (!tcpQueue.try_push(buffer[i])) { logs("[!] Network Buffer full!"); std::this_thread::yield(); }
             }
         }
     }
@@ -110,7 +170,7 @@ void Network::corsaReader(){
             if(bytesRead < 0){
                 consecutiveReadFailures++;
                 if(consecutiveReadFailures >= maxConsecutiveReadFailures){
-                    std::cout << "[!] Corsa UDP read failed repeatedly; restarting reader socket" << std::endl;
+                    logs("[!] Corsa UDP read failed repeatedly; restarting reader socket");
                     std::this_thread::sleep_for(std::chrono::milliseconds(250));
                     break;
                 }
@@ -120,7 +180,7 @@ void Network::corsaReader(){
             consecutiveReadFailures = 0;
             std::size_t count = static_cast<std::size_t>(bytesRead) / sizeof(RTCarInfo);
             for(std::size_t i = 0; i < count; i++){
-                while(!corsaQueue.try_push(buffer[i])){ std::cout << "[!] Network Buffer full!" << std::endl; std::this_thread::yield();}
+                while(!corsaQueue.try_push(buffer[i])){ logs("[!] Network Buffer full!"); std::this_thread::yield();}
             }
         }
     }
@@ -129,11 +189,17 @@ void Network::corsaReader(){
 #ifndef _WIN32
 #include <termios.h>
 #include <unistd.h>
+#include <linux/can.h>
+#include <linux/can/raw.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 void Network::serialReader(){
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
     int _fd = open(serialPort.data(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     while((_fd < 0) && running){
-        std::cout << "[!] Attempting connection on " << serialPort << std::endl;
+        logs("[!] Attempting connection on " << serialPort);
         _fd = open(serialPort.data(), O_RDWR | O_NOCTTY | O_NONBLOCK);
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
@@ -172,6 +238,89 @@ void Network::serialReader(){
     close(_fd);
 };
 
+void Network::canReader(){
+    bool hasLoggedInitialConnection = false;
+    bool hasTriedConfigureInterface = false;
+    bool hasLoggedConfigureFailure = false;
+    while(running){
+        if(!hasTriedConfigureInterface){
+            if(!configureCanInterface(canInterface, canBitRate)){
+                if(!hasLoggedConfigureFailure){
+                    logs("[!] Failed to configure CAN interface " << canInterface << " at bitrate " << canBitRate
+                         << "; continuing with the interface's existing configuration");
+                    hasLoggedConfigureFailure = true;
+                }
+            } else {
+                hasLoggedConfigureFailure = false;
+            }
+            hasTriedConfigureInterface = true;
+        }
+
+        const int socketFd = socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
+        if(socketFd < 0){
+            logs("[!] Failed to open CAN socket on " << canInterface);
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        struct ifreq ifr = {};
+        std::snprintf(ifr.ifr_name, IFNAMSIZ, "%s", canInterface.c_str());
+        if(ioctl(socketFd, SIOCGIFINDEX, &ifr) < 0){
+            logs("[!] Attempting connection on " << canInterface);
+            close(socketFd);
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        sockaddr_can addr = {};
+        addr.can_family = AF_CAN;
+        addr.can_ifindex = ifr.ifr_ifindex;
+        if(bind(socketFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0){
+            logs("[!] Attempting connection on " << canInterface);
+            close(socketFd);
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        if(!hasLoggedInitialConnection){
+            logs("[+] Connected to CAN interface " << canInterface);
+            hasLoggedInitialConnection = true;
+        }
+
+        while(running){
+            can_frame frame = {};
+            const ssize_t bytesRead = read(socketFd, &frame, sizeof(frame));
+            if(bytesRead < 0){
+                if(errno == EAGAIN || errno == EWOULDBLOCK){
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                    continue;
+                }
+                break;
+            }
+            if(bytesRead == 0){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+            if(static_cast<size_t>(bytesRead) < sizeof(can_frame)){ continue; }
+            if((frame.can_id & CAN_EFF_FLAG) != 0 || (frame.can_id & CAN_RTR_FLAG) != 0){ continue; }
+
+            std::string serialized;
+            serialized.reserve(1 + 3 + 1 + static_cast<size_t>(frame.can_dlc) * 2 + 1);
+            serialized += 't';
+            serialized += toHex(static_cast<uint16_t>(frame.can_id & CAN_SFF_MASK), 3);
+            serialized += toHex(static_cast<uint8_t>(frame.can_dlc & 0xFu), 1);
+            for(uint8_t i = 0; i < frame.can_dlc && i < 8; ++i){
+                serialized += toHex(frame.data[i], 2);
+            }
+            serialized += '\r';
+            pushFrameBytes(canQueue, serialized);
+        }
+
+        close(socketFd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+}
+
 #else
 void Network::serialReader(){
     std::vector<uint8_t> buffer(BUFFER_CAPACITY);
@@ -193,7 +342,7 @@ void Network::serialReader(){
             nullptr);
 
         if(portHandle == INVALID_HANDLE_VALUE){
-            std::cout << "[!] Attempting connection on " << serialPort << std::endl;
+            logs("[!] Attempting connection on " << serialPort);
             std::this_thread::sleep_for(std::chrono::milliseconds(250));
         }
     }
@@ -244,4 +393,10 @@ void Network::serialReader(){
 
     CloseHandle(portHandle);
 };
+
+void Network::canReader(){
+    while(running){
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+}
 #endif
