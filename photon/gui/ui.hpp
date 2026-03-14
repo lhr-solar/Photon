@@ -18,7 +18,7 @@
 
 struct UI{
     Parse *parseInterface;
-    int fontSize = 24;
+    int fontSize = 16;
     int fontSizeMin = 8;
     int fontSizeMax = 96;
     bool fontSizeSynced = false;
