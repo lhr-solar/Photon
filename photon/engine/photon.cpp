@@ -170,22 +170,19 @@ void Photon::manageNetwork(){
         if(isCustomDbcSelection(gui.ui.currentDBC)){
             const std::string filePath = customDbcPathFromSelection(gui.ui.currentDBC);
             if (filePath.empty()) {
-                errorMessage = "No custom DBC file path was provided.";
+                errorMessage = "Failed to load";
             } else {
                 loaded = parse.canStore.loadStateFromFile(filePath, &errorMessage);
                 if (loaded) {
                     parse.currentDBC = gui.ui.currentDBC;
                     gui.ui.customDbcLoadedPath = filePath;
-                    gui.ui.dbcStatusMessage = "Loaded custom DBC: " + filePath;
+                    gui.ui.dbcStatusMessage = "Loaded";
                     gui.ui.dbcStatusIsError = false;
                 }
             }
         }
         if (!loaded) {
-            if (errorMessage.empty()) {
-                errorMessage = "Failed to load DBC.";
-            }
-            gui.ui.dbcStatusMessage = errorMessage;
+            gui.ui.dbcStatusMessage = "Failed to load";
             gui.ui.dbcStatusIsError = true;
             gui.ui.currentDBC = previousDBC;
             gui.ui.dbcSelectionIndex = dbcSelectionIndexFromValue(previousDBC);

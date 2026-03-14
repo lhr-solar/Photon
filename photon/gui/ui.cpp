@@ -2163,9 +2163,11 @@ void UI::networkUI(){
         static int dbcIdx = 0;
         static int networkIdx = 3;
         (void)dbcIdx;
-        const float columnWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x * 0.10f);
+        const ImGuiStyle& style = ImGui::GetStyle();
+        const float availableWidth = ImGui::GetContentRegionAvail().x;
         const float labelWidth = ImGui::CalcTextSize("SocketCAN / PCAN").x;
-        const float comboOffsetX = labelWidth + ImGui::GetStyle().ItemInnerSpacing.x;
+        const float comboOffsetX = labelWidth + (style.ItemInnerSpacing.x * 0.35f);
+        const float columnWidth = std::max(120.0f, availableWidth - comboOffsetX - style.FramePadding.x);
         const auto labeledCombo = [&](const char* label, const char* id, int* currentItem, auto& items) {
             const float startX = ImGui::GetCursorPosX();
             ImGui::AlignTextToFramePadding();
@@ -2239,6 +2241,11 @@ void UI::home(){
     const ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
     const float contentWidth = contentMax.x - contentMin.x;
     const float contentHeight = contentMax.y - contentMin.y;
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float sidebarSpacing = style.ItemSpacing.x;
+    const float leftSidebarWidth = std::max(1.0f, contentWidth * 0.25f);
+    const float rightSidebarWidth = std::max(1.0f, contentWidth * 0.25f);
+    const float sidebarHeight = std::max(1.0f, contentHeight);
     if (dbcSelectionIndex != 3 || isCustomDbcSelection(currentDBC)) {
         dbcSelectionIndex = dbcSelectionIndexFromValue(currentDBC);
     }
@@ -2248,112 +2255,114 @@ void UI::home(){
             copyStringToBuffer(selectedCustomPath, customDbcPath, sizeof(customDbcPath));
         }
     }
-    const float controlWidth = std::max(1.0f, contentWidth * 0.10f);
     const float labelWidth = ImGui::CalcTextSize("SocketCAN / PCAN").x;
-    const float comboOffsetX = labelWidth + ImGui::GetStyle().ItemInnerSpacing.x;
-    const auto labeledCombo = [&](const char* label, const char* id, int* currentItem, auto& items) {
-        const float startX = ImGui::GetCursorPosX();
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(label);
-        ImGui::SameLine(0.0f, 0.0f);
-        ImGui::SetCursorPosX(startX + comboOffsetX);
-        ImGui::SetNextItemWidth(controlWidth);
-        ImGui::Combo(id, currentItem, items.data(), items.size());
-    };
+    const float comboOffsetX = labelWidth + (style.ItemInnerSpacing.x * 0.35f);
 
     ImGui::SetCursorPos(contentMin);
-    ImGui::BeginGroup();
-    const int previousDbcSelectionIndex = dbcSelectionIndex;
-    labeledCombo("DBC", "##dbc", &dbcSelectionIndex, availableDBC);
-    if (dbcSelectionIndex != previousDbcSelectionIndex) {
-        if (dbcSelectionIndex == 0) {
-            currentDBC = "assettoCorsa";
-            dbcStatusMessage.clear();
-            dbcStatusIsError = false;
+    if (ImGui::BeginChild("##home_left_sidebar", ImVec2(leftSidebarWidth, sidebarHeight), true)) {
+        const float leftSidebarContentWidth = ImGui::GetContentRegionAvail().x;
+        const float controlWidth = std::max(140.0f, leftSidebarContentWidth - comboOffsetX - style.FramePadding.x);
+        const auto labeledCombo = [&](const char* label, const char* id, int* currentItem, auto& items) {
+            const float startX = ImGui::GetCursorPosX();
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted(label);
+            ImGui::SameLine(0.0f, 0.0f);
+            ImGui::SetCursorPosX(startX + comboOffsetX);
+            ImGui::SetNextItemWidth(controlWidth);
+            ImGui::Combo(id, currentItem, items.data(), items.size());
+        };
+        const int previousDbcSelectionIndex = dbcSelectionIndex;
+        labeledCombo("DBC", "##dbc", &dbcSelectionIndex, availableDBC);
+        if (dbcSelectionIndex != previousDbcSelectionIndex) {
+            if (dbcSelectionIndex == 0) {
+                currentDBC = "assettoCorsa";
+                dbcStatusMessage.clear();
+                dbcStatusIsError = false;
+            }
+            if (dbcSelectionIndex == 1) {
+                currentDBC = "daybreak";
+                dbcStatusMessage.clear();
+                dbcStatusIsError = false;
+            }
+            if (dbcSelectionIndex == 2) {
+                currentDBC = "vehicle-with-undisclosed-name";
+                dbcStatusMessage.clear();
+                dbcStatusIsError = false;
+            }
         }
-        if (dbcSelectionIndex == 1) {
-            currentDBC = "daybreak";
-            dbcStatusMessage.clear();
-            dbcStatusIsError = false;
-        }
-        if (dbcSelectionIndex == 2) {
-            currentDBC = "vehicle-with-undisclosed-name";
-            dbcStatusMessage.clear();
-            dbcStatusIsError = false;
-        }
-    }
 
-    if (dbcSelectionIndex == 3) {
+        if (dbcSelectionIndex == 3) {
+            ImGui::Spacing();
+            const float startX = ImGui::GetCursorPosX();
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted("DBC file");
+            ImGui::SameLine(0.0f, 0.0f);
+            ImGui::SetCursorPosX(startX + comboOffsetX);
+            ImGui::SetNextItemWidth(controlWidth);
+            const bool submittedPath = ImGui::InputText("##custom_dbc_path", customDbcPath, sizeof(customDbcPath), ImGuiInputTextFlags_EnterReturnsTrue);
+
+            ImGui::SetCursorPosX(startX + comboOffsetX);
+            if (ImGui::Button("Browse...")) {
+                const std::string filePath = openDbcFilePicker();
+                if (!filePath.empty()) {
+                    copyStringToBuffer(filePath, customDbcPath, sizeof(customDbcPath));
+                    currentDBC = makeCustomDbcSelection(filePath);
+                    dbcStatusMessage = "Loaded";
+                    dbcStatusIsError = false;
+                }
+            }
+
+            if (submittedPath) {
+                const std::string filePath = trimWhitespace(customDbcPath);
+                if (filePath.empty()) {
+                    dbcStatusMessage = "Failed to load";
+                    dbcStatusIsError = true;
+                } else {
+                    copyStringToBuffer(filePath, customDbcPath, sizeof(customDbcPath));
+                    currentDBC = makeCustomDbcSelection(filePath);
+                    dbcStatusMessage = "Loaded";
+                    dbcStatusIsError = false;
+                }
+            }
+
+            if (!dbcStatusMessage.empty()) {
+                const ImVec4 statusColor = dbcStatusIsError
+                    ? ImVec4(0.95f, 0.35f, 0.35f, 1.0f)
+                    : ImVec4(0.35f, 0.85f, 0.45f, 1.0f);
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, statusColor);
+                ImGui::TextUnformatted(dbcStatusMessage.c_str());
+                ImGui::PopStyleColor();
+            }
+        }
+
+        if (!dbcStatusMessage.empty() && dbcSelectionIndex != 3) {
+            const ImVec4 statusColor = dbcStatusIsError
+                ? ImVec4(0.95f, 0.35f, 0.35f, 1.0f)
+                : ImVec4(0.35f, 0.85f, 0.45f, 1.0f);
+            ImGui::PushStyleColor(ImGuiCol_Text, statusColor);
+            ImGui::TextWrapped("%s", dbcStatusMessage.c_str());
+            ImGui::PopStyleColor();
+        }
+
         ImGui::Spacing();
-        const float startX = ImGui::GetCursorPosX();
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted("DBC file");
-        ImGui::SameLine(0.0f, 0.0f);
-        ImGui::SetCursorPosX(startX + comboOffsetX);
-        ImGui::SetNextItemWidth(std::max(controlWidth * 2.5f, 280.0f));
-        const bool submittedPath = ImGui::InputText("##custom_dbc_path", customDbcPath, sizeof(customDbcPath), ImGuiInputTextFlags_EnterReturnsTrue);
-
-        ImGui::SameLine();
-        if (ImGui::Button("Browse...")) {
-            const std::string filePath = openDbcFilePicker();
-            if (!filePath.empty()) {
-                copyStringToBuffer(filePath, customDbcPath, sizeof(customDbcPath));
-                currentDBC = makeCustomDbcSelection(filePath);
-                dbcStatusMessage = "Loading custom DBC...";
-                dbcStatusIsError = false;
-            } else {
-                dbcStatusMessage = "No file selected.";
-                dbcStatusIsError = false;
-            }
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Load") || submittedPath) {
-            const std::string filePath = trimWhitespace(customDbcPath);
-            if (filePath.empty()) {
-                dbcStatusMessage = "Select a DBC file or enter a path first.";
-                dbcStatusIsError = true;
-            } else {
-                copyStringToBuffer(filePath, customDbcPath, sizeof(customDbcPath));
-                currentDBC = makeCustomDbcSelection(filePath);
-                dbcStatusMessage = "Loading custom DBC...";
-                dbcStatusIsError = false;
-            }
-        }
-
-        if (!customDbcLoadedPath.empty()) {
-            ImGui::TextWrapped("Loaded: %s", customDbcLoadedPath.c_str());
-        }
+        networkUI();
     }
+    ImGui::EndChild();
 
-    if (!dbcStatusMessage.empty()) {
-        const ImVec4 statusColor = dbcStatusIsError
-            ? ImVec4(0.95f, 0.35f, 0.35f, 1.0f)
-            : ImVec4(0.35f, 0.85f, 0.45f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, statusColor);
-        ImGui::TextWrapped("%s", dbcStatusMessage.c_str());
-        ImGui::PopStyleColor();
-    }
-    ImGui::EndGroup();
+    ImGui::SameLine(0.0f, sidebarSpacing);
 
-    const float nextControlY = ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y + ImGui::GetStyle().ItemSpacing.y;
-    ImGui::SetCursorPos(ImVec2(contentMin.x, nextControlY));
-    ImGui::BeginGroup();
-    networkUI();
-    ImGui::EndGroup();
+    const float fillerWidth = std::max(0.0f, contentWidth - leftSidebarWidth - rightSidebarWidth - sidebarSpacing);
+    ImGui::Dummy(ImVec2(fillerWidth, 1.0f));
+    ImGui::SameLine(0.0f, sidebarSpacing);
 
-    const ImVec2 modelSize(
-        std::max(1.0f, contentWidth * 0.20f),
-        std::max(1.0f, contentHeight * 0.35f)
-    );
-    const ImVec2 modelPos(
-        std::max(contentMin.x, contentMax.x - modelSize.x),
-        contentMin.y
-    );
-
-    ImGui::SetCursorPos(modelPos);
-    gltfWidget(daybreakModel, modelSize);
-    {
+    if (ImGui::BeginChild("##home_right_sidebar", ImVec2(rightSidebarWidth, sidebarHeight), true)) {
+        const ImVec2 rightSidebarAvail = ImGui::GetContentRegionAvail();
+        const ImVec2 modelSize(
+            std::max(1.0f, rightSidebarAvail.x),
+            std::max(1.0f, rightSidebarAvail.y * 0.35f)
+        );
+        gltfWidget(daybreakModel, modelSize);
         const char* overlayText = "no GPS found...";
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         const ImVec2 imageMin = ImGui::GetItemRectMin();
@@ -2367,7 +2376,35 @@ void UI::home(){
 
         drawList->AddText(ImVec2(textPos.x + 1.0f, textPos.y + 1.0f), IM_COL32(0, 0, 0, 160), overlayText);
         drawList->AddText(textPos, IM_COL32(255, 255, 255, 220), overlayText);
+
+        const ImVec2 videoSize(
+            std::max(1.0f, rightSidebarAvail.x),
+            std::max(1.0f, rightSidebarAvail.y * 0.35f)
+        );
+        const float videoY = std::max(ImGui::GetCursorPosY(), rightSidebarAvail.y - videoSize.y);
+        ImGui::SetCursorPosY(videoY);
+        if (videoSource.texture) {
+            ImGui::Image(videoSource.texture, videoSize);
+        } else {
+            ImGui::Dummy(videoSize);
+            const ImVec2 videoMin = ImGui::GetItemRectMin();
+            const ImVec2 videoMax = ImGui::GetItemRectMax();
+            drawList->AddRectFilled(videoMin, videoMax, IM_COL32(70, 70, 70, 255));
+        }
+
+        const char* videoOverlayText = "No stream available...";
+        const ImVec2 videoMin = ImGui::GetItemRectMin();
+        const ImVec2 videoMax = ImGui::GetItemRectMax();
+        const ImVec2 videoTextSize = ImGui::CalcTextSize(videoOverlayText);
+        const ImVec2 videoTextPos(
+            videoMax.x - videoTextSize.x - padding,
+            videoMax.y - videoTextSize.y - padding
+        );
+
+        drawList->AddText(ImVec2(videoTextPos.x + 1.0f, videoTextPos.y + 1.0f), IM_COL32(0, 0, 0, 160), videoOverlayText);
+        drawList->AddText(videoTextPos, IM_COL32(255, 255, 255, 220), videoOverlayText);
     }
+    ImGui::EndChild();
 }
 
 void UI::dbcNodes(){
@@ -2458,14 +2495,29 @@ plot_link_created:;
     }
 
     int hoveredLinkId = 0;
-    if(ImNodes::IsLinkHovered(&hoveredLinkId) && ImGui::IsMouseClicked(ImGuiMouseButton_Left)){
+    const bool editableLinkHovered = ImNodes::IsLinkHovered(&hoveredLinkId) &&
+        ((proceduralDataLink.connected && hoveredLinkId == proceduralDataLink.linkId) ||
+         (plotSignalLink.connected && hoveredLinkId == plotSignalLink.linkId));
+    if(editableLinkHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)){
         if((proceduralDataLink.connected && hoveredLinkId == proceduralDataLink.linkId) ||
            (plotSignalLink.connected && hoveredLinkId == plotSignalLink.linkId)){
             activeEditableLinkId = hoveredLinkId;
         }
     }
-    if(ImGui::IsMouseClicked(ImGuiMouseButton_Left) && (!ImNodes::IsLinkHovered(&hoveredLinkId))){
+    if(ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !editableLinkHovered){
         activeEditableLinkId = -1;
+    }
+    if(editableLinkHovered && ImGui::IsKeyPressed(ImGuiKey_Delete, false)){
+        if(proceduralDataLink.connected && hoveredLinkId == proceduralDataLink.linkId){
+            proceduralDataLink.connected = false;
+            proceduralDataLink.canId = -1;
+            activeEditableLinkId = -1;
+        } else if(plotSignalLink.connected && hoveredLinkId == plotSignalLink.linkId){
+            plotSignalLink.connected = false;
+            plotSignalLink.canId = -1;
+            plotSignalLink.signalIndex = -1;
+            activeEditableLinkId = -1;
+        }
     }
 
     if(proceduralDataLink.connected){
