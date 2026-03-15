@@ -235,6 +235,10 @@ void Photon::manageNetwork(){
 
         gui.ui.rebuildSerial = false;
     }
+    if(gui.ui.currentNetwork == "SocketCAN / PCAN" &&
+       gui.ui.canBitRate != network.canBitRate){
+        gui.ui.rebuildCan = true;
+    }
     if(gui.ui.rebuildCan && gui.ui.currentNetwork == "SocketCAN / PCAN"){
         network.running = false;
         parse.running = false;
