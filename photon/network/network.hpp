@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 #include <thread>
+#include <atomic>
 #include "spsc.hpp"
 #include "../parse/corsa.hpp"
 
@@ -16,8 +17,23 @@
 #include <termios.h>
 #endif
 
+enum class ConnectionState {
+    Idle,
+    Configuring,
+    Connected,
+    Error,
+};
+
+struct ConnectionStatusSnapshot {
+    ConnectionState state = ConnectionState::Idle;
+    std::string message;
+    bool warning = false;
+};
+
 class Network{
 private:
+    void setCanStatus(ConnectionState state, const std::string& message, bool warning = false);
+    ConnectionStatusSnapshot makeCanStatusSnapshot() const;
 
 public:
     Network();
@@ -54,10 +70,17 @@ public:
         "can0";
 #endif
     std::string canBitRate = "500000";
+    std::string canDataBitRate = "";
 
     std::atomic<bool> running = true;
+    std::atomic<ConnectionState> canState = ConnectionState::Idle;
+    std::atomic<bool> canStatusWarning = false;
+    mutable std::mutex canStatusMutex;
+    std::string canStatusMessage;
     std::string currentBackend = "Assetto Corsa";
     std::thread currentSource_t;
+
+    ConnectionStatusSnapshot getCanStatus() const;
 
 /* end of network class */
 };

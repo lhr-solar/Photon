@@ -2211,6 +2211,7 @@ void UI::networkUI(){
         if(currentNetwork == "SocketCAN / PCAN"){
             static int canBitRateIdx = 11;
             static int canPortIdx = 0;
+            static int canDataBitRateIdx = 0;
             if(canBitRateIdx < 0 || static_cast<size_t>(canBitRateIdx) >= canBitRates.size() || canBitRate != canBitRates[canBitRateIdx]){
                 const auto it = std::find_if(canBitRates.begin(), canBitRates.end(), [&](const char* value){
                     return canBitRate == value;
@@ -2221,6 +2222,27 @@ void UI::networkUI(){
             if(canBitRate != canBitRates[canBitRateIdx]){
                 rebuildCan = true;
                 canBitRate = canBitRates[canBitRateIdx];
+            }
+
+            if(canDataBitRateIdx < 0 || static_cast<size_t>(canDataBitRateIdx) >= canDataBitRates.size() ||
+               (canDataBitRateIdx == 0 && !canDataBitRate.empty()) ||
+               (canDataBitRateIdx > 0 && canDataBitRate != canDataBitRates[canDataBitRateIdx])){
+                if(canDataBitRate.empty()){
+                    canDataBitRateIdx = 0;
+                } else {
+                    const auto it = std::find_if(canDataBitRates.begin() + 1, canDataBitRates.end(), [&](const char* value){
+                        return canDataBitRate == value;
+                    });
+                    canDataBitRateIdx = (it == canDataBitRates.end())
+                        ? 0
+                        : static_cast<int>(std::distance(canDataBitRates.begin(), it));
+                }
+            }
+            labeledCombo("Data Bit Rate", "##can_data_bitrate", &canDataBitRateIdx, canDataBitRates);
+            const std::string selectedDataRate = (canDataBitRateIdx <= 0) ? "" : canDataBitRates[canDataBitRateIdx];
+            if(canDataBitRate != selectedDataRate){
+                rebuildCan = true;
+                canDataBitRate = selectedDataRate;
             }
             refreshCanPorts();
             if(canPorts.empty()){
@@ -2234,6 +2256,31 @@ void UI::networkUI(){
                         canPort = discoveredCanPorts[canPortIdx];
                     }
                 }
+            }
+            if(networkInterface != nullptr){
+                const ConnectionStatusSnapshot status = networkInterface->getCanStatus();
+                ImVec4 color{0.65f, 0.65f, 0.65f, 1.0f};
+                const char* stateLabel = "Idle";
+                switch(status.state){
+                    case ConnectionState::Configuring:
+                        stateLabel = "Configuring";
+                        color = ImVec4(0.95f, 0.76f, 0.28f, 1.0f);
+                        break;
+                    case ConnectionState::Connected:
+                        stateLabel = status.warning ? "Connected (warning)" : "Connected";
+                        color = status.warning ? ImVec4(0.95f, 0.76f, 0.28f, 1.0f) : ImVec4(0.25f, 0.78f, 0.38f, 1.0f);
+                        break;
+                    case ConnectionState::Error:
+                        stateLabel = "Error";
+                        color = ImVec4(0.90f, 0.28f, 0.28f, 1.0f);
+                        break;
+                    case ConnectionState::Idle:
+                    default:
+                        break;
+                }
+                const std::string message = status.message.empty() ? stateLabel : status.message;
+                ImGui::Spacing();
+                ImGui::TextColored(color, "[%s] %s", stateLabel, message.c_str());
             }
         }
         ImGui::EndGroup();

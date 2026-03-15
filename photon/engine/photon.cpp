@@ -38,6 +38,7 @@ int dbcSelectionIndexFromValue(const std::string& selection) {
 Photon::Photon(){ 
     logs("[+] Constructing Photon"); 
     gui.ui.parseInterface = &parse;
+    gui.ui.networkInterface = &network;
 };
 Photon::~Photon(){ 
     logs("[!] Destructuring Photon");
@@ -201,6 +202,7 @@ void Photon::manageNetwork(){
         network.serialPort = gui.ui.serialPort;
         network.canInterface = gui.ui.canPort;
         network.canBitRate = gui.ui.canBitRate;
+        network.canDataBitRate = gui.ui.canDataBitRate;
 
         if(gui.ui.currentNetwork == "Server"){
             network.currentSource_t = std::thread(&Network::tcpReader, &network);
@@ -236,7 +238,7 @@ void Photon::manageNetwork(){
         gui.ui.rebuildSerial = false;
     }
     if(gui.ui.currentNetwork == "SocketCAN / PCAN" &&
-       gui.ui.canBitRate != network.canBitRate){
+       (gui.ui.canBitRate != network.canBitRate || gui.ui.canDataBitRate != network.canDataBitRate)){
         gui.ui.rebuildCan = true;
     }
     if(gui.ui.rebuildCan && gui.ui.currentNetwork == "SocketCAN / PCAN"){
@@ -249,6 +251,7 @@ void Photon::manageNetwork(){
 
         network.canInterface = gui.ui.canPort;
         network.canBitRate = gui.ui.canBitRate;
+        network.canDataBitRate = gui.ui.canDataBitRate;
 
         network.currentSource_t = std::thread(&Network::canReader, &network);
         parse.currentParser_t = std::thread(&Parse::parser, &parse, std::ref(network.canQueue));

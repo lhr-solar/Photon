@@ -18,6 +18,7 @@
 
 struct UI{
     Parse *parseInterface;
+    Network *networkInterface = nullptr;
     int fontSize = 16;
     int fontSizeMin = 8;
     int fontSizeMax = 96;
@@ -120,6 +121,7 @@ struct UI{
         "can0";
 #endif
     std::string canBitRate = "500000";
+    std::string canDataBitRate = "";
     std::vector<const char*> canBitRates = {
         "5000",
         "10000",
@@ -135,6 +137,14 @@ struct UI{
         "500000",
         "800000",
         "1000000",
+    };
+    std::vector<const char*> canDataBitRates = {
+        "Classic CAN (no data bitrate)",
+        "500000",
+        "1000000",
+        "2000000",
+        "4000000",
+        "5000000",
     };
     std::vector<std::string> discoveredCanPorts = {
 #ifdef _WIN32
