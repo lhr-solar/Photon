@@ -1,32 +1,25 @@
-#version 450
+#version 450 core
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aUV;
+layout(location = 2) in vec4 aColor;
 
-layout (location = 0) in vec2 inPos;
-layout (location = 1) in vec2 inUV;
-layout (location = 2) in vec4 inColor;
+layout(push_constant) uniform uPushConstant {
+    vec2 uScale;
+    vec2 uTranslate;
+} pc;
 
-layout (push_constant) uniform PushConstants {
-        vec2 scale;
-        vec2 translate;
-        vec2 invScreenSize;
-        vec2 whitePixel;
-        vec4 gradTop;
-        vec4 gradBottom;
-        float u_time;
-} pushConstants;
-
-layout (location = 0) out vec2 outUV;
-layout (location = 1) out vec4 outColor;
-layout (location = 2) out vec2 outPos;
-
-out gl_PerVertex 
-{
-	vec4 gl_Position;   
+out gl_PerVertex {
+    vec4 gl_Position;
 };
+
+layout(location = 0) out struct {
+    vec4 Color;
+    vec2 UV;
+} Out;
 
 void main()
 {
-        outUV = inUV;
-        outColor = inColor;
-        outPos = inPos;
-        gl_Position = vec4(inPos * pushConstants.scale + pushConstants.translate, 0.0, 1.0);
+    Out.Color = aColor;
+    Out.UV = aUV;
+    gl_Position = vec4(aPos * pc.uScale + pc.uTranslate, 0, 1);
 }

@@ -16,9 +16,9 @@ struct GPU{
 
     void init();
     void imguiBackend();
-    void imguiPresentation(uint32_t imgIdx);
-    void startFrame();
-    void submitFrame();
+    void imguiPresentation(const uint32_t imgIdx);
+    void startFrame(uint32_t& imgIdx);
+    void submitFrame(const uint32_t imgIdx);
     void destroy();
 
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);
@@ -45,6 +45,7 @@ struct GPU{
     std::vector<VkSemaphore> renderCompleteSemaphores{};
     std::vector<VkSemaphore> imageAvailableSemaphores{};
     std::vector<VkFence> fences{};
+    std::vector<VkFence> imagesInFlight{};
     VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
     VkDevice device{VK_NULL_HANDLE};
     VkQueue queue{VK_NULL_HANDLE};
@@ -74,11 +75,6 @@ struct GPU{
     struct PushConstBlock {
         glm::vec2 scale;
         glm::vec2 translate;
-        glm::vec2 invScreenSize;
-        glm::vec2 whitePixel;
-        glm::vec4 gradTop;
-        glm::vec4 gradBottom;
-        float u_time;
     } imguiPushConst;
 
     std::vector<VkBuffer> vertexBuffers{};
@@ -93,7 +89,6 @@ struct GPU{
     std::vector<VkDeviceMemory> indexBufferMemories{};
     std::vector<uint32_t> vertexIsMapped{};
     std::vector<uint32_t> indexIsMapped{};
-
 
     uint32_t frameIndex = 0;
 };

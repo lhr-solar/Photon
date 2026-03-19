@@ -435,7 +435,7 @@ void GPU::imguiBackend(){
     io.Fonts->SetTexID(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(descriptorSet)));
 
     VkPushConstantRange pushConstantRange {};
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(imguiPushConst);
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
@@ -621,25 +621,25 @@ void GPU::imguiPresentation(uint32_t imgIdx){
     ImDrawData *imDrawData = ImGui::GetDrawData();
     VkDeviceSize newVertexBufferSize = imDrawData->TotalVtxCount * sizeof(ImDrawVert);
     VkDeviceSize newIndexBufferSize = imDrawData->TotalIdxCount * sizeof(ImDrawIdx);
-    VkDeviceSize& vertexBufferSize = vertexBufferSizes[imgIdx];
-    VkDeviceSize& indexBufferSize = indexBufferSizes[imgIdx];
+    VkDeviceSize& vertexBufferSize = vertexBufferSizes[frameIndex];
+    VkDeviceSize& indexBufferSize = indexBufferSizes[frameIndex];
 
     while(newVertexBufferSize > dedicatedVertexSize) dedicatedVertexSize = dedicatedVertexSize * 2;
-    while(newVertexBufferSize > dedicatedIndexSize) dedicatedIndexSize = dedicatedIndexSize * 2;
+    while(newIndexBufferSize > dedicatedIndexSize) dedicatedIndexSize = dedicatedIndexSize * 2;
     newVertexBufferSize = dedicatedVertexSize;
     newIndexBufferSize = dedicatedIndexSize;
 
-    VkBuffer& vertexBuffer = vertexBuffers[imgIdx];
-    VkBuffer& indexBuffer = indexBuffers[imgIdx];
-    int32_t& vertexCount = vertexCounts[imgIdx];
-    int32_t& indexCount = indexCounts[imgIdx];
+    VkBuffer& vertexBuffer = vertexBuffers[frameIndex];
+    VkBuffer& indexBuffer = indexBuffers[frameIndex];
+    int32_t& vertexCount = vertexCounts[frameIndex];
+    int32_t& indexCount = indexCounts[frameIndex];
 
     // Vertex Buffer
     if ((vertexBuffer == VK_NULL_HANDLE) || (vertexBufferSize < newVertexBufferSize)) {
         vertexBufferSize = newVertexBufferSize;
-        uint32_t& isMapped = vertexIsMapped[imgIdx];
-        VkDeviceMemory& memory = vertexBufferMemories[imgIdx];
-        void*& mapped = vertexBufferMapped[imgIdx];
+        uint32_t& isMapped = vertexIsMapped[frameIndex];
+        VkDeviceMemory& memory = vertexBufferMemories[frameIndex];
+        void*& mapped = vertexBufferMapped[frameIndex];
         if(isMapped){ vkUnmapMemory(device, memory); isMapped = false; }
         if(vertexBuffer) vkDestroyBuffer(device, vertexBuffer, nullptr);
         if(memory) vkFreeMemory(device, memory, nullptr);
@@ -659,16 +659,16 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
         vkAllocateMemory(device, &memAlloc, nullptr, &memory);
         vkBindBufferMemory(device, vertexBuffer, memory, 0);
-        vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &vertexBufferMapped[imgIdx]);
+        vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &vertexBufferMapped[frameIndex]);
         isMapped = true;
     } vertexCount = imDrawData->TotalVtxCount;
 
     // Index buffer
     if ((indexBuffer == VK_NULL_HANDLE) || (indexBufferSize < newIndexBufferSize)) {
         indexBufferSize = newIndexBufferSize;
-        uint32_t& isMapped = indexIsMapped[imgIdx];
-        VkDeviceMemory& memory = indexBufferMemories[imgIdx];
-        void*& mapped = indexBufferMapped[imgIdx];
+        uint32_t& isMapped = indexIsMapped[frameIndex];
+        VkDeviceMemory& memory = indexBufferMemories[frameIndex];
+        void*& mapped = indexBufferMapped[frameIndex];
         if(isMapped){ vkUnmapMemory(device, memory); isMapped = false; }
         if(indexBuffer) vkDestroyBuffer(device, indexBuffer, nullptr);
         if(memory) vkFreeMemory(device, memory, nullptr);
@@ -688,13 +688,13 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
         vkAllocateMemory(device, &memAlloc, nullptr, &memory);
         vkBindBufferMemory(device, indexBuffer, memory, 0);
-        vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &indexBufferMapped[imgIdx]);
+        vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &indexBufferMapped[frameIndex]);
         isMapped = true;
     } indexCount = imDrawData->TotalIdxCount;
 
     // Upload data
-    ImDrawVert *vtxDst = (ImDrawVert *)vertexBufferMapped[imgIdx];
-    ImDrawIdx *idxDst = (ImDrawIdx *)indexBufferMapped[imgIdx];
+    ImDrawVert *vtxDst = (ImDrawVert *)vertexBufferMapped[frameIndex];
+    ImDrawIdx *idxDst = (ImDrawIdx *)indexBufferMapped[frameIndex];
 
     for (int n = 0; n < imDrawData->CmdListsCount; n++) {
       const ImDrawList *cmd_list = imDrawData->CmdLists[n];
@@ -707,45 +707,58 @@ void GPU::imguiPresentation(uint32_t imgIdx){
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    VkCommandBuffer& commandBuffer = commandBuffers[frameIndex];
     renderPassBeginInfo.framebuffer = framebuffer[imgIdx];
-    vkResetCommandBuffer(commandBuffers[imgIdx], 0);
-    vkBeginCommandBuffer(commandBuffers[imgIdx], &cmdBufferBeginInfo);
-    vkCmdBeginRenderPass(commandBuffers[imgIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindDescriptorSets(commandBuffers[imgIdx], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    vkResetCommandBuffer(commandBuffer, 0);
+    vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-    ImGuiIO &io = ImGui::GetIO();
-    vkCmdBindPipeline(commandBuffers[imgIdx], VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipeline);
     VkViewport viewport {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
     viewport.width = width;
     viewport.height = height;
     viewport.minDepth = 0.0;
     viewport.maxDepth = 1.0;
-    vkCmdSetViewport(commandBuffers[imgIdx], 0, 1, &viewport);
-    imguiPushConst.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
-    imguiPushConst.translate = glm::vec2(-1.0f);
-    imguiPushConst.invScreenSize = glm::vec2(1.0f / io.DisplaySize.x, 1.0f / io.DisplaySize.y);
-    imguiPushConst.whitePixel = glm::vec2(io.Fonts->TexUvWhitePixel.x, io.Fonts->TexUvWhitePixel.y);
-    imguiPushConst.gradTop = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
-    imguiPushConst.gradBottom = glm::vec4(1.00f, 1.00f, 1.00f, 1.00f);
-    imguiPushConst.u_time = (float)ImGui::GetTime();
-    vkCmdPushConstants(commandBuffers[imgIdx], imguiPipelineLayout, 
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock), &imguiPushConst);
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    const ImVec2 displayPos = imDrawData->DisplayPos;
+    const ImVec2 displaySize = imDrawData->DisplaySize;
+    if (displaySize.x <= 0.0f || displaySize.y <= 0.0f) {
+        vkCmdEndRenderPass(commandBuffer);
+        vkEndCommandBuffer(commandBuffer);
+        return;
+    }
+    imguiPushConst.scale = glm::vec2(2.0f / displaySize.x, 2.0f / displaySize.y);
+    imguiPushConst.translate = glm::vec2(
+        -1.0f - displayPos.x * imguiPushConst.scale.x,
+        -1.0f - displayPos.y * imguiPushConst.scale.y
+    );
+    vkCmdPushConstants(commandBuffer, imguiPipelineLayout, 
+            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstBlock), &imguiPushConst);
 
     int32_t globalVertexOffset = 0;
     uint32_t globalIndexOffset = 0;
 
-    if (imDrawData->CmdListsCount > 0 && imgIdx < vertexBuffers.size() && imgIdx < indexBuffers.size()) {
-        VkBuffer& vertexBuffer = vertexBuffers[imgIdx];
-        VkBuffer& indexBuffer = indexBuffers[imgIdx];
+    if (imDrawData->CmdListsCount > 0 && frameIndex < vertexBuffers.size() && frameIndex < indexBuffers.size()) {
+        VkBuffer& vertexBuffer = vertexBuffers[frameIndex];
+        VkBuffer& indexBuffer = indexBuffers[frameIndex];
         VkDeviceSize offsets[1] = {0};
-        vkCmdBindVertexBuffers(commandBuffers[imgIdx], 0, 1, &vertexBuffer, offsets);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
         const VkIndexType indexType = (sizeof(ImDrawIdx) == sizeof(uint16_t)) ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
-        vkCmdBindIndexBuffer(commandBuffers[imgIdx], indexBuffer, 0, indexType);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, indexType);
         VkDescriptorSet boundSet = VK_NULL_HANDLE;
+        const ImVec2 clipOff = imDrawData->DisplayPos;
+        const ImVec2 clipScale = imDrawData->FramebufferScale;
         for (int32_t i = 0; i < imDrawData->CmdListsCount; i++) {
             const ImDrawList *cmd_list = imDrawData->CmdLists[i];
             for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++) {
                 const ImDrawCmd *pcmd = &cmd_list->CmdBuffer[j];
+                if (pcmd->UserCallback != nullptr) {
+                    pcmd->UserCallback(cmd_list, pcmd);
+                    continue;
+                }
                 VkDescriptorSet textureSet = descriptorSet;
                 if (pcmd->GetTexID() != 0) {
                     textureSet = reinterpret_cast<VkDescriptorSet>(static_cast<uintptr_t>(pcmd->GetTexID()));
@@ -754,17 +767,33 @@ void GPU::imguiPresentation(uint32_t imgIdx){
                     textureSet = descriptorSet;
                 }
                 if (textureSet != boundSet) {
-                    vkCmdBindDescriptorSets(commandBuffers[imgIdx], 
+                    vkCmdBindDescriptorSets(commandBuffer, 
                             VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &textureSet, 0, nullptr);
                     boundSet = textureSet;
                 }
+                ImVec4 clipRect;
+                clipRect.x = (pcmd->ClipRect.x - clipOff.x) * clipScale.x;
+                clipRect.y = (pcmd->ClipRect.y - clipOff.y) * clipScale.y;
+                clipRect.z = (pcmd->ClipRect.z - clipOff.x) * clipScale.x;
+                clipRect.w = (pcmd->ClipRect.w - clipOff.y) * clipScale.y;
+                if (clipRect.x >= width || clipRect.y >= height || clipRect.z <= 0.0f || clipRect.w <= 0.0f) {
+                    continue;
+                }
+                if (clipRect.x < 0.0f) clipRect.x = 0.0f;
+                if (clipRect.y < 0.0f) clipRect.y = 0.0f;
+                if (clipRect.z > width) clipRect.z = static_cast<float>(width);
+                if (clipRect.w > height) clipRect.w = static_cast<float>(height);
+
                 VkRect2D scissorRect;
-                scissorRect.offset.x = std::max((int32_t)(pcmd->ClipRect.x), 0);
-                scissorRect.offset.y = std::max((int32_t)(pcmd->ClipRect.y), 0);
-                scissorRect.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
-                scissorRect.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
-                vkCmdSetScissor(commandBuffers[imgIdx], 0, 1, &scissorRect);
-                vkCmdDrawIndexed(commandBuffers[imgIdx],
+                scissorRect.offset.x = static_cast<int32_t>(clipRect.x);
+                scissorRect.offset.y = static_cast<int32_t>(clipRect.y);
+                scissorRect.extent.width = static_cast<uint32_t>(clipRect.z - clipRect.x);
+                scissorRect.extent.height = static_cast<uint32_t>(clipRect.w - clipRect.y);
+                if (scissorRect.extent.width == 0 || scissorRect.extent.height == 0) {
+                    continue;
+                }
+                vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
+                vkCmdDrawIndexed(commandBuffer,
                         pcmd->ElemCount,
                         1,
                         globalIndexOffset + static_cast<uint32_t>(pcmd->IdxOffset),
@@ -775,14 +804,42 @@ void GPU::imguiPresentation(uint32_t imgIdx){
             globalVertexOffset += cmd_list->VtxBuffer.Size;
         }
     }
-    vkCmdEndRenderPass(commandBuffers[imgIdx]);
-    vkEndCommandBuffer(commandBuffers[imgIdx]);
+    vkCmdEndRenderPass(commandBuffer);
+    vkEndCommandBuffer(commandBuffer);
 };
 
-void GPU::startFrame(){
+void GPU::startFrame(uint32_t& imgIdx){
+    vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
+    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, 
+        imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
+    vkResetFences(device, 1, &fences[frameIndex]);
 };
 
-void GPU::submitFrame(){
+void GPU::submitFrame(const uint32_t imgIdx){
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = 0,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &imageAvailableSemaphores[frameIndex],
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffers[frameIndex],
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &renderCompleteSemaphores[imgIdx], 
+    };
+    vkQueueSubmit(queue, 1, &submitInfo, fences[frameIndex]);
+    VkPresentInfoKHR presentInfo = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = NULL,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &renderCompleteSemaphores[imgIdx],
+        .swapchainCount = 1,
+        .pSwapchains = &swapchain, 
+        .pImageIndices = &imgIdx,
+        .pResults = NULL
+    };
+    vkQueuePresentKHR(queue, &presentInfo);
 }
 
 void GPU::destroy() {

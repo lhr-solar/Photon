@@ -10,6 +10,7 @@ struct Photon {
     GPU gpu;
     GUI gui;
     bool running = true;
+    double deltaTime = 16.67 * 1000;
     void init();
     void renderLoop();
     void destroy();
