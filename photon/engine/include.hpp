@@ -3,6 +3,8 @@
 #include <thread>
 
 #ifdef WIN
+#include <windows.h>
+#include <cstdio>
 #ifdef NDEBUG 
     #define logs(x) do {} while(0)
 #else 

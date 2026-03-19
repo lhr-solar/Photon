@@ -86,19 +86,48 @@ include_directories(.external/imgui/backends)
 include_directories(.external/tinygltf)
 include_directories(${CMAKE_BINARY_DIR}/generated)
 
+# Surface SDL3 that was dropped into .external (e.g., from the official prebuilt archive)
+set(_photon_sdl3_vendor_root "${CMAKE_SOURCE_DIR}/.external")
+if (EXISTS "${_photon_sdl3_vendor_root}")
+    file(GLOB _photon_sdl3_prefixes
+        LIST_DIRECTORIES true
+        "${_photon_sdl3_vendor_root}/SDL3"
+        "${_photon_sdl3_vendor_root}/SDL3-*")
+    foreach(_photon_sdl3_prefix ${_photon_sdl3_prefixes})
+        if (EXISTS "${_photon_sdl3_prefix}/cmake/SDL3Config.cmake")
+            list(APPEND CMAKE_PREFIX_PATH "${_photon_sdl3_prefix}/cmake")
+        elseif (EXISTS "${_photon_sdl3_prefix}/lib/cmake/SDL3/SDL3Config.cmake")
+            list(APPEND CMAKE_PREFIX_PATH "${_photon_sdl3_prefix}/lib/cmake/SDL3")
+        endif()
+    endforeach()
+endif()
+
 # require python
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 # find SDL3 for the GPU module
 find_package(SDL3 QUIET CONFIG)
-if (TARGET SDL3::SDL3)
-    set(PHOTON_SDL_TARGET SDL3::SDL3)
-elseif (TARGET SDL3::SDL3-static)
+if (TARGET SDL3::SDL3-static)
     set(PHOTON_SDL_TARGET SDL3::SDL3-static)
-else()
+elseif (TARGET SDL3::SDL3)
+    set(PHOTON_SDL_TARGET SDL3::SDL3)
+elseif (NOT WIN32)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(SDL3 REQUIRED IMPORTED_TARGET sdl3)
     set(PHOTON_SDL_TARGET PkgConfig::SDL3)
+else()
+    message(FATAL_ERROR "SDL3 was not found. Install the SDL3 development package that provides SDL3Config.cmake and point SDL3_DIR to it, or drop the prebuilt binaries into the tree.")
+endif()
+
+option(PHOTON_REQUIRE_STATIC_RELEASE "Fail configuration if a Release build would link against dynamic third-party libraries" OFF)
+if (PHOTON_REQUIRE_STATIC_RELEASE AND NOT CMAKE_CONFIGURATION_TYPES)
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" _photon_build_type_upper)
+    if (_photon_build_type_upper STREQUAL "RELEASE")
+        set(_photon_known_static_targets SDL3::SDL3-static)
+        if (NOT PHOTON_SDL_TARGET IN_LIST _photon_known_static_targets)
+            message(FATAL_ERROR "Release builds require static third-party libraries. Provide SDL3::SDL3-static (or disable PHOTON_REQUIRE_STATIC_RELEASE).")
+        endif()
+    endif()
 endif()
 
 # find Vulkan
@@ -143,7 +172,3 @@ add_subdirectory(assets/fonts)
 add_subdirectory(assets/dbc)
 add_subdirectory(assets/models)
 add_subdirectory(photon)
-
-if (WIN32)
-    set_target_properties(Photon PROPERTIES WIN32_EXECUTABLE TRUE)
-endif()

@@ -8,8 +8,6 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_vulkan.h>
-#include "imgui_impl_sdl3.h"
-#include "imgui_impl_vulkan.h"
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
 #include "imgui.h"
