@@ -2,7 +2,7 @@
 #include <iostream>
 #include <thread>
 
-#ifdef WIN
+#ifdef _WIN32
 #include <windows.h>
 #include <cstdio>
 #ifdef NDEBUG 
@@ -22,7 +22,7 @@ inline void ensure_console() {
 #endif
 #endif
 
-#ifdef LINUX
+#ifdef __linux__
 #ifdef NDEBUG 
     #define logs(x) do {} while(0)
 #else 
@@ -31,5 +31,5 @@ inline void ensure_console() {
 
 #endif
 
-#ifdef APPLE
+#ifdef __APPLE__
 #endif

@@ -1,14 +1,24 @@
 #include <SDL3/SDL_oldnames.h>
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_properties.h>
 #include <vulkan_core.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_vulkan.h>
+#ifdef _WIN32
+#include <windows.h>
+#include <d3d11_1.h>
+#include <dxgi1_6.h>
+#include <dcomp.h>
+#include <dwmapi.h>
+#include <vulkan/vulkan_win32.h>
+#endif
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
 #include "imgui.h"
@@ -33,11 +43,14 @@ void GPU::init() {
 
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Vulkan_LoadLibrary(NULL);
-    window = SDL_CreateWindow("Photon", width, height, 
-    SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    window = createWindow();
+    configureTransparentWindow();
     const char *const *sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&count);
     std::vector<const char *> enabledExtensions(sdlExtensions, sdlExtensions + count);
     enabledExtensions.push_back( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+#ifdef _WIN32
+    enabledExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
+#endif
     if(validationLayerSupport())enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     VkApplicationInfo applicationInfo = {
@@ -79,6 +92,9 @@ void GPU::init() {
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, NULL);
     deviceQueueFamilyProperties.resize(count);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, deviceQueueFamilyProperties.data());
+#ifdef _WIN32
+    queryPhysicalDeviceId();
+#endif
     for(int i = 0; i < deviceQueueFamilyProperties.size(); i++){
         const auto & p = deviceQueueFamilyProperties[i];
         if((p.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (p.queueCount >= 1)){
@@ -94,6 +110,11 @@ void GPU::init() {
         .pQueuePriorities = &queuePriority,
     }; queueCreateInfos.push_back(graphicsQueueCreateInfo);
     deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+#ifdef _WIN32
+    deviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_WIN32_KEYED_MUTEX_EXTENSION_NAME);
+#endif
     VkDeviceCreateInfo deviceCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = NULL,
@@ -157,14 +178,16 @@ void GPU::init() {
         .pDependencies = subpassDependencies.data(),
     }; vkCreateRenderPass(device, &renderPassCreateInfo, NULL, &renderpass);
     destroySwapchainResources();
-    createSwapchainResources();
+    if (!tryActivateDirectComposition(3)) {
+        createSwapchainResources();
+    }
     createFrameResources();
 };
 
 void GPU::createSwapchainResources(){
-    int drawableWidth = 0;
-    int drawableHeight = 0;
-    SDL_GetWindowSizeInPixels(window, &drawableWidth, &drawableHeight);
+    uint32_t drawableWidth = 0;
+    uint32_t drawableHeight = 0;
+    queryWindowPixelSize(drawableWidth, drawableHeight);
 
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
@@ -173,8 +196,8 @@ void GPU::createSwapchainResources(){
         width = surfaceCapabilities.currentExtent.width;
         height = surfaceCapabilities.currentExtent.height;
     } else {
-        width = static_cast<uint32_t>(drawableWidth);
-        height = static_cast<uint32_t>(drawableHeight);
+        width = drawableWidth;
+        height = drawableHeight;
         width = std::max(surfaceCapabilities.minImageExtent.width, std::min(surfaceCapabilities.maxImageExtent.width, width));
         height = std::max(surfaceCapabilities.minImageExtent.height, std::min(surfaceCapabilities.maxImageExtent.height, height));
     }
@@ -206,15 +229,8 @@ void GPU::createSwapchainResources(){
     if((surfaceCapabilities.maxImageCount > 0) && (imageCount > surfaceCapabilities.maxImageCount))
         imageCount = surfaceCapabilities.maxImageCount;
 
-    VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    const VkCompositeAlphaFlagBitsKHR compositeAlphaModes[] = {
-        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
-        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
-        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-    };
-    for (const auto mode : compositeAlphaModes)
-        if ((surfaceCapabilities.supportedCompositeAlpha & mode) != 0) { compositeAlpha = mode; break; }
+    VkCompositeAlphaFlagBitsKHR compositeAlpha = pickCompositeAlpha(surfaceCapabilities);
+    logs(compositeAlpha);
 
     VkSwapchainCreateInfoKHR swapchainCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -226,7 +242,7 @@ void GPU::createSwapchainResources(){
         .imageColorSpace = swapchainColorspace,
         .imageExtent = {width, height},
         .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = NULL,
@@ -282,6 +298,7 @@ void GPU::createSwapchainResources(){
 }
 
 void GPU::destroySwapchainResources(){
+    releasePresentationResources();
     for (auto& fb : framebuffer)
         if (fb != VK_NULL_HANDLE) { vkDestroyFramebuffer(device, fb, NULL); fb = VK_NULL_HANDLE; }
     framebuffer.clear();
@@ -916,10 +933,14 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         }
     }
     vkCmdEndRenderPass(commandBuffer);
+    prepareImageForPresentation(imgIdx);
     vkEndCommandBuffer(commandBuffer);
 };
 
 void GPU::startFrame(uint32_t& imgIdx){
+    if (startFramePlatform(imgIdx)) {
+        return;
+    }
     vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
     VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
         imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
@@ -930,20 +951,36 @@ void GPU::startFrame(uint32_t& imgIdx){
 
 void GPU::resizeWindow(){
     if ((window == NULL) || (device == VK_NULL_HANDLE)) return;
-    int newWidth = 0;
-    int newHeight = 0;
-    SDL_GetWindowSizeInPixels(window, &newWidth, &newHeight);
+    uint32_t newWidth = 0;
+    uint32_t newHeight = 0;
+    queryWindowPixelSize(newWidth, newHeight);
     while ((newWidth == 0) || (newHeight == 0)) {
         SDL_Delay(16);
-        SDL_GetWindowSizeInPixels(window, &newWidth, &newHeight);
+        queryWindowPixelSize(newWidth, newHeight);
     }
 
+#ifdef _WIN32
+    if (directCompositionActive){
+        const uint32_t desiredImageCount = swapchainImages.empty()
+                ? 2u
+                : static_cast<uint32_t>(swapchainImages.size());
+        if (recreateDirectCompositionTargets(newWidth, newHeight, desiredImageCount)){
+            return;
+        }
+        logDirectCompositionEvent("ResizeWindow", "fallback to Vulkan swapchain path");
+    }
+#endif
+
+    const uint32_t previousImageCount = static_cast<uint32_t>(swapchainImages.size());
     vkDeviceWaitIdle(device);
     destroyFrameResources();
     destroySwapchainResources();
-    width = static_cast<uint32_t>(newWidth);
-    height = static_cast<uint32_t>(newHeight);
-    createSwapchainResources();
+    width = newWidth;
+    height = newHeight;
+    const uint32_t desiredImageCount = previousImageCount ? previousImageCount : 2;
+    if (!tryActivateDirectComposition(desiredImageCount)) {
+        createSwapchainResources();
+    }
     createFrameResources();
     frameIndex = 0;
 
@@ -953,19 +990,48 @@ void GPU::resizeWindow(){
 };
 
 void GPU::submitFrame(const uint32_t imgIdx){
+    const uint32_t frameSlot = frameIndex;
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = 0,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &imageAvailableSemaphores[frameIndex],
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &commandBuffers[frameIndex],
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &renderCompleteSemaphores[imgIdx], 
-    };
-    vkQueueSubmit(queue, 1, &submitInfo, fences[frameIndex]);
+    VkSemaphore waitSemaphore = imageAvailableSemaphores[frameSlot];
+    VkSemaphore signalSemaphore = renderCompleteSemaphores[imgIdx];
+    adjustSubmitSyncObjects(waitSemaphore, signalSemaphore);
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.waitSemaphoreCount = (waitSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
+    submitInfo.pWaitSemaphores = (waitSemaphore != VK_NULL_HANDLE) ? &waitSemaphore : nullptr;
+    submitInfo.pWaitDstStageMask = (waitSemaphore != VK_NULL_HANDLE) ? waitStages : nullptr;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffers[frameSlot];
+    submitInfo.signalSemaphoreCount = (signalSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
+    submitInfo.pSignalSemaphores = (signalSemaphore != VK_NULL_HANDLE) ? &signalSemaphore : nullptr;
+    VkWin32KeyedMutexAcquireReleaseInfoKHR keyedInfo{};
+#ifdef _WIN32
+    VkDeviceMemory acquireMemory = VK_NULL_HANDLE;
+    VkDeviceMemory releaseMemory = VK_NULL_HANDLE;
+    uint64_t acquireKey = 0;
+    uint64_t releaseKey = 1;
+    uint32_t acquireTimeout = INFINITE;
+    if (directCompositionActive && imgIdx < directImages.size()){
+        acquireMemory = directImages[imgIdx].memory;
+        releaseMemory = directImages[imgIdx].memory;
+    }
+    if (acquireMemory != VK_NULL_HANDLE){
+        keyedInfo.sType = VK_STRUCTURE_TYPE_WIN32_KEYED_MUTEX_ACQUIRE_RELEASE_INFO_KHR;
+        keyedInfo.acquireCount = 1;
+        keyedInfo.pAcquireSyncs = &acquireMemory;
+        keyedInfo.pAcquireKeys = &acquireKey;
+        keyedInfo.pAcquireTimeouts = &acquireTimeout;
+        keyedInfo.releaseCount = 1;
+        keyedInfo.pReleaseSyncs = &releaseMemory;
+        keyedInfo.pReleaseKeys = &releaseKey;
+        keyedInfo.pNext = submitInfo.pNext;
+        submitInfo.pNext = &keyedInfo;
+    }
+#endif
+    vkQueueSubmit(queue, 1, &submitInfo, fences[frameSlot]);
+    if (presentFramePlatform(imgIdx, frameSlot)) {
+        return;
+    }
     VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .pNext = NULL,
@@ -980,8 +1046,174 @@ void GPU::submitFrame(const uint32_t imgIdx){
     if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) resizeWindow();
 }
 
+#ifdef _WIN32
+void GPU::prepareImageForPresentation(uint32_t imgIdx){
+    if (!directCompositionActive) return;
+    if (imgIdx >= swapchainImages.size()) return;
+    VkImage image = swapchainImages[imgIdx];
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    VkCommandBuffer commandBuffer = commandBuffers[frameIndex];
+    vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+#else
+void GPU::prepareImageForPresentation(uint32_t){ }
+#endif
+
+#ifdef _WIN32
+void GPU::adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const{
+    if (!directCompositionActive) return;
+    waitSemaphore = VK_NULL_HANDLE;
+    signalSemaphore = VK_NULL_HANDLE;
+}
+#else
+void GPU::adjustSubmitSyncObjects(VkSemaphore&, VkSemaphore&) const{}
+#endif
+
+#ifdef _WIN32
+bool GPU::presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot){
+    if (!directCompositionActive) return false;
+    if (frameSlot >= fences.size()) return false;
+    if (imgIdx >= directImages.size()) return false;
+    vkWaitForFences(device, 1, &fences[frameSlot], VK_TRUE, UINT64_MAX);
+    presentWithDirectComposition(imgIdx);
+    return true;
+}
+#else
+bool GPU::presentFramePlatform(uint32_t, uint32_t){ return false; }
+#endif
+
+#ifdef _WIN32
+bool GPU::startFramePlatform(uint32_t& imgIdx){
+    if (!directCompositionActive) return false;
+    if (frameIndex >= fences.size()) return false;
+    vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &fences[frameIndex]);
+    imgIdx = frameIndex;
+    return true;
+}
+#else
+bool GPU::startFramePlatform(uint32_t&){ return false; }
+#endif
+
+void GPU::queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const{
+    outWidth = 0;
+    outHeight = 0;
+#ifdef _WIN32
+    HWND hwnd = static_cast<HWND>(win32WindowHandle);
+    if ((hwnd == nullptr) && (window != NULL)){
+        SDL_PropertiesID properties = SDL_GetWindowProperties(window);
+        if (properties != 0){
+            void* hwndProperty = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+            if (hwndProperty != NULL){
+                hwnd = static_cast<HWND>(hwndProperty);
+            }
+        }
+    }
+    if (hwnd != nullptr){
+        RECT rect{};
+        if (GetClientRect(hwnd, &rect)){
+            const int w = rect.right - rect.left;
+            const int h = rect.bottom - rect.top;
+            if ((w > 0) && (h > 0)){
+                outWidth = static_cast<uint32_t>(w);
+                outHeight = static_cast<uint32_t>(h);
+                return;
+            }
+        }
+    }
+#endif
+    if (window != NULL){
+        int drawableWidth = 0;
+        int drawableHeight = 0;
+        SDL_GetWindowSizeInPixels(window, &drawableWidth, &drawableHeight);
+        if ((drawableWidth > 0) && (drawableHeight > 0)){
+            outWidth = static_cast<uint32_t>(drawableWidth);
+            outHeight = static_cast<uint32_t>(drawableHeight);
+        }
+    }
+}
+
+#ifdef _WIN32
+void GPU::forceInitialTransparentResize(){
+    if (transparentResizeHackApplied) return;
+    if (!wantsTransparentSwapchain()) return;
+    if (window == NULL) return;
+    int baseWidth = 0;
+    int baseHeight = 0;
+    SDL_GetWindowSizeInPixels(window, &baseWidth, &baseHeight);
+    if ((baseWidth <= 0) || (baseHeight <= 0)) return;
+    transparentResizeHackApplied = true;
+    const int shrinkWidth = std::max(1, baseWidth - static_cast<int>(baseWidth * 0.5f));
+    const int shrinkHeight = std::max(1, baseHeight - static_cast<int>(baseHeight * 0.5f));
+    SDL_SetWindowSize(window, shrinkWidth, shrinkHeight);
+    SDL_SetWindowSize(window, baseWidth, baseHeight);
+}
+#else
+void GPU::forceInitialTransparentResize(){}
+#endif
+
+#ifdef _WIN32
+void GPU::releasePresentationResources(){
+    if (directCompositionActive || !directImages.empty()){
+        logDirectCompositionEvent("Release", "destroying presenter");
+        destroyDirectCompositionPresenter();
+    }
+}
+#else
+void GPU::releasePresentationResources(){}
+#endif
+
+#ifdef _WIN32
+void GPU::shutdownPresentationBackend(){
+    destroyDirectCompositionPresenter();
+}
+#else
+void GPU::shutdownPresentationBackend(){}
+#endif
+
+#ifdef _WIN32
+bool GPU::tryActivateDirectComposition(uint32_t imageCount){
+    destroyDirectCompositionPresenter();
+    if (!wantsTransparentSwapchain()) {
+        logDirectCompositionEvent("TryActivate", "window not marked transparent");
+        return false;
+    }
+    logDirectCompositionEvent("TryActivate", "initializing DirectComposition presenter");
+    if (!initDirectCompositionPresenter()) {
+        logDirectCompositionEvent("TryActivate", "initDirectCompositionPresenter failed");
+        return false;
+    }
+    const uint32_t desiredCount = (imageCount < 2) ? 2u : imageCount;
+    if (!createSharedRenderTargets(desiredCount)) {
+        logDirectCompositionEvent("TryActivate", "createSharedRenderTargets failed");
+        destroyDirectCompositionPresenter();
+        return false;
+    }
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "ready with %u images", desiredCount);
+    logDirectCompositionEvent("TryActivate", buffer);
+    forceInitialTransparentResize();
+    return true;
+}
+#endif
+
 void GPU::destroy() {
     vkDeviceWaitIdle(device);
+    shutdownPresentationBackend();
     ImGui::DestroyContext();
     ImPlot3D::DestroyContext();
     destroyFrameResources();
@@ -1140,3 +1372,862 @@ void GPU::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* c
     createInfo->pfnUserCallback = debugCallback;
     createInfo->pUserData = NULL;
 }
+
+#ifdef _WIN32
+SDL_Window* GPU::createWindow(){
+    SDL_PropertiesID properties = SDL_CreateProperties();
+    if (properties != 0){
+        SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Photon");
+        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
+        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_TRANSPARENT_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_MOUSE_GRABBED_BOOLEAN, false);
+        SDL_Window* created = SDL_CreateWindowWithProperties(properties);
+        SDL_DestroyProperties(properties);
+        if (created != NULL){
+            return created;
+        }
+    }
+    return SDL_CreateWindow("Photon", width, height, 
+        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+}
+#else
+SDL_Window* GPU::createWindow(){
+    return SDL_CreateWindow("Photon", width, height, 
+        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+}
+#endif
+
+bool GPU::wantsTransparentSwapchain() const {
+    if (window == NULL) return false;
+    const Uint64 flags = SDL_GetWindowFlags(window);
+    return (flags & SDL_WINDOW_TRANSPARENT) != 0;
+}
+
+#ifdef _WIN32
+VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
+    logCompositeAlphaCapabilities(surfaceCapabilities);
+    const bool transparent = wantsTransparentSwapchain();
+    VkSurfaceCapabilitiesKHR refreshed = surfaceCapabilities;
+    if (transparent &&
+        ((surfaceCapabilities.supportedCompositeAlpha & (VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR |
+                                                        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR |
+                                                        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR)) == 0)){
+        if ((physicalDevice != VK_NULL_HANDLE) && (surface != VK_NULL_HANDLE)){
+            vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &refreshed);
+        }
+    }
+    const VkCompositeAlphaFlagBitsKHR transparentOrder[] = {
+        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+    };
+    const VkCompositeAlphaFlagBitsKHR opaqueOrder[] = {
+        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+    };
+    if (transparent){
+        for (const auto mode : transparentOrder){
+            if ((refreshed.supportedCompositeAlpha & mode) != 0){
+                return mode;
+            }
+        }
+    }
+    for (const auto mode : opaqueOrder){
+        if ((refreshed.supportedCompositeAlpha & mode) != 0){
+            return mode;
+        }
+    }
+    return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+}
+#else
+VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
+    logCompositeAlphaCapabilities(surfaceCapabilities);
+    const bool transparent = wantsTransparentSwapchain();
+    const VkCompositeAlphaFlagBitsKHR transparentOrder[] = {
+        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+    };
+    const VkCompositeAlphaFlagBitsKHR opaqueOrder[] = {
+        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+    };
+    if (transparent){
+        for (const auto mode : transparentOrder){
+            if ((surfaceCapabilities.supportedCompositeAlpha & mode) != 0){
+                return mode;
+            }
+        }
+    }
+    for (const auto mode : opaqueOrder){
+        if ((surfaceCapabilities.supportedCompositeAlpha & mode) != 0){
+            return mode;
+        }
+    }
+    return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+}
+#endif
+
+void GPU::logCompositeAlphaCapabilities(const VkSurfaceCapabilitiesKHR& surfaceCapabilities) const{
+    printf("[GPU] Composite alpha support mask=0x%x, current transform=0x%x, minImages=%u, maxImages=%u\n",
+        surfaceCapabilities.supportedCompositeAlpha,
+        surfaceCapabilities.currentTransform,
+        surfaceCapabilities.minImageCount,
+        surfaceCapabilities.maxImageCount);
+}
+
+#ifdef _WIN32
+void GPU::logDirectCompositionEvent(const char* stage, const char* detail) const{
+    if (stage == nullptr) return;
+    if (detail == nullptr) detail = "";
+    printf("[GPU][DComp] %s: %s\n", stage, detail);
+}
+
+bool GPU::ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated){
+    requiresDedicated = false;
+    if (physicalDevice == VK_NULL_HANDLE) return false;
+    VkExternalImageFormatProperties externalProps{};
+    externalProps.sType = VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES;
+
+    VkPhysicalDeviceExternalImageFormatInfo externalInfo{};
+    externalInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO;
+    externalInfo.handleType = handleType;
+
+    VkPhysicalDeviceImageFormatInfo2 formatInfo{};
+    formatInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2;
+    formatInfo.pNext = &externalInfo;
+    formatInfo.format = swapchainFormat;
+    formatInfo.type = VK_IMAGE_TYPE_2D;
+    formatInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    formatInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    formatInfo.flags = 0;
+
+    VkImageFormatProperties2 imageProps{};
+    imageProps.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2;
+    imageProps.pNext = &externalProps;
+
+    if (vkGetPhysicalDeviceImageFormatProperties2(physicalDevice, &formatInfo, &imageProps) != VK_SUCCESS){
+        return false;
+    }
+
+    const auto features = externalProps.externalMemoryProperties.externalMemoryFeatures;
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer),
+        "handle=0x%x features=0x%x dedicatedOnly=%s importable=%s exportable=%s",
+        handleType,
+        features,
+        ((features & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0) ? "yes" : "no",
+        ((features & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) != 0) ? "yes" : "no",
+        ((features & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) != 0) ? "yes" : "no");
+    logDirectCompositionEvent("ExternalMemorySupport", buffer);
+    if ((features & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0){
+        return false;
+    }
+    requiresDedicated = (features & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0;
+    return true;
+}
+
+bool GPU::selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated){
+    const VkExternalMemoryHandleTypeFlagBits candidates[] = {
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT,
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT,
+    };
+    for (const auto candidate : candidates){
+        bool dedicated = false;
+        if (ensureExternalImageSupport(candidate, dedicated)){
+            handleType = candidate;
+            requiresDedicated = dedicated;
+            const char* label = (candidate == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT)
+                    ? "D3D11_TEXTURE"
+                    : "D3D11_TEXTURE_KMT";
+            char buffer[96];
+            snprintf(buffer, sizeof(buffer), "SelectHandleType: %s dedicatedOnly=%s",
+                    label, dedicated ? "yes" : "no");
+            logDirectCompositionEvent("ExternalMemory", buffer);
+            return true;
+        }
+    }
+    logDirectCompositionEvent("ExternalMemory", "no compatible handle type");
+    return false;
+}
+
+bool GPU::createSharedHandleForTexture(ID3D11Texture2D* texture,
+        VkExternalMemoryHandleTypeFlagBits handleType, HANDLE& sharedHandle){
+    sharedHandle = NULL;
+    if (texture == nullptr) return false;
+    if (handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT){
+        IDXGIResource1* resource = nullptr;
+        if (FAILED(texture->QueryInterface(IID_PPV_ARGS(&resource)))){
+            return false;
+        }
+        HRESULT hr = resource->CreateSharedHandle(nullptr,
+                DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE,
+                nullptr, &sharedHandle);
+        resource->Release();
+        return SUCCEEDED(hr);
+    }
+    if (handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT){
+        IDXGIResource* resource = nullptr;
+        if (FAILED(texture->QueryInterface(IID_PPV_ARGS(&resource)))){
+            return false;
+        }
+        HRESULT hr = resource->GetSharedHandle(&sharedHandle);
+        resource->Release();
+        return SUCCEEDED(hr);
+    }
+    return false;
+}
+
+bool GPU::recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHeight, uint32_t imageCount){
+    if (!directCompositionActive) return false;
+    if (pixelWidth == 0 || pixelHeight == 0) return false;
+    const uint32_t desiredCount = (imageCount < 2u) ? 2u : imageCount;
+    vkDeviceWaitIdle(device);
+    destroyFrameResources();
+    destroyDirectCompositionPresenter();
+    width = pixelWidth;
+    height = pixelHeight;
+    if (!initDirectCompositionPresenter()){
+        logDirectCompositionEvent("ResizeTargets", "init presenter failed");
+        return false;
+    }
+    if (!createSharedRenderTargets(desiredCount)){
+        logDirectCompositionEvent("ResizeTargets", "create shared targets failed");
+        destroyDirectCompositionPresenter();
+        return false;
+    }
+    createFrameResources();
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    frameIndex = 0;
+    return true;
+}
+
+bool GPU::queryPhysicalDeviceId(){
+    physicalDeviceLuidValid = false;
+    if (physicalDevice == VK_NULL_HANDLE) return false;
+    VkPhysicalDeviceIDProperties idProps{};
+    idProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+    VkPhysicalDeviceProperties2 props2{};
+    props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    props2.pNext = &idProps;
+    vkGetPhysicalDeviceProperties2(physicalDevice, &props2);
+    if (idProps.deviceLUIDValid == VK_FALSE) {
+        return false;
+    }
+    std::memcpy(physicalDeviceLuid.data(), idProps.deviceLUID, VK_LUID_SIZE);
+    physicalDeviceLuidValid = true;
+    return true;
+}
+
+IDXGIAdapter1* GPU::pickDxgiAdapter(IDXGIFactory2* factory){
+    if (factory == nullptr) return nullptr;
+    IDXGIAdapter1* adapter = nullptr;
+    UINT index = 0;
+    while (factory->EnumAdapters1(index++, &adapter) != DXGI_ERROR_NOT_FOUND){
+        DXGI_ADAPTER_DESC1 desc{};
+        if (SUCCEEDED(adapter->GetDesc1(&desc))){
+            if (!physicalDeviceLuidValid ||
+                (std::memcmp(physicalDeviceLuid.data(), &desc.AdapterLuid, VK_LUID_SIZE) == 0)){
+                return adapter;
+            }
+        }
+        if (adapter){
+            adapter->Release();
+            adapter = nullptr;
+        }
+    }
+    return nullptr;
+}
+
+namespace {
+enum class PhotonAccentState : DWORD {
+    Disabled = 0,
+    Gradient = 1,
+    TransparentGradient = 2,
+    BlurBehind = 3,
+    AcrylicBlurBehind = 4,
+};
+
+enum class PhotonWindowCompositionAttrib : DWORD {
+    AccentPolicy = 19,
+};
+
+struct PhotonAccentPolicy {
+    DWORD accentState;
+    DWORD accentFlags;
+    DWORD gradientColor;
+    DWORD animationId;
+};
+
+struct PhotonWindowCompositionAttribData {
+    PhotonWindowCompositionAttrib attribute;
+    PVOID data;
+    SIZE_T dataSize;
+};
+
+using SetWindowCompositionAttributeFn = BOOL (WINAPI *)(HWND, PhotonWindowCompositionAttribData*);
+using DwmExtendFrameIntoClientAreaFn = HRESULT (WINAPI *)(HWND, const MARGINS*);
+using DwmEnableBlurBehindWindowFn = HRESULT (WINAPI *)(HWND, const DWM_BLURBEHIND*);
+
+template<typename T>
+void SafeRelease(T*& ptr){
+    if (ptr){
+        ptr->Release();
+        ptr = nullptr;
+    }
+}
+
+using PFN_D3D11CreateDevice = HRESULT (WINAPI *)(
+        IDXGIAdapter*, D3D_DRIVER_TYPE, HMODULE, UINT,
+        const D3D_FEATURE_LEVEL*, UINT, UINT,
+        ID3D11Device**, D3D_FEATURE_LEVEL*, ID3D11DeviceContext**);
+using PFN_CreateDXGIFactory1 = HRESULT (WINAPI *)(REFIID, void**);
+using PFN_DCompositionCreateDevice = HRESULT (WINAPI *)(IUnknown*, REFIID, void**);
+
+PFN_D3D11CreateDevice LoadD3D11CreateDevice(){
+    static PFN_D3D11CreateDevice fn = [](){
+        HMODULE mod = LoadLibraryW(L"d3d11.dll");
+        if (!mod) return (PFN_D3D11CreateDevice)nullptr;
+        return reinterpret_cast<PFN_D3D11CreateDevice>(GetProcAddress(mod, "D3D11CreateDevice"));
+    }();
+    return fn;
+}
+
+PFN_CreateDXGIFactory1 LoadCreateDXGIFactory1(){
+    static PFN_CreateDXGIFactory1 fn = [](){
+        HMODULE mod = LoadLibraryW(L"dxgi.dll");
+        if (!mod) return (PFN_CreateDXGIFactory1)nullptr;
+        return reinterpret_cast<PFN_CreateDXGIFactory1>(GetProcAddress(mod, "CreateDXGIFactory1"));
+    }();
+    return fn;
+}
+
+PFN_DCompositionCreateDevice LoadDCompositionCreateDevice(){
+    static PFN_DCompositionCreateDevice fn = [](){
+        HMODULE mod = LoadLibraryW(L"dcomp.dll");
+        if (!mod) return (PFN_DCompositionCreateDevice)nullptr;
+        return reinterpret_cast<PFN_DCompositionCreateDevice>(GetProcAddress(mod, "DCompositionCreateDevice"));
+    }();
+    return fn;
+}
+}
+
+bool GPU::initDirectCompositionPresenter(){
+    directCompositionActive = false;
+    destroyDirectCompositionPresenter();
+
+    if (!wantsTransparentSwapchain()) return false;
+    uint32_t pixelWidth = width;
+    uint32_t pixelHeight = height;
+    queryWindowPixelSize(pixelWidth, pixelHeight);
+    if (pixelWidth == 0) pixelWidth = width;
+    if (pixelHeight == 0) pixelHeight = height;
+    width = pixelWidth;
+    height = pixelHeight;
+
+    auto d3dCreate = LoadD3D11CreateDevice();
+    auto factoryCreate = LoadCreateDXGIFactory1();
+    auto dcompCreate = LoadDCompositionCreateDevice();
+    if (!d3dCreate || !factoryCreate || !dcompCreate) {
+        logDirectCompositionEvent("InitPresenter", "missing DirectX entry points");
+        return false;
+    }
+
+    IDXGIFactory2* factory = nullptr;
+    if (FAILED(factoryCreate(IID_PPV_ARGS(&factory)))) {
+        logDirectCompositionEvent("InitPresenter", "CreateDXGIFactory1 failed");
+        return false;
+    }
+    IDXGIAdapter1* adapter = pickDxgiAdapter(factory);
+
+    ID3D11Device* baseDevice = nullptr;
+    ID3D11DeviceContext* baseContext = nullptr;
+    D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+    D3D_FEATURE_LEVEL outLevel = D3D_FEATURE_LEVEL_11_0;
+    UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+#ifdef _DEBUG
+    flags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+    const D3D_DRIVER_TYPE driverType = adapter ? D3D_DRIVER_TYPE_UNKNOWN : D3D_DRIVER_TYPE_HARDWARE;
+    if (FAILED(d3dCreate(adapter, driverType, nullptr, flags,
+            levels, ARRAYSIZE(levels), D3D11_SDK_VERSION,
+            &baseDevice, &outLevel, &baseContext))){
+        SafeRelease(adapter);
+        SafeRelease(factory);
+        logDirectCompositionEvent("InitPresenter", "D3D11CreateDevice failed");
+        return false;
+    }
+    SafeRelease(adapter);
+    if (FAILED(baseDevice->QueryInterface(IID_PPV_ARGS(&d3dPresenter.d3dDevice))) ||
+        FAILED(baseContext->QueryInterface(IID_PPV_ARGS(&d3dPresenter.d3dContext)))){
+        SafeRelease(baseDevice);
+        SafeRelease(baseContext);
+        SafeRelease(factory);
+        logDirectCompositionEvent("InitPresenter", "QueryInterface for D3D11Device1 failed");
+        return false;
+    }
+    SafeRelease(baseDevice);
+    SafeRelease(baseContext);
+
+    DXGI_SWAP_CHAIN_DESC1 swapDesc{};
+    swapDesc.Width = width;
+    swapDesc.Height = height;
+    swapDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapDesc.BufferCount = 2;
+    swapDesc.SampleDesc.Count = 1;
+    swapDesc.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
+    swapDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+
+    IDXGISwapChain1* swapChain = nullptr;
+    if (FAILED(factory->CreateSwapChainForComposition(d3dPresenter.d3dDevice, &swapDesc, nullptr, &swapChain))){
+        SafeRelease(factory);
+        destroyDirectCompositionPresenter();
+        logDirectCompositionEvent("InitPresenter", "CreateSwapChainForComposition failed");
+        return false;
+    }
+
+    IDCompositionDevice* dcompDevice = nullptr;
+    if (FAILED(dcompCreate(nullptr, IID_PPV_ARGS(&dcompDevice)))){
+        SafeRelease(factory);
+        SafeRelease(swapChain);
+        destroyDirectCompositionPresenter();
+        logDirectCompositionEvent("InitPresenter", "DCompositionCreateDevice failed");
+        return false;
+    }
+    IDCompositionTarget* target = nullptr;
+    if (FAILED(dcompDevice->CreateTargetForHwnd(static_cast<HWND>(win32WindowHandle), TRUE, &target))){
+        SafeRelease(factory);
+        SafeRelease(swapChain);
+        SafeRelease(dcompDevice);
+        destroyDirectCompositionPresenter();
+        logDirectCompositionEvent("InitPresenter", "CreateTargetForHwnd failed");
+        return false;
+    }
+    IDCompositionVisual* visual = nullptr;
+    if (FAILED(dcompDevice->CreateVisual(&visual))){
+        SafeRelease(factory);
+        SafeRelease(swapChain);
+        SafeRelease(dcompDevice);
+        SafeRelease(target);
+        destroyDirectCompositionPresenter();
+        logDirectCompositionEvent("InitPresenter", "CreateVisual failed");
+        return false;
+    }
+    visual->SetContent(swapChain);
+    target->SetRoot(visual);
+    dcompDevice->Commit();
+
+    d3dPresenter.dxgiFactory = factory;
+    d3dPresenter.swapChain = swapChain;
+    d3dPresenter.dcompDevice = dcompDevice;
+    d3dPresenter.dcompTarget = target;
+    d3dPresenter.dcompVisual = visual;
+    d3dPresenter.bufferCount = swapDesc.BufferCount;
+    clearDirectCompositionSwapChain();
+    directCompositionActive = true;
+    logDirectCompositionEvent("InitPresenter", "success");
+    return true;
+}
+
+void GPU::destroyDirectCompositionPresenter(){
+    destroySharedRenderTargets();
+    SafeRelease(d3dPresenter.dcompVisual);
+    SafeRelease(d3dPresenter.dcompTarget);
+    SafeRelease(d3dPresenter.dcompDevice);
+    SafeRelease(d3dPresenter.swapChain);
+    SafeRelease(d3dPresenter.d3dContext);
+    SafeRelease(d3dPresenter.d3dDevice);
+    SafeRelease(d3dPresenter.dxgiFactory);
+    d3dPresenter.bufferCount = 0;
+    directCompositionActive = false;
+    directCompositionWidth = 0;
+    directCompositionHeight = 0;
+}
+
+bool GPU::createSharedRenderTargets(uint32_t imageCount){
+    destroySharedRenderTargets();
+    if (!directCompositionActive) return false;
+    if (imageCount == 0) imageCount = 2;
+    VkExternalMemoryHandleTypeFlagBits handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT;
+    bool requiresDedicated = false;
+    if (!selectDirectCompositionHandleType(handleType, requiresDedicated)){
+        logDirectCompositionEvent("CreateSharedRenderTargets", "external memory unsupported");
+        return false;
+    }
+    directCompositionHandleType = handleType;
+    directCompositionRequiresDedicatedMemory = requiresDedicated;
+    directImages.resize(imageCount);
+    swapchainImages.resize(imageCount);
+    swapchainImageViews.resize(imageCount);
+    framebuffer.assign(imageCount, VK_NULL_HANDLE);
+    logDirectCompositionEvent("CreateSharedRenderTargets", "allocating shared images");
+
+    for (uint32_t i = 0; i < imageCount; i++){
+        ID3D11Texture2D* texture = nullptr;
+        D3D11_TEXTURE2D_DESC texDesc{};
+        texDesc.Width = width;
+        texDesc.Height = height;
+        texDesc.MipLevels = 1;
+        texDesc.ArraySize = 1;
+        texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        texDesc.SampleDesc.Count = 1;
+        texDesc.Usage = D3D11_USAGE_DEFAULT;
+        texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        texDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
+        if (handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT){
+            texDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED_NTHANDLE;
+        } else if (handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT){
+            texDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
+        }
+        if (FAILED(d3dPresenter.d3dDevice->CreateTexture2D(&texDesc, nullptr, &texture))){
+            logDirectCompositionEvent("CreateSharedRenderTargets", "CreateTexture2D failed");
+            destroySharedRenderTargets();
+            return false;
+        }
+        directImages[i].d3dTexture = texture;
+
+        HANDLE sharedHandle = NULL;
+        if (!createSharedHandleForTexture(texture, handleType, sharedHandle)){
+            logDirectCompositionEvent("CreateSharedRenderTargets", "CreateSharedHandle failed");
+            destroySharedRenderTargets();
+            return false;
+        }
+        directImages[i].sharedHandle = sharedHandle;
+
+        IDXGIKeyedMutex* keyedMutex = nullptr;
+        if (FAILED(texture->QueryInterface(IID_PPV_ARGS(&keyedMutex)))){
+            logDirectCompositionEvent("CreateSharedRenderTargets", "QueryInterface IDXGIKeyedMutex failed");
+            destroySharedRenderTargets();
+            return false;
+        }
+        directImages[i].keyedMutex = keyedMutex;
+
+        VkExternalMemoryImageCreateInfo externalInfo{};
+        externalInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+        externalInfo.handleTypes = handleType;
+
+        VkImageCreateInfo imageInfo{};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.pNext = &externalInfo;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent = {width, height, 1};
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.format = swapchainFormat;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        if (vkCreateImage(device, &imageInfo, nullptr, &directImages[i].image) != VK_SUCCESS){
+            logDirectCompositionEvent("CreateSharedRenderTargets", "vkCreateImage failed");
+            destroySharedRenderTargets();
+            return false;
+        }
+
+        VkMemoryRequirements memReqs{};
+        vkGetImageMemoryRequirements(device, directImages[i].image, &memReqs);
+
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memReqs.size;
+        allocInfo.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VkMemoryDedicatedAllocateInfo dedicatedInfo{};
+        if (requiresDedicated){
+            dedicatedInfo.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
+            dedicatedInfo.image = directImages[i].image;
+            allocInfo.pNext = &dedicatedInfo;
+        }
+        VkImportMemoryWin32HandleInfoKHR importInfo{};
+        importInfo.sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR;
+        importInfo.handleType = handleType;
+        importInfo.handle = sharedHandle;
+        if (allocInfo.pNext != nullptr){
+            importInfo.pNext = allocInfo.pNext;
+        }
+        allocInfo.pNext = &importInfo;
+
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &directImages[i].memory) != VK_SUCCESS){
+            logDirectCompositionEvent("CreateSharedRenderTargets", "vkAllocateMemory failed");
+            destroySharedRenderTargets();
+            return false;
+        }
+        vkBindImageMemory(device, directImages[i].image, directImages[i].memory, 0);
+        CloseHandle(sharedHandle);
+        directImages[i].sharedHandle = NULL;
+
+        VkImageViewCreateInfo viewInfo{};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = directImages[i].image;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = swapchainFormat;
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
+        if (vkCreateImageView(device, &viewInfo, nullptr, &directImages[i].view) != VK_SUCCESS){
+            logDirectCompositionEvent("CreateSharedRenderTargets", "vkCreateImageView failed");
+            destroySharedRenderTargets();
+            return false;
+        }
+
+        swapchainImages[i] = directImages[i].image;
+        swapchainImageViews[i] = directImages[i].view;
+
+        VkFramebufferCreateInfo fbInfo{};
+        fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fbInfo.renderPass = renderpass;
+        fbInfo.attachmentCount = 1;
+        fbInfo.pAttachments = &swapchainImageViews[i];
+        fbInfo.width = width;
+        fbInfo.height = height;
+        fbInfo.layers = 1;
+        if (vkCreateFramebuffer(device, &fbInfo, nullptr, &framebuffer[i]) != VK_SUCCESS){
+            logDirectCompositionEvent("CreateSharedRenderTargets", "vkCreateFramebuffer failed");
+            destroySharedRenderTargets();
+            return false;
+        }
+
+        if (directImages[i].keyedMutex){
+            directImages[i].keyedMutex->ReleaseSync(0);
+        }
+    }
+    logDirectCompositionEvent("CreateSharedRenderTargets", "completed");
+    directCompositionWidth = width;
+    directCompositionHeight = height;
+    uint32_t actualWidth = 0;
+    uint32_t actualHeight = 0;
+    queryWindowPixelSize(actualWidth, actualHeight);
+    if ((actualWidth > 0) && (actualHeight > 0)){
+        directCompositionWidth = actualWidth;
+        directCompositionHeight = actualHeight;
+    }
+    clearDirectCompositionImages();
+    return true;
+}
+
+void GPU::clearDirectCompositionSwapChain(){
+    if (!d3dPresenter.swapChain || !d3dPresenter.d3dDevice || !d3dPresenter.d3dContext){
+        return;
+    }
+    const FLOAT transparent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    for (UINT bufferIndex = 0; bufferIndex < d3dPresenter.bufferCount; ++bufferIndex){
+        ID3D11Texture2D* buffer = nullptr;
+        if (FAILED(d3dPresenter.swapChain->GetBuffer(bufferIndex, IID_PPV_ARGS(&buffer)))){
+            SafeRelease(buffer);
+            continue;
+        }
+        ID3D11RenderTargetView* rtv = nullptr;
+        if (SUCCEEDED(d3dPresenter.d3dDevice->CreateRenderTargetView(buffer, nullptr, &rtv))){
+            d3dPresenter.d3dContext->ClearRenderTargetView(rtv, transparent);
+            rtv->Release();
+        }
+        SafeRelease(buffer);
+    }
+    d3dPresenter.d3dContext->Flush();
+}
+
+void GPU::clearDirectCompositionImages(){
+    if (directImages.empty()) return;
+    if (device == VK_NULL_HANDLE || queue == VK_NULL_HANDLE) return;
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = queueFamilyIndex;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    VkCommandPool tempPool = VK_NULL_HANDLE;
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &tempPool) != VK_SUCCESS){
+        return;
+    }
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = tempPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    if (vkAllocateCommandBuffers(device, &allocInfo, &cmd) != VK_SUCCESS){
+        vkDestroyCommandPool(device, tempPool, nullptr);
+        return;
+    }
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS){
+        vkFreeCommandBuffers(device, tempPool, 1, &cmd);
+        vkDestroyCommandPool(device, tempPool, nullptr);
+        return;
+    }
+    VkClearValue clearValue{};
+    clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    for (size_t i = 0; i < framebuffer.size(); ++i){
+        if (framebuffer[i] == VK_NULL_HANDLE) continue;
+        VkRenderPassBeginInfo rpInfo{};
+        rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        rpInfo.renderPass = renderpass;
+        rpInfo.framebuffer = framebuffer[i];
+        rpInfo.renderArea.offset = {0, 0};
+        rpInfo.renderArea.extent = {width, height};
+        rpInfo.clearValueCount = 1;
+        rpInfo.pClearValues = &clearValue;
+        vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdEndRenderPass(cmd);
+    }
+    vkEndCommandBuffer(cmd);
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmd;
+    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(queue);
+    vkFreeCommandBuffers(device, tempPool, 1, &cmd);
+    vkDestroyCommandPool(device, tempPool, nullptr);
+}
+
+void GPU::destroySharedRenderTargets(){
+    for (auto& fb : framebuffer){
+        if (fb != VK_NULL_HANDLE){
+            vkDestroyFramebuffer(device, fb, nullptr);
+            fb = VK_NULL_HANDLE;
+        }
+    }
+    for (auto& img : directImages){
+        if (img.d3dTexture){
+            img.d3dTexture->Release();
+            img.d3dTexture = nullptr;
+        }
+        if (img.keyedMutex){
+            img.keyedMutex->Release();
+            img.keyedMutex = nullptr;
+        }
+        if (img.sharedHandle){
+            CloseHandle(img.sharedHandle);
+            img.sharedHandle = NULL;
+        }
+        if (img.view != VK_NULL_HANDLE){
+            vkDestroyImageView(device, img.view, nullptr);
+            img.view = VK_NULL_HANDLE;
+        }
+        if (img.image != VK_NULL_HANDLE){
+            vkDestroyImage(device, img.image, nullptr);
+            img.image = VK_NULL_HANDLE;
+        }
+        if (img.memory != VK_NULL_HANDLE){
+            vkFreeMemory(device, img.memory, nullptr);
+            img.memory = VK_NULL_HANDLE;
+        }
+    }
+    directImages.clear();
+    swapchainImages.clear();
+    swapchainImageViews.clear();
+    framebuffer.clear();
+}
+
+void GPU::presentWithDirectComposition(uint32_t imageIndex){
+    if (!directCompositionActive) return;
+    if (imageIndex >= directImages.size()) return;
+    if (!d3dPresenter.swapChain || !d3dPresenter.d3dContext) return;
+    ID3D11Texture2D* sharedTexture = directImages[imageIndex].d3dTexture;
+    if (!sharedTexture) return;
+    IDXGIKeyedMutex* keyedMutex = directImages[imageIndex].keyedMutex;
+    if (keyedMutex){
+        if (FAILED(keyedMutex->AcquireSync(1, INFINITE))){
+            logDirectCompositionEvent("Present", "AcquireSync failed");
+            return;
+        }
+    }
+
+    ID3D11Texture2D* backBuffer = nullptr;
+    if (SUCCEEDED(d3dPresenter.swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)))){
+        d3dPresenter.d3dContext->CopyResource(backBuffer, sharedTexture);
+    }
+    SafeRelease(backBuffer);
+    d3dPresenter.swapChain->Present(1, 0);
+    static uint32_t frameCounter = 0;
+    if (frameCounter < 5){
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "presented image %u", imageIndex);
+        logDirectCompositionEvent("Present", buffer);
+        frameCounter++;
+    }
+    if (keyedMutex){
+        keyedMutex->ReleaseSync(0);
+    }
+}
+#else
+bool GPU::initDirectCompositionPresenter(){ return false; }
+void GPU::destroyDirectCompositionPresenter(){}
+bool GPU::createSharedRenderTargets(uint32_t){ return false; }
+void GPU::destroySharedRenderTargets(){}
+void GPU::presentWithDirectComposition(uint32_t){}
+#endif
+#ifdef _WIN32
+void GPU::configureTransparentWindow(){
+    if (!wantsTransparentSwapchain()) return;
+    if (window == NULL) return;
+    SDL_PropertiesID properties = SDL_GetWindowProperties(window);
+    if (properties == 0) return;
+    void* hwndProperty = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+    if (hwndProperty == NULL) return;
+    HWND hwnd = static_cast<HWND>(hwndProperty);
+    win32WindowHandle = hwnd;
+
+    const LONG_PTR existingStyles = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if ((existingStyles & WS_EX_LAYERED) == 0) {
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, existingStyles | WS_EX_LAYERED);
+    }
+    SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+
+    const HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    if (user32 != NULL) {
+        auto setWindowCompositionAttribute = reinterpret_cast<SetWindowCompositionAttributeFn>(
+                GetProcAddress(user32, "SetWindowCompositionAttribute"));
+        if (setWindowCompositionAttribute != NULL) {
+            PhotonAccentPolicy policy{};
+            policy.accentState = static_cast<DWORD>(PhotonAccentState::BlurBehind);
+            policy.accentFlags = 0;
+            policy.gradientColor = 0;
+            policy.animationId = 0;
+
+            PhotonWindowCompositionAttribData data{};
+            data.attribute = PhotonWindowCompositionAttrib::AccentPolicy;
+            data.data = &policy;
+            data.dataSize = sizeof(policy);
+
+            setWindowCompositionAttribute(hwnd, &data);
+        }
+    }
+
+    HMODULE dwmapi = LoadLibraryW(L"dwmapi.dll");
+    if (dwmapi != NULL) {
+        auto dwmExtendFrame = reinterpret_cast<DwmExtendFrameIntoClientAreaFn>(
+                GetProcAddress(dwmapi, "DwmExtendFrameIntoClientArea"));
+        auto dwmEnableBlur = reinterpret_cast<DwmEnableBlurBehindWindowFn>(
+                GetProcAddress(dwmapi, "DwmEnableBlurBehindWindow"));
+        if (dwmExtendFrame != NULL) {
+            MARGINS margins{ -1, -1, -1, -1 };
+            dwmExtendFrame(hwnd, &margins);
+        }
+        if (dwmEnableBlur != NULL) {
+            HRGN blurRegion = CreateRectRgn(0, 0, -1, -1);
+            DWM_BLURBEHIND blur{};
+            blur.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+            blur.fEnable = TRUE;
+            blur.hRgnBlur = blurRegion;
+            blur.fTransitionOnMaximized = FALSE;
+            dwmEnableBlur(hwnd, &blur);
+            if (blurRegion != NULL) {
+                DeleteObject(blurRegion);
+            }
+        }
+        FreeLibrary(dwmapi);
+    }
+}
+#else
+void GPU::configureTransparentWindow(){}
+#endif

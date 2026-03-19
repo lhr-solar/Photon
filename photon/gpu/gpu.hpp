@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <vector>
 
 #include <SDL3/SDL.h>
@@ -9,6 +10,19 @@
 
 #include "../engine/include.hpp"
 #include "imgui.h"
+
+#ifdef _WIN32
+struct ID3D11Device1;
+struct ID3D11DeviceContext1;
+struct IDXGISwapChain1;
+struct IDXGIAdapter1;
+struct IDXGIFactory2;
+struct ID3D11Texture2D;
+struct IDXGIKeyedMutex;
+struct IDCompositionDevice;
+struct IDCompositionTarget;
+struct IDCompositionVisual;
+#endif
 
 struct GPU{
     bool validationLayerSupport();
@@ -25,6 +39,40 @@ struct GPU{
     void submitFrame(const uint32_t imgIdx);
     void resizeWindow();
     void destroy();
+    SDL_Window* createWindow();
+    void configureTransparentWindow();
+    bool wantsTransparentSwapchain() const;
+    VkCompositeAlphaFlagBitsKHR pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
+    void logCompositeAlphaCapabilities(const VkSurfaceCapabilitiesKHR& surfaceCapabilities) const;
+    void prepareImageForPresentation(uint32_t imgIdx);
+    void adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const;
+    bool presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot);
+    bool startFramePlatform(uint32_t& imgIdx);
+    void queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const;
+    void forceInitialTransparentResize();
+    void releasePresentationResources();
+    void shutdownPresentationBackend();
+#ifdef _WIN32
+    bool tryActivateDirectComposition(uint32_t imageCount);
+#else
+    bool tryActivateDirectComposition(uint32_t) { return false; }
+#endif
+#ifdef _WIN32
+    void logDirectCompositionEvent(const char* stage, const char* detail) const;
+    bool ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated);
+    bool selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated);
+    bool createSharedHandleForTexture(ID3D11Texture2D* texture, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE& sharedHandle);
+    bool queryPhysicalDeviceId();
+    bool recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHeight, uint32_t imageCount);
+    IDXGIAdapter1* pickDxgiAdapter(IDXGIFactory2* factory);
+    bool initDirectCompositionPresenter();
+    void destroyDirectCompositionPresenter();
+    bool createSharedRenderTargets(uint32_t imageCount);
+    void destroySharedRenderTargets();
+    void presentWithDirectComposition(uint32_t imageIndex);
+    void clearDirectCompositionSwapChain();
+    void clearDirectCompositionImages();
+#endif
 
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);
     void setImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
@@ -32,8 +80,8 @@ struct GPU{
     VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, 
             VkShaderModule& module, VkShaderStageFlagBits flagBits, VkDevice device);
 
-    uint32_t width = 640;
-    uint32_t height = 480;
+    uint32_t width = 1280;
+    uint32_t height = 720;
     VkInstance instance{VK_NULL_HANDLE};
     SDL_Window *window{NULL};
     VkSurfaceKHR surface{VK_NULL_HANDLE};
@@ -97,4 +145,34 @@ struct GPU{
     std::vector<uint32_t> indexIsMapped{};
 
     uint32_t frameIndex = 0;
+#ifdef _WIN32
+    bool directCompositionActive = false;
+    VkExternalMemoryHandleTypeFlagBits directCompositionHandleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT;
+    bool directCompositionRequiresDedicatedMemory = false;
+    uint32_t directCompositionWidth = 0;
+    uint32_t directCompositionHeight = 0;
+    bool transparentResizeHackApplied = false;
+    void* win32WindowHandle = nullptr;
+    std::array<uint8_t, VK_LUID_SIZE> physicalDeviceLuid{};
+    bool physicalDeviceLuidValid = false;
+    struct SharedDirectImage {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        HANDLE sharedHandle = NULL;
+        ID3D11Texture2D* d3dTexture = nullptr;
+        IDXGIKeyedMutex* keyedMutex = nullptr;
+    };
+    struct D3DPresenter {
+        IDXGIFactory2* dxgiFactory = nullptr;
+        ID3D11Device1* d3dDevice = nullptr;
+        ID3D11DeviceContext1* d3dContext = nullptr;
+        IDXGISwapChain1* swapChain = nullptr;
+        IDCompositionDevice* dcompDevice = nullptr;
+        IDCompositionTarget* dcompTarget = nullptr;
+        IDCompositionVisual* dcompVisual = nullptr;
+        uint32_t bufferCount = 0;
+    } d3dPresenter{};
+    std::vector<SharedDirectImage> directImages{};
+#endif
 };
