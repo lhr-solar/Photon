@@ -1,3 +1,4 @@
+#include <SDL3/SDL_oldnames.h>
 #include <array>
 #include <cstring>
 #include <vector>
@@ -790,7 +791,6 @@ void GPU::destroy() {
     vkDeviceWaitIdle(device);
     SDL_DestroyWindow(window);
     ImGui::DestroyContext();
-    vkDestroySwapchainKHR(device, swapchain, NULL);
     for(int i = 0; i < swapchainImages.size(); i++){
         vkDestroyImageView(device, swapchainImageViews[i], NULL);
         vkDestroyFramebuffer(device, framebuffer[i], NULL);
@@ -799,9 +799,12 @@ void GPU::destroy() {
         vkDestroyFence(device, fences[i], NULL);
         vkDestroyBuffer(device, vertexBuffers[i], NULL);
         vkDestroyBuffer(device, indexBuffers[i], NULL);
+        vkUnmapMemory(device, vertexBufferMemories[i]);
+        vkUnmapMemory(device, indexBufferMemories[i]);
         vkFreeMemory(device, vertexBufferMemories[i], NULL);
         vkFreeMemory(device, indexBufferMemories[i], NULL);
     }
+    vkDestroySwapchainKHR(device, swapchain, NULL);
     vkDestroyShaderModule(device, uiShaderVert, NULL);
     vkDestroyShaderModule(device, uiShaderIndex, NULL);
     vkDestroyImage(device, fontImage, NULL);
@@ -819,6 +822,7 @@ void GPU::destroy() {
     vkDestroyPipelineLayout(device, imguiPipelineLayout, NULL);
     vkDestroyDevice(device, NULL);
     vkDestroyInstance(instance, NULL);
+    SDL_Quit();
 };
 
 uint32_t GPU::getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags){
