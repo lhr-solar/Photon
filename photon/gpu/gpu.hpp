@@ -19,6 +19,7 @@ struct GPU{
     void imguiPresentation(const uint32_t imgIdx);
     void startFrame(uint32_t& imgIdx);
     void submitFrame(const uint32_t imgIdx);
+    void resizeWindow();
     void destroy();
 
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);

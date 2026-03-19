@@ -806,9 +806,14 @@ void GPU::imguiPresentation(uint32_t imgIdx){
 
 void GPU::startFrame(uint32_t& imgIdx){
     vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
-    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, 
+    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, 
         imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
+    if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)){resizeWindow();}
     vkResetFences(device, 1, &fences[frameIndex]);
+};
+
+void GPU::resizeWindow(){
+    vkDeviceWaitIdle(device);
 };
 
 void GPU::submitFrame(const uint32_t imgIdx){
