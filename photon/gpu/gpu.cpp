@@ -12,6 +12,7 @@
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
 #include "imgui.h"
+#include "implot3d.h"
 
 #include "gpu.hpp"
 
@@ -32,7 +33,8 @@ void GPU::init() {
 
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Vulkan_LoadLibrary(NULL);
-    window = SDL_CreateWindow("Photon", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    window = SDL_CreateWindow("Photon", width, height, 
+    SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     const char *const *sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&count);
     std::vector<const char *> enabledExtensions(sdlExtensions, sdlExtensions + count);
     enabledExtensions.push_back( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -204,6 +206,16 @@ void GPU::createSwapchainResources(){
     if((surfaceCapabilities.maxImageCount > 0) && (imageCount > surfaceCapabilities.maxImageCount))
         imageCount = surfaceCapabilities.maxImageCount;
 
+    VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    const VkCompositeAlphaFlagBitsKHR compositeAlphaModes[] = {
+        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+    };
+    for (const auto mode : compositeAlphaModes)
+        if ((surfaceCapabilities.supportedCompositeAlpha & mode) != 0) { compositeAlpha = mode; break; }
+
     VkSwapchainCreateInfoKHR swapchainCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .pNext = NULL,
@@ -219,7 +231,7 @@ void GPU::createSwapchainResources(){
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = NULL,
         .preTransform = surfaceCapabilities.currentTransform,
-        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .compositeAlpha = compositeAlpha,
         .presentMode = presentationMode,
         .clipped = VK_TRUE,
         .oldSwapchain = VK_NULL_HANDLE
@@ -373,6 +385,7 @@ void GPU::destroyFrameResources(){
 
 void GPU::imguiBackend(){
     ImGui::CreateContext();
+    ImPlot3D::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
@@ -581,9 +594,8 @@ void GPU::imguiBackend(){
     blendAttachmentState.dstColorBlendFactor =
         VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-    blendAttachmentState.srcAlphaBlendFactor =
-        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo {};
@@ -712,7 +724,7 @@ void GPU::imguiBackend(){
 
 void GPU::imguiPresentation(uint32_t imgIdx){
     VkClearValue clearValues[1];
-    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 1.0f}};
+    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 0.0f}};
     VkRenderPassBeginInfo renderPassBeginInfo {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass = renderpass;
@@ -971,6 +983,7 @@ void GPU::submitFrame(const uint32_t imgIdx){
 void GPU::destroy() {
     vkDeviceWaitIdle(device);
     ImGui::DestroyContext();
+    ImPlot3D::DestroyContext();
     destroyFrameResources();
     destroySwapchainResources();
     vkDestroyShaderModule(device, uiShaderVert, NULL);

@@ -3,10 +3,12 @@
 #include <cfloat>
 
 #include "imgui.h"
+#include "implot3d.h"
 
 void GUI::buildUI(){
     ImGui::NewFrame();
     ImGui::ShowDemoWindow();
+    ImPlot3D::ShowDemoWindow();
     ImGui::Render();
 };
 
