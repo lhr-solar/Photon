@@ -6,20 +6,29 @@
 void Photon::init(){
     gpu.init(); logs("Initialized GPU");
     gpu.imguiBackend(); logs("Initialized ImGui");
+    windowID = SDL_GetWindowID(gpu.window);
+};
+
+void Photon::handleEvents(){
+    SDL_Event events{};
+    while(SDL_PollEvent(&events)) {
+        if (events.type == SDL_EVENT_QUIT) running = false;
+        if ((events.type == SDL_EVENT_WINDOW_RESIZED) || (events.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)) 
+            gpu.resizeWindow();
+        gui.processEvents(&events);
+    }
+    const bool* keys = SDL_GetKeyboardState(nullptr);
+    if(keys[SDL_SCANCODE_ESCAPE]){running = false;}
 };
 
 void Photon::renderLoop(){
     logs("Starting render loop");
     while(running){
         auto startFrame = std::chrono::high_resolution_clock::now();
+        handleEvents();
         uint32_t imgIdx{};
-        SDL_Event events{};
-        while(SDL_PollEvent(&events)) gui.processEvents(&events);
-        const bool* keys = SDL_GetKeyboardState(nullptr);
-        if(keys[SDL_SCANCODE_ESCAPE]){running = false;}
         ImGuiIO& io = ImGui::GetIO();
         io.DeltaTime = deltaTime / 1000;
-
         gpu.startFrame(imgIdx);
         gui.buildUI();
         gpu.imguiPresentation(imgIdx);

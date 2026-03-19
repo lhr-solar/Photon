@@ -13,6 +13,10 @@
 struct GPU{
     bool validationLayerSupport();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
+    void createSwapchainResources();
+    void destroySwapchainResources();
+    void createFrameResources();
+    void destroyFrameResources();
 
     void init();
     void imguiBackend();
@@ -25,7 +29,8 @@ struct GPU{
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);
     void setImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
             VkImageSubresourceRange subresourceRange, VkPipelineStageFlags sourceStageMask, VkPipelineStageFlags destinationStageMask);
-    VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderModule& module, VkShaderStageFlagBits flagBits, VkDevice device);
+    VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, 
+            VkShaderModule& module, VkShaderStageFlagBits flagBits, VkDevice device);
 
     uint32_t width = 640;
     uint32_t height = 480;
