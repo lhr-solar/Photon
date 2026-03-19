@@ -1,87 +1,99 @@
-/*[π] the photon gpu interface*/
 #pragma once
-#include <vulkan/vulkan.h>
 #include <vector>
-#include <string>
-#include <glm/gtc/matrix_transform.hpp>
 
-#include "vulkanDevice.hpp"
-#include "vulkanSwapchain.hpp"
-#include "vulkanBuffer.hpp"
-#include "camera.hpp"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_surface.h>
+#include <vulkan/vulkan.h>
+#include <vulkan_core.h>
+#include <glm/glm.hpp>
 
-#define VK_CHECK(x) do { VkResult err = x; if (err) { \
-    std::cout << "Detected Vulkan error: " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
-    abort(); \
-} } while(0)
+#include "../engine/include.hpp"
+#include "imgui.h"
 
-#define DEFAULT_FENCE_TIMEOUT 100000000000
+struct GPU{
+    bool validationLayerSupport();
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
 
-class Gpu{
-public:
-    VkInstance instance{ VK_NULL_HANDLE };
-    VulkanDevice vulkanDevice {VK_NULL_HANDLE} ;
-    VulkanSwapchain vulkanSwapchain = {};
+    void init();
+    void imguiBackend();
+    void imguiPresentation(uint32_t imgIdx);
+    void startFrame();
+    void submitFrame();
+    void destroy();
 
-    std::string title = "Photon";
-    std::string name = "Photon";
-    uint32_t apiVersion = VK_API_VERSION_1_0;
-    std::vector<VkLayerProperties> supportedInstanceLayers = {};
-    std::vector<const char*> enabledInstanceLayers = {};
-    std::vector<std::string> supportedInstanceExtensions = {};
-    std::vector<const char*> enabledInstanceExtensions = {};
-    std::vector<VkPhysicalDevice> physicalDevices = {};
+    uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);
+    void setImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+            VkImageSubresourceRange subresourceRange, VkPipelineStageFlags sourceStageMask, VkPipelineStageFlags destinationStageMask);
+    VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, VkShaderModule& module, VkShaderStageFlagBits flagBits, VkDevice device);
 
-    VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-    VkFormat depthFormat{};
-    struct {
-        VkImage image;
-        VkDeviceMemory memory;
-        VkImageView view;
-    } depthStencil{};
-    VkRenderPass renderPass{ VK_NULL_HANDLE };
-    std::vector<VkFramebuffer> frameBuffers = {};
+    uint32_t width = 640;
+    uint32_t height = 480;
+    VkInstance instance{VK_NULL_HANDLE};
+    SDL_Window *window{NULL};
+    VkSurfaceKHR surface{VK_NULL_HANDLE};
+    VkSwapchainKHR swapchain{VK_NULL_HANDLE};
+    VkPresentModeKHR presentationMode{};
+    VkFormat swapchainFormat{};
+    VkRenderPass renderpass{};
+    VkColorSpaceKHR swapchainColorspace{};
+    std::vector<VkImage> swapchainImages{};
+    std::vector<VkImageView> swapchainImageViews{};
+    std::vector<VkFramebuffer> framebuffer{VK_NULL_HANDLE};
+    std::vector<VkAttachmentDescription> attachmentDescriptions{};
+    std::vector<VkSubpassDescription> subpassDescriptions{};
+    std::vector<VkSubpassDependency> subpassDependencies{};
+    std::vector<VkSemaphore> renderCompleteSemaphores{};
+    std::vector<VkSemaphore> imageAvailableSemaphores{};
+    std::vector<VkFence> fences{};
+    VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
+    VkDevice device{VK_NULL_HANDLE};
+    VkQueue queue{VK_NULL_HANDLE};
+    float queuePriority = 1.0f;
+    uint32_t queueFamilyIndex{};
+    uint32_t queueIndex{};
+    uint32_t queueCount{};
+    VkPhysicalDeviceProperties deviceProperties{};
+    VkPhysicalDeviceFeatures deviceFeatures{};
+    VkPhysicalDeviceMemoryProperties deviceMemoryProperties{};
+    std::vector<VkQueueFamilyProperties> deviceQueueFamilyProperties{};
+    VkCommandPool commandPool{};
+    std::vector<VkCommandBuffer> commandBuffers{};
 
-    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
-    VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
-    VkDescriptorPool descriptorPool { VK_NULL_HANDLE };
+    // IMGUI resources
+    VkShaderModule uiShaderVert{};
+    VkShaderModule uiShaderIndex{};
+    VkImage fontImage = VK_NULL_HANDLE;
+    VkDeviceMemory fontMemory = VK_NULL_HANDLE;
+    VkImageView fontView = VK_NULL_HANDLE;
+    VkSampler fontSampler = VK_NULL_HANDLE;
+    VkDescriptorPool descriptorPool{};
+    VkDescriptorSetLayout descriptorSetLayout{};
+    VkDescriptorSet descriptorSet{};
+    VkPipelineLayout imguiPipelineLayout{};
+    VkPipeline imguiPipeline;
+    struct PushConstBlock {
+        glm::vec2 scale;
+        glm::vec2 translate;
+        glm::vec2 invScreenSize;
+        glm::vec2 whitePixel;
+        glm::vec4 gradTop;
+        glm::vec4 gradBottom;
+        float u_time;
+    } imguiPushConst;
 
-    VkPipelineStageFlags submitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkSubmitInfo submitInfo{};
-    VkCommandPool surfaceCommandPool{VK_NULL_HANDLE};
-    std::vector<VkCommandBuffer> drawCmdBuffers = {};
-    uint32_t currentBuffer = 0;
+    std::vector<VkBuffer> vertexBuffers{};
+    std::vector<VkBuffer> indexBuffers{};
+    std::vector<int32_t> vertexCounts{};
+    std::vector<int32_t> indexCounts{};
+    std::vector<VkDeviceSize> vertexBufferSizes{};
+    std::vector<VkDeviceSize> indexBufferSizes{};
+    std::vector<void *> vertexBufferMapped{};
+    std::vector<void *> indexBufferMapped{};
+    std::vector<VkDeviceMemory> vertexBufferMemories{};
+    std::vector<VkDeviceMemory> indexBufferMemories{};
+    std::vector<uint32_t> vertexIsMapped{};
+    std::vector<uint32_t> indexIsMapped{};
 
-    struct {
-		VkSemaphore presentComplete;
-		VkSemaphore renderComplete;
-	} semaphores;
 
-    std::vector<VkFence> fences = {};
-
-    float frameTime = 1.0;
-
-    VkBool32 getSupportedDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat* depthStencilFormat);
-    VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat* depthFormat);
-    uint32_t pickBestDevice();
-    VkResult createInstance();
-    VkResult setupVulkanDevice();
-
-    bool initVulkan();
-    void getValidationLayerSupport();
-    void createSynchronizationPrimitives(VkDevice device, std::vector<VkCommandBuffer> drawCmdBuffers);
-    void createSurfaceCommandPool(VkDevice device, uint32_t surfaceQueueNodeIndex);
-    void createSurfaceCommandBuffers(VkDevice device, std::vector<VkCommandBuffer>& drawCmdBuffers, uint32_t imageCount);
-    void setupDepthStencil(uint32_t width, uint32_t height);
-    void setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat);
-    void setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height);
-    void prepareUniformBuffers();
-    void updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed);
-    void setupDescriptors(VkDevice device);
-    void preparePipelines(VkDevice device);
-    static void setImageLayout( VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, 
-            VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask);
-    void cleanup();
-
-/* end of gpu class */
+    uint32_t frameIndex = 0;
 };

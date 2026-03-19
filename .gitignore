@@ -10,3 +10,4 @@ assets/video/*
 config.ini
 perf/
 runtime/
+.old/

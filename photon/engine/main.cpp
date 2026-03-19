@@ -1,27 +1,10 @@
-/*─γ─ Photon Heterogeneous Compute Engine*/
-#include "photon.hpp"
 #include "include.hpp"
+#include "photon.hpp"
 
-#ifdef XCB
 int main(){
+    logs("Starting");
     Photon photon;
-    photon.gpu.initVulkan();
-    photon.gui.initWindow();
-    photon.prepareScene();
-    photon.initThreads();
+    photon.init();
     photon.renderLoop();
-    return 0;
-}
-#endif
-
-#ifdef WIN
-int APIENTRY WinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR, _In_ int){
-    Photon photon;
-    photon.gpu.initVulkan();
-    photon.gui.initWindow(hinstance);
-    photon.prepareScene();
-    photon.initThreads();
-    photon.renderLoop();
-    return 0;
-}
-#endif
+    photon.destroy();
+};

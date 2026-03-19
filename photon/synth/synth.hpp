@@ -1,10 +1,4 @@
-/*[ψ] the photon high level synthesis interface*/
 #pragma once
+struct Synth{
 
-class Synth{
-private:
-
-public:
-
-/*end of synth class*/
 };

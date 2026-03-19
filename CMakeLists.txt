@@ -82,11 +82,24 @@ include_directories(.external/vulkan)
 include_directories(.external/vk_video)
 include_directories(.external/stb)
 include_directories(.external/imgui)
+include_directories(.external/imgui/backends)
 include_directories(.external/tinygltf)
 include_directories(${CMAKE_BINARY_DIR}/generated)
 
 # require python
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+# find SDL3 for the GPU module
+find_package(SDL3 QUIET CONFIG)
+if (TARGET SDL3::SDL3)
+    set(PHOTON_SDL_TARGET SDL3::SDL3)
+elseif (TARGET SDL3::SDL3-static)
+    set(PHOTON_SDL_TARGET SDL3::SDL3-static)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SDL3 REQUIRED IMPORTED_TARGET sdl3)
+    set(PHOTON_SDL_TARGET PkgConfig::SDL3)
+endif()
 
 # find Vulkan
 IF(WIN32)
@@ -97,7 +110,7 @@ IF(WIN32)
 			MESSAGE("Using bundled Vulkan library version")
 		ENDIF()
 	ENDIF()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_WIN32_KHR")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_WIN32_KHR -DWIN")
 ELSE()
 	IF(NOT Vulkan_FOUND)
     	find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/libs/vulkan" REQUIRED)
@@ -108,7 +121,7 @@ ELSE()
 	ENDIF()
 	# find windowing service
 	find_package(XCB REQUIRED)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR -DLINUX")
 ENDIF()
 
 # check if vulkan was found
