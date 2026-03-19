@@ -612,10 +612,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = clearValues;
 
-    ImGui::NewFrame();
-    ImGui::ShowDemoWindow();
-    ImGui::Render();
-
     static VkDeviceSize dedicatedVertexSize = 8 * 1024 * 1024;
     static VkDeviceSize dedicatedIndexSize  = 8 * 1024 * 1024;
     ImDrawData *imDrawData = ImGui::GetDrawData();

@@ -21,6 +21,7 @@ void Photon::renderLoop(){
         io.DeltaTime = deltaTime / 1000;
 
         gpu.startFrame(imgIdx);
+        gui.buildUI();
         gpu.imguiPresentation(imgIdx);
         gpu.submitFrame(imgIdx);
 

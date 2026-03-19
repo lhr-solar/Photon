@@ -4,6 +4,12 @@
 
 #include "imgui.h"
 
+void GUI::buildUI(){
+    ImGui::NewFrame();
+    ImGui::ShowDemoWindow();
+    ImGui::Render();
+};
+
 namespace {
 ImGuiKey sdlScancodeToImGuiKey(SDL_Scancode scancode) {
     switch (scancode) {
