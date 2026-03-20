@@ -1,4 +1,5 @@
 #pragma once
+#ifndef APPLE
 #include <array>
 #include <vector>
 
@@ -51,27 +52,7 @@ struct GPU{
     void forceInitialTransparentResize();
     void releasePresentationResources();
     void shutdownPresentationBackend();
-#ifdef _WIN32
     bool tryActivateDirectComposition(uint32_t imageCount);
-#else
-    bool tryActivateDirectComposition(uint32_t) { return false; }
-#endif
-#ifdef _WIN32
-    bool ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated);
-    bool selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated);
-    bool createSharedHandleForTexture(ID3D11Texture2D* texture, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE& sharedHandle);
-    bool queryPhysicalDeviceId();
-    bool recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHeight, uint32_t imageCount);
-    IDXGIAdapter1* pickDxgiAdapter(IDXGIFactory2* factory);
-    bool initDirectCompositionPresenter();
-    void destroyDirectCompositionPresenter();
-    bool createSharedRenderTargets(uint32_t imageCount);
-    void destroySharedRenderTargets();
-    void presentWithDirectComposition(uint32_t imageIndex);
-    void clearDirectCompositionSwapChain();
-    void clearDirectCompositionImages();
-#endif
-
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);
     void setImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
             VkImageSubresourceRange subresourceRange, VkPipelineStageFlags sourceStageMask, VkPipelineStageFlags destinationStageMask);
@@ -141,9 +122,23 @@ struct GPU{
     std::vector<VkDeviceMemory> indexBufferMemories{};
     std::vector<uint32_t> vertexIsMapped{};
     std::vector<uint32_t> indexIsMapped{};
-
     uint32_t frameIndex = 0;
+
 #ifdef _WIN32
+    bool ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated);
+    bool selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated);
+    bool createSharedHandleForTexture(ID3D11Texture2D* texture, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE& sharedHandle);
+    bool queryPhysicalDeviceId();
+    bool recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHeight, uint32_t imageCount);
+    IDXGIAdapter1* pickDxgiAdapter(IDXGIFactory2* factory);
+    bool initDirectCompositionPresenter();
+    void destroyDirectCompositionPresenter();
+    bool createSharedRenderTargets(uint32_t imageCount);
+    void destroySharedRenderTargets();
+    void presentWithDirectComposition(uint32_t imageIndex);
+    void clearDirectCompositionSwapChain();
+    void clearDirectCompositionImages();
+
     bool directCompositionActive = false;
     bool transparentResizeHackApplied = false;
     void* win32WindowHandle = nullptr;
@@ -170,3 +165,4 @@ struct GPU{
     std::vector<SharedDirectImage> directImages{};
 #endif
 };
+#endif

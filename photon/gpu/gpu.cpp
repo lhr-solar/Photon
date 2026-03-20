@@ -1,3 +1,4 @@
+#ifndef APPLE
 #include <SDL3/SDL_oldnames.h>
 #include <algorithm>
 #include <array>
@@ -2088,6 +2089,7 @@ bool GPU::startFramePlatform(uint32_t&){ return false; }
 void GPU::releasePresentationResources(){}
 void GPU::shutdownPresentationBackend(){}
 void GPU::configureTransparentWindow(){}
+bool GPU::tryActivateDirectComposition(uint32_t) { return false; }
 
 SDL_Window* GPU::createWindow(){
     return SDL_CreateWindow("Photon", width, height, 
@@ -2114,4 +2116,5 @@ VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesK
     return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 }
 
+#endif
 #endif
