@@ -178,9 +178,7 @@ void GPU::init() {
         .pDependencies = subpassDependencies.data(),
     }; vkCreateRenderPass(device, &renderPassCreateInfo, NULL, &renderpass);
     destroySwapchainResources();
-    if (!tryActivateDirectComposition(3)) {
-        createSwapchainResources();
-    }
+    if (!tryActivateDirectComposition(3)) createSwapchainResources();
     createFrameResources();
 };
 
@@ -937,9 +935,7 @@ void GPU::imguiPresentation(uint32_t imgIdx){
 };
 
 void GPU::startFrame(uint32_t& imgIdx){
-    if (startFramePlatform(imgIdx)) {
-        return;
-    }
+    if(startFramePlatform(imgIdx)) return;
     vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
     VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
         imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
@@ -949,11 +945,11 @@ void GPU::startFrame(uint32_t& imgIdx){
 };
 
 void GPU::resizeWindow(){
-    if ((window == NULL) || (device == VK_NULL_HANDLE)) return;
+    if((window == NULL) || (device == VK_NULL_HANDLE)) return;
     uint32_t newWidth = 0;
     uint32_t newHeight = 0;
     queryWindowPixelSize(newWidth, newHeight);
-    while ((newWidth == 0) || (newHeight == 0)) {
+    while((newWidth == 0) || (newHeight == 0)){
         SDL_Delay(16);
         queryWindowPixelSize(newWidth, newHeight);
     }
@@ -976,9 +972,7 @@ void GPU::resizeWindow(){
     width = newWidth;
     height = newHeight;
     const uint32_t desiredImageCount = previousImageCount ? previousImageCount : 2;
-    if (!tryActivateDirectComposition(desiredImageCount)) {
-        createSwapchainResources();
-    }
+    if(!tryActivateDirectComposition(desiredImageCount)) createSwapchainResources();
     createFrameResources();
     frameIndex = 0;
 
@@ -1009,11 +1003,11 @@ void GPU::submitFrame(const uint32_t imgIdx){
     uint64_t acquireKey = 0;
     uint64_t releaseKey = 1;
     uint32_t acquireTimeout = INFINITE;
-    if (directCompositionActive && imgIdx < directImages.size()){
+    if(directCompositionActive && imgIdx < directImages.size()){
         acquireMemory = directImages[imgIdx].memory;
         releaseMemory = directImages[imgIdx].memory;
     }
-    if (acquireMemory != VK_NULL_HANDLE){
+    if(acquireMemory != VK_NULL_HANDLE){
         keyedInfo.sType = VK_STRUCTURE_TYPE_WIN32_KEYED_MUTEX_ACQUIRE_RELEASE_INFO_KHR;
         keyedInfo.acquireCount = 1;
         keyedInfo.pAcquireSyncs = &acquireMemory;
@@ -1027,9 +1021,7 @@ void GPU::submitFrame(const uint32_t imgIdx){
     }
 #endif
     vkQueueSubmit(queue, 1, &submitInfo, fences[frameSlot]);
-    if (presentFramePlatform(imgIdx, frameSlot)) {
-        return;
-    }
+    if(presentFramePlatform(imgIdx, frameSlot)) return;
     VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .pNext = NULL,
@@ -1041,92 +1033,29 @@ void GPU::submitFrame(const uint32_t imgIdx){
         .pResults = NULL
     };
     const VkResult result = vkQueuePresentKHR(queue, &presentInfo);
-    if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) resizeWindow();
+    if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) resizeWindow();
 }
-
-#ifdef _WIN32
-void GPU::prepareImageForPresentation(uint32_t imgIdx){
-    if (!directCompositionActive) return;
-    if (imgIdx >= swapchainImages.size()) return;
-    VkImage image = swapchainImages[imgIdx];
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.layerCount = 1;
-    VkCommandBuffer commandBuffer = commandBuffers[frameIndex];
-    vkCmdPipelineBarrier(commandBuffer,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &barrier);
-}
-#else
-void GPU::prepareImageForPresentation(uint32_t){ }
-#endif
-
-#ifdef _WIN32
-void GPU::adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const{
-    if (!directCompositionActive) return;
-    waitSemaphore = VK_NULL_HANDLE;
-    signalSemaphore = VK_NULL_HANDLE;
-}
-#else
-void GPU::adjustSubmitSyncObjects(VkSemaphore&, VkSemaphore&) const{}
-#endif
-
-#ifdef _WIN32
-bool GPU::presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot){
-    if (!directCompositionActive) return false;
-    if (frameSlot >= fences.size()) return false;
-    if (imgIdx >= directImages.size()) return false;
-    vkWaitForFences(device, 1, &fences[frameSlot], VK_TRUE, UINT64_MAX);
-    presentWithDirectComposition(imgIdx);
-    return true;
-}
-#else
-bool GPU::presentFramePlatform(uint32_t, uint32_t){ return false; }
-#endif
-
-#ifdef _WIN32
-bool GPU::startFramePlatform(uint32_t& imgIdx){
-    if (!directCompositionActive) return false;
-    if (frameIndex >= fences.size()) return false;
-    vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &fences[frameIndex]);
-    imgIdx = frameIndex;
-    return true;
-}
-#else
-bool GPU::startFramePlatform(uint32_t&){ return false; }
-#endif
 
 void GPU::queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const{
     outWidth = 0;
     outHeight = 0;
 #ifdef _WIN32
     HWND hwnd = static_cast<HWND>(win32WindowHandle);
-    if ((hwnd == nullptr) && (window != NULL)){
+    if((hwnd == nullptr) && (window != NULL)){
         SDL_PropertiesID properties = SDL_GetWindowProperties(window);
-        if (properties != 0){
+        if(properties != 0){
             void* hwndProperty = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
-            if (hwndProperty != NULL){
+            if(hwndProperty != NULL){
                 hwnd = static_cast<HWND>(hwndProperty);
             }
         }
     }
-    if (hwnd != nullptr){
+    if(hwnd != nullptr){
         RECT rect{};
-        if (GetClientRect(hwnd, &rect)){
+        if(GetClientRect(hwnd, &rect)){
             const int w = rect.right - rect.left;
             const int h = rect.bottom - rect.top;
-            if ((w > 0) && (h > 0)){
+            if((w > 0) && (h > 0)){
                 outWidth = static_cast<uint32_t>(w);
                 outHeight = static_cast<uint32_t>(h);
                 return;
@@ -1134,74 +1063,16 @@ void GPU::queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const{
         }
     }
 #endif
-    if (window != NULL){
+    if(window != NULL){
         int drawableWidth = 0;
         int drawableHeight = 0;
         SDL_GetWindowSizeInPixels(window, &drawableWidth, &drawableHeight);
-        if ((drawableWidth > 0) && (drawableHeight > 0)){
+        if((drawableWidth > 0) && (drawableHeight > 0)){
             outWidth = static_cast<uint32_t>(drawableWidth);
             outHeight = static_cast<uint32_t>(drawableHeight);
         }
     }
 }
-
-#ifdef _WIN32
-void GPU::forceInitialTransparentResize(){
-    if (transparentResizeHackApplied) return;
-    if (!wantsTransparentSwapchain()) return;
-    if (window == NULL) return;
-    int baseWidth = 0;
-    int baseHeight = 0;
-    SDL_GetWindowSizeInPixels(window, &baseWidth, &baseHeight);
-    if ((baseWidth <= 0) || (baseHeight <= 0)) return;
-    transparentResizeHackApplied = true;
-    const int shrinkWidth = std::max(1, baseWidth - static_cast<int>(baseWidth * 0.5f));
-    const int shrinkHeight = std::max(1, baseHeight - static_cast<int>(baseHeight * 0.5f));
-    SDL_SetWindowSize(window, shrinkWidth, shrinkHeight);
-    SDL_SetWindowSize(window, baseWidth, baseHeight);
-}
-#else
-void GPU::forceInitialTransparentResize(){}
-#endif
-
-#ifdef _WIN32
-void GPU::releasePresentationResources(){
-    if (directCompositionActive || !directImages.empty()){
-        destroyDirectCompositionPresenter();
-    }
-}
-#else
-void GPU::releasePresentationResources(){}
-#endif
-
-#ifdef _WIN32
-void GPU::shutdownPresentationBackend(){
-    destroyDirectCompositionPresenter();
-}
-#else
-void GPU::shutdownPresentationBackend(){}
-#endif
-
-#ifdef _WIN32
-bool GPU::tryActivateDirectComposition(uint32_t imageCount){
-    destroyDirectCompositionPresenter();
-    if (!wantsTransparentSwapchain()) {
-        return false;
-    }
-    if (!initDirectCompositionPresenter()) {
-        return false;
-    }
-    const uint32_t desiredCount = (imageCount < 2) ? 2u : imageCount;
-    if (!createSharedRenderTargets(desiredCount)) {
-        destroyDirectCompositionPresenter();
-        return false;
-    }
-    char buffer[64];
-    snprintf(buffer, sizeof(buffer), "ready with %u images", desiredCount);
-    forceInitialTransparentResize();
-    return true;
-}
-#endif
 
 void GPU::destroy() {
     vkDeviceWaitIdle(device);
@@ -1365,7 +1236,98 @@ void GPU::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* c
     createInfo->pUserData = NULL;
 }
 
+bool GPU::wantsTransparentSwapchain() const {
+    if (window == NULL) return false;
+    const Uint64 flags = SDL_GetWindowFlags(window);
+    return (flags & SDL_WINDOW_TRANSPARENT) != 0;
+}
+
 #ifdef _WIN32
+void GPU::prepareImageForPresentation(uint32_t imgIdx){
+    if (!directCompositionActive) return;
+    if (imgIdx >= swapchainImages.size()) return;
+    VkImage image = swapchainImages[imgIdx];
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    VkCommandBuffer commandBuffer = commandBuffers[frameIndex];
+    vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void GPU::adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const{
+    if (!directCompositionActive) return;
+    waitSemaphore = VK_NULL_HANDLE;
+    signalSemaphore = VK_NULL_HANDLE;
+}
+
+bool GPU::presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot){
+    if (!directCompositionActive) return false;
+    if (frameSlot >= fences.size()) return false;
+    if (imgIdx >= directImages.size()) return false;
+    vkWaitForFences(device, 1, &fences[frameSlot], VK_TRUE, UINT64_MAX);
+    presentWithDirectComposition(imgIdx);
+    return true;
+}
+
+bool GPU::startFramePlatform(uint32_t& imgIdx){
+    if (!directCompositionActive) return false;
+    if (frameIndex >= fences.size()) return false;
+    vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &fences[frameIndex]);
+    imgIdx = frameIndex;
+    return true;
+}
+
+void GPU::forceInitialTransparentResize(){
+    if (transparentResizeHackApplied) return;
+    if (!wantsTransparentSwapchain()) return;
+    if (window == NULL) return;
+    int baseWidth = 0;
+    int baseHeight = 0;
+    SDL_GetWindowSizeInPixels(window, &baseWidth, &baseHeight);
+    if ((baseWidth <= 0) || (baseHeight <= 0)) return;
+    transparentResizeHackApplied = true;
+    const int shrinkWidth = std::max(1, baseWidth - static_cast<int>(baseWidth * 0.5f));
+    const int shrinkHeight = std::max(1, baseHeight - static_cast<int>(baseHeight * 0.5f));
+    SDL_SetWindowSize(window, shrinkWidth, shrinkHeight);
+    SDL_SetWindowSize(window, baseWidth, baseHeight);
+}
+
+void GPU::releasePresentationResources(){
+    if (directCompositionActive || !directImages.empty()){
+        destroyDirectCompositionPresenter();
+    }
+}
+
+void GPU::shutdownPresentationBackend(){
+    destroyDirectCompositionPresenter();
+}
+
+bool GPU::tryActivateDirectComposition(uint32_t imageCount){
+    destroyDirectCompositionPresenter();
+    if (!wantsTransparentSwapchain()) return false;
+    if (!initDirectCompositionPresenter()) return false;
+    const uint32_t desiredCount = (imageCount < 2) ? 2u : imageCount;
+    if (!createSharedRenderTargets(desiredCount)) {
+        destroyDirectCompositionPresenter();
+        return false;
+    }
+    forceInitialTransparentResize();
+    return true;
+}
+
 SDL_Window* GPU::createWindow(){
     SDL_PropertiesID properties = SDL_CreateProperties();
     if (properties != 0){
@@ -1387,20 +1349,7 @@ SDL_Window* GPU::createWindow(){
     return SDL_CreateWindow("Photon", width, height, 
         SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 }
-#else
-SDL_Window* GPU::createWindow(){
-    return SDL_CreateWindow("Photon", width, height, 
-        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-}
-#endif
 
-bool GPU::wantsTransparentSwapchain() const {
-    if (window == NULL) return false;
-    const Uint64 flags = SDL_GetWindowFlags(window);
-    return (flags & SDL_WINDOW_TRANSPARENT) != 0;
-}
-
-#ifdef _WIN32
 VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
     const bool transparent = wantsTransparentSwapchain();
     VkSurfaceCapabilitiesKHR refreshed = surfaceCapabilities;
@@ -1434,34 +1383,7 @@ VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesK
     }
     return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 }
-#else
-VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
-    const bool transparent = wantsTransparentSwapchain();
-    const VkCompositeAlphaFlagBitsKHR transparentOrder[] = {
-        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
-        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
-    };
-    const VkCompositeAlphaFlagBitsKHR opaqueOrder[] = {
-        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-    };
-    if (transparent){
-        for (const auto mode : transparentOrder){
-            if ((surfaceCapabilities.supportedCompositeAlpha & mode) != 0){
-                return mode;
-            }
-        }
-    }
-    for (const auto mode : opaqueOrder){
-        if ((surfaceCapabilities.supportedCompositeAlpha & mode) != 0){
-            return mode;
-        }
-    }
-    return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-}
-#endif
 
-#ifdef _WIN32
 bool GPU::ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated){
     requiresDedicated = false;
     if (physicalDevice == VK_NULL_HANDLE) return false;
@@ -1587,9 +1509,7 @@ bool GPU::queryPhysicalDeviceId(){
     props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     props2.pNext = &idProps;
     vkGetPhysicalDeviceProperties2(physicalDevice, &props2);
-    if (idProps.deviceLUIDValid == VK_FALSE) {
-        return false;
-    }
+    if(idProps.deviceLUIDValid == VK_FALSE) return false;
     std::memcpy(physicalDeviceLuid.data(), idProps.deviceLUID, VK_LUID_SIZE);
     physicalDeviceLuidValid = true;
     return true;
@@ -2096,8 +2016,7 @@ void GPU::presentWithDirectComposition(uint32_t imageIndex){
         keyedMutex->ReleaseSync(0);
     }
 }
-#endif
-#ifdef _WIN32
+
 void GPU::configureTransparentWindow(){
     if (!wantsTransparentSwapchain()) return;
     if (window == NULL) return;
@@ -2159,6 +2078,40 @@ void GPU::configureTransparentWindow(){
         FreeLibrary(dwmapi);
     }
 }
+
 #else
+void GPU::forceInitialTransparentResize(){}
+void GPU::prepareImageForPresentation(uint32_t){ }
+void GPU::adjustSubmitSyncObjects(VkSemaphore&, VkSemaphore&) const{}
+bool GPU::presentFramePlatform(uint32_t, uint32_t){ return false; }
+bool GPU::startFramePlatform(uint32_t&){ return false; }
+void GPU::releasePresentationResources(){}
+void GPU::shutdownPresentationBackend(){}
 void GPU::configureTransparentWindow(){}
+
+SDL_Window* GPU::createWindow(){
+    return SDL_CreateWindow("Photon", width, height, 
+        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+}
+
+VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
+    const bool transparent = wantsTransparentSwapchain();
+    const VkCompositeAlphaFlagBitsKHR transparentOrder[] = {
+        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+    };
+    const VkCompositeAlphaFlagBitsKHR opaqueOrder[] = { VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR };
+    if(transparent)
+        for(const auto mode : transparentOrder)
+            if ((surfaceCapabilities.supportedCompositeAlpha & mode) != 0)
+                return mode;
+
+    for(const auto mode : opaqueOrder)
+        if((surfaceCapabilities.supportedCompositeAlpha & mode) != 0)
+            return mode;
+
+    return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+}
+
 #endif

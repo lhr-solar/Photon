@@ -15,5 +15,5 @@ struct Photon {
     void init();
     void renderLoop();
     void destroy();
-    void handleEvents();
+    void handleInput();
 };
