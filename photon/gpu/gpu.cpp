@@ -45,7 +45,9 @@ void GPU::init() {
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Vulkan_LoadLibrary(NULL);
     window = createWindow();
+#ifdef _WIN32
     configureTransparentWindow();
+#endif
     const char *const *sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&count);
     std::vector<const char *> enabledExtensions(sdlExtensions, sdlExtensions + count);
     enabledExtensions.push_back( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -179,7 +181,11 @@ void GPU::init() {
         .pDependencies = subpassDependencies.data(),
     }; vkCreateRenderPass(device, &renderPassCreateInfo, NULL, &renderpass);
     destroySwapchainResources();
-    if (!tryActivateDirectComposition(3)) createSwapchainResources();
+#ifdef _WIN32
+    tryActivateDirectComposition(3);
+#else
+    createSwapchainResources();
+#endif
     createFrameResources();
 };
 
@@ -296,7 +302,9 @@ void GPU::createSwapchainResources(){
 }
 
 void GPU::destroySwapchainResources(){
+#ifdef _WIN32
     releasePresentationResources();
+#endif
     for (auto& fb : framebuffer)
         if (fb != VK_NULL_HANDLE) { vkDestroyFramebuffer(device, fb, NULL); fb = VK_NULL_HANDLE; }
     framebuffer.clear();
@@ -931,12 +939,16 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         }
     }
     vkCmdEndRenderPass(commandBuffer);
+#ifdef _WIN32
     prepareImageForPresentation(imgIdx);
+#endif
     vkEndCommandBuffer(commandBuffer);
 };
 
 void GPU::startFrame(uint32_t& imgIdx){
+#ifdef _WIN32
     if(startFramePlatform(imgIdx)) return;
+#endif
     vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
     VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
         imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
@@ -960,9 +972,7 @@ void GPU::resizeWindow(){
         const uint32_t desiredImageCount = swapchainImages.empty()
                 ? 2u
                 : static_cast<uint32_t>(swapchainImages.size());
-        if (recreateDirectCompositionTargets(newWidth, newHeight, desiredImageCount)){
-            return;
-        }
+        if (recreateDirectCompositionTargets(newWidth, newHeight, desiredImageCount)) return;
     }
 #endif
 
@@ -973,7 +983,11 @@ void GPU::resizeWindow(){
     width = newWidth;
     height = newHeight;
     const uint32_t desiredImageCount = previousImageCount ? previousImageCount : 2;
-    if(!tryActivateDirectComposition(desiredImageCount)) createSwapchainResources();
+#ifdef _WIN32
+    tryActivateDirectComposition(desiredImageCount);
+#else
+    createSwapchainResources();
+#endif
     createFrameResources();
     frameIndex = 0;
 
@@ -987,7 +1001,9 @@ void GPU::submitFrame(const uint32_t imgIdx){
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSemaphore waitSemaphore = imageAvailableSemaphores[frameSlot];
     VkSemaphore signalSemaphore = renderCompleteSemaphores[imgIdx];
+#ifdef _WIN32
     adjustSubmitSyncObjects(waitSemaphore, signalSemaphore);
+#endif
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = (waitSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
@@ -1022,7 +1038,9 @@ void GPU::submitFrame(const uint32_t imgIdx){
     }
 #endif
     vkQueueSubmit(queue, 1, &submitInfo, fences[frameSlot]);
+#ifdef _WIN32
     if(presentFramePlatform(imgIdx, frameSlot)) return;
+#endif
     VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .pNext = NULL,
@@ -1077,7 +1095,9 @@ void GPU::queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const{
 
 void GPU::destroy() {
     vkDeviceWaitIdle(device);
-    shutdownPresentationBackend();
+#ifdef _WIN32
+    destroyDirectCompositionPresenter();
+#endif
     ImGui::DestroyContext();
     ImPlot3D::DestroyContext();
     destroyFrameResources();
@@ -1310,10 +1330,6 @@ void GPU::releasePresentationResources(){
     if (directCompositionActive || !directImages.empty()){
         destroyDirectCompositionPresenter();
     }
-}
-
-void GPU::shutdownPresentationBackend(){
-    destroyDirectCompositionPresenter();
 }
 
 bool GPU::tryActivateDirectComposition(uint32_t imageCount){
@@ -2081,16 +2097,6 @@ void GPU::configureTransparentWindow(){
 }
 
 #else
-void GPU::forceInitialTransparentResize(){}
-void GPU::prepareImageForPresentation(uint32_t){ }
-void GPU::adjustSubmitSyncObjects(VkSemaphore&, VkSemaphore&) const{}
-bool GPU::presentFramePlatform(uint32_t, uint32_t){ return false; }
-bool GPU::startFramePlatform(uint32_t&){ return false; }
-void GPU::releasePresentationResources(){}
-void GPU::shutdownPresentationBackend(){}
-void GPU::configureTransparentWindow(){}
-bool GPU::tryActivateDirectComposition(uint32_t) { return false; }
-
 SDL_Window* GPU::createWindow(){
     return SDL_CreateWindow("Photon", width, height, 
         SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);

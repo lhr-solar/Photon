@@ -41,18 +41,9 @@ struct GPU{
     void resizeWindow();
     void destroy();
     SDL_Window* createWindow();
-    void configureTransparentWindow();
     bool wantsTransparentSwapchain() const;
     VkCompositeAlphaFlagBitsKHR pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
-    void prepareImageForPresentation(uint32_t imgIdx);
-    void adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const;
-    bool presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot);
-    bool startFramePlatform(uint32_t& imgIdx);
     void queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const;
-    void forceInitialTransparentResize();
-    void releasePresentationResources();
-    void shutdownPresentationBackend();
-    bool tryActivateDirectComposition(uint32_t imageCount);
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);
     void setImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
             VkImageSubresourceRange subresourceRange, VkPipelineStageFlags sourceStageMask, VkPipelineStageFlags destinationStageMask);
@@ -138,6 +129,14 @@ struct GPU{
     void presentWithDirectComposition(uint32_t imageIndex);
     void clearDirectCompositionSwapChain();
     void clearDirectCompositionImages();
+    void forceInitialTransparentResize();
+    void prepareImageForPresentation(uint32_t imgIdx);
+    void adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const;
+    bool presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot);
+    bool startFramePlatform(uint32_t& imgIdx);
+    void releasePresentationResources();
+    void configureTransparentWindow();
+    bool tryActivateDirectComposition(uint32_t imageCount);
 
     bool directCompositionActive = false;
     bool transparentResizeHackApplied = false;
