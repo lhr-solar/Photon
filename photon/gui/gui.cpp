@@ -11,6 +11,7 @@
 void GUI::buildUI(){
     ImGui::NewFrame();
     ImGui::ShowDemoWindow();
+    ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
     backgroundWindow();
     ImGui::Render();

@@ -1,3 +1,4 @@
+#include "implot.h"
 #ifndef APPLE
 #include <SDL3/SDL_oldnames.h>
 #include <algorithm>
@@ -408,6 +409,7 @@ void GPU::destroyFrameResources(){
 
 void GPU::imguiBackend(){
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImPlot3D::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
@@ -989,7 +991,7 @@ void GPU::resizeWindow(){
 void GPU::submitFrame(const uint32_t imgIdx){
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 #ifdef _WIN32
-    adjustSubmitSyncObjects(waitSemaphore, signalSemaphore);
+    adjustSubmitSyncObjects(imageAvailableSemaphores[frameIndex], renderCompleteSemaphores[frameIndex]);
 #endif
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1086,6 +1088,7 @@ void GPU::destroy() {
     destroyDirectCompositionPresenter();
 #endif
     ImGui::DestroyContext();
+    ImPlot::DestroyContext();
     ImPlot3D::DestroyContext();
     destroyFrameResources();
     destroySwapchainResources();
@@ -1214,8 +1217,9 @@ bool GPU::validationLayerSupport(){
     const char* validationLayer = "VK_LAYER_KHRONOS_validation";
     uint32_t layerCount{};
     vkEnumerateInstanceLayerProperties(&layerCount, NULL);
-    VkLayerProperties availableLayers[layerCount];
-    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
+    std::vector<VkLayerProperties> availableLayers{};
+    availableLayers.resize(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
     for(uint32_t i = 0; i < layerCount; i++)
         if(strcmp(availableLayers[i].layerName, validationLayer) == 0)
             return true;
