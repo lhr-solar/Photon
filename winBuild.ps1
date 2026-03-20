@@ -67,11 +67,17 @@ if (Test-Path $cachePath) {
 
 Push-Location $ARTIFACT_ROOT
 
+$staticReleaseArg = "-DPHOTON_REQUIRE_STATIC_RELEASE=OFF"
+if ($BUILD_TYPE -ieq "Release") {
+    $staticReleaseArg = "-DPHOTON_REQUIRE_STATIC_RELEASE=ON"
+}
+
 # Configure and build with clang-cl + Ninja (64-bit)
 cmake -G "Ninja" `
       "-DCMAKE_C_COMPILER=clang-cl" `
       "-DCMAKE_CXX_COMPILER=clang-cl" `
       "-DCMAKE_BUILD_TYPE=$BUILD_TYPE" `
+      "$staticReleaseArg" `
       "-DVULKAN_SDK=$($env:VULKAN_SDK)" `
       "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" `
       "-DVulkan_LIBRARY=$($env:VULKAN_SDK)\Lib\vulkan-1.lib" ..
