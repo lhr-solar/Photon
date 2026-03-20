@@ -43,7 +43,6 @@ struct GPU{
     void configureTransparentWindow();
     bool wantsTransparentSwapchain() const;
     VkCompositeAlphaFlagBitsKHR pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
-    void logCompositeAlphaCapabilities(const VkSurfaceCapabilitiesKHR& surfaceCapabilities) const;
     void prepareImageForPresentation(uint32_t imgIdx);
     void adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const;
     bool presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot);
@@ -58,7 +57,6 @@ struct GPU{
     bool tryActivateDirectComposition(uint32_t) { return false; }
 #endif
 #ifdef _WIN32
-    void logDirectCompositionEvent(const char* stage, const char* detail) const;
     bool ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated);
     bool selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated);
     bool createSharedHandleForTexture(ID3D11Texture2D* texture, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE& sharedHandle);

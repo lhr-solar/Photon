@@ -230,7 +230,6 @@ void GPU::createSwapchainResources(){
         imageCount = surfaceCapabilities.maxImageCount;
 
     VkCompositeAlphaFlagBitsKHR compositeAlpha = pickCompositeAlpha(surfaceCapabilities);
-    logs(compositeAlpha);
 
     VkSwapchainCreateInfoKHR swapchainCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -967,7 +966,6 @@ void GPU::resizeWindow(){
         if (recreateDirectCompositionTargets(newWidth, newHeight, desiredImageCount)){
             return;
         }
-        logDirectCompositionEvent("ResizeWindow", "fallback to Vulkan swapchain path");
     }
 #endif
 
@@ -1004,8 +1002,8 @@ void GPU::submitFrame(const uint32_t imgIdx){
     submitInfo.pCommandBuffers = &commandBuffers[frameSlot];
     submitInfo.signalSemaphoreCount = (signalSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
     submitInfo.pSignalSemaphores = (signalSemaphore != VK_NULL_HANDLE) ? &signalSemaphore : nullptr;
-    VkWin32KeyedMutexAcquireReleaseInfoKHR keyedInfo{};
 #ifdef _WIN32
+    VkWin32KeyedMutexAcquireReleaseInfoKHR keyedInfo{};
     VkDeviceMemory acquireMemory = VK_NULL_HANDLE;
     VkDeviceMemory releaseMemory = VK_NULL_HANDLE;
     uint64_t acquireKey = 0;
@@ -1169,7 +1167,6 @@ void GPU::forceInitialTransparentResize(){}
 #ifdef _WIN32
 void GPU::releasePresentationResources(){
     if (directCompositionActive || !directImages.empty()){
-        logDirectCompositionEvent("Release", "destroying presenter");
         destroyDirectCompositionPresenter();
     }
 }
@@ -1189,23 +1186,18 @@ void GPU::shutdownPresentationBackend(){}
 bool GPU::tryActivateDirectComposition(uint32_t imageCount){
     destroyDirectCompositionPresenter();
     if (!wantsTransparentSwapchain()) {
-        logDirectCompositionEvent("TryActivate", "window not marked transparent");
         return false;
     }
-    logDirectCompositionEvent("TryActivate", "initializing DirectComposition presenter");
     if (!initDirectCompositionPresenter()) {
-        logDirectCompositionEvent("TryActivate", "initDirectCompositionPresenter failed");
         return false;
     }
     const uint32_t desiredCount = (imageCount < 2) ? 2u : imageCount;
     if (!createSharedRenderTargets(desiredCount)) {
-        logDirectCompositionEvent("TryActivate", "createSharedRenderTargets failed");
         destroyDirectCompositionPresenter();
         return false;
     }
     char buffer[64];
     snprintf(buffer, sizeof(buffer), "ready with %u images", desiredCount);
-    logDirectCompositionEvent("TryActivate", buffer);
     forceInitialTransparentResize();
     return true;
 }
@@ -1357,7 +1349,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageTypeFlagsEXT messageType, 
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
         void* pUserData){
-    printf("validation layer: %s \n", pCallbackData->pMessage);
+    logs("validation layer: " << pCallbackData->pMessage);
     return VK_FALSE;
 }
 
@@ -1410,7 +1402,6 @@ bool GPU::wantsTransparentSwapchain() const {
 
 #ifdef _WIN32
 VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
-    logCompositeAlphaCapabilities(surfaceCapabilities);
     const bool transparent = wantsTransparentSwapchain();
     VkSurfaceCapabilitiesKHR refreshed = surfaceCapabilities;
     if (transparent &&
@@ -1445,7 +1436,6 @@ VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesK
 }
 #else
 VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
-    logCompositeAlphaCapabilities(surfaceCapabilities);
     const bool transparent = wantsTransparentSwapchain();
     const VkCompositeAlphaFlagBitsKHR transparentOrder[] = {
         VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
@@ -1471,21 +1461,7 @@ VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesK
 }
 #endif
 
-void GPU::logCompositeAlphaCapabilities(const VkSurfaceCapabilitiesKHR& surfaceCapabilities) const{
-    printf("[GPU] Composite alpha support mask=0x%x, current transform=0x%x, minImages=%u, maxImages=%u\n",
-        surfaceCapabilities.supportedCompositeAlpha,
-        surfaceCapabilities.currentTransform,
-        surfaceCapabilities.minImageCount,
-        surfaceCapabilities.maxImageCount);
-}
-
 #ifdef _WIN32
-void GPU::logDirectCompositionEvent(const char* stage, const char* detail) const{
-    if (stage == nullptr) return;
-    if (detail == nullptr) detail = "";
-    printf("[GPU][DComp] %s: %s\n", stage, detail);
-}
-
 bool GPU::ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated){
     requiresDedicated = false;
     if (physicalDevice == VK_NULL_HANDLE) return false;
@@ -1522,7 +1498,6 @@ bool GPU::ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleTy
         ((features & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0) ? "yes" : "no",
         ((features & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) != 0) ? "yes" : "no",
         ((features & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) != 0) ? "yes" : "no");
-    logDirectCompositionEvent("ExternalMemorySupport", buffer);
     if ((features & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0){
         return false;
     }
@@ -1546,11 +1521,9 @@ bool GPU::selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& 
             char buffer[96];
             snprintf(buffer, sizeof(buffer), "SelectHandleType: %s dedicatedOnly=%s",
                     label, dedicated ? "yes" : "no");
-            logDirectCompositionEvent("ExternalMemory", buffer);
             return true;
         }
     }
-    logDirectCompositionEvent("ExternalMemory", "no compatible handle type");
     return false;
 }
 
@@ -1591,11 +1564,9 @@ bool GPU::recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHe
     width = pixelWidth;
     height = pixelHeight;
     if (!initDirectCompositionPresenter()){
-        logDirectCompositionEvent("ResizeTargets", "init presenter failed");
         return false;
     }
     if (!createSharedRenderTargets(desiredCount)){
-        logDirectCompositionEvent("ResizeTargets", "create shared targets failed");
         destroyDirectCompositionPresenter();
         return false;
     }
@@ -1734,13 +1705,11 @@ bool GPU::initDirectCompositionPresenter(){
     auto factoryCreate = LoadCreateDXGIFactory1();
     auto dcompCreate = LoadDCompositionCreateDevice();
     if (!d3dCreate || !factoryCreate || !dcompCreate) {
-        logDirectCompositionEvent("InitPresenter", "missing DirectX entry points");
         return false;
     }
 
     IDXGIFactory2* factory = nullptr;
     if (FAILED(factoryCreate(IID_PPV_ARGS(&factory)))) {
-        logDirectCompositionEvent("InitPresenter", "CreateDXGIFactory1 failed");
         return false;
     }
     IDXGIAdapter1* adapter = pickDxgiAdapter(factory);
@@ -1759,7 +1728,6 @@ bool GPU::initDirectCompositionPresenter(){
             &baseDevice, &outLevel, &baseContext))){
         SafeRelease(adapter);
         SafeRelease(factory);
-        logDirectCompositionEvent("InitPresenter", "D3D11CreateDevice failed");
         return false;
     }
     SafeRelease(adapter);
@@ -1768,7 +1736,6 @@ bool GPU::initDirectCompositionPresenter(){
         SafeRelease(baseDevice);
         SafeRelease(baseContext);
         SafeRelease(factory);
-        logDirectCompositionEvent("InitPresenter", "QueryInterface for D3D11Device1 failed");
         return false;
     }
     SafeRelease(baseDevice);
@@ -1788,7 +1755,6 @@ bool GPU::initDirectCompositionPresenter(){
     if (FAILED(factory->CreateSwapChainForComposition(d3dPresenter.d3dDevice, &swapDesc, nullptr, &swapChain))){
         SafeRelease(factory);
         destroyDirectCompositionPresenter();
-        logDirectCompositionEvent("InitPresenter", "CreateSwapChainForComposition failed");
         return false;
     }
 
@@ -1797,7 +1763,6 @@ bool GPU::initDirectCompositionPresenter(){
         SafeRelease(factory);
         SafeRelease(swapChain);
         destroyDirectCompositionPresenter();
-        logDirectCompositionEvent("InitPresenter", "DCompositionCreateDevice failed");
         return false;
     }
     IDCompositionTarget* target = nullptr;
@@ -1806,7 +1771,6 @@ bool GPU::initDirectCompositionPresenter(){
         SafeRelease(swapChain);
         SafeRelease(dcompDevice);
         destroyDirectCompositionPresenter();
-        logDirectCompositionEvent("InitPresenter", "CreateTargetForHwnd failed");
         return false;
     }
     IDCompositionVisual* visual = nullptr;
@@ -1816,7 +1780,6 @@ bool GPU::initDirectCompositionPresenter(){
         SafeRelease(dcompDevice);
         SafeRelease(target);
         destroyDirectCompositionPresenter();
-        logDirectCompositionEvent("InitPresenter", "CreateVisual failed");
         return false;
     }
     visual->SetContent(swapChain);
@@ -1831,7 +1794,6 @@ bool GPU::initDirectCompositionPresenter(){
     d3dPresenter.bufferCount = swapDesc.BufferCount;
     clearDirectCompositionSwapChain();
     directCompositionActive = true;
-    logDirectCompositionEvent("InitPresenter", "success");
     return true;
 }
 
@@ -1855,14 +1817,12 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
     VkExternalMemoryHandleTypeFlagBits handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT;
     bool requiresDedicated = false;
     if (!selectDirectCompositionHandleType(handleType, requiresDedicated)){
-        logDirectCompositionEvent("CreateSharedRenderTargets", "external memory unsupported");
         return false;
     }
     directImages.resize(imageCount);
     swapchainImages.resize(imageCount);
     swapchainImageViews.resize(imageCount);
     framebuffer.assign(imageCount, VK_NULL_HANDLE);
-    logDirectCompositionEvent("CreateSharedRenderTargets", "allocating shared images");
 
     for (uint32_t i = 0; i < imageCount; i++){
         ID3D11Texture2D* texture = nullptr;
@@ -1882,7 +1842,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
             texDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
         }
         if (FAILED(d3dPresenter.d3dDevice->CreateTexture2D(&texDesc, nullptr, &texture))){
-            logDirectCompositionEvent("CreateSharedRenderTargets", "CreateTexture2D failed");
             destroySharedRenderTargets();
             return false;
         }
@@ -1890,7 +1849,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
 
         HANDLE sharedHandle = NULL;
         if (!createSharedHandleForTexture(texture, handleType, sharedHandle)){
-            logDirectCompositionEvent("CreateSharedRenderTargets", "CreateSharedHandle failed");
             destroySharedRenderTargets();
             return false;
         }
@@ -1898,7 +1856,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
 
         IDXGIKeyedMutex* keyedMutex = nullptr;
         if (FAILED(texture->QueryInterface(IID_PPV_ARGS(&keyedMutex)))){
-            logDirectCompositionEvent("CreateSharedRenderTargets", "QueryInterface IDXGIKeyedMutex failed");
             destroySharedRenderTargets();
             return false;
         }
@@ -1922,7 +1879,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         if (vkCreateImage(device, &imageInfo, nullptr, &directImages[i].image) != VK_SUCCESS){
-            logDirectCompositionEvent("CreateSharedRenderTargets", "vkCreateImage failed");
             destroySharedRenderTargets();
             return false;
         }
@@ -1950,7 +1906,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         allocInfo.pNext = &importInfo;
 
         if (vkAllocateMemory(device, &allocInfo, nullptr, &directImages[i].memory) != VK_SUCCESS){
-            logDirectCompositionEvent("CreateSharedRenderTargets", "vkAllocateMemory failed");
             destroySharedRenderTargets();
             return false;
         }
@@ -1969,7 +1924,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
         if (vkCreateImageView(device, &viewInfo, nullptr, &directImages[i].view) != VK_SUCCESS){
-            logDirectCompositionEvent("CreateSharedRenderTargets", "vkCreateImageView failed");
             destroySharedRenderTargets();
             return false;
         }
@@ -1986,7 +1940,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         fbInfo.height = height;
         fbInfo.layers = 1;
         if (vkCreateFramebuffer(device, &fbInfo, nullptr, &framebuffer[i]) != VK_SUCCESS){
-            logDirectCompositionEvent("CreateSharedRenderTargets", "vkCreateFramebuffer failed");
             destroySharedRenderTargets();
             return false;
         }
@@ -1995,7 +1948,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
             directImages[i].keyedMutex->ReleaseSync(0);
         }
     }
-    logDirectCompositionEvent("CreateSharedRenderTargets", "completed");
     clearDirectCompositionImages();
     return true;
 }
@@ -2124,7 +2076,6 @@ void GPU::presentWithDirectComposition(uint32_t imageIndex){
     IDXGIKeyedMutex* keyedMutex = directImages[imageIndex].keyedMutex;
     if (keyedMutex){
         if (FAILED(keyedMutex->AcquireSync(1, INFINITE))){
-            logDirectCompositionEvent("Present", "AcquireSync failed");
             return;
         }
     }
@@ -2139,19 +2090,12 @@ void GPU::presentWithDirectComposition(uint32_t imageIndex){
     if (frameCounter < 5){
         char buffer[64];
         snprintf(buffer, sizeof(buffer), "presented image %u", imageIndex);
-        logDirectCompositionEvent("Present", buffer);
         frameCounter++;
     }
     if (keyedMutex){
         keyedMutex->ReleaseSync(0);
     }
 }
-#else
-bool GPU::initDirectCompositionPresenter(){ return false; }
-void GPU::destroyDirectCompositionPresenter(){}
-bool GPU::createSharedRenderTargets(uint32_t){ return false; }
-void GPU::destroySharedRenderTargets(){}
-void GPU::presentWithDirectComposition(uint32_t){}
 #endif
 #ifdef _WIN32
 void GPU::configureTransparentWindow(){
