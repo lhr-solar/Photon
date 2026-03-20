@@ -1846,8 +1846,6 @@ void GPU::destroyDirectCompositionPresenter(){
     SafeRelease(d3dPresenter.dxgiFactory);
     d3dPresenter.bufferCount = 0;
     directCompositionActive = false;
-    directCompositionWidth = 0;
-    directCompositionHeight = 0;
 }
 
 bool GPU::createSharedRenderTargets(uint32_t imageCount){
@@ -1860,8 +1858,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         logDirectCompositionEvent("CreateSharedRenderTargets", "external memory unsupported");
         return false;
     }
-    directCompositionHandleType = handleType;
-    directCompositionRequiresDedicatedMemory = requiresDedicated;
     directImages.resize(imageCount);
     swapchainImages.resize(imageCount);
     swapchainImageViews.resize(imageCount);
@@ -2000,15 +1996,6 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         }
     }
     logDirectCompositionEvent("CreateSharedRenderTargets", "completed");
-    directCompositionWidth = width;
-    directCompositionHeight = height;
-    uint32_t actualWidth = 0;
-    uint32_t actualHeight = 0;
-    queryWindowPixelSize(actualWidth, actualHeight);
-    if ((actualWidth > 0) && (actualHeight > 0)){
-        directCompositionWidth = actualWidth;
-        directCompositionHeight = actualHeight;
-    }
     clearDirectCompositionImages();
     return true;
 }

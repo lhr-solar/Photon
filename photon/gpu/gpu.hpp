@@ -147,10 +147,6 @@ struct GPU{
     uint32_t frameIndex = 0;
 #ifdef _WIN32
     bool directCompositionActive = false;
-    VkExternalMemoryHandleTypeFlagBits directCompositionHandleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT;
-    bool directCompositionRequiresDedicatedMemory = false;
-    uint32_t directCompositionWidth = 0;
-    uint32_t directCompositionHeight = 0;
     bool transparentResizeHackApplied = false;
     void* win32WindowHandle = nullptr;
     std::array<uint8_t, VK_LUID_SIZE> physicalDeviceLuid{};
