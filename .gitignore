@@ -2,6 +2,7 @@
 .notes
 .vscode
 artifacts
+.artifacts
 imgui.ini
 perf.data
 perf.data.old

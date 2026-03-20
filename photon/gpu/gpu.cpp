@@ -834,7 +834,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         isMapped = true;
     } indexCount = imDrawData->TotalIdxCount;
 
-    // Upload data
     ImDrawVert *vtxDst = (ImDrawVert *)vertexBufferMapped[frameIndex];
     ImDrawIdx *idxDst = (ImDrawIdx *)indexBufferMapped[frameIndex];
 
@@ -845,14 +844,10 @@ void GPU::imguiPresentation(uint32_t imgIdx){
       vtxDst += cmd_list->VtxBuffer.Size;
       idxDst += cmd_list->IdxBuffer.Size;
     }
-    // end of update buffers
+    // end of updateBuffers
 
-    VkCommandBufferBeginInfo cmdBufferBeginInfo {};
-    cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     VkCommandBuffer& commandBuffer = commandBuffers[frameIndex];
     renderPassBeginInfo.framebuffer = framebuffer[imgIdx];
-    vkResetCommandBuffer(commandBuffer, 0);
-    vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
@@ -867,11 +862,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     const ImVec2 displayPos = imDrawData->DisplayPos;
     const ImVec2 displaySize = imDrawData->DisplaySize;
-    if (displaySize.x <= 0.0f || displaySize.y <= 0.0f) {
-        vkCmdEndRenderPass(commandBuffer);
-        vkEndCommandBuffer(commandBuffer);
-        return;
-    }
     imguiPushConst.scale = glm::vec2(2.0f / displaySize.x, 2.0f / displaySize.y);
     imguiPushConst.translate = glm::vec2(
         -1.0f - displayPos.x * imguiPushConst.scale.x,
@@ -942,7 +932,7 @@ void GPU::imguiPresentation(uint32_t imgIdx){
 #ifdef _WIN32
     prepareImageForPresentation(imgIdx);
 #endif
-    vkEndCommandBuffer(commandBuffer);
+//    vkEndCommandBuffer(commandBuffer);
 };
 
 void GPU::startFrame(uint32_t& imgIdx){
@@ -997,22 +987,19 @@ void GPU::resizeWindow(){
 };
 
 void GPU::submitFrame(const uint32_t imgIdx){
-    const uint32_t frameSlot = frameIndex;
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSemaphore waitSemaphore = imageAvailableSemaphores[frameSlot];
-    VkSemaphore signalSemaphore = renderCompleteSemaphores[imgIdx];
 #ifdef _WIN32
     adjustSubmitSyncObjects(waitSemaphore, signalSemaphore);
 #endif
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = (waitSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
-    submitInfo.pWaitSemaphores = (waitSemaphore != VK_NULL_HANDLE) ? &waitSemaphore : nullptr;
-    submitInfo.pWaitDstStageMask = (waitSemaphore != VK_NULL_HANDLE) ? waitStages : nullptr;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &imageAvailableSemaphores[frameIndex];
+    submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[frameSlot];
-    submitInfo.signalSemaphoreCount = (signalSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
-    submitInfo.pSignalSemaphores = (signalSemaphore != VK_NULL_HANDLE) ? &signalSemaphore : nullptr;
+    submitInfo.pCommandBuffers = &commandBuffers[frameIndex];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &renderCompleteSemaphores[imgIdx];
 #ifdef _WIN32
     VkWin32KeyedMutexAcquireReleaseInfoKHR keyedInfo{};
     VkDeviceMemory acquireMemory = VK_NULL_HANDLE;
@@ -1037,9 +1024,9 @@ void GPU::submitFrame(const uint32_t imgIdx){
         submitInfo.pNext = &keyedInfo;
     }
 #endif
-    vkQueueSubmit(queue, 1, &submitInfo, fences[frameSlot]);
+    vkQueueSubmit(queue, 1, &submitInfo, fences[frameIndex]);
 #ifdef _WIN32
-    if(presentFramePlatform(imgIdx, frameSlot)) return;
+    if(presentFramePlatform(imgIdx, frameIndex)) return;
 #endif
     VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -1127,7 +1114,6 @@ uint32_t GPU::getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFla
         if ((typeBits & 1) == 1)
             if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
                 return i;
-
         typeBits >>= 1;
     }
     return -1;

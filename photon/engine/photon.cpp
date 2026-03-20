@@ -3,10 +3,15 @@
 #include "vulkan_core.h"
 #include <chrono>
 
+#include "background_frag_spv.hpp"
+#include "background_vert_spv.hpp"
+
 void Photon::init(){
     gpu.init(); logs("Initialized GPU");
     gpu.imguiBackend(); logs("Initialized ImGui");
     windowID = SDL_GetWindowID(gpu.window);
+    gui.backgroundShader.init(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size, 
+                                   (uint32_t*)background_frag_spv, background_frag_spv_size);
 };
 
 void Photon::handleInput(){
@@ -29,7 +34,17 @@ void Photon::renderLoop(){
         handleInput();
         gpu.startFrame(imgIdx);
         gui.buildUI();
+
+        VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+        cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        VkCommandBuffer& commandBuffer = gpu.commandBuffers[gpu.frameIndex];
+        vkResetCommandBuffer(commandBuffer, 0);
+        vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
+
+        gui.backgroundShader.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
         gpu.imguiPresentation(imgIdx);
+        vkEndCommandBuffer(gpu.commandBuffers[gpu.frameIndex]);
+
         gpu.submitFrame(imgIdx);
 
         gpu.frameIndex = (gpu.frameIndex+1)%gpu.swapchainImages.size();
@@ -39,5 +54,6 @@ void Photon::renderLoop(){
 };
 
 void Photon::destroy(){
+    gui.backgroundShader.destroy();
     gpu.destroy();
 };

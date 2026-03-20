@@ -1,10 +1,16 @@
 #pragma once
 #include <SDL3/SDL.h>
 #include "imgui.h"
+#include "../gpu/shader.hpp"
 
 struct GUI{
+    Shader backgroundShader{};
+
     void buildUI();
     void processEvents(SDL_Event* events);
+    void backgroundWindow();
+    void gltfWindow();
+    void shaderWindow();
 };
 
 static ImGuiKey sdlScancodeToImGuiKey(SDL_Scancode scancode) {

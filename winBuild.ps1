@@ -15,14 +15,14 @@ if ($arg -eq "help") {
 # run ".\winBuild.ps1 clean" to remove build artifacts
 if ($arg -eq "clean") {
     Remove-Item -Recurse -Force .cache -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force artifacts -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force .artifacts -ErrorAction SilentlyContinue
     Remove-Item -Force Photon.exe -ErrorAction SilentlyContinue
     Write-Host "[!] Cleaned build artifacts"
     exit 0
 }
 
 $BUILD_TYPE = $arg
-$ARTIFACT_ROOT = Join-Path $PSScriptRoot "artifacts"
+$ARTIFACT_ROOT = Join-Path $PSScriptRoot ".artifacts"
 
 if ($EnableValidation) {
     $env:VK_INSTANCE_LAYERS = "VK_LAYER_KHRONOS_validation"
@@ -104,9 +104,9 @@ Pop-Location
 
 # Path to the built exe (inside Debug/Release)
 $possibleExe = @(
-    ".\artifacts\photon\$BUILD_TYPE\Photon.exe",
-    ".\artifacts\photon\Photon.exe",
-    ".\artifacts\Photon.exe"
+    ".\.artifacts\photon\$BUILD_TYPE\Photon.exe",
+    ".\.artifacts\photon\Photon.exe",
+    ".\.artifacts\Photon.exe"
 )
 $BUILT_EXE = $possibleExe | Where-Object { Test-Path $_ } | Select-Object -First 1
 

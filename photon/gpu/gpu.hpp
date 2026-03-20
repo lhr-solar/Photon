@@ -70,6 +70,7 @@ struct GPU{
     std::vector<VkSemaphore> imageAvailableSemaphores{};
     std::vector<VkFence> fences{};
     std::vector<VkFence> imagesInFlight{};
+    std::vector<VkCommandBuffer> commandBuffers{};
     VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
     VkDevice device{VK_NULL_HANDLE};
     VkQueue queue{VK_NULL_HANDLE};
@@ -82,7 +83,6 @@ struct GPU{
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties{};
     std::vector<VkQueueFamilyProperties> deviceQueueFamilyProperties{};
     VkCommandPool commandPool{};
-    std::vector<VkCommandBuffer> commandBuffers{};
 
     // IMGUI resources
     VkShaderModule uiShaderVert{};
