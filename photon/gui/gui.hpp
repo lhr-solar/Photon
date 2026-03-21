@@ -2,9 +2,11 @@
 #include <SDL3/SDL.h>
 #include "imgui.h"
 #include "../gpu/shader.hpp"
+#include "../gpu/gltf.hpp"
 
 struct GUI{
     Shader backgroundShader{};
+    Gltf carModel{};
 
     void buildUI();
     void processEvents(SDL_Event* events);
