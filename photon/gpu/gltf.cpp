@@ -944,9 +944,9 @@ void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
     const glm::vec3 camPos(std::cos(time * 0.35f) * orbitRadius, std::sin(time * 0.35f) * orbitRadius, 1.2f);
 
     GltfMVP mvp{};
-    mvp.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f))
-        * glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    mvp.view = glm::lookAt(camPos, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    mvp.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            //glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    mvp.view = glm::lookAt(glm::vec3(1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     mvp.proj = glm::perspective(glm::radians(45.0f),
         static_cast<float>(frame.extent.width) / static_cast<float>(std::max(1u, frame.extent.height)), 0.01f, 32.0f);
     mvp.proj[1][1] *= -1.0f;
