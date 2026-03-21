@@ -990,18 +990,20 @@ void GPU::resizeWindow(){
 
 void GPU::submitFrame(const uint32_t imgIdx){
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSemaphore waitSemaphore = imageAvailableSemaphores[frameIndex];
+    VkSemaphore signalSemaphore = renderCompleteSemaphores[imgIdx];
 #ifdef _WIN32
-    adjustSubmitSyncObjects(imageAvailableSemaphores[frameIndex], renderCompleteSemaphores[frameIndex]);
+    adjustSubmitSyncObjects(waitSemaphore, signalSemaphore);
 #endif
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &imageAvailableSemaphores[frameIndex];
-    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.waitSemaphoreCount = (waitSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
+    submitInfo.pWaitSemaphores = (waitSemaphore != VK_NULL_HANDLE) ? &waitSemaphore : nullptr;
+    submitInfo.pWaitDstStageMask = (waitSemaphore != VK_NULL_HANDLE) ? waitStages : nullptr;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffers[frameIndex];
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &renderCompleteSemaphores[imgIdx];
+    submitInfo.signalSemaphoreCount = (signalSemaphore != VK_NULL_HANDLE) ? 1u : 0u;
+    submitInfo.pSignalSemaphores = (signalSemaphore != VK_NULL_HANDLE) ? &signalSemaphore : nullptr;
 #ifdef _WIN32
     VkWin32KeyedMutexAcquireReleaseInfoKHR keyedInfo{};
     VkDeviceMemory acquireMemory = VK_NULL_HANDLE;
@@ -1033,8 +1035,8 @@ void GPU::submitFrame(const uint32_t imgIdx){
     VkPresentInfoKHR presentInfo = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .pNext = NULL,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &renderCompleteSemaphores[imgIdx],
+        .waitSemaphoreCount = (signalSemaphore != VK_NULL_HANDLE) ? 1u : 0u,
+        .pWaitSemaphores = (signalSemaphore != VK_NULL_HANDLE) ? &signalSemaphore : nullptr,
         .swapchainCount = 1,
         .pSwapchains = &swapchain, 
         .pImageIndices = &imgIdx,
