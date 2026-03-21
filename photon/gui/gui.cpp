@@ -14,6 +14,7 @@ void GUI::buildUI(){
     ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
     backgroundWindow();
+    gltfWindow();
     ImGui::Render();
 };
 
@@ -43,11 +44,26 @@ void GUI::backgroundWindow(){
     ImGui::End();
 };
 
+void GUI::gltfWindow() {
+    if(!carModel.initialized || carModel.frames.empty() || carModel.frameIndex == nullptr) return;
+    gltfFrame& frame = carModel.frames[*carModel.frameIndex];
+    ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
+    if(ImGui::Begin("gltf", NULL, 0)){
+        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+        if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+            frame.extent = nextExtent;
+            carModel.dirty = true;
+        }
+        ImVec2 drawSize(frame.extent.width, frame.extent.height);
+        drawSize.x = std::max(drawSize.x, 1.0f);
+        drawSize.y = std::max(drawSize.y, 1.0f);
+        ImGui::Image(frame.texture, drawSize);
+    }
+    ImGui::End();
+}
+
+
 void GUI::shaderWindow(){
-
-};
-
-void GUI::gltfWindow(){
 
 };
 

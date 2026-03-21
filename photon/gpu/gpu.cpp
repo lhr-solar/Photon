@@ -545,14 +545,14 @@ void GPU::imguiBackend(){
     // descriptor s here
     VkDescriptorPoolSize descriptorPoolSize {};
     descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorPoolSize.descriptorCount = 8;
+    descriptorPoolSize.descriptorCount = 64;
     std::vector<VkDescriptorPoolSize> poolSizes = { descriptorPoolSize };
     VkDescriptorPoolCreateInfo descriptorPoolInfo{};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
-    descriptorPoolInfo.maxSets = 8;
+    descriptorPoolInfo.maxSets = 64;
     vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool);
     VkDescriptorSetLayoutBinding setLayoutBinding0 {};
     setLayoutBinding0.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;

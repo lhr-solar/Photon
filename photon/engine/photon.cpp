@@ -5,6 +5,7 @@
 
 #include "background_frag_spv.hpp"
 #include "background_vert_spv.hpp"
+#include "daybreak_glb.hpp"
 
 void Photon::init(){
     gpu.init(); logs("Initialized GPU");
@@ -12,6 +13,7 @@ void Photon::init(){
     windowID = SDL_GetWindowID(gpu.window);
     gui.backgroundShader.init(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size, 
                                    (uint32_t*)background_frag_spv, background_frag_spv_size);
+    gui.carModel.init(gpu, daybreak_glb, daybreak_glb_size);
 };
 
 void Photon::handleInput(){
@@ -42,6 +44,7 @@ void Photon::renderLoop(){
         vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
 
         gui.backgroundShader.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
+        gui.carModel.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
         gpu.imguiPresentation(imgIdx);
         vkEndCommandBuffer(gpu.commandBuffers[gpu.frameIndex]);
 
@@ -55,5 +58,6 @@ void Photon::renderLoop(){
 
 void Photon::destroy(){
     gui.backgroundShader.destroy();
+    gui.carModel.destroy();
     gpu.destroy();
 };
