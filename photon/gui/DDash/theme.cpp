@@ -110,6 +110,7 @@ bool LoadFonts(const char* fontPath, const char* monoFontPath, const char* iconF
         "fonts/Satoshi-Medium.ttf",
         "../fonts/Satoshi-Medium.ttf",
         "../../fonts/Satoshi-Medium.ttf",
+        "/usr/share/fonts/Satoshi-Medium.ttf",
         fontPath
     };
     

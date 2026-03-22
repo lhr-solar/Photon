@@ -151,10 +151,10 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         widgets::Space(12.0f);
 
         // Helper lambda to draw a battery row
-        auto drawBatteryRow = [&](const char* rowLabel, float soc, float voltage) {
+        auto drawBatteryRow = [&](const char* rowLabel, float soc, float voltage, float currentStr = -999.0f) {
             ImVec4 batColor = GetBatteryColor(soc);
             float labelW = 32.0f;
-            float voltW = 52.0f;
+            float voltW = currentStr != -999.0f ? 110.0f : 52.0f;
             float barW = avW - labelW - voltW - 16.0f;
             if (barW < 40.0f) barW = 40.0f;
 
@@ -169,7 +169,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             // SOC bar with percentage overlay
             {
                 ImVec2 barPos = ImGui::GetCursorScreenPos();
-                float barH = 64.0f;
+                float barH = 36.0f; // Thinner battery bar
                 float rounding = 3.0f;
 
                 // Background
@@ -207,19 +207,21 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
 
             ImGui::SameLine(0, 8.0f);
 
-            // Voltage
-            char vTxt[16];
-            snprintf(vTxt, sizeof(vTxt), "%.0fV", voltage);
+            // Voltage and Optional Current
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
             ImGui::SetWindowFontScale(1.2f);
-            ImGui::Text("%s", vTxt);
+            if (currentStr != -999.0f) {
+                ImGui::Text("%.0fV  %.0fA", voltage, currentStr);
+            } else {
+                ImGui::Text("%.0fV", voltage);
+            }
             ImGui::SetWindowFontScale(1.0f);
             ImGui::PopStyleColor();
         };
 
         drawBatteryRow("M",  state.mainBattery.soc, state.mainBattery.voltage);
-        widgets::Space(10);
-        drawBatteryRow("AU", state.suppBattery.soc,  state.suppBattery.voltage);
+        widgets::Space(6);
+        drawBatteryRow("AU", state.suppBattery.soc,  state.suppBattery.voltage, state.suppBattery.current);
 
         widgets::Space(12);
 
@@ -483,7 +485,8 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             float iconSize    = std::max(20.0f, maxIconSize);
             float iconBottomY = center.y + sSz.y * 0.25f + iconSize + 4.0f;
             float fnrY = iconBottomY + 8.0f;
-            float fnrH = 50.0f; // Give it less hardcoded vertical space            const char* letters[] = {"F", "N", "R"};
+            float fnrH = 50.0f; // Give it less hardcoded vertical space
+            const char* letters[] = {"F", "N", "R"};
             const Gear  vals[]    = {Gear::Forward, Gear::Neutral, Gear::Reverse};
             float spacing = 96.0f;
             float totalW  = spacing * 2.0f;
@@ -511,6 +514,25 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                 dl->AddText(useFont, fs,
                             ImVec2(x, fnrY + (fnrH - lSz.y) * 0.5f),
                             ColorToU32(col), letters[i]);
+            }
+        }
+
+        // Pedal Percentage Bar
+        {
+            float pbW = radius * 1.5f;
+            float pbH = 8.0f;
+            float pbY = fnrY + fnrH + 5.0f; 
+            ImVec2 pPos(cX - pbW * 0.5f, pbY);
+            
+            // bg
+            dl->AddRectFilled(pPos, ImVec2(pPos.x + pbW, pPos.y + pbH), ColorToU32(Colors::Muted()), pbH * 0.5f);
+            
+            float pct = std::clamp(state.pedalPercent / 100.0f, 0.0f, 1.0f);
+            float fillW = pbW * pct;
+            if (fillW > 2.0f) {
+                ImDrawFlags fillFlags = ImDrawFlags_RoundCornersLeft;
+                if (fillW >= pbW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
+                dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH), ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
             }
         }
 
@@ -578,6 +600,47 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
     ImGui::PopStyleColor();
 }
 
+static void RenderDebugScreen(AppState& state) {
+    auto avail = ImGui::GetContentRegionAvail();
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.05f, 0.05f, 0.05f, 0.95f));
+    ImGui::BeginChild("DebugScreenPanel", avail, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+    ImGui::SetWindowFontScale(2.0f);
+    ImGui::Text("--- DEBUG SCREEN ---");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::Separator();
+    widgets::Space(10);
+    
+    ImGui::SetWindowFontScale(1.4f);
+    ImGui::Text("Brake Pressure: %.1f psi", state.brakePressure);
+    ImGui::Text("Pedal Position: %.1f %%", state.pedalPercent);
+    ImGui::Text("Supp Battery Current: %.1f A", state.suppBattery.current);
+    ImGui::Text("Main Battery Current: %.1f A", state.mainBattery.current);
+    widgets::Space(10);
+    
+    ImGui::Separator();
+    ImGui::Text("BPS Modules:");
+    ImGui::SetWindowFontScale(1.2f);
+    
+    int maxModules = std::max(state.moduleVoltages.size(), state.moduleTemps.size());
+    if (maxModules == 0) {
+        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+        ImGui::Text("No module data available.");
+        ImGui::PopStyleColor();
+    } else {
+        for(int i = 0; i < maxModules; ++i) {
+            float v = i < state.moduleVoltages.size() ? state.moduleVoltages[i] : 0.0f;
+            float t = i < state.moduleTemps.size() ? state.moduleTemps[i] : 0.0f;
+            ImGui::Text("  Module %d: %.3f V | %.1f C", i, v, t);
+        }
+    }
+    
+    ImGui::PopStyleColor(); // Text
+    ImGui::EndChild();
+    ImGui::PopStyleColor(); // ChildBg
+}
+
 void RenderDashboard(AppState& state) {
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -604,11 +667,34 @@ void RenderDashboard(AppState& state) {
 
     float availW = ImGui::GetContentRegionAvail().x;
     float availH = ImGui::GetContentRegionAvail().y;
-    float gap       = 4.0f;
-    float rowTop    = availH * 0.50f;
-    float rowBottom = availH - rowTop - gap;
+    
+    // Invisible buttons for debug screen toggle
+    ImGui::SetCursorPos(ImVec2(0, 0));
+    ImGui::InvisibleButton("##DebugToggleLeft", ImVec2(80, availH));
+    bool leftHeld = ImGui::IsItemActive();
+    
+    ImGui::SetCursorPos(ImVec2(availW - 80, 0));
+    ImGui::InvisibleButton("##DebugToggleRight", ImVec2(80, availH));
+    bool rightHeld = ImGui::IsItemActive();
+    
+    static bool wasBothHeld = false;
+    bool bothHeld = leftHeld && rightHeld;
+    if (bothHeld && !wasBothHeld) {
+        state.showDebugScreen = !state.showDebugScreen;
+    }
+    wasBothHeld = bothHeld;
+    
+    // Reset cursor for actual layout
+    ImGui::SetCursorPos(ImVec2(0, 0));
 
-    // Top row: wider camera views, narrower speed gauge
+    if (state.showDebugScreen) {
+        RenderDebugScreen(state);
+    } else {
+        float gap       = 4.0f;
+        float rowTop    = availH * 0.50f;
+        float rowBottom = availH - rowTop - gap;
+
+        // Top row: wider camera views, narrower speed gauge
     float topColLeft   = availW * 0.34f;
     float topColRight  = availW * 0.32f;
     float topColCenter = availW - topColLeft - topColRight - gap * 2.0f;
@@ -642,8 +728,8 @@ void RenderDashboard(AppState& state) {
                      ImVec2(botColCenter, rowBottom));
     ImGui::SameLine(0, gap);
 
-    RenderButtonGrid(state, ImVec2(botColRight, rowBottom));
-
+        RenderButtonGrid(state, ImVec2(botColRight, rowBottom));
+    } // End normal dashboard render
 
     ImGui::End();
     ImGui::PopStyleColor();

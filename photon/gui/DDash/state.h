@@ -58,6 +58,7 @@ struct MainBattery {
 struct SuppBattery {
     float soc;      // State of charge (0-100)
     float voltage;  // Voltage in V
+    float current;  // Current in A
 };
 
 /**
@@ -136,6 +137,17 @@ struct AppState {
     void* leftCameraTexture  = nullptr;
     void* rightCameraTexture = nullptr;
     void* rearCameraTexture  = nullptr;
+    
+    // Additional telemetry
+    float pedalPercent = 0.0f;
+    float brakePressure = 0.0f;
+    
+    // BPS Module summaries
+    std::vector<float> moduleVoltages;
+    std::vector<float> moduleTemps;
+    
+    // UI state
+    bool showDebugScreen = false;
 };
 
 /**
@@ -146,7 +158,7 @@ inline AppState CreateDefaultState() {
     state.speed = 0;
     state.gear = Gear::Neutral;
     state.mainBattery = { 60.0f, 120.0f, -60.0f };
-    state.suppBattery = { 80.0f, 24.0f };
+    state.suppBattery = { 80.0f, 24.0f, 0.0f };
     state.motorController = { 42.0f, 120.0f, -60.0f };
     state.cruise = { false, 0 };
     state.brakeEngaged = false;

@@ -61,6 +61,27 @@ void UI::build(){
         if (networkINTF->readParsedSignal("Cruise_Enable", val)) ddashState.cruise.enabled = (val != 0);
         if (networkINTF->readParsedSignal("Regen_Enable", val)) ddashState.regenEnabled = (val != 0);
         if (networkINTF->readParsedSignal("Brake_Pos_Main", val)) ddashState.brakeEngaged = (val > 5.0);
+
+        // New Telemetry
+        if (networkINTF->readParsedSignal("Pedal_Pos_Main", val)) ddashState.pedalPercent = (float)val;
+        // BPSCAN has Main_Battery_Current but user asked for supp battery current, mapped to Supplemental_Battery_Current
+        if (networkINTF->readParsedSignal("Supplemental_Battery_Current", val)) ddashState.suppBattery.current = (float)val;
+        if (networkINTF->readParsedSignal("Brake_Pressure", val)) ddashState.brakePressure = (float)val;
+
+        // BPS arrays 
+        double tapIdx = 0, tapV = 0, tapT = 0;
+        if (networkINTF->readParsedSignal("BPS_Tap_idx", tapIdx)) {
+            int idx = (int)tapIdx;
+            if (ddashState.moduleVoltages.size() <= idx) ddashState.moduleVoltages.resize(idx + 1, 0.0f);
+            if (ddashState.moduleTemps.size() <= idx) ddashState.moduleTemps.resize(idx + 1, 0.0f);
+            
+            if (networkINTF->readParsedSignal("BPS_Voltage_Tap_Data", tapV)) {
+                ddashState.moduleVoltages[idx] = (float)tapV;
+            }
+            if (networkINTF->readParsedSignal("BPS_Temperature_Tap_Data", tapT)) {
+                ddashState.moduleTemps[idx] = (float)tapT;
+            }
+        }
     }
     ui::RenderUI(ddashState);
 

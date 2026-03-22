@@ -22,13 +22,13 @@ namespace Colors {
     inline ImVec4 PrimaryDark()        { return ImVec4(0.00f, 0.65f, 0.75f, 1.0f); }
     inline ImVec4 PrimaryForeground()  { return ImVec4(0.02f, 0.02f, 0.03f, 1.0f); }
     
-    // Secondary (dark gray)
+    // Secondary (white instead of gray for better visibility)
     inline ImVec4 Secondary()          { return ImVec4(0.12f, 0.12f, 0.14f, 1.0f); }
-    inline ImVec4 SecondaryForeground(){ return ImVec4(0.85f, 0.85f, 0.88f, 1.0f); }
+    inline ImVec4 SecondaryForeground(){ return ImVec4(1.00f, 1.00f, 1.00f, 1.0f); }
     
-    // Muted - Darker
+    // Muted - Darker background, but highly visible foreground
     inline ImVec4 Muted()              { return ImVec4(0.08f, 0.08f, 0.10f, 1.0f); }
-    inline ImVec4 MutedForeground()    { return ImVec4(0.50f, 0.50f, 0.55f, 1.0f); }
+    inline ImVec4 MutedForeground()    { return ImVec4(0.90f, 0.90f, 0.92f, 1.0f); }
     
     // Accent (vibrant orange/plasma)
     inline ImVec4 Accent()             { return ImVec4(1.00f, 0.45f, 0.15f, 1.0f); }  // Bright orange
