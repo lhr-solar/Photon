@@ -515,24 +515,25 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                             ImVec2(x, fnrY + (fnrH - lSz.y) * 0.5f),
                             ColorToU32(col), letters[i]);
             }
-        }
+            }
 
-        // Pedal Percentage Bar
-        {
-            float pbW = radius * 1.5f;
-            float pbH = 8.0f;
-            float pbY = fnrY + fnrH + 5.0f; 
-            ImVec2 pPos(cX - pbW * 0.5f, pbY);
-            
-            // bg
-            dl->AddRectFilled(pPos, ImVec2(pPos.x + pbW, pPos.y + pbH), ColorToU32(Colors::Muted()), pbH * 0.5f);
-            
-            float pct = std::clamp(state.pedalPercent / 100.0f, 0.0f, 1.0f);
-            float fillW = pbW * pct;
-            if (fillW > 2.0f) {
-                ImDrawFlags fillFlags = ImDrawFlags_RoundCornersLeft;
-                if (fillW >= pbW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
-                dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH), ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
+            // Pedal Percentage Bar (inside FNR scope to access fnrY/fnrH)
+            {
+                float pbW = radius * 1.5f;
+                float pbH = 8.0f;
+                float pbY = fnrY + fnrH + 5.0f; 
+                ImVec2 pPos(cX - pbW * 0.5f, pbY);
+                
+                // bg
+                dl->AddRectFilled(pPos, ImVec2(pPos.x + pbW, pPos.y + pbH), ColorToU32(Colors::Muted()), pbH * 0.5f);
+                
+                float pct = std::clamp(state.pedalPercent / 100.0f, 0.0f, 1.0f);
+                float fillW = pbW * pct;
+                if (fillW > 2.0f) {
+                    ImDrawFlags fillFlags = ImDrawFlags_RoundCornersLeft;
+                    if (fillW >= pbW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
+                    dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH), ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
+                }
             }
         }
 
