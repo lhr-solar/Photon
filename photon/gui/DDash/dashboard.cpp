@@ -515,7 +515,6 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                             ImVec2(x, fnrY + (fnrH - lSz.y) * 0.5f),
                             ColorToU32(col), letters[i]);
             }
-            }
 
             // Pedal Percentage Bar (inside FNR scope to access fnrY/fnrH)
             {
