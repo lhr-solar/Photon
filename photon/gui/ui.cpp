@@ -21,6 +21,21 @@ void UI::build(){
         if (networkINTF->readParsedSignal("BusVoltage", val)) ddashState.motorController.voltage = (float)val;
         if (networkINTF->readParsedSignal("BusCurrent", val)) ddashState.motorController.current = (float)val;
         
+        // Motor Controller extra telemetry
+        if (networkINTF->readParsedSignal("PhaseCurrentB", val)) ddashState.motorController.phaseCurrentB = (float)val;
+        if (networkINTF->readParsedSignal("PhaseCurrentC", val)) ddashState.motorController.phaseCurrentC = (float)val;
+        if (networkINTF->readParsedSignal("BEMFq", val)) ddashState.motorController.backEmfQ = (float)val;
+        if (networkINTF->readParsedSignal("BEMFd", val)) ddashState.motorController.backEmfD = (float)val;
+
+        // Motor Controller limits
+        if (networkINTF->readParsedSignal("LimitOutputVoltagePWM", val)) ddashState.motorController.limitOutputVoltage = (val != 0);
+        if (networkINTF->readParsedSignal("LimitMotorCurrent", val)) ddashState.motorController.limitMotorCurrent = (val != 0);
+        if (networkINTF->readParsedSignal("LimitVelocity", val)) ddashState.motorController.limitVelocity = (val != 0);
+        if (networkINTF->readParsedSignal("LimitBusCurrent", val)) ddashState.motorController.limitBusCurrent = (val != 0);
+        if (networkINTF->readParsedSignal("LimitBusVoltageUpper", val)) ddashState.motorController.limitBusVoltageUpper = (val != 0);
+        if (networkINTF->readParsedSignal("LimitBusVoltageLower", val)) ddashState.motorController.limitBusVoltageLower = (val != 0);
+        if (networkINTF->readParsedSignal("LimitIpmOrMotorTemp", val)) ddashState.motorController.limitIpmOrMotorTemp = (val != 0);
+        
         double bpsF = 0, vcuF = 0;
         bool hasBps = networkINTF->readParsedSignal("BPS_Fault", bpsF);
         bool hasVcu = networkINTF->readParsedSignal("VCU_Fault", vcuF);
@@ -82,6 +97,106 @@ void UI::build(){
                 ddashState.moduleTemps[idx] = (float)tapT;
             }
         }
+
+        // BPS status signals (from BPSCAN)
+        if (networkINTF->readParsedSignal("Main_Battery_Avg_Temperature", val)) ddashState.mainBatteryAvgTemp = (float)val;
+        if (networkINTF->readParsedSignal("BPS_Regen_OK", val)) ddashState.bpsRegenOK = (val != 0);
+        if (networkINTF->readParsedSignal("BPS_Charge_OK", val)) ddashState.bpsChargeOK = (val != 0);
+        if (networkINTF->readParsedSignal("Precharge_Battery_Voltage", val)) ddashState.prechargeBatteryV = (float)val;
+        if (networkINTF->readParsedSignal("Precharge_Array_Voltage", val)) ddashState.prechargeArrayV = (float)val;
+        if (networkINTF->readParsedSignal("Main_Battery_Current_RawV", val)) ddashState.mainBatteryCurrentRawV = (float)val;
+        if (networkINTF->readParsedSignal("BPS_Fault", val)) ddashState.bpsFaultCode = (uint8_t)val;
+
+        // VCU status (CarCAN ID 24)
+        if (networkINTF->readParsedSignal("VCU_FSM_State", val)) ddashState.vcuFsmState = (uint8_t)val;
+        if (networkINTF->readParsedSignal("VCU_Fault", val)) ddashState.vcuFaultCode = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Motor_Ready_To_Drive", val)) ddashState.motorReadyToDrive = (val != 0);
+        if (networkINTF->readParsedSignal("VCU_Pedals_OK", val)) ddashState.vcuPedalsOK = (val != 0);
+        if (networkINTF->readParsedSignal("VCU_Driver_Input_OK", val)) ddashState.vcuDriverInputOK = (val != 0);
+        if (networkINTF->readParsedSignal("VCU_Regen_Active", val)) ddashState.vcuRegenActive = (val != 0);
+        if (networkINTF->readParsedSignal("VCU_Regen_OK", val)) ddashState.vcuRegenOK = (val != 0);
+        if (networkINTF->readParsedSignal("Precharge_Motor_Voltage", val)) ddashState.prechargeMotorV = (float)val;
+
+        // MPPT solar - 3 channels (A=512/513, B=528/529, C=544/545)
+        if (networkINTF->readParsedSignal("MPPT_Vin", val)) ddashState.mppt[0].vin = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_Iin", val)) ddashState.mppt[0].iin = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_Vout", val)) ddashState.mppt[0].vout = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_Iout", val)) ddashState.mppt[0].iout = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_HeatsinkTemperature", val)) ddashState.mppt[0].heatsinkTemp = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_AmbientTemperature", val)) ddashState.mppt[0].ambientTemp = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_Fault", val)) ddashState.mppt[0].fault = (uint8_t)val;
+        if (networkINTF->readParsedSignal("MPPT_Mode", val)) ddashState.mppt[0].mode = (uint8_t)val;
+        if (networkINTF->readParsedSignal("MPPT_Enabled", val)) ddashState.mppt[0].enabled = (val != 0);
+        // Note: MPPT B and C share signal names, so DBC parser will overwrite with latest
+        // All 3 channels end up in mppt[0] via the shared signal names
+
+        // Cooling system
+        if (networkINTF->readParsedSignal("Coolant_Temperature_1", val)) ddashState.coolantTemp1 = (float)val;
+        if (networkINTF->readParsedSignal("Coolant_Temperature_2", val)) ddashState.coolantTemp2 = (float)val;
+        if (networkINTF->readParsedSignal("FlowRate_1", val)) ddashState.flowRate1 = (float)val;
+        if (networkINTF->readParsedSignal("FlowRate_2", val)) ddashState.flowRate2 = (float)val;
+        if (networkINTF->readParsedSignal("Pump_DutyCycle", val)) ddashState.pumpDuty = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Pump_Fault", val)) ddashState.pumpFault = (val != 0);
+
+        // Steering wheel
+        if (networkINTF->readParsedSignal("LWS_Angle", val)) ddashState.steeringAngle = (float)val;
+        if (networkINTF->readParsedSignal("LWS_OK", val)) ddashState.steeringSensorOK = (val != 0);
+
+        // Supp battery charger
+        if (networkINTF->readParsedSignal("SuppCharger_Status", val)) ddashState.suppChargerStatus = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Supplemental_DCDC_Voltage", val)) ddashState.suppDcdcVoltage = (float)val;
+        if (networkINTF->readParsedSignal("Supplemental_DCDC_Current", val)) ddashState.suppDcdcCurrent = (float)val;
+
+        // Pedal sensor details (ID 80)
+        if (networkINTF->readParsedSignal("Accel_Pos_Main", val)) ddashState.accelPosMain = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Accel_Pos_Redundant", val)) ddashState.accelPosRedundant = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Brake_Pos_Main", val)) ddashState.brakePosMain = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Brake_Pos_Redundant", val)) ddashState.brakePosRedundant = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Accel_Pos_Main_Fault", val)) ddashState.accelMainFault = (val != 0);
+        if (networkINTF->readParsedSignal("Accel_Pos_Redundant_Fault", val)) ddashState.accelRedundantFault = (val != 0);
+        if (networkINTF->readParsedSignal("Brake_Pos_Main_Fault", val)) ddashState.brakeMainFault = (val != 0);
+        if (networkINTF->readParsedSignal("Brake_Pos_Redundant_Fault", val)) ddashState.brakeRedundantFault = (val != 0);
+        if (networkINTF->readParsedSignal("Brake_Pressure_1_Fault", val)) ddashState.brakePressure1Fault = (val != 0);
+        if (networkINTF->readParsedSignal("Brake_Pressure_2_Fault", val)) ddashState.brakePressure2Fault = (val != 0);
+
+        // Pedal voltages (ID 81)
+        if (networkINTF->readParsedSignal("Accel_Pos_Voltage_Main", val)) ddashState.accelVoltMain = (float)val;
+        if (networkINTF->readParsedSignal("Accel_Pos_Voltage_Redundant", val)) ddashState.accelVoltRedundant = (float)val;
+        if (networkINTF->readParsedSignal("Brake_Pos_Voltage_Main", val)) ddashState.brakeVoltMain = (float)val;
+        if (networkINTF->readParsedSignal("Brake_Pos_Voltage_Redundant", val)) ddashState.brakeVoltRedundant = (float)val;
+
+        // Brake pressure sensors (ID 1616)
+        if (networkINTF->readParsedSignal("Brake_Pressure_1", val)) ddashState.brakePressure1 = (float)val;
+        if (networkINTF->readParsedSignal("Brake_Pressure_2", val)) ddashState.brakePressure2 = (float)val;
+        if (networkINTF->readParsedSignal("Brake_Pressure_1_Voltage", val)) ddashState.brakePressure1V = (float)val;
+        if (networkINTF->readParsedSignal("Brake_Pressure_2_Voltage", val)) ddashState.brakePressure2V = (float)val;
+
+        // Driver input buttons (ID 96)
+        if (networkINTF->readParsedSignal("Horn_Pressed", val)) ddashState.hornPressed = (val != 0);
+        if (networkINTF->readParsedSignal("Hazard_Pressed", val)) ddashState.hazardPressed = (val != 0);
+        if (networkINTF->readParsedSignal("PushToTalk_Pressed", val)) ddashState.pttPressed = (val != 0);
+        if (networkINTF->readParsedSignal("Cruise_Set", val)) ddashState.cruiseSet = (val != 0);
+        if (networkINTF->readParsedSignal("Regen_Activate", val)) ddashState.regenActivate = (val != 0);
+
+        // LV carrier (ID 1536)
+        if (networkINTF->readParsedSignal("LTC4421_HVDCDC_Selected", val)) ddashState.lvHvDcdcSelected = (val != 0);
+        if (networkINTF->readParsedSignal("LTC4421_HVDCDC_Fault", val)) ddashState.lvHvDcdcFault = (val != 0);
+        if (networkINTF->readParsedSignal("LTC4421_HVDCDC_Valid", val)) ddashState.lvHvDcdcValid = (val != 0);
+        if (networkINTF->readParsedSignal("LTC4421_SuppBatt_Selected", val)) ddashState.lvSuppBattSelected = (val != 0);
+        if (networkINTF->readParsedSignal("LTC4421_SuppBatt_Fault", val)) ddashState.lvSuppBattFault = (val != 0);
+        if (networkINTF->readParsedSignal("LTC4421_SuppBatt_Valid", val)) ddashState.lvSuppBattValid = (val != 0);
+        if (networkINTF->readParsedSignal("LV_EN_SupplementalBattery", val)) ddashState.lvEnSuppBattery = (val != 0);
+        if (networkINTF->readParsedSignal("LV_EN_PowerSupply", val)) ddashState.lvEnPowerSupply = (val != 0);
+
+        // Camera status (ID 1792)
+        if (networkINTF->readParsedSignal("Camera_Status_Backup", val)) ddashState.cameraBackup = (val != 0);
+        if (networkINTF->readParsedSignal("Camera_Status_Left", val)) ddashState.cameraLeft = (val != 0);
+        if (networkINTF->readParsedSignal("Camera_Status_Right", val)) ddashState.cameraRight = (val != 0);
+        if (networkINTF->readParsedSignal("Display_FrameRate", val)) ddashState.displayFps = (uint8_t)val;
+
+        // Lighting / controls faults (ID 25)
+        if (networkINTF->readParsedSignal("Controls_Lighting_Fault", val)) ddashState.lightingFaults = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Controls_Leader_Fault", val)) ddashState.controlsLeaderFault = (uint8_t)val;
     }
     ui::RenderUI(ddashState);
 

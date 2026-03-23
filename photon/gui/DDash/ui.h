@@ -57,7 +57,6 @@ inline void RenderUI(AppState& state) {
  * @param deltaTime Time since last update in seconds
  */
 inline void UpdateSimulation(AppState& state, float deltaTime) {
-    // Increment heartbeat
     state.heartbeat = static_cast<uint8_t>((state.heartbeat + 1) % 256);
 }
 

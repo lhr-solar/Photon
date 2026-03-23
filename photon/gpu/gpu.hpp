@@ -85,6 +85,7 @@ public:
     void setupDepthStencil(uint32_t width, uint32_t height);
     void setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat);
     void createPipelineCache(VkDevice device);
+    void savePipelineCache();
     void setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height);
     void prepareUniformBuffers();
     void updateUniformBuffers(bool animateLight, float lightTimer, float lightSpeed);

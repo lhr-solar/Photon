@@ -6,6 +6,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <vector>
+#include <string>
+#include <ctime>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -58,6 +61,8 @@ static ImVec4 GetSpeedColor(int speed) {
     if (speed > 30) return Colors::Warning();
     return Colors::Primary();
 }
+
+static const char* BpsFaultName(uint8_t code);
 
 // Forward declarations
 
@@ -224,6 +229,37 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         drawBatteryRow("AU", state.suppBattery.soc,  state.suppBattery.voltage, state.suppBattery.current);
 
         widgets::Space(12);
+
+        if (state.bpsFaultCode != 0) {
+            int maxTIdx = -1, minVIdx = -1, maxVIdx = -1;
+            float maxT=-999, minV=999, maxV=-999;
+            for(int i=0; i<(int)state.moduleVoltages.size(); ++i) {
+                if (state.moduleVoltages[i] < minV) { minV = state.moduleVoltages[i]; minVIdx = i; }
+                if (state.moduleVoltages[i] > maxV) { maxV = state.moduleVoltages[i]; maxVIdx = i; }
+            }
+            for(int i=0; i<(int)state.moduleTemps.size(); ++i) {
+                if (state.moduleTemps[i] > maxT) { maxT = state.moduleTemps[i]; maxTIdx = i; }
+            }
+            
+            const char* strRsn = "";
+            int modIdx = -1;
+            float val = 0;
+            if (state.bpsFaultCode == 1) { strRsn = "OVERVOLT"; modIdx = maxVIdx; val = maxV; }
+            else if (state.bpsFaultCode == 2) { strRsn = "UNDERVOLT"; modIdx = minVIdx; val = minV; }
+            else if (state.bpsFaultCode == 4) { strRsn = "OVERTEMP"; modIdx = maxTIdx; val = maxT; }
+            
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Destructive());
+            ImGui::SetWindowFontScale(1.1f);
+            if (modIdx != -1) {
+                if (state.bpsFaultCode == 4) ImGui::Text("BPS FAULT: Mod %d (%.1fC) %s", modIdx, val, strRsn);
+                else ImGui::Text("BPS FAULT: Mod %d (%.2fV) %s", modIdx, val, strRsn);
+            } else {
+                ImGui::Text("BPS FAULT: %s", BpsFaultName(state.bpsFaultCode));
+            }
+            ImGui::SetWindowFontScale(1.0f);
+            ImGui::PopStyleColor();
+            widgets::Space(6);
+        }
 
         // MoCo : Heatsink temp, Voltage, Current
         {
@@ -419,8 +455,8 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                                   ? io.Fonts->Fonts[3] : nullptr;
             
             // Limit font size based on radius to avoid clashing
-            float maxFontSize = radius * 1.5f;
-            float fontSize = std::min((bigFont ? bigFont->FontSize : 48.0f) * 1.80f, maxFontSize);
+            float maxFontSize = radius * 2.2f;
+            float fontSize = std::min((bigFont ? bigFont->FontSize : 48.0f) * 3.0f, maxFontSize);
             
             sSz = bigFont
                 ? bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, speedTxt)
@@ -600,42 +636,268 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
     ImGui::PopStyleColor();
 }
 
-static void RenderDebugScreen(AppState& state) {
+static const char* BpsFaultName(uint8_t code) {
+    switch (code) {
+        case 0:  return "No Fault";
+        case 1:  return "Overvoltage";
+        case 2:  return "Undervoltage";
+        case 3:  return "Regen";
+        case 4:  return "Overtemperature";
+        case 5:  return "Elcon";
+        case 6:  return "Array Pchg Timeout";
+        case 7:  return "Watchdog";
+        case 8:  return "HV+ Ctr Sense";
+        case 9:  return "HV- Ctr Sense";
+        case 10: return "Array Ctr Sense";
+        case 11: return "Array Pchg Ctr Sense";
+        case 12: return "Estop 1";
+        case 13: return "Estop 2";
+        case 14: return "Estop 3";
+        case 15: return "Charging Overcurrent";
+        case 16: return "Discharging Overcurrent";
+        default: return "Unknown";
+    }
+}
+
+static const char* VcuFaultName(uint8_t code) {
+    switch (code) {
+        case 0: return "No Fault";
+        case 1: return "Motor Ctr Sense";
+        case 2: return "Motor Pchg Ctr Sense";
+        case 3: return "Motor Pchg Timeout";
+        case 4: return "Motor Ctr Fault";
+        case 5: return "Motor HV Overvoltage";
+        case 6: return "Motor HV Undervoltage";
+        default: return "Unknown";
+    }
+}
+
+static const char* SuppChargerStatusStr(uint8_t s) {
+    switch (s) {
+        case 0: return "Disabled";
+        case 1: return "Done";
+        case 2: return "Charging";
+        case 3: return "Fault";
+        default: return "?";
+    }
+}
+
+static std::vector<std::pair<std::string, AppState>> g_faultSnapshots;
+static int g_selectedSnapshotIndex = -1; // -1 means live data
+
+static void RenderBpsGrid(const AppState& s) {
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "BPS 32-MODULE GRID");
+    
+    int nMod = static_cast<int>(std::max(s.moduleVoltages.size(), s.moduleTemps.size()));
+
+    if (ImGui::BeginTable("BpsGrid", 8, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+        for (int i = 0; i < 32; i++) {
+            ImGui::TableNextColumn();
+            if (i < nMod) {
+                float v = i < s.moduleVoltages.size() ? s.moduleVoltages[i] : 0.0f;
+                float t = i < s.moduleTemps.size() ? s.moduleTemps[i] : 0.0f;
+                
+                ImVec4 vCol = Colors::Foreground();
+                if (v > 4.2f || v < 2.5f) vCol = Colors::Destructive();
+                else if (v > 4.15f || v < 3.0f) vCol = Colors::Warning();
+                
+                ImVec4 tCol = Colors::Foreground();
+                if (t > 45.0f) tCol = Colors::Destructive();
+                else if (t > 35.0f) tCol = Colors::Warning();
+                
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "#%d", i);
+                ImGui::TextColored(vCol, "%.3fV", v);
+                ImGui::TextColored(tCol, "%.1fC", t);
+            } else {
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "#%d", i);
+                ImGui::Text("-");
+                ImGui::Text("-");
+            }
+        }
+        ImGui::EndTable();
+    }
+}
+
+static void RenderDebugScreen(AppState& liveState) {
     auto avail = ImGui::GetContentRegionAvail();
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.05f, 0.05f, 0.05f, 0.95f));
-    ImGui::BeginChild("DebugScreenPanel", avail, ImGuiChildFlags_None, ImGuiWindowFlags_None);
-    
+    ImGui::BeginChild("DebugScreenPanel", avail, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-    ImGui::SetWindowFontScale(2.0f);
-    ImGui::Text("--- DEBUG SCREEN ---");
+
+    // Use current state or snapshot
+    const AppState& state = (g_selectedSnapshotIndex >= 0 && g_selectedSnapshotIndex < g_faultSnapshots.size()) 
+                            ? g_faultSnapshots[g_selectedSnapshotIndex].second 
+                            : liveState;
+
+    // Header & Snapshot Controls
+    ImGuiIO& dbgIo = ImGui::GetIO();
+    ImGui::SetWindowFontScale(1.3f);
+    ImGui::Text(" DEBUG");
+    ImGui::SameLine();
     ImGui::SetWindowFontScale(1.0f);
-    ImGui::Separator();
-    widgets::Space(10);
     
-    ImGui::SetWindowFontScale(1.4f);
-    ImGui::Text("Brake Pressure: %.1f psi", state.brakePressure);
-    ImGui::Text("Pedal Position: %.1f %%", state.pedalPercent);
-    ImGui::Text("Supp Battery Current: %.1f A", state.suppBattery.current);
-    ImGui::Text("Main Battery Current: %.1f A", state.mainBattery.current);
-    widgets::Space(10);
-    
-    ImGui::Separator();
-    ImGui::Text("BPS Modules:");
-    ImGui::SetWindowFontScale(1.2f);
-    
-    int maxModules = std::max(state.moduleVoltages.size(), state.moduleTemps.size());
-    if (maxModules == 0) {
-        ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-        ImGui::Text("No module data available.");
-        ImGui::PopStyleColor();
-    } else {
-        for(int i = 0; i < maxModules; ++i) {
-            float v = i < state.moduleVoltages.size() ? state.moduleVoltages[i] : 0.0f;
-            float t = i < state.moduleTemps.size() ? state.moduleTemps[i] : 0.0f;
-            ImGui::Text("  Module %d: %.3f V | %.1f C", i, v, t);
+    ImGui::SetNextItemWidth(400.0f);
+    if (ImGui::BeginCombo("##Snapshots", g_selectedSnapshotIndex == -1 ? "[LIVE DATA]" : g_faultSnapshots[g_selectedSnapshotIndex].first.c_str())) {
+        if (ImGui::Selectable("[LIVE DATA]", g_selectedSnapshotIndex == -1)) g_selectedSnapshotIndex = -1;
+        for (int i = 0; i < g_faultSnapshots.size(); i++) {
+            if (ImGui::Selectable(g_faultSnapshots[i].first.c_str(), g_selectedSnapshotIndex == i)) {
+                g_selectedSnapshotIndex = i;
+            }
         }
+        ImGui::EndCombo();
     }
     
+    if (ImGui::Button("Clear Snapshots")) {
+        g_faultSnapshots.clear();
+        g_selectedSnapshotIndex = -1;
+    }
+    
+    ImGui::SameLine();
+    if (state.simulationEnabled) { ImGui::TextColored(ImVec4(1,1,0,1), "[SIM]"); ImGui::SameLine(); }
+    ImGui::Text("HB:%d %.0fFPS %.1fms", state.heartbeat, dbgIo.Framerate, dbgIo.DeltaTime * 1000.0f);
+    ImGui::Separator();
+
+    float colW = avail.x * 0.5f - 10.0f;
+    auto flt = [](bool f) { return f ? "FLT" : "ok"; };
+
+    // ===== LEFT COLUMN (INPUTS) =====
+    ImGui::BeginChild("DebugL", ImVec2(colW, avail.y - 70), ImGuiChildFlags_None, ImGuiWindowFlags_None);
+    ImGui::SetWindowFontScale(1.3f);
+    ImGui::TextColored(Colors::Primary(), "INPUTS");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::Separator();
+    widgets::Space(2);
+
+    // LWS Standard (Steering)
+    ImGui::TextColored(ImVec4(0.8f, 0.6f, 1.0f, 1.0f), "STEERING SENSOR (LWS)");
+    ImGui::Text(" Angle: %.1f deg  %s", state.steeringAngle, state.steeringSensorOK ? "OK" : "FAULT");
+    widgets::Space(4);
+
+    // Driver Inputs
+    ImGui::TextColored(ImVec4(0.7f, 0.9f, 0.7f, 1.0f), "DRIVER INPUTS");
+    ImGui::Text(" Horn:%s Hazard:%s PTT:%s Cruise Set:%s Regen Act:%s",
+        state.hornPressed ? "ON" : "-", state.hazardPressed ? "ON" : "-",
+        state.pttPressed ? "ON" : "-", state.cruiseSet ? "ON" : "-",
+        state.regenActivate ? "ON" : "-");
+    ImGui::Text(" Gear: %s  Turn: %s", GearToString(state.gear), 
+        state.turnSignal == TurnSignal::Left ? "L" : state.turnSignal == TurnSignal::Right ? "R" : "-");
+    widgets::Space(4);
+
+    // Accel/Brake Pedals
+    ImGui::TextColored(ImVec4(0.8f, 0.6f, 1.0f, 1.0f), "ACCEL / BRAKE PEDALS");
+    ImGui::Text(" Accel: Total %.0f%%  Main %d%% Red %d%% V:%.2f/%.2f", state.pedalPercent, state.accelPosMain, state.accelPosRedundant, state.accelVoltMain, state.accelVoltRedundant);
+    ImGui::Text("        Faults: Main:%s Red:%s", flt(state.accelMainFault), flt(state.accelRedundantFault));
+    ImGui::Text(" Brake: Engaged:%s  Main %d%% Red %d%% V:%.2f/%.2f", state.brakeEngaged ? "YES" : "NO", state.brakePosMain, state.brakePosRedundant, state.brakeVoltMain, state.brakeVoltRedundant);
+    ImGui::Text("        Faults: Main:%s Red:%s", flt(state.brakeMainFault), flt(state.brakeRedundantFault));
+    ImGui::Text(" Pressure: %.0f / %.0f psi (%s/%s)", state.brakePressure1, state.brakePressure2, flt(state.brakePressure1Fault), flt(state.brakePressure2Fault));
+    widgets::Space(4);
+    
+    // Hardware Switched Contactors / Ignitions 
+    ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "CONTACTORS / IGNITION SWITCHES");
+    ImGui::Text(" HV+:%s -:%s ArrP:%s Arr:%s MtrP:%s Mtr:%s",
+        state.contactorStates.hvPositive ? "C" : "o", state.contactorStates.hvNegative ? "C" : "o",
+        state.contactorStates.arrayPrecharge ? "C" : "o", state.contactorStates.arrayContactor ? "C" : "o",
+        state.contactorStates.motorPrecharge ? "C" : "o", state.contactorStates.motorContactor ? "C" : "o");
+    ImGui::Text(" Ignition: LV:%s  Array:%s  Motor:%s",
+        state.ignitionStates.lvEnabled ? "ON" : "off",
+        state.ignitionStates.arrayEnabled ? "ON" : "off",
+        state.ignitionStates.motorEnabled ? "ON" : "off");
+    widgets::Space(4);
+
+    // CAN Faults (Aggregated Unrecoverable)
+    ImGui::TextColored(Colors::Destructive(), "CAN FAULTS AGGREGATE");
+    if (state.canFault)
+        ImGui::Text(" Unrecoverable: 0x%03X %s", state.canFaultId, state.canFaultName.c_str());
+    if (state.canFaultRecoverable)
+        ImGui::Text(" Recoverable: 0x%03X %s", state.canFaultRecoverableId, state.canFaultRecoverableName.c_str());
+    if (!state.canFault && !state.canFaultRecoverable)
+        ImGui::Text(" None");
+    
+    ImGui::EndChild();
+
+    // ===== RIGHT COLUMN (OUTPUTS) =====
+    ImGui::SameLine();
+    ImGui::BeginChild("DebugR", ImVec2(colW, avail.y - 70), ImGuiChildFlags_None, ImGuiWindowFlags_None);
+    ImGui::SetWindowFontScale(1.3f);
+    ImGui::TextColored(Colors::Accent(), "OUTPUTS & STATUS");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::Separator();
+    widgets::Space(2);
+
+    // Motor Controller Outputs
+    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "MOTOR CONTROLLER (MoCo)");
+    ImGui::Text(" Vel: %d km/h  Bus: %.1fV %.1fA", state.speed, state.motorController.voltage, state.motorController.current);
+    ImGui::Text(" Phase: %.1fA (B) %.1fA (C)  BEMF: %.1fV (Q) %.1fV (D)", state.motorController.phaseCurrentB, state.motorController.phaseCurrentC, state.motorController.backEmfQ, state.motorController.backEmfD);
+    ImGui::Text(" Temp: Heatsink %.1fC  Precharge Motor: %.1fV", state.motorController.heatsinkTemp, state.prechargeMotorV);
+    ImGui::TextColored(Colors::Warning(), " Limits Active: %s%s%s%s%s%s%s%s", 
+      state.motorController.limitMotorCurrent ? "MotorCurrent " : "",
+      state.motorController.limitVelocity ? "Velocity " : "",
+      state.motorController.limitBusCurrent ? "BusCurrent " : "",
+      state.motorController.limitBusVoltageUpper ? "BusVolUpper " : "",
+      state.motorController.limitBusVoltageLower ? "BusVolLower " : "",
+      state.motorController.limitIpmOrMotorTemp ? "Temp " : "",
+      state.motorController.limitOutputVoltage ? "OutVolPWM " : "",
+      (!state.motorController.limitMotorCurrent && !state.motorController.limitVelocity && !state.motorController.limitBusCurrent && !state.motorController.limitBusVoltageUpper && !state.motorController.limitBusVoltageLower && !state.motorController.limitIpmOrMotorTemp && !state.motorController.limitOutputVoltage) ? "None" : "");
+    widgets::Space(4);
+
+    // VCU Status & Precharge msg
+    ImVec4 vcuFCol = state.vcuFaultCode != 0 ? Colors::Destructive() : ImVec4(0.4f, 1.0f, 0.4f, 1.0f);
+    ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "VCU STATUS");
+    ImGui::TextColored(vcuFCol, " Fault: %d (%s)  FSM State: %d", state.vcuFaultCode, VcuFaultName(state.vcuFaultCode), state.vcuFsmState);
+    ImGui::Text(" Motor Ready:%s Pedals:%s Driver Input:%s", state.motorReadyToDrive?"Y":"N", state.vcuPedalsOK?"OK":"NO", state.vcuDriverInputOK?"OK":"NO");
+    ImGui::Text(" Regen:%s (Active:%s)", state.vcuRegenOK?"OK":"NO", state.vcuRegenActive?"Y":"N");
+    widgets::Space(4);
+
+    // MPPT Solar
+    float mpptPIn = state.mppt[0].vin * state.mppt[0].iin;
+    float mpptPOut = state.mppt[0].vout * state.mppt[0].iout;
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.3f, 1.0f), "MPPT SOLAR");
+    ImGui::Text(" In: %.1fV %.2fA (%.0fW)  Out: %.1fV %.2fA (%.0fW)",
+        state.mppt[0].vin, state.mppt[0].iin, mpptPIn,
+        state.mppt[0].vout, state.mppt[0].iout, mpptPOut);
+    ImGui::Text(" Heatsink: %.0fC  Ambient: %.0fC  Fault:%d  Mode:%d",
+        state.mppt[0].heatsinkTemp, state.mppt[0].ambientTemp,
+        state.mppt[0].fault, state.mppt[0].mode);
+    widgets::Space(4);
+
+    // Cooling
+    ImVec4 pumpCol = state.pumpFault ? Colors::Destructive() : Colors::Foreground();
+    ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "COOLING");
+    ImGui::Text(" Coolant: %.1f / %.1fC  Flow: %.2f / %.2f L/min",
+        state.coolantTemp1, state.coolantTemp2, state.flowRate1, state.flowRate2);
+    ImGui::TextColored(pumpCol, " Pump: %d%% %s", state.pumpDuty, state.pumpFault?"FAULT":"OK");
+    widgets::Space(4);
+
+    // LV + Cameras + Lights
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.9f, 1.0f), "LV / CAMERAS / LIGHTS");
+    ImGui::Text(" HV DCDC: Sel:%s Fault:%s Valid:%s",
+        state.lvHvDcdcSelected?"Y":"N", state.lvHvDcdcFault?"YES":"no", state.lvHvDcdcValid?"Y":"N");
+    ImGui::Text(" Supp Batt: Sel:%s Fault:%s Valid:%s",
+        state.lvSuppBattSelected?"Y":"N", state.lvSuppBattFault?"YES":"no", state.lvSuppBattValid?"Y":"N");
+    ImGui::Text(" Enable: SuppBatt:%s PSU:%s",
+        state.lvEnSuppBattery?"ON":"off", state.lvEnPowerSupply?"ON":"off");
+    ImGui::Text(" Supp Batt Info: SOC: %.1f%%  %.1fV  %.1fA  Charger: %s  DCDC: %.1fV %.0fmA",
+        state.suppBattery.soc, state.suppBattery.voltage, state.suppBattery.current,
+        SuppChargerStatusStr(state.suppChargerStatus), state.suppDcdcVoltage, state.suppDcdcCurrent);
+    ImGui::Text(" Cameras: Backup:%s Left:%s Right:%s",
+        state.cameraBackup?"Y":"N", state.cameraLeft?"Y":"N", state.cameraRight?"Y":"N");
+    ImVec4 ctlCol = (state.lightingFaults||state.controlsLeaderFault) ? Colors::Destructive() : Colors::Foreground();
+    ImGui::TextColored(ctlCol, " Light Faults: %d  Controls Faults: %d", state.lightingFaults, state.controlsLeaderFault);
+    widgets::Space(4);
+
+    // BPS Status
+    ImVec4 bpsFCol = state.bpsFaultCode != 0 ? Colors::Destructive() : ImVec4(0.4f, 1.0f, 0.4f, 1.0f);
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "BPS STATUS");
+    ImGui::TextColored(bpsFCol, " Fault: %d (%s)  Regen: %s  Charge: %s",
+        state.bpsFaultCode, BpsFaultName(state.bpsFaultCode),
+        state.bpsRegenOK ? "OK" : "NO", state.bpsChargeOK ? "OK" : "NO");
+    
+    // Render 32-Module Grid
+    widgets::Space(4);
+    RenderBpsGrid(state);
+
+    ImGui::EndChild();
+
     ImGui::PopStyleColor(); // Text
     ImGui::EndChild();
     ImGui::PopStyleColor(); // ChildBg
@@ -665,6 +927,41 @@ void RenderDashboard(AppState& state) {
         return;
     }
 
+    // --- FAULT SNAPSHOT DETECTION ---
+    static uint8_t lastBpsFaultCode = 0;
+    static uint8_t lastVcuFaultCode = 0;
+    static uint16_t lastCanFaultId = 0;
+
+    if (!state.showDebugScreen) { // Only record edge-triggered snapshot when not actively browsing snapshots
+        if (state.bpsFaultCode != 0 && lastBpsFaultCode == 0) {
+            char timeBuf[64];
+            time_t now = time(nullptr);
+            strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+            std::string reason = std::string(timeBuf) + " BPS Fault: " + BpsFaultName(state.bpsFaultCode);
+            g_faultSnapshots.push_back({reason, state});
+        }
+        if (state.vcuFaultCode != 0 && lastVcuFaultCode == 0) {
+            char timeBuf[64];
+            time_t now = time(nullptr);
+            strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+            std::string reason = std::string(timeBuf) + " VCU Fault: " + VcuFaultName(state.vcuFaultCode);
+            g_faultSnapshots.push_back({reason, state});
+        }
+        if (state.canFault && state.canFaultId != lastCanFaultId) {
+            char timeBuf[64];
+            time_t now = time(nullptr);
+            strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+            std::string reason = std::string(timeBuf) + " CAN Fault: " + state.canFaultName;
+            g_faultSnapshots.push_back({reason, state});
+        }
+    }
+
+    lastBpsFaultCode = state.bpsFaultCode;
+    lastVcuFaultCode = state.vcuFaultCode;
+    lastCanFaultId = state.canFault ? state.canFaultId : 0;
+    // --------------------------------
+
+
     float availW = ImGui::GetContentRegionAvail().x;
     float availH = ImGui::GetContentRegionAvail().y;
     
@@ -683,6 +980,11 @@ void RenderDashboard(AppState& state) {
         state.showDebugScreen = !state.showDebugScreen;
     }
     wasBothHeld = bothHeld;
+
+    // Desktop shortcut: press 'D' to toggle debug screen
+    if (ImGui::IsKeyPressed(ImGuiKey_D)) {
+        state.showDebugScreen = !state.showDebugScreen;
+    }
     
     // Reset cursor for actual layout
     ImGui::SetCursorPos(ImVec2(0, 0));

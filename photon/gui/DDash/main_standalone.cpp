@@ -36,8 +36,8 @@ int main() {
     photon.gui.settings.fullscreen = true;
     photon.gpu.initVulkan();
     photon.gui.initWindow();
+    photon.initThreads();      // Start CAN/DBC threads early (runs in parallel with prepareScene)
     photon.prepareScene();
-    photon.initThreads();
     photon.renderLoop();
     return 0;
 }

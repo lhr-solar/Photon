@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <array>
 #include <string.h>
+#include <fstream>
 
 #include "vulkan/vulkan_core.h"
 #include "gpu.hpp"
@@ -311,9 +312,40 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
 void Gpu::createPipelineCache(VkDevice device){
     VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
     pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &pipelineCache);
 
+    // Load cached data from disk if available (skip shader recompilation on subsequent boots)
+    std::vector<char> cacheData;
+    std::ifstream cacheFile("/tmp/.photon_pipeline_cache", std::ios::binary | std::ios::ate);
+    if (cacheFile.is_open()) {
+        auto size = cacheFile.tellg();
+        if (size > 0) {
+            cacheData.resize(size);
+            cacheFile.seekg(0);
+            cacheFile.read(cacheData.data(), size);
+            pipelineCacheCreateInfo.initialDataSize = cacheData.size();
+            pipelineCacheCreateInfo.pInitialData = cacheData.data();
+            logs("[+] Loaded Pipeline Cache from disk (" << size << " bytes)");
+        }
+        cacheFile.close();
+    }
+
+    vkCreatePipelineCache(device, &pipelineCacheCreateInfo, nullptr, &pipelineCache);
     logs("[+] Created Pipeline Cache");
+}
+
+void Gpu::savePipelineCache(){
+    if (pipelineCache == VK_NULL_HANDLE || vulkanDevice.logicalDevice == VK_NULL_HANDLE) return;
+    size_t cacheSize = 0;
+    vkGetPipelineCacheData(vulkanDevice.logicalDevice, pipelineCache, &cacheSize, nullptr);
+    if (cacheSize > 0) {
+        std::vector<char> cacheData(cacheSize);
+        vkGetPipelineCacheData(vulkanDevice.logicalDevice, pipelineCache, &cacheSize, cacheData.data());
+        std::ofstream out("/tmp/.photon_pipeline_cache", std::ios::binary);
+        if (out.is_open()) {
+            out.write(cacheData.data(), cacheSize);
+            out.close();
+        }
+    }
 }
 
 void Gpu::setupFrameBuffer(VkDevice device, std::vector<SwapChainBuffer> swapChainBuffers, uint32_t imageCount, uint32_t width, uint32_t height){

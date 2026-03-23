@@ -14,6 +14,7 @@ Photon::Photon(){
 };
 Photon::~Photon(){ 
     logs("[!] Destructuring Photon");
+    gpu.savePipelineCache();
     gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
     if(gpu.descriptorPool != VK_NULL_HANDLE)
         vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gpu.descriptorPool, nullptr);

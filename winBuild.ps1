@@ -45,23 +45,38 @@ if (!(Test-Path artifacts)) {
 
 Set-Location artifacts
 
-# Configure and build with MSVC (64-bit)
-cmake -G "Visual Studio 17 2022" -A x64 `
-      -DCMAKE_BUILD_TYPE=$BUILD_TYPE `
-      -DVULKAN_SDK="$env:VULKAN_SDK" `
+# Find and load VS developer environment (supports VS 2025/2022)
+$vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+if (Test-Path $vsWhere) {
+    $vsPath = & $vsWhere -latest -property installationPath
+    $devShell = Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    if (Test-Path $devShell) {
+        Import-Module $devShell
+        Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=x64" | Out-Null
+    }
+}
+
+# Add Vulkan SDK tools to PATH (for glslangValidator)
+if ($env:VULKAN_SDK) {
+    $env:PATH += ";$env:VULKAN_SDK\Bin"
+}
+
+# Configure with NMake (works with any VS version)
+cmake -G "NMake Makefiles" `
+      -DCMAKE_BUILD_TYPE="$BUILD_TYPE" `
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
-      -DVulkan_LIBRARY="$env:VULKAN_SDK\Lib\vulkan-1.lib" ..
+      -DVulkan_LIBRARY="$env:VULKAN_SDK/Lib/vulkan-1.lib" ..
 
 if ($DASH_ONLY) {
-    cmake --build . --config $BUILD_TYPE --target DashboardOnly --parallel
+    cmake --build . --target DashboardOnly
 } else {
-    cmake --build . --config $BUILD_TYPE --parallel
+    cmake --build .
 }
 
 Set-Location ..
 
 if ($DASH_ONLY) {
-    $BUILT_EXE = ".\artifacts\photon\$BUILD_TYPE\DashboardOnly.exe"
+    $BUILT_EXE = ".\artifacts\photon\DashboardOnly.exe"
     if (Test-Path $BUILT_EXE) {
         Copy-Item -Force $BUILT_EXE .\DashboardOnly.exe
         & ".\DashboardOnly.exe"
@@ -69,7 +84,7 @@ if ($DASH_ONLY) {
         Write-Host "[!] Build succeeded but no exe found at $BUILT_EXE"
     }
 } else {
-    $BUILT_EXE = ".\artifacts\photon\$BUILD_TYPE\Photon.exe"
+    $BUILT_EXE = ".\artifacts\photon\Photon.exe"
     if (Test-Path $BUILT_EXE) {
         Copy-Item -Force $BUILT_EXE .\Photon.exe
         & ".\Photon.exe"
