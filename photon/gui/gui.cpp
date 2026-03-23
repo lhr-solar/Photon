@@ -11,6 +11,7 @@
 
 void GUI::buildUI(){
     ImGui::NewFrame();
+    dockspace();
     ImGui::ShowDemoWindow();
     ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
@@ -18,6 +19,27 @@ void GUI::buildUI(){
     gltfWindow();
     ImGui::Render();
 };
+
+void GUI::dockspace(){
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    //ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+    window_flags |= ImGuiWindowFlags_NoBackground;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    if(ImGui::Begin("Window with a DockSpace", nullptr, window_flags)){
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), 0);
+
+    }ImGui::End();
+    ImGui::PopStyleVar(3);
+}
 
 VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
     if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) return fallback;

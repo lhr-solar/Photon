@@ -13,6 +13,7 @@ struct GUI{
     void backgroundWindow();
     void gltfWindow();
     void shaderWindow();
+    void dockspace();
 };
 
 static ImGuiKey sdlScancodeToImGuiKey(SDL_Scancode scancode) {
