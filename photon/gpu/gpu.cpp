@@ -28,6 +28,15 @@
 
 #include "gpu.hpp"
 
+static VkSampleCountFlagBits pickMsaaSampleCount(const VkPhysicalDeviceProperties& properties) {
+    const VkSampleCountFlags counts =
+        properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_8_BIT) return VK_SAMPLE_COUNT_8_BIT;
+    if (counts & VK_SAMPLE_COUNT_4_BIT) return VK_SAMPLE_COUNT_4_BIT;
+    if (counts & VK_SAMPLE_COUNT_2_BIT) return VK_SAMPLE_COUNT_2_BIT;
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 void GPU::init() {
     uint32_t count = 0;
     std::vector<const char *> enabledLayers{};
@@ -93,6 +102,7 @@ void GPU::init() {
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
     vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &deviceMemoryProperties);
+    msaaSamples = pickMsaaSampleCount(deviceProperties);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, NULL);
     deviceQueueFamilyProperties.resize(count);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, deviceQueueFamilyProperties.data());

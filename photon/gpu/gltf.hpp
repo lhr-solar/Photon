@@ -89,6 +89,9 @@ struct gltfFrame {
     VkBuffer uniformBuffer{VK_NULL_HANDLE};
     VkDeviceMemory uniformMemory{VK_NULL_HANDLE};
     void* uniformMapped{};
+    VkImage sceneMsaaColorImage{VK_NULL_HANDLE};
+    VkDeviceMemory sceneMsaaColorMemory{VK_NULL_HANDLE};
+    VkImageView sceneMsaaColorView{VK_NULL_HANDLE};
     VkImage sceneColorImage{VK_NULL_HANDLE};
     VkDeviceMemory sceneColorMemory{VK_NULL_HANDLE};
     VkImageView sceneColorView{VK_NULL_HANDLE};
@@ -145,6 +148,7 @@ struct Gltf{
     std::array<VkVertexInputAttributeDescription, 4> vertexAttributeDescriptions{};
     VkFormat sceneColorFormat{VK_FORMAT_R8G8B8A8_UNORM};
     VkFormat sceneDepthFormat{VK_FORMAT_UNDEFINED};
+    VkSampleCountFlagBits msaaSamples{VK_SAMPLE_COUNT_1_BIT};
     std::vector<gltfFrame> frames{};
     uint32_t fif{};
     uint32_t* frameIndex{};

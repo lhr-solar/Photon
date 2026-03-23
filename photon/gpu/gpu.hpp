@@ -83,6 +83,7 @@ struct GPU{
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties{};
     std::vector<VkQueueFamilyProperties> deviceQueueFamilyProperties{};
     VkCommandPool commandPool{};
+    VkSampleCountFlagBits msaaSamples{VK_SAMPLE_COUNT_1_BIT};
 
     // IMGUI resources
     VkShaderModule uiShaderVert{};

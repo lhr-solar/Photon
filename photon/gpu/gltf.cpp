@@ -60,6 +60,9 @@ static void destroyFrame(Gltf& gltf, uint32_t index) {
     gltfFrame& frame = gltf.frames[index];
     if (frame.sceneFramebuffer != VK_NULL_HANDLE) vkDestroyFramebuffer(gltf.device, frame.sceneFramebuffer, nullptr);
     if (frame.postFramebuffer != VK_NULL_HANDLE) vkDestroyFramebuffer(gltf.device, frame.postFramebuffer, nullptr);
+    if (frame.sceneMsaaColorView != VK_NULL_HANDLE) vkDestroyImageView(gltf.device, frame.sceneMsaaColorView, nullptr);
+    if (frame.sceneMsaaColorImage != VK_NULL_HANDLE) vkDestroyImage(gltf.device, frame.sceneMsaaColorImage, nullptr);
+    if (frame.sceneMsaaColorMemory != VK_NULL_HANDLE) vkFreeMemory(gltf.device, frame.sceneMsaaColorMemory, nullptr);
     if (frame.sceneColorView != VK_NULL_HANDLE) vkDestroyImageView(gltf.device, frame.sceneColorView, nullptr);
     if (frame.sceneColorImage != VK_NULL_HANDLE) vkDestroyImage(gltf.device, frame.sceneColorImage, nullptr);
     if (frame.sceneColorMemory != VK_NULL_HANDLE) vkFreeMemory(gltf.device, frame.sceneColorMemory, nullptr);
@@ -75,6 +78,9 @@ static void destroyFrame(Gltf& gltf, uint32_t index) {
     frame.uniformMapped = nullptr;
     frame.uniformBuffer = VK_NULL_HANDLE;
     frame.uniformMemory = VK_NULL_HANDLE;
+    frame.sceneMsaaColorImage = VK_NULL_HANDLE;
+    frame.sceneMsaaColorMemory = VK_NULL_HANDLE;
+    frame.sceneMsaaColorView = VK_NULL_HANDLE;
     frame.sceneColorImage = VK_NULL_HANDLE;
     frame.sceneColorMemory = VK_NULL_HANDLE;
     frame.sceneColorView = VK_NULL_HANDLE;
@@ -110,7 +116,8 @@ static void createBufferResource(GPU& gpu, VkDeviceSize size, VkBufferUsageFlags
 }
 
 static void createImageResource(GPU& gpu, VkExtent2D extent, VkFormat format, VkImageUsageFlags usage,
-    VkImageAspectFlags aspectMask, VkImage& image, VkDeviceMemory& memory, VkImageView& view) {
+    VkImageAspectFlags aspectMask, VkSampleCountFlagBits samples,
+    VkImage& image, VkDeviceMemory& memory, VkImageView& view) {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -118,7 +125,7 @@ static void createImageResource(GPU& gpu, VkExtent2D extent, VkFormat format, Vk
     imageInfo.extent = {extent.width, extent.height, 1};
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.samples = samples;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.usage = usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -167,7 +174,7 @@ static TextureResource createTexture2DFromRGBA(Gltf& gltf, GPU& gpu,
 
     VkExtent2D extent{width, height};
     createImageResource(gpu, extent, format, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_IMAGE_ASPECT_COLOR_BIT, texture.image, texture.memory, texture.view);
+        VK_IMAGE_ASPECT_COLOR_BIT, VK_SAMPLE_COUNT_1_BIT, texture.image, texture.memory, texture.view);
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -403,20 +410,25 @@ static void initFrame(Gltf& gltf, GPU& gpu, uint32_t index) {
         : VK_IMAGE_ASPECT_DEPTH_BIT;
 
     createImageResource(gpu, frame.extent, gltf.sceneColorFormat,
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_IMAGE_ASPECT_COLOR_BIT, frame.sceneColorImage, frame.sceneColorMemory, frame.sceneColorView);
-    createImageResource(gpu, frame.extent, gltf.sceneDepthFormat,
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        depthAspect, frame.sceneDepthImage, frame.sceneDepthMemory, frame.sceneDepthView);
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT, gltf.msaaSamples,
+        frame.sceneMsaaColorImage, frame.sceneMsaaColorMemory, frame.sceneMsaaColorView);
     createImageResource(gpu, frame.extent, gltf.sceneColorFormat,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_IMAGE_ASPECT_COLOR_BIT, frame.outputImage, frame.outputMemory, frame.outputView);
+        VK_IMAGE_ASPECT_COLOR_BIT, VK_SAMPLE_COUNT_1_BIT,
+        frame.sceneColorImage, frame.sceneColorMemory, frame.sceneColorView);
+    createImageResource(gpu, frame.extent, gltf.sceneDepthFormat,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        depthAspect, gltf.msaaSamples, frame.sceneDepthImage, frame.sceneDepthMemory, frame.sceneDepthView);
+    createImageResource(gpu, frame.extent, gltf.sceneColorFormat,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT, VK_SAMPLE_COUNT_1_BIT, frame.outputImage, frame.outputMemory, frame.outputView);
 
-    VkImageView sceneAttachments[2] = {frame.sceneColorView, frame.sceneDepthView};
+    VkImageView sceneAttachments[3] = {frame.sceneMsaaColorView, frame.sceneDepthView, frame.sceneColorView};
     VkFramebufferCreateInfo sceneFramebufferInfo{};
     sceneFramebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     sceneFramebufferInfo.renderPass = gltf.renderPass;
-    sceneFramebufferInfo.attachmentCount = 2;
+    sceneFramebufferInfo.attachmentCount = 3;
     sceneFramebufferInfo.pAttachments = sceneAttachments;
     sceneFramebufferInfo.width = frame.extent.width;
     sceneFramebufferInfo.height = frame.extent.height;
@@ -577,6 +589,7 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     descriptorSetLayout = gpu.descriptorSetLayout;
     frameIndex = &gpu.frameIndex;
     fif = std::max(1u, static_cast<uint32_t>(gpu.swapchainImages.size()));
+    msaaSamples = gpu.msaaSamples;
     dirty = false;
     initialized = false;
 
@@ -755,33 +768,43 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     postLayoutInfo.pBindings = &postBinding;
     vkCreateDescriptorSetLayout(device, &postLayoutInfo, nullptr, &postDescriptorSetLayout);
 
-    VkAttachmentDescription sceneAttachments[2]{};
+    VkAttachmentDescription sceneAttachments[3]{};
     sceneAttachments[0].format = sceneColorFormat;
-    sceneAttachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    sceneAttachments[0].samples = msaaSamples;
     sceneAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    sceneAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    sceneAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     sceneAttachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     sceneAttachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     sceneAttachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     sceneAttachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     sceneAttachments[1].format = sceneDepthFormat;
-    sceneAttachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    sceneAttachments[1].samples = msaaSamples;
     sceneAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     sceneAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     sceneAttachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     sceneAttachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     sceneAttachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     sceneAttachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    sceneAttachments[2].format = sceneColorFormat;
+    sceneAttachments[2].samples = VK_SAMPLE_COUNT_1_BIT;
+    sceneAttachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    sceneAttachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    sceneAttachments[2].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    sceneAttachments[2].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    sceneAttachments[2].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    sceneAttachments[2].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     VkAttachmentReference colorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
     VkAttachmentReference depthRef{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference resolveRef{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
     VkSubpassDescription sceneSubpass{};
     sceneSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     sceneSubpass.colorAttachmentCount = 1;
     sceneSubpass.pColorAttachments = &colorRef;
     sceneSubpass.pDepthStencilAttachment = &depthRef;
+    sceneSubpass.pResolveAttachments = &resolveRef;
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 2;
+    renderPassInfo.attachmentCount = 3;
     renderPassInfo.pAttachments = sceneAttachments;
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &sceneSubpass;
@@ -860,7 +883,7 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
 
     VkPipelineMultisampleStateCreateInfo multisample{};
     multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisample.rasterizationSamples = msaaSamples;
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -979,6 +1002,11 @@ void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
     depthRange.baseArrayLayer = 0;
     depthRange.layerCount = 1;
 
+    gpu.setImageLayout(commandBuffer, frame.sceneMsaaColorImage,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, colorRange,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
     gpu.setImageLayout(commandBuffer, frame.sceneColorImage,
         frame.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, colorRange,
