@@ -1,5 +1,6 @@
 #include "gui.hpp"
 
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
 
@@ -58,6 +59,21 @@ void GUI::gltfWindow() {
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
         ImGui::Image(frame.texture, drawSize);
+        ImGuiIO& io = ImGui::GetIO();
+        if (ImGui::IsItemHovered()) {
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                carModel.camera.yaw -= io.MouseDelta.x * carModel.camera.orbitSensitivity;
+                carModel.camera.pitch += io.MouseDelta.y * carModel.camera.orbitSensitivity;
+                carModel.camera.pitch = std::clamp(carModel.camera.pitch, -89.0f, 89.0f);
+            }
+            if (std::abs(io.MouseWheel) > 0.0f) {
+                carModel.camera.distance -= io.MouseWheel * carModel.camera.zoomSensitivity;
+                carModel.camera.distance = std::clamp(
+                    carModel.camera.distance,
+                    carModel.camera.minDistance,
+                    carModel.camera.maxDistance);
+            }
+        }
     }
     ImGui::End();
 }

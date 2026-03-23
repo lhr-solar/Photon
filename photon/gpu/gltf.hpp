@@ -71,8 +71,14 @@ struct Camera {
        glm::vec3 position = {};
        glm::vec3 front = {};
        glm::vec3 up = {};
+       glm::vec3 target = {};
        float yaw = 0.0;
        float pitch = 0.0;
+       float distance = 2.5f;
+       float minDistance = 0.75f;
+       float maxDistance = 8.0f;
+       float orbitSensitivity = 0.35f;
+       float zoomSensitivity = 0.2f;
 };
 
 struct gltfFrame {

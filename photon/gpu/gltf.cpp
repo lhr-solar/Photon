@@ -624,8 +624,14 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     }
 
     camera.position = {2.5f, 0.0f, 0.0f};
+    camera.target = {0.0f, 0.0f, 0.0f};
     camera.yaw = 180.0f;
     camera.pitch = 0.0f;
+    camera.distance = 2.5f;
+    camera.minDistance = 0.75f;
+    camera.maxDistance = 8.0f;
+    camera.orbitSensitivity = 0.35f;
+    camera.zoomSensitivity = 0.2f;
     camera.front = {-1.0f, 0.0f, 0.0f};
     camera.up = {0.0f, 0.0f, 1.0f};
 
@@ -940,17 +946,21 @@ void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
     if (frame.sceneFramebuffer == VK_NULL_HANDLE || frame.postFramebuffer == VK_NULL_HANDLE) return;
 
     const float time = static_cast<float>(ImGui::GetTime());
-    const float orbitRadius = 2.6f;
-    const glm::vec3 camPos(std::cos(time * 0.35f) * orbitRadius, std::sin(time * 0.35f) * orbitRadius, 1.2f);
-
     GltfMVP mvp{};
     mvp.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-            //glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    mvp.view = glm::lookAt(glm::vec3(1.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    mvp.proj = glm::perspective(glm::radians(45.0f),
+    const float yawRadians = glm::radians(camera.yaw);
+    const float pitchRadians = glm::radians(camera.pitch);
+    const glm::vec3 orbitOffset(
+        camera.distance * std::cos(pitchRadians) * std::cos(yawRadians),
+        camera.distance * std::cos(pitchRadians) * std::sin(yawRadians),
+        camera.distance * std::sin(pitchRadians));
+    camera.position = camera.target + orbitOffset;
+    camera.front = glm::normalize(camera.target - camera.position);
+    mvp.view = glm::lookAt(camera.position, camera.target, camera.up);
+    mvp.proj = glm::perspective(glm::radians(93.0f),
         static_cast<float>(frame.extent.width) / static_cast<float>(std::max(1u, frame.extent.height)), 0.01f, 32.0f);
     mvp.proj[1][1] *= -1.0f;
-    mvp.camPos = glm::vec4(camPos, 1.0f);
+    mvp.camPos = glm::vec4(camera.position, 1.0f);
     std::memcpy(frame.uniformMapped, &mvp, sizeof(GltfMVP));
 
     VkImageSubresourceRange colorRange{};
