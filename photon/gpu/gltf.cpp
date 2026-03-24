@@ -932,6 +932,7 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     VkPipelineDepthStencilStateCreateInfo postDepthStencil{};
     postDepthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 
+    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     pipelineInfo.pStages = postStages;
     pipelineInfo.pVertexInputState = &postVertexInput;
     pipelineInfo.pDepthStencilState = &postDepthStencil;

@@ -8,7 +8,6 @@
 #include "implot.h"
 #include "implot3d.h"
 
-
 void GUI::buildUI(){
     ImGui::NewFrame();
     dockspace();
@@ -23,10 +22,16 @@ void GUI::buildUI(){
 void GUI::dockspace(){
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
+    const ImVec2 dockspacePos(
+        viewport->WorkPos.x + viewport->WorkSize.x * 0.2f,
+        viewport->WorkPos.y);
+    const ImVec2 dockspaceSize(
+        viewport->WorkSize.x * 0.8f,
+        viewport->WorkSize.y);
+    ImGui::SetNextWindowPos(dockspacePos);
+    ImGui::SetNextWindowSize(dockspaceSize);
     ImGui::SetNextWindowViewport(viewport->ID);
-    //ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.0f);
+    ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
@@ -35,8 +40,7 @@ void GUI::dockspace(){
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     if(ImGui::Begin("Window with a DockSpace", nullptr, window_flags)){
     ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), 0);
-
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
     }ImGui::End();
     ImGui::PopStyleVar(3);
 }
@@ -140,7 +144,7 @@ void GUI::processEvents(SDL_Event* events){
         case SDL_EVENT_KEY_UP: {
             addModifierEvents(io, events->key.mod);
             const ImGuiKey key = sdlScancodeToImGuiKey(events->key.scancode);
-            if(key != ImGuiKey_None){
+            if(key != ImGuiKey_None && !(events->key.down && events->key.repeat)){
                 io.AddKeyEvent(key, events->key.down);
                 io.SetKeyEventNativeData(key, events->key.key, events->key.scancode, events->key.scancode);
             }
@@ -152,3 +156,139 @@ void GUI::processEvents(SDL_Event* events){
         default: break;
     }
 }
+
+void GUI::setStyle(){
+    ImGuiStyle &style = ImGui::GetStyle();
+    style.Alpha = 1.0f;
+    style.DisabledAlpha = 0.55f;
+    style.TabRounding = 6.0f;
+    style.WindowRounding = 10.0f;
+    style.ChildRounding = 8.0f;
+    style.PopupRounding = 8.0f;
+    style.GrabRounding = 999.0f;
+    style.ScrollbarRounding = 999.0f;
+    style.FrameRounding = 0.0f;
+    style.FrameBorderSize = 0.0f;
+    style.WindowBorderSize = 1.0f;
+    style.ChildBorderSize = 1.0f;
+    style.PopupBorderSize = 1.0f;
+    style.DockingSeparatorSize = 1.0f;
+    style.WindowPadding = ImVec2{18.0f, 16.0f};
+    style.FramePadding = ImVec2{12.0f, 9.0f};
+    style.CellPadding = ImVec2{10.0f, 8.0f};
+    style.ItemSpacing = ImVec2{10.0f, 8.0f};
+    style.ItemInnerSpacing = ImVec2{8.0f, 6.0f};
+    style.IndentSpacing = 18.0f;
+    style.ScrollbarSize = 12.0f;
+    style.GrabMinSize = 10.0f;
+
+    ImVec4* colors = style.Colors;
+    const ImVec4 baseBg{0.09f, 0.08f, 0.07f, 1.00f};
+    const ImVec4 panelBg{0.12f, 0.11f, 0.09f, 0.98f};
+    const ImVec4 elevatedBg{0.13f, 0.12f, 0.11f, 1.00f};
+    const ImVec4 mutedBg{0.17f, 0.17f, 0.17f, 1.00f};
+    const ImVec4 border{0.18f, 0.18f, 0.19f, 1.00f};
+    const ImVec4 textColor{0.83f, 0.84f, 0.86f, 1.00f};
+    const ImVec4 dimText{0.57f, 0.59f, 0.62f, 1.00f};
+    const ImVec4 accent{0.80f, 0.41f, 0.16f, 1.00f};
+    const ImVec4 accentHover{0.88f, 0.49f, 0.22f, 1.00f};
+    const ImVec4 accentActive{0.69f, 0.34f, 0.12f, 1.00f};
+
+    colors[ImGuiCol_Text] = textColor;
+    colors[ImGuiCol_TextDisabled] = dimText;
+    colors[ImGuiCol_WindowBg] = baseBg;
+    colors[ImGuiCol_ChildBg] = panelBg;
+    colors[ImGuiCol_PopupBg] = elevatedBg;
+    colors[ImGuiCol_Border] = border;
+    colors[ImGuiCol_BorderShadow] = ImVec4{0.00f, 0.00f, 0.00f, 0.00f};
+    colors[ImGuiCol_FrameBg] = ImVec4{0.14f, 0.14f, 0.15f, 1.00f};
+    colors[ImGuiCol_FrameBgHovered] = ImVec4{0.18f, 0.18f, 0.19f, 1.00f};
+    colors[ImGuiCol_FrameBgActive] = ImVec4{0.20f, 0.20f, 0.21f, 1.00f};
+    colors[ImGuiCol_TitleBg] = panelBg;
+    colors[ImGuiCol_TitleBgActive] = elevatedBg;
+    colors[ImGuiCol_TitleBgCollapsed] = panelBg;
+    colors[ImGuiCol_MenuBarBg] = panelBg;
+    colors[ImGuiCol_ScrollbarBg] = ImVec4{0.08f, 0.08f, 0.08f, 0.80f};
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4{0.23f, 0.24f, 0.25f, 1.00f};
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4{0.30f, 0.31f, 0.33f, 1.00f};
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4{0.37f, 0.38f, 0.40f, 1.00f};
+    colors[ImGuiCol_CheckMark] = accent;
+    colors[ImGuiCol_SliderGrab] = ImVec4{0.39f, 0.40f, 0.42f, 1.00f};
+    colors[ImGuiCol_SliderGrabActive] = accent;
+    colors[ImGuiCol_Button] = ImVec4{0.14f, 0.14f, 0.15f, 1.00f};
+    colors[ImGuiCol_ButtonHovered] = ImVec4{0.18f, 0.18f, 0.19f, 1.00f};
+    colors[ImGuiCol_ButtonActive] = ImVec4{0.22f, 0.22f, 0.24f, 1.00f};
+    colors[ImGuiCol_Header] = ImVec4{0.13f, 0.13f, 0.14f, 1.00f};
+    colors[ImGuiCol_HeaderHovered] = ImVec4{0.17f, 0.17f, 0.18f, 1.00f};
+    colors[ImGuiCol_HeaderActive] = ImVec4{0.20f, 0.20f, 0.22f, 1.00f};
+    colors[ImGuiCol_Separator] = border;
+    colors[ImGuiCol_SeparatorHovered] = ImVec4{0.27f, 0.28f, 0.30f, 1.00f};
+    colors[ImGuiCol_SeparatorActive] = ImVec4{0.34f, 0.35f, 0.37f, 1.00f};
+    colors[ImGuiCol_ResizeGrip] = ImVec4{0.24f, 0.25f, 0.27f, 0.35f};
+    colors[ImGuiCol_ResizeGripHovered] = ImVec4{0.31f, 0.33f, 0.35f, 0.60f};
+    colors[ImGuiCol_ResizeGripActive] = accent;
+    colors[ImGuiCol_Tab] = ImVec4{0.11f, 0.11f, 0.12f, 1.00f};
+    colors[ImGuiCol_TabHovered] = ImVec4{0.14f, 0.14f, 0.15f, 1.00f};
+    colors[ImGuiCol_TabActive] = ImVec4{0.13f, 0.13f, 0.14f, 1.00f};
+    colors[ImGuiCol_TabUnfocused] = ImVec4{0.10f, 0.10f, 0.11f, 1.00f};
+    colors[ImGuiCol_TabUnfocusedActive] = ImVec4{0.12f, 0.12f, 0.13f, 1.00f};
+    colors[ImGuiCol_TabSelectedOverline] = ImVec4{0.00f, 0.00f, 0.00f, 0.00f};
+    colors[ImGuiCol_DockingPreview] = ImVec4{0.80f, 0.41f, 0.16f, 0.16f};
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4{0.11f, 0.10f, 0.09f, 1.00f};
+    colors[ImGuiCol_PlotLines] = accent;
+    colors[ImGuiCol_PlotLinesHovered] = accentHover;
+    colors[ImGuiCol_PlotHistogram] = accent;
+    colors[ImGuiCol_PlotHistogramHovered] = accentHover;
+    colors[ImGuiCol_TableHeaderBg] = ImVec4{0.12f, 0.12f, 0.13f, 1.00f};
+    colors[ImGuiCol_TableBorderStrong] = border;
+    colors[ImGuiCol_TableBorderLight] = ImVec4{0.15f, 0.16f, 0.17f, 1.00f};
+    colors[ImGuiCol_TableRowBg] = ImVec4{0.00f, 0.00f, 0.00f, 0.00f};
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4{0.12f, 0.12f, 0.13f, 0.30f};
+    colors[ImGuiCol_TextSelectedBg] = ImVec4{0.80f, 0.41f, 0.16f, 0.12f};
+    colors[ImGuiCol_DragDropTarget] = accentHover;
+    colors[ImGuiCol_NavHighlight] = ImVec4{0.80f, 0.41f, 0.16f, 0.28f};
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4{0.90f, 0.87f, 0.82f, 0.75f};
+    colors[ImGuiCol_NavWindowingDimBg] = ImVec4{0.06f, 0.05f, 0.04f, 0.55f};
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4{0.04f, 0.03f, 0.02f, 0.72f};
+
+    ImPlotStyle &plotStyle = ImPlot::GetStyle();
+    plotStyle.Colors[ImPlotCol_FrameBg] = panelBg;
+    //plotStyle.Colors[ImPlotCol_PlotBg] = ImVec4(0, 0, 0, 0.95f);
+    //plotStyle.Colors[ImPlotCol_PlotBorder] = ImVec4(0, 0, 0, 0.0f);
+    //plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(0, 0, 0, 0.0f);
+    //plotStyle.Colors[ImPlotCol_LegendBorder] = ImVec4(0, 0, 0, 0.0f);
+
+    /*
+    ImNodesStyle &nodeStyle = ImNodes::GetStyle();
+    const auto packNodeColor = [](const ImVec4 &color) {
+        return ImGui::ColorConvertFloat4ToU32(color);
+    };
+
+    nodeStyle.Colors[ImNodesCol_NodeBackground] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_NodeBackgroundHovered] = packNodeColor(lightGray);
+    nodeStyle.Colors[ImNodesCol_NodeBackgroundSelected] = packNodeColor(lightGray);
+    nodeStyle.Colors[ImNodesCol_NodeOutline] = packNodeColor(ImVec4{0.32f, 0.32f, 0.32f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_TitleBar] = packNodeColor(darkGray);
+    nodeStyle.Colors[ImNodesCol_TitleBarHovered] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_TitleBarSelected] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_Link] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_LinkHovered] = packNodeColor(ImVec4{0.20f, 0.90f, 0.90f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_LinkSelected] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_Pin] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_PinHovered] = packNodeColor(ImVec4{0.20f, 0.90f, 0.90f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_BoxSelector] = packNodeColor(ImVec4{0.00f, 0.75f, 0.75f, 0.20f});
+    nodeStyle.Colors[ImNodesCol_BoxSelectorOutline] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_GridBackground] = packNodeColor(almostBlack);
+    nodeStyle.Colors[ImNodesCol_GridLine] = packNodeColor(ImVec4{0.18f, 0.18f, 0.18f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_MiniMapBackground] = packNodeColor(darkGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapBackgroundHovered] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapOutline] = packNodeColor(ImVec4{0.32f, 0.32f, 0.32f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_MiniMapOutlineHovered] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeBackground] = packNodeColor(midGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeBackgroundHovered] = packNodeColor(lightGray);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeBackgroundSelected] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_MiniMapNodeOutline] = packNodeColor(ImVec4{0.32f, 0.32f, 0.32f, 1.00f});
+    nodeStyle.Colors[ImNodesCol_MiniMapLink] = packNodeColor(lightBlue);
+    nodeStyle.Colors[ImNodesCol_MiniMapLinkSelected] = packNodeColor(ImVec4{0.20f, 0.90f, 0.90f, 1.00f});
+    */
+};

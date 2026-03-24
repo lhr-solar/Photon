@@ -15,9 +15,17 @@ void Photon::init(){
     gui.backgroundShader.init(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size, 
                                    (uint32_t*)background_frag_spv, background_frag_spv_size);
     gui.carModel.init(gpu, newCar_glb, newCar_glb_size);
+    gui.setStyle();
 };
 
 void Photon::handleInput(){
+    ImGuiIO& io = ImGui::GetIO();
+    const bool wantTextInput = io.WantTextInput;
+    if (wantTextInput != SDL_TextInputActive(gpu.window)) {
+        if (wantTextInput) SDL_StartTextInput(gpu.window);
+        else SDL_StopTextInput(gpu.window);
+    }
+
     SDL_Event events{};
     while(SDL_PollEvent(&events)) {
         if (events.type == SDL_EVENT_QUIT) running = false;

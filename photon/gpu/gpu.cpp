@@ -23,6 +23,7 @@
 #endif
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
+#include "sansFlex_ttf.hpp"
 #include "imgui.h"
 #include "implot3d.h"
 
@@ -429,6 +430,14 @@ void GPU::imguiBackend(){
     io.ConfigFlags  |= ImGuiConfigFlags_NavEnableKeyboard;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
     //io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+
+    ImFontConfig fontConfig;
+    fontConfig.FontDataOwnedByAtlas = false;
+    ImFont* font = io.Fonts->AddFontFromMemoryTTF(
+        (void*)sansFlex_ttf,
+        static_cast<int>(sansFlex_ttf_size),
+        static_cast<float>(16.0f),
+        &fontConfig);
 
     unsigned char *fontData = nullptr;
     int texWidth = 0;
