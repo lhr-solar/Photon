@@ -190,9 +190,9 @@ void GUI::setStyle(){
     const ImVec4 border{0.18f, 0.18f, 0.19f, 1.00f};
     const ImVec4 textColor{0.83f, 0.84f, 0.86f, 1.00f};
     const ImVec4 dimText{0.57f, 0.59f, 0.62f, 1.00f};
-    const ImVec4 accent{0.80f, 0.41f, 0.16f, 1.00f};
-    const ImVec4 accentHover{0.88f, 0.49f, 0.22f, 1.00f};
-    const ImVec4 accentActive{0.69f, 0.34f, 0.12f, 1.00f};
+    const ImVec4 accent{0.90f, 0.88f, 0.82f, 1.00f};
+    const ImVec4 accentHover{0.96f, 0.95f, 0.91f, 1.00f};
+    const ImVec4 accentActive{0.82f, 0.80f, 0.74f, 1.00f};
 
     colors[ImGuiCol_Text] = textColor;
     colors[ImGuiCol_TextDisabled] = dimText;
@@ -233,7 +233,7 @@ void GUI::setStyle(){
     colors[ImGuiCol_TabUnfocused] = ImVec4{0.10f, 0.10f, 0.11f, 1.00f};
     colors[ImGuiCol_TabUnfocusedActive] = ImVec4{0.12f, 0.12f, 0.13f, 1.00f};
     colors[ImGuiCol_TabSelectedOverline] = ImVec4{0.00f, 0.00f, 0.00f, 0.00f};
-    colors[ImGuiCol_DockingPreview] = ImVec4{0.80f, 0.41f, 0.16f, 0.16f};
+    colors[ImGuiCol_DockingPreview] = ImVec4{0.90f, 0.88f, 0.82f, 0.16f};
     colors[ImGuiCol_DockingEmptyBg] = ImVec4{0.11f, 0.10f, 0.09f, 1.00f};
     colors[ImGuiCol_PlotLines] = accent;
     colors[ImGuiCol_PlotLinesHovered] = accentHover;
@@ -244,9 +244,9 @@ void GUI::setStyle(){
     colors[ImGuiCol_TableBorderLight] = ImVec4{0.15f, 0.16f, 0.17f, 1.00f};
     colors[ImGuiCol_TableRowBg] = ImVec4{0.00f, 0.00f, 0.00f, 0.00f};
     colors[ImGuiCol_TableRowBgAlt] = ImVec4{0.12f, 0.12f, 0.13f, 0.30f};
-    colors[ImGuiCol_TextSelectedBg] = ImVec4{0.80f, 0.41f, 0.16f, 0.12f};
+    colors[ImGuiCol_TextSelectedBg] = ImVec4{0.90f, 0.88f, 0.82f, 0.12f};
     colors[ImGuiCol_DragDropTarget] = accentHover;
-    colors[ImGuiCol_NavHighlight] = ImVec4{0.80f, 0.41f, 0.16f, 0.28f};
+    colors[ImGuiCol_NavHighlight] = ImVec4{0.90f, 0.88f, 0.82f, 0.28f};
     colors[ImGuiCol_NavWindowingHighlight] = ImVec4{0.90f, 0.87f, 0.82f, 0.75f};
     colors[ImGuiCol_NavWindowingDimBg] = ImVec4{0.06f, 0.05f, 0.04f, 0.55f};
     colors[ImGuiCol_ModalWindowDimBg] = ImVec4{0.04f, 0.03f, 0.02f, 0.72f};
