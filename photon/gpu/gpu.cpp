@@ -1015,7 +1015,6 @@ void GPU::resizeWindow(){
     uint32_t newHeight = 0;
     queryWindowPixelSize(newWidth, newHeight);
     while((newWidth == 0) || (newHeight == 0)){
-        SDL_Delay(4);
         queryWindowPixelSize(newWidth, newHeight);
     }
 
