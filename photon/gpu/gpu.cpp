@@ -97,6 +97,9 @@ void GPU::init() {
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Vulkan_LoadLibrary(NULL);
     window = createWindow();
+#ifdef _WIN32
+    configureTransparentWindow();
+#endif
     const char *const *sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&count);
     std::vector<const char *> enabledExtensions(sdlExtensions, sdlExtensions + count);
     enabledExtensions.push_back( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
