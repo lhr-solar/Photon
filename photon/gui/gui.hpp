@@ -13,22 +13,21 @@ enum class WindowAction {
 };
 
 struct WindowChrome {
-    static constexpr int buttonCount = 3;
-
-    int titleBarHeight = 44;
     bool customChromeEnabled = true;
+    static constexpr int buttonCount = 3;
+    int titleBarHeight = 44;
+    int interactiveRectCount = 0;
     WindowAction pendingAction = WindowAction::None;
     std::array<SDL_Rect, buttonCount> interactiveRects{};
-    int interactiveRectCount = 0;
 
-    void clearInteractiveRects() {
+    void clearInteractiveRects(){
         interactiveRectCount = 0;
         for (SDL_Rect& rect : interactiveRects) {
             rect = SDL_Rect{0, 0, 0, 0};
         }
     }
 
-    void addInteractiveRect(const ImVec2& min, const ImVec2& max) {
+    void addInteractiveRect(const ImVec2& min, const ImVec2& max){
         if (interactiveRectCount >= buttonCount) return;
         SDL_Rect& rect = interactiveRects[interactiveRectCount++];
         rect.x = static_cast<int>(min.x);

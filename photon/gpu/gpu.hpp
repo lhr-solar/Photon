@@ -52,6 +52,7 @@ struct GPU{
             VkImageSubresourceRange subresourceRange, VkPipelineStageFlags sourceStageMask, VkPipelineStageFlags destinationStageMask);
     VkPipelineShaderStageCreateInfo loadShader(const uint32_t* code, size_t size, 
             VkShaderModule& module, VkShaderStageFlagBits flagBits, VkDevice device);
+    bool queryPhysicalDeviceId();
 
     uint32_t width = 1280;
     uint32_t height = 720;
@@ -124,7 +125,6 @@ struct GPU{
     bool ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleType, bool& requiresDedicated);
     bool selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated);
     bool createSharedHandleForTexture(ID3D11Texture2D* texture, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE& sharedHandle);
-    bool queryPhysicalDeviceId();
     bool recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHeight, uint32_t imageCount);
     IDXGIAdapter1* pickDxgiAdapter(IDXGIFactory2* factory);
     bool initDirectCompositionPresenter();

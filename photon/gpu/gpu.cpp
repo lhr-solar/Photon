@@ -41,15 +41,12 @@ static VkSampleCountFlagBits pickMsaaSampleCount(const VkPhysicalDevicePropertie
 
 static SDL_HitTestResult SDLCALL photonWindowHitTest(SDL_Window* window, const SDL_Point* area, void* data) {
     if ((window == NULL) || (area == NULL) || (data == nullptr)) return SDL_HITTEST_NORMAL;
-
     const auto* chrome = static_cast<const WindowChrome*>(data);
     if (!chrome->customChromeEnabled) return SDL_HITTEST_NORMAL;
-
     const Uint64 flags = SDL_GetWindowFlags(window);
     if ((flags & SDL_WINDOW_MAXIMIZED) != 0) {
-        if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y)) {
+        if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y))
             return SDL_HITTEST_DRAGGABLE;
-        }
         return SDL_HITTEST_NORMAL;
     }
 
@@ -72,9 +69,8 @@ static SDL_HitTestResult SDLCALL photonWindowHitTest(SDL_Window* window, const S
     if (top) return SDL_HITTEST_RESIZE_TOP;
     if (bottom) return SDL_HITTEST_RESIZE_BOTTOM;
 
-    if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y)) {
+    if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y))
         return SDL_HITTEST_DRAGGABLE;
-    }
 
     return SDL_HITTEST_NORMAL;
 }
@@ -148,14 +144,11 @@ void GPU::init() {
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, NULL);
     deviceQueueFamilyProperties.resize(count);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, deviceQueueFamilyProperties.data());
-#ifdef _WIN32
     queryPhysicalDeviceId();
-#endif
     for(int i = 0; i < deviceQueueFamilyProperties.size(); i++){
         const auto & p = deviceQueueFamilyProperties[i];
-        if((p.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (p.queueCount >= 1)){
+        if((p.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (p.queueCount >= 1))
             queueFamilyIndex = i; queueCount = 1; break;
-        }
     }
     VkDeviceQueueCreateInfo graphicsQueueCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
