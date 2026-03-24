@@ -998,15 +998,25 @@ void GPU::imguiPresentation(uint32_t imgIdx){
 };
 
 void GPU::startFrame(uint32_t& imgIdx){
+    imgIdx = UINT32_MAX;
+    while (true){
+        if (resizePending){
+            resizeWindow();
+            if (resizePending) return;
+        }
 #ifdef _WIN32
-    if(startFramePlatform(imgIdx)) return;
+        if(startFramePlatform(imgIdx)) return;
 #endif
-    vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
-    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
-        imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
-    if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR))
-        resizeWindow();
-    vkResetFences(device, 1, &fences[frameIndex]);
+        vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX);
+        VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
+            imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
+        if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)){
+            requestResize();
+            continue;
+        }
+        vkResetFences(device, 1, &fences[frameIndex]);
+        return;
+    }
 };
 
 void GPU::resizeWindow(){
@@ -1014,9 +1024,12 @@ void GPU::resizeWindow(){
     uint32_t newWidth = 0;
     uint32_t newHeight = 0;
     queryWindowPixelSize(newWidth, newHeight);
-    while((newWidth == 0) || (newHeight == 0)){
-        queryWindowPixelSize(newWidth, newHeight);
+    if ((newWidth == 0) || (newHeight == 0)){
+        resizePending = true;
+        return;
     }
+    resizePending = false;
+    if ((newWidth == width) && (newHeight == height)) return;
 
 #ifdef _WIN32
     if (directCompositionActive){
@@ -1102,7 +1115,7 @@ void GPU::submitFrame(const uint32_t imgIdx){
         .pResults = NULL
     };
     const VkResult result = vkQueuePresentKHR(queue, &presentInfo);
-    if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) resizeWindow();
+    if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) requestResize();
 }
 
 void GPU::queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const{
@@ -1384,7 +1397,6 @@ void GPU::releasePresentationResources(){
 }
 
 bool GPU::tryActivateDirectComposition(uint32_t imageCount){
-    destroyDirectCompositionPresenter();
     if (!wantsTransparentSwapchain()) return false;
     if (!initDirectCompositionPresenter()) return false;
     const uint32_t desiredCount = (imageCount < 2) ? 2u : imageCount;
@@ -1392,7 +1404,6 @@ bool GPU::tryActivateDirectComposition(uint32_t imageCount){
         destroyDirectCompositionPresenter();
         return false;
     }
-    forceInitialTransparentResize();
     return true;
 }
 
@@ -1498,6 +1509,11 @@ bool GPU::ensureExternalImageSupport(VkExternalMemoryHandleTypeFlagBits handleTy
 }
 
 bool GPU::selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated){
+    if (directCompositionHandleTypeCached){
+        handleType = directCompositionHandleType;
+        requiresDedicated = directCompositionRequiresDedicated;
+        return true;
+    }
     const VkExternalMemoryHandleTypeFlagBits candidates[] = {
         VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT,
         VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT,
@@ -1507,6 +1523,9 @@ bool GPU::selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& 
         if (ensureExternalImageSupport(candidate, dedicated)){
             handleType = candidate;
             requiresDedicated = dedicated;
+            directCompositionHandleType = candidate;
+            directCompositionRequiresDedicated = dedicated;
+            directCompositionHandleTypeCached = true;
             const char* label = (candidate == VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT)
                     ? "D3D11_TEXTURE"
                     : "D3D11_TEXTURE_KMT";
@@ -1546,20 +1565,45 @@ bool GPU::createSharedHandleForTexture(ID3D11Texture2D* texture,
     return false;
 }
 
+bool GPU::resizeDirectCompositionPresenter(uint32_t pixelWidth, uint32_t pixelHeight){
+    if (!d3dPresenter.swapChain) return false;
+    if (pixelWidth == 0 || pixelHeight == 0) return false;
+
+    DXGI_SWAP_CHAIN_DESC1 swapDesc{};
+    if (FAILED(d3dPresenter.swapChain->GetDesc1(&swapDesc))){
+        return false;
+    }
+
+    if (swapDesc.Width == pixelWidth && swapDesc.Height == pixelHeight){
+        width = pixelWidth;
+        height = pixelHeight;
+        return true;
+    }
+
+    if (FAILED(d3dPresenter.swapChain->ResizeBuffers(
+            swapDesc.BufferCount,
+            pixelWidth,
+            pixelHeight,
+            swapDesc.Format,
+            swapDesc.Flags))){
+        return false;
+    }
+
+    width = pixelWidth;
+    height = pixelHeight;
+    return true;
+}
+
 bool GPU::recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHeight, uint32_t imageCount){
     if (!directCompositionActive) return false;
     if (pixelWidth == 0 || pixelHeight == 0) return false;
     const uint32_t desiredCount = (imageCount < 2u) ? 2u : imageCount;
     vkDeviceWaitIdle(device);
     destroyFrameResources();
-    destroyDirectCompositionPresenter();
-    width = pixelWidth;
-    height = pixelHeight;
-    if (!initDirectCompositionPresenter()){
+    if (!resizeDirectCompositionPresenter(pixelWidth, pixelHeight)){
         return false;
     }
     if (!createSharedRenderTargets(desiredCount)){
-        destroyDirectCompositionPresenter();
         return false;
     }
     createFrameResources();
@@ -1680,7 +1724,6 @@ PFN_DCompositionCreateDevice LoadDCompositionCreateDevice(){
 
 bool GPU::initDirectCompositionPresenter(){
     directCompositionActive = false;
-    destroyDirectCompositionPresenter();
 
     if (!wantsTransparentSwapchain()) return false;
     uint32_t pixelWidth = width;
@@ -1688,6 +1731,16 @@ bool GPU::initDirectCompositionPresenter(){
     queryWindowPixelSize(pixelWidth, pixelHeight);
     if (pixelWidth == 0) pixelWidth = width;
     if (pixelHeight == 0) pixelHeight = height;
+
+    if (d3dPresenter.swapChain && d3dPresenter.d3dDevice && d3dPresenter.d3dContext &&
+        d3dPresenter.dcompDevice && d3dPresenter.dcompTarget && d3dPresenter.dcompVisual){
+        if (resizeDirectCompositionPresenter(pixelWidth, pixelHeight)){
+            directCompositionActive = true;
+            return true;
+        }
+        destroyDirectCompositionPresenter();
+    }
+
     width = pixelWidth;
     height = pixelHeight;
 
@@ -1782,7 +1835,6 @@ bool GPU::initDirectCompositionPresenter(){
     d3dPresenter.dcompTarget = target;
     d3dPresenter.dcompVisual = visual;
     d3dPresenter.bufferCount = swapDesc.BufferCount;
-    clearDirectCompositionSwapChain();
     directCompositionActive = true;
     return true;
 }
@@ -1938,84 +1990,7 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
             directImages[i].keyedMutex->ReleaseSync(0);
         }
     }
-    clearDirectCompositionImages();
     return true;
-}
-
-void GPU::clearDirectCompositionSwapChain(){
-    if (!d3dPresenter.swapChain || !d3dPresenter.d3dDevice || !d3dPresenter.d3dContext){
-        return;
-    }
-    const FLOAT transparent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    for (UINT bufferIndex = 0; bufferIndex < d3dPresenter.bufferCount; ++bufferIndex){
-        ID3D11Texture2D* buffer = nullptr;
-        if (FAILED(d3dPresenter.swapChain->GetBuffer(bufferIndex, IID_PPV_ARGS(&buffer)))){
-            SafeRelease(buffer);
-            continue;
-        }
-        ID3D11RenderTargetView* rtv = nullptr;
-        if (SUCCEEDED(d3dPresenter.d3dDevice->CreateRenderTargetView(buffer, nullptr, &rtv))){
-            d3dPresenter.d3dContext->ClearRenderTargetView(rtv, transparent);
-            rtv->Release();
-        }
-        SafeRelease(buffer);
-    }
-    d3dPresenter.d3dContext->Flush();
-}
-
-void GPU::clearDirectCompositionImages(){
-    if (directImages.empty()) return;
-    if (device == VK_NULL_HANDLE || queue == VK_NULL_HANDLE) return;
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.queueFamilyIndex = queueFamilyIndex;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    VkCommandPool tempPool = VK_NULL_HANDLE;
-    if (vkCreateCommandPool(device, &poolInfo, nullptr, &tempPool) != VK_SUCCESS){
-        return;
-    }
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = tempPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
-    VkCommandBuffer cmd = VK_NULL_HANDLE;
-    if (vkAllocateCommandBuffers(device, &allocInfo, &cmd) != VK_SUCCESS){
-        vkDestroyCommandPool(device, tempPool, nullptr);
-        return;
-    }
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS){
-        vkFreeCommandBuffers(device, tempPool, 1, &cmd);
-        vkDestroyCommandPool(device, tempPool, nullptr);
-        return;
-    }
-    VkClearValue clearValue{};
-    clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
-    for (size_t i = 0; i < framebuffer.size(); ++i){
-        if (framebuffer[i] == VK_NULL_HANDLE) continue;
-        VkRenderPassBeginInfo rpInfo{};
-        rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        rpInfo.renderPass = renderpass;
-        rpInfo.framebuffer = framebuffer[i];
-        rpInfo.renderArea.offset = {0, 0};
-        rpInfo.renderArea.extent = {width, height};
-        rpInfo.clearValueCount = 1;
-        rpInfo.pClearValues = &clearValue;
-        vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdEndRenderPass(cmd);
-    }
-    vkEndCommandBuffer(cmd);
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &cmd;
-    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(queue);
-    vkFreeCommandBuffers(device, tempPool, 1, &cmd);
-    vkDestroyCommandPool(device, tempPool, nullptr);
 }
 
 void GPU::destroySharedRenderTargets(){

@@ -32,7 +32,7 @@ void Photon::handleInput(){
     while(SDL_PollEvent(&events)) {
         if (events.type == SDL_EVENT_QUIT) running = false;
         if ((events.type == SDL_EVENT_WINDOW_RESIZED) || (events.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)) 
-            gpu.resizeWindow();
+            gpu.requestResize();
         gui.processEvents(&events);
     }
 };
@@ -46,6 +46,11 @@ void Photon::renderLoop(){
         io.DeltaTime = deltaTime / 1000;
         handleInput();
         gpu.startFrame(imgIdx);
+        if (imgIdx == UINT32_MAX || gpu.swapchainImages.empty() || gpu.commandBuffers.empty()) {
+            auto endFrame = std::chrono::high_resolution_clock::now();
+            deltaTime = std::chrono::duration<double, std::milli>(endFrame - startFrame).count();
+            continue;
+        }
         gui.buildUI();
 
         VkCommandBufferBeginInfo cmdBufferBeginInfo {};

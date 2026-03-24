@@ -41,6 +41,7 @@ struct GPU{
     void startFrame(uint32_t& imgIdx);
     void submitFrame(const uint32_t imgIdx);
     void resizeWindow();
+    void requestResize() { resizePending = true; }
     void destroy();
     SDL_Window* createWindow();
     void enableCustomChrome(WindowChrome* chromeState);
@@ -56,6 +57,7 @@ struct GPU{
 
     uint32_t width = 1280;
     uint32_t height = 720;
+    bool resizePending = false;
     WindowChrome* windowChrome = nullptr;
     VkInstance instance{VK_NULL_HANDLE};
     SDL_Window *window{NULL};
@@ -126,15 +128,13 @@ struct GPU{
     bool selectDirectCompositionHandleType(VkExternalMemoryHandleTypeFlagBits& handleType, bool& requiresDedicated);
     bool createSharedHandleForTexture(ID3D11Texture2D* texture, VkExternalMemoryHandleTypeFlagBits handleType, HANDLE& sharedHandle);
     bool recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHeight, uint32_t imageCount);
+    bool resizeDirectCompositionPresenter(uint32_t pixelWidth, uint32_t pixelHeight);
     IDXGIAdapter1* pickDxgiAdapter(IDXGIFactory2* factory);
     bool initDirectCompositionPresenter();
     void destroyDirectCompositionPresenter();
     bool createSharedRenderTargets(uint32_t imageCount);
     void destroySharedRenderTargets();
     void presentWithDirectComposition(uint32_t imageIndex);
-    void clearDirectCompositionSwapChain();
-    void clearDirectCompositionImages();
-    void forceInitialTransparentResize();
     void prepareImageForPresentation(uint32_t imgIdx);
     void adjustSubmitSyncObjects(VkSemaphore& waitSemaphore, VkSemaphore& signalSemaphore) const;
     bool presentFramePlatform(uint32_t imgIdx, uint32_t frameSlot);
@@ -144,10 +144,12 @@ struct GPU{
     bool tryActivateDirectComposition(uint32_t imageCount);
 
     bool directCompositionActive = false;
-    bool transparentResizeHackApplied = false;
     void* win32WindowHandle = nullptr;
     std::array<uint8_t, VK_LUID_SIZE> physicalDeviceLuid{};
     bool physicalDeviceLuidValid = false;
+    VkExternalMemoryHandleTypeFlagBits directCompositionHandleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_FLAG_BITS_MAX_ENUM;
+    bool directCompositionHandleTypeCached = false;
+    bool directCompositionRequiresDedicated = false;
     struct SharedDirectImage {
         VkImage image = VK_NULL_HANDLE;
         VkDeviceMemory memory = VK_NULL_HANDLE;

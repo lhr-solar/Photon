@@ -22,9 +22,8 @@ struct WindowChrome {
 
     void clearInteractiveRects(){
         interactiveRectCount = 0;
-        for (SDL_Rect& rect : interactiveRects) {
+        for (SDL_Rect& rect : interactiveRects)
             rect = SDL_Rect{0, 0, 0, 0};
-        }
     }
 
     void addInteractiveRect(const ImVec2& min, const ImVec2& max){
