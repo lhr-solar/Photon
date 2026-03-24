@@ -12,6 +12,7 @@ set(FONT_FILES
     ${FONT_DIR}/HelveticaNeueMedium.otf
     ${FONT_DIR}/HelveticaNeueRoman.otf
     ${FONT_DIR}/HostGrotesk-Regular.ttf
+    ${FONT_DIR}/Inter_28pt-Regular.ttf
 )
 
 set(FONT_HEADERS)

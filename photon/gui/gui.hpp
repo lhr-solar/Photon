@@ -1,14 +1,63 @@
 #pragma once
+#include <array>
 #include <SDL3/SDL.h>
 #include "imgui.h"
 #include "../gpu/shader.hpp"
 #include "../gpu/gltf.hpp"
 
+enum class WindowAction {
+    None,
+    Close,
+    Minimize,
+    ToggleMaximize,
+};
+
+struct WindowChrome {
+    static constexpr int buttonCount = 3;
+
+    int titleBarHeight = 44;
+    bool customChromeEnabled = true;
+    WindowAction pendingAction = WindowAction::None;
+    std::array<SDL_Rect, buttonCount> interactiveRects{};
+    int interactiveRectCount = 0;
+
+    void clearInteractiveRects() {
+        interactiveRectCount = 0;
+        for (SDL_Rect& rect : interactiveRects) {
+            rect = SDL_Rect{0, 0, 0, 0};
+        }
+    }
+
+    void addInteractiveRect(const ImVec2& min, const ImVec2& max) {
+        if (interactiveRectCount >= buttonCount) return;
+        SDL_Rect& rect = interactiveRects[interactiveRectCount++];
+        rect.x = static_cast<int>(min.x);
+        rect.y = static_cast<int>(min.y);
+        rect.w = static_cast<int>(max.x - min.x);
+        rect.h = static_cast<int>(max.y - min.y);
+    }
+
+    bool isPointInteractive(int x, int y) const {
+        for (int i = 0; i < interactiveRectCount; ++i) {
+            const SDL_Rect& rect = interactiveRects[i];
+            if ((x >= rect.x) && (x < rect.x + rect.w) &&
+                (y >= rect.y) && (y < rect.y + rect.h)) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
 struct GUI{
     Shader backgroundShader{};
     Gltf carModel{};
+    SDL_Window* window = nullptr;
+    WindowChrome chrome{};
 
     void buildUI();
+    void bindWindow(SDL_Window* targetWindow);
+    void titleBar();
     void processEvents(SDL_Event* events);
     void backgroundWindow();
     void gltfWindow();

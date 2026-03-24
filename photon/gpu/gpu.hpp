@@ -25,6 +25,8 @@ struct IDCompositionTarget;
 struct IDCompositionVisual;
 #endif
 
+struct WindowChrome;
+
 struct GPU{
     bool validationLayerSupport();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
@@ -41,6 +43,7 @@ struct GPU{
     void resizeWindow();
     void destroy();
     SDL_Window* createWindow();
+    void enableCustomChrome(WindowChrome* chromeState);
     bool wantsTransparentSwapchain() const;
     VkCompositeAlphaFlagBitsKHR pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
     void queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const;
@@ -52,6 +55,7 @@ struct GPU{
 
     uint32_t width = 1280;
     uint32_t height = 720;
+    WindowChrome* windowChrome = nullptr;
     VkInstance instance{VK_NULL_HANDLE};
     SDL_Window *window{NULL};
     VkSurfaceKHR surface{VK_NULL_HANDLE};

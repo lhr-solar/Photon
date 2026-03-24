@@ -23,11 +23,12 @@
 #endif
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
-#include "sansFlex_ttf.hpp"
+#include "Inter_28pt_Regular_ttf.hpp"
 #include "imgui.h"
 #include "implot3d.h"
 
 #include "gpu.hpp"
+#include "../gui/gui.hpp"
 
 static VkSampleCountFlagBits pickMsaaSampleCount(const VkPhysicalDeviceProperties& properties) {
     const VkSampleCountFlags counts =
@@ -36,6 +37,46 @@ static VkSampleCountFlagBits pickMsaaSampleCount(const VkPhysicalDevicePropertie
     if (counts & VK_SAMPLE_COUNT_4_BIT) return VK_SAMPLE_COUNT_4_BIT;
     if (counts & VK_SAMPLE_COUNT_2_BIT) return VK_SAMPLE_COUNT_2_BIT;
     return VK_SAMPLE_COUNT_1_BIT;
+}
+
+static SDL_HitTestResult SDLCALL photonWindowHitTest(SDL_Window* window, const SDL_Point* area, void* data) {
+    if ((window == NULL) || (area == NULL) || (data == nullptr)) return SDL_HITTEST_NORMAL;
+
+    const auto* chrome = static_cast<const WindowChrome*>(data);
+    if (!chrome->customChromeEnabled) return SDL_HITTEST_NORMAL;
+
+    const Uint64 flags = SDL_GetWindowFlags(window);
+    if ((flags & SDL_WINDOW_MAXIMIZED) != 0) {
+        if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y)) {
+            return SDL_HITTEST_DRAGGABLE;
+        }
+        return SDL_HITTEST_NORMAL;
+    }
+
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(window, &width, &height);
+
+    constexpr int resizeBorder = 6;
+    const bool left = area->x < resizeBorder;
+    const bool right = area->x >= width - resizeBorder;
+    const bool top = area->y < resizeBorder;
+    const bool bottom = area->y >= height - resizeBorder;
+
+    if (top && left) return SDL_HITTEST_RESIZE_TOPLEFT;
+    if (top && right) return SDL_HITTEST_RESIZE_TOPRIGHT;
+    if (bottom && left) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+    if (bottom && right) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+    if (left) return SDL_HITTEST_RESIZE_LEFT;
+    if (right) return SDL_HITTEST_RESIZE_RIGHT;
+    if (top) return SDL_HITTEST_RESIZE_TOP;
+    if (bottom) return SDL_HITTEST_RESIZE_BOTTOM;
+
+    if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y)) {
+        return SDL_HITTEST_DRAGGABLE;
+    }
+
+    return SDL_HITTEST_NORMAL;
 }
 
 void GPU::init() {
@@ -56,9 +97,6 @@ void GPU::init() {
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Vulkan_LoadLibrary(NULL);
     window = createWindow();
-#ifdef _WIN32
-    configureTransparentWindow();
-#endif
     const char *const *sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&count);
     std::vector<const char *> enabledExtensions(sdlExtensions, sdlExtensions + count);
     enabledExtensions.push_back( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -313,6 +351,13 @@ void GPU::createSwapchainResources(){
     }
 }
 
+void GPU::enableCustomChrome(WindowChrome* chromeState) {
+    windowChrome = chromeState;
+    if (window == NULL) return;
+    SDL_SetWindowBordered(window, false);
+    SDL_SetWindowHitTest(window, photonWindowHitTest, windowChrome);
+}
+
 void GPU::destroySwapchainResources(){
 #ifdef _WIN32
     releasePresentationResources();
@@ -434,8 +479,8 @@ void GPU::imguiBackend(){
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
     ImFont* font = io.Fonts->AddFontFromMemoryTTF(
-        (void*)sansFlex_ttf,
-        static_cast<int>(sansFlex_ttf_size),
+        (void*)Inter_28pt_Regular_ttf,
+        static_cast<int>(Inter_28pt_Regular_ttf_size),
         static_cast<float>(16.0f),
         &fontConfig);
 
@@ -974,7 +1019,7 @@ void GPU::resizeWindow(){
     uint32_t newHeight = 0;
     queryWindowPixelSize(newWidth, newHeight);
     while((newWidth == 0) || (newHeight == 0)){
-        SDL_Delay(16);
+        SDL_Delay(4);
         queryWindowPixelSize(newWidth, newHeight);
     }
 
@@ -1364,6 +1409,7 @@ SDL_Window* GPU::createWindow(){
         SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
         SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
         SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_TRANSPARENT_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
         SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
         SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
         SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN, true);
@@ -1375,7 +1421,8 @@ SDL_Window* GPU::createWindow(){
         }
     }
     return SDL_CreateWindow("Photon", width, height, 
-        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS |
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 }
 
 VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){
@@ -2048,6 +2095,7 @@ void GPU::presentWithDirectComposition(uint32_t imageIndex){
 void GPU::configureTransparentWindow(){
     if (!wantsTransparentSwapchain()) return;
     if (window == NULL) return;
+    if (windowChrome != nullptr && windowChrome->customChromeEnabled) return;
     SDL_PropertiesID properties = SDL_GetWindowProperties(window);
     if (properties == 0) return;
     void* hwndProperty = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
@@ -2081,36 +2129,13 @@ void GPU::configureTransparentWindow(){
         }
     }
 
-    HMODULE dwmapi = LoadLibraryW(L"dwmapi.dll");
-    if (dwmapi != NULL) {
-        auto dwmExtendFrame = reinterpret_cast<DwmExtendFrameIntoClientAreaFn>(
-                GetProcAddress(dwmapi, "DwmExtendFrameIntoClientArea"));
-        auto dwmEnableBlur = reinterpret_cast<DwmEnableBlurBehindWindowFn>(
-                GetProcAddress(dwmapi, "DwmEnableBlurBehindWindow"));
-        if (dwmExtendFrame != NULL) {
-            MARGINS margins{ -1, -1, -1, -1 };
-            dwmExtendFrame(hwnd, &margins);
-        }
-        if (dwmEnableBlur != NULL) {
-            HRGN blurRegion = CreateRectRgn(0, 0, -1, -1);
-            DWM_BLURBEHIND blur{};
-            blur.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
-            blur.fEnable = TRUE;
-            blur.hRgnBlur = blurRegion;
-            blur.fTransitionOnMaximized = FALSE;
-            dwmEnableBlur(hwnd, &blur);
-            if (blurRegion != NULL) {
-                DeleteObject(blurRegion);
-            }
-        }
-        FreeLibrary(dwmapi);
-    }
 }
 
 #else
 SDL_Window* GPU::createWindow(){
     return SDL_CreateWindow("Photon", width, height, 
-        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS |
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 }
 
 VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities){

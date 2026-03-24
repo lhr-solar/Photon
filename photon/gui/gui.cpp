@@ -1,6 +1,7 @@
 #include "gui.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <cmath>
 
@@ -8,26 +9,109 @@
 #include "implot.h"
 #include "implot3d.h"
 
+void GUI::bindWindow(SDL_Window* targetWindow){
+    window = targetWindow;
+}
+
 void GUI::buildUI(){
     ImGui::NewFrame();
+    titleBar();
     dockspace();
     ImGui::ShowDemoWindow();
     ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
-    backgroundWindow();
+    //backgroundWindow();
     gltfWindow();
     ImGui::Render();
 };
+
+void GUI::titleBar(){
+    chrome.clearInteractiveRects();
+    if (!chrome.customChromeEnabled) return;
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const float titleBarHeight = static_cast<float>(chrome.titleBarHeight);
+    const ImVec2 pos = viewport->Pos;
+    const ImVec2 size(viewport->Size.x, titleBarHeight);
+
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 8.0f));
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+    if (ImGui::Begin("##PhotonTitleBar", nullptr, flags)) {
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("Photon");
+
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2(12.0f, 0.0f));
+        ImGui::SameLine();
+        ImGui::TextDisabled("Prototype");
+
+        const char* maximizeLabel = (window != nullptr &&
+            (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0) ? "Restore" : "Maximize";
+
+        const std::array<std::pair<const char*, WindowAction>, WindowChrome::buttonCount> buttons{{
+            {"Minimize", WindowAction::Minimize},
+            {maximizeLabel, WindowAction::ToggleMaximize},
+            {"Close", WindowAction::Close},
+        }};
+
+        float buttonWidths = 0.0f;
+        for (const auto& button : buttons) {
+            buttonWidths += ImGui::CalcTextSize(button.first).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        }
+        buttonWidths += ImGui::GetStyle().ItemSpacing.x * static_cast<float>(buttons.size() - 1);
+
+        ImGui::SameLine(viewport->Size.x - buttonWidths - 18.0f);
+        for (int i = 0; i < static_cast<int>(buttons.size()); ++i) {
+            if (i > 0) ImGui::SameLine();
+            if (ImGui::Button(buttons[i].first)) {
+                chrome.pendingAction = buttons[i].second;
+            }
+            chrome.addInteractiveRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+        }
+    }
+    ImGui::End();
+    ImGui::PopStyleVar(3);
+
+    if (window == nullptr) return;
+    switch (chrome.pendingAction) {
+        case WindowAction::Close:
+        {
+            SDL_Event quitEvent{};
+            quitEvent.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quitEvent);
+            break;
+        }
+        case WindowAction::Minimize:
+            SDL_MinimizeWindow(window);
+            break;
+        case WindowAction::ToggleMaximize:
+            if ((SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0) SDL_RestoreWindow(window);
+            else SDL_MaximizeWindow(window);
+            break;
+        case WindowAction::None:
+            break;
+    }
+    chrome.pendingAction = WindowAction::None;
+}
 
 void GUI::dockspace(){
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     const ImVec2 dockspacePos(
-        viewport->WorkPos.x + viewport->WorkSize.x * 0.2f,
-        viewport->WorkPos.y);
+        viewport->WorkPos.x + viewport->WorkSize.x * 0.15f,
+        viewport->WorkPos.y + static_cast<float>(chrome.titleBarHeight));
     const ImVec2 dockspaceSize(
-        viewport->WorkSize.x * 0.8f,
-        viewport->WorkSize.y);
+        viewport->WorkSize.x * 0.85f,
+        std::max(1.0f, viewport->WorkSize.y - static_cast<float>(chrome.titleBarHeight)));
     ImGui::SetNextWindowPos(dockspacePos);
     ImGui::SetNextWindowSize(dockspaceSize);
     ImGui::SetNextWindowViewport(viewport->ID);

@@ -12,8 +12,10 @@ void Photon::init(){
     gpu.init(); logs("Initialized GPU");
     gpu.imguiBackend(); logs("Initialized ImGui");
     windowID = SDL_GetWindowID(gpu.window);
-    gui.backgroundShader.init(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size, 
-                                   (uint32_t*)background_frag_spv, background_frag_spv_size);
+    gui.bindWindow(gpu.window);
+    gpu.enableCustomChrome(&gui.chrome);
+    //gui.backgroundShader.init(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size, 
+                                   //(uint32_t*)background_frag_spv, background_frag_spv_size);
     gui.carModel.init(gpu, newCar_glb, newCar_glb_size);
     gui.setStyle();
 };
@@ -52,7 +54,7 @@ void Photon::renderLoop(){
         vkResetCommandBuffer(commandBuffer, 0);
         vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
 
-        gui.backgroundShader.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
+        //gui.backgroundShader.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
         gui.carModel.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
         gpu.imguiPresentation(imgIdx);
         vkEndCommandBuffer(gpu.commandBuffers[gpu.frameIndex]);
@@ -66,7 +68,7 @@ void Photon::renderLoop(){
 };
 
 void Photon::destroy(){
-    gui.backgroundShader.destroy();
+    //gui.backgroundShader.destroy();
     gui.carModel.destroy();
     gpu.destroy();
 };
