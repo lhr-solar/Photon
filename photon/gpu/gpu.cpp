@@ -41,11 +41,11 @@ static VkSampleCountFlagBits pickMsaaSampleCount(const VkPhysicalDevicePropertie
 
 static SDL_HitTestResult SDLCALL photonWindowHitTest(SDL_Window* window, const SDL_Point* area, void* data) {
     if ((window == NULL) || (area == NULL) || (data == nullptr)) return SDL_HITTEST_NORMAL;
-    const auto* chrome = static_cast<const WindowChrome*>(data);
-    if (!chrome->customChromeEnabled) return SDL_HITTEST_NORMAL;
+    const auto* titleBar = static_cast<const TitleBar*>(data);
+    if (!titleBar->enabled) return SDL_HITTEST_NORMAL;
     const Uint64 flags = SDL_GetWindowFlags(window);
     if ((flags & SDL_WINDOW_MAXIMIZED) != 0) {
-        if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y))
+        if ((area->y < titleBar->height) && !titleBar->isInteract(area->x, area->y))
             return SDL_HITTEST_DRAGGABLE;
         return SDL_HITTEST_NORMAL;
     }
@@ -69,7 +69,7 @@ static SDL_HitTestResult SDLCALL photonWindowHitTest(SDL_Window* window, const S
     if (top) return SDL_HITTEST_RESIZE_TOP;
     if (bottom) return SDL_HITTEST_RESIZE_BOTTOM;
 
-    if ((area->y < chrome->titleBarHeight) && !chrome->isPointInteractive(area->x, area->y))
+    if ((area->y < titleBar->height) && !titleBar->isInteract(area->x, area->y))
         return SDL_HITTEST_DRAGGABLE;
 
     return SDL_HITTEST_NORMAL;
@@ -347,11 +347,11 @@ void GPU::createSwapchainResources(){
     }
 }
 
-void GPU::enableCustomChrome(WindowChrome* chromeState) {
-    windowChrome = chromeState;
+void GPU::enableCustomTitlebar(TitleBar* titleBarState) {
+    titleBar = titleBarState;
     if (window == NULL) return;
     SDL_SetWindowBordered(window, false);
-    SDL_SetWindowHitTest(window, photonWindowHitTest, windowChrome);
+    SDL_SetWindowHitTest(window, photonWindowHitTest, titleBar);
 }
 
 void GPU::destroySwapchainResources(){
@@ -1327,6 +1327,22 @@ bool GPU::wantsTransparentSwapchain() const {
     return (flags & SDL_WINDOW_TRANSPARENT) != 0;
 }
 
+bool GPU::queryPhysicalDeviceId(){
+    physicalDeviceLuidValid = false;
+    if (physicalDevice == VK_NULL_HANDLE) return false;
+    VkPhysicalDeviceIDProperties idProps{};
+    idProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+    VkPhysicalDeviceProperties2 props2{};
+    props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    props2.pNext = &idProps;
+    vkGetPhysicalDeviceProperties2(physicalDevice, &props2);
+    if(idProps.deviceLUIDValid == VK_FALSE) return false;
+    std::memcpy(physicalDeviceLuid.data(), idProps.deviceLUID, VK_LUID_SIZE);
+    physicalDeviceLuidValid = true;
+    return true;
+}
+
+
 #ifdef _WIN32
 void GPU::prepareImageForPresentation(uint32_t imgIdx){
     if (!directCompositionActive) return;
@@ -1611,21 +1627,6 @@ bool GPU::recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHe
     io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
     frameIndex = 0;
-    return true;
-}
-
-bool GPU::queryPhysicalDeviceId(){
-    physicalDeviceLuidValid = false;
-    if (physicalDevice == VK_NULL_HANDLE) return false;
-    VkPhysicalDeviceIDProperties idProps{};
-    idProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
-    VkPhysicalDeviceProperties2 props2{};
-    props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    props2.pNext = &idProps;
-    vkGetPhysicalDeviceProperties2(physicalDevice, &props2);
-    if(idProps.deviceLUIDValid == VK_FALSE) return false;
-    std::memcpy(physicalDeviceLuid.data(), idProps.deviceLUID, VK_LUID_SIZE);
-    physicalDeviceLuidValid = true;
     return true;
 }
 
@@ -2065,7 +2066,7 @@ void GPU::presentWithDirectComposition(uint32_t imageIndex){
 void GPU::configureTransparentWindow(){
     if (!wantsTransparentSwapchain()) return;
     if (window == NULL) return;
-    if (windowChrome != nullptr && windowChrome->customChromeEnabled) return;
+    if (titleBar != nullptr && titleBar->enabled) return;
     SDL_PropertiesID properties = SDL_GetWindowProperties(window);
     if (properties == 0) return;
     void* hwndProperty = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);

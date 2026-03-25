@@ -25,7 +25,7 @@ struct IDCompositionTarget;
 struct IDCompositionVisual;
 #endif
 
-struct WindowChrome;
+struct TitleBar;
 
 struct GPU{
     bool validationLayerSupport();
@@ -44,7 +44,7 @@ struct GPU{
     void requestResize() { resizePending = true; }
     void destroy();
     SDL_Window* createWindow();
-    void enableCustomChrome(WindowChrome* chromeState);
+    void enableCustomTitlebar(TitleBar* titleBarState);
     bool wantsTransparentSwapchain() const;
     VkCompositeAlphaFlagBitsKHR pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
     void queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const;
@@ -58,7 +58,7 @@ struct GPU{
     uint32_t width = 1280;
     uint32_t height = 720;
     bool resizePending = false;
-    WindowChrome* windowChrome = nullptr;
+    TitleBar* titleBar = nullptr;
     VkInstance instance{VK_NULL_HANDLE};
     SDL_Window *window{NULL};
     VkSurfaceKHR surface{VK_NULL_HANDLE};
@@ -91,6 +91,8 @@ struct GPU{
     std::vector<VkQueueFamilyProperties> deviceQueueFamilyProperties{};
     VkCommandPool commandPool{};
     VkSampleCountFlagBits msaaSamples{VK_SAMPLE_COUNT_1_BIT};
+    std::array<uint8_t, VK_LUID_SIZE> physicalDeviceLuid{};
+    bool physicalDeviceLuidValid = false;
 
     // IMGUI resources
     VkShaderModule uiShaderVert{};
@@ -145,8 +147,6 @@ struct GPU{
 
     bool directCompositionActive = false;
     void* win32WindowHandle = nullptr;
-    std::array<uint8_t, VK_LUID_SIZE> physicalDeviceLuid{};
-    bool physicalDeviceLuidValid = false;
     VkExternalMemoryHandleTypeFlagBits directCompositionHandleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_FLAG_BITS_MAX_ENUM;
     bool directCompositionHandleTypeCached = false;
     bool directCompositionRequiresDedicated = false;
