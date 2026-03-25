@@ -4794,8 +4794,8 @@ static void stbi__de_iphone(stbi__png *z)
 static int stbi__parse_png_file(stbi__png *z, int scan, int req_comp)
 {
    stbi_uc palette[1024], pal_img_n=0;
-   stbi_uc has_trans=0, tc[3]={0};
-   stbi__uint16 tc16[3];
+   stbi_uc has_trans=0, tc[4]={0};
+   stbi__uint16 tc16[4];
    stbi__uint32 ioff=0, idata_limit=0, i, pal_len=0;
    int first=1,k,interlace=0, color=0, is_iphone=0;
    stbi__context *s = z->s;
@@ -4873,9 +4873,21 @@ static int stbi__parse_png_file(stbi__png *z, int scan, int req_comp)
                if (c.length != (stbi__uint32) s->img_n*2) return stbi__err("bad tRNS len","Corrupt PNG");
                has_trans = 1;
                if (z->depth == 16) {
-                  for (k = 0; k < s->img_n; ++k) tc16[k] = (stbi__uint16)stbi__get16be(s); // copy the values as-is
+                  if (s->img_n == 1) {
+                     tc16[0] = (stbi__uint16)stbi__get16be(s);
+                  } else if (s->img_n == 3) {
+                     for (k = 0; k < 3; ++k) tc16[k] = (stbi__uint16)stbi__get16be(s); // copy the values as-is
+                  } else {
+                     return stbi__err("bad tRNS len","Corrupt PNG");
+                  }
                } else {
-                  for (k = 0; k < s->img_n; ++k) tc[k] = (stbi_uc)(stbi__get16be(s) & 255) * stbi__depth_scale_table[z->depth]; // non 8-bit images will be larger
+                  if (s->img_n == 1) {
+                     tc[0] = (stbi_uc)(stbi__get16be(s) & 255) * stbi__depth_scale_table[z->depth];
+                  } else if (s->img_n == 3) {
+                     for (k = 0; k < 3; ++k) tc[k] = (stbi_uc)(stbi__get16be(s) & 255) * stbi__depth_scale_table[z->depth]; // non 8-bit images will be larger
+                  } else {
+                     return stbi__err("bad tRNS len","Corrupt PNG");
+                  }
                }
             }
             break;
