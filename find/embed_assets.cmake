@@ -79,7 +79,7 @@ static PhotonEmbeddedAssetView photonLoadEmbeddedAsset(int resourceId) {
     HMODULE module = GetModuleHandleW(NULL);
     if (module == NULL) return {nullptr, 0};
 
-    HRSRC resource = FindResourceW(module, MAKEINTRESOURCEW(resourceId), RT_RCDATA);
+    HRSRC resource = FindResourceW(module, MAKEINTRESOURCEW(resourceId), MAKEINTRESOURCEW(10));
     if (resource == NULL) return {nullptr, 0};
 
     HGLOBAL loaded = LoadResource(module, resource);
