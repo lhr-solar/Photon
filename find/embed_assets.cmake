@@ -62,6 +62,7 @@ function(photon_embed_assets)
     set(_photon_objects)
     set(_photon_windows_impl "")
     set(_photon_windows_rc "")
+    set(_photon_windows_staged)
 
     if (WIN32)
         string(APPEND _photon_windows_impl
@@ -159,6 +160,16 @@ inline const std::size_t ${_photon_symbol}_size =
         list(APPEND _photon_headers ${_photon_header})
 
         if (WIN32)
+            set(_photon_staged ${PEA_OBJECT_OUTPUT_DIR}/${_photon_symbol}.bin)
+
+            add_custom_command(
+                OUTPUT ${_photon_staged}
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_photon_file} ${_photon_staged}
+                DEPENDS ${_photon_file}
+                COMMENT "Staging embedded asset ${_photon_staged}"
+                VERBATIM
+            )
+
             get_property(_photon_next_resource_id GLOBAL PROPERTY PHOTON_WINDOWS_NEXT_RESOURCE_ID)
             if (NOT _photon_next_resource_id)
                 set(_photon_next_resource_id 1000)
@@ -167,16 +178,16 @@ inline const std::size_t ${_photon_symbol}_size =
             math(EXPR _photon_next_resource_id "${_photon_next_resource_id} + 1")
             set_property(GLOBAL PROPERTY PHOTON_WINDOWS_NEXT_RESOURCE_ID ${_photon_next_resource_id})
 
-            file(TO_CMAKE_PATH "${_photon_file}" _photon_resource_path)
-            string(APPEND _photon_windows_rc "${_photon_resource_id} RCDATA \"${_photon_resource_path}\"\n")
+            string(APPEND _photon_windows_rc "${_photon_resource_id} RCDATA \"${_photon_symbol}.bin\"\n")
+            list(APPEND _photon_windows_staged ${_photon_staged})
 
             if (PEA_SPIRV)
                 string(APPEND _photon_windows_impl
 "namespace {
 const PhotonEmbeddedAssetView photon_embedded_${_photon_symbol}_view = photonLoadEmbeddedAsset(${_photon_resource_id});
 }
-const uint32_t* ${_photon_symbol} = reinterpret_cast<const uint32_t*>(photon_embedded_${_photon_symbol}_view.data);
-const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
+extern const uint32_t* ${_photon_symbol} = reinterpret_cast<const uint32_t*>(photon_embedded_${_photon_symbol}_view.data);
+extern const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
 
 ")
             else()
@@ -184,8 +195,8 @@ const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_vie
 "namespace {
 const PhotonEmbeddedAssetView photon_embedded_${_photon_symbol}_view = photonLoadEmbeddedAsset(${_photon_resource_id});
 }
-const unsigned char* ${_photon_symbol} = photon_embedded_${_photon_symbol}_view.data;
-const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
+extern const unsigned char* ${_photon_symbol} = photon_embedded_${_photon_symbol}_view.data;
+extern const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
 
 ")
             endif()
@@ -234,9 +245,9 @@ const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_vie
         file(GENERATE OUTPUT ${_photon_windows_rc_file} CONTENT "${_photon_windows_rc}")
 
         set_source_files_properties(${_photon_windows_cpp} PROPERTIES GENERATED TRUE)
-        set_source_files_properties(${_photon_windows_rc_file} PROPERTIES GENERATED TRUE OBJECT_DEPENDS "${PEA_FILES}")
+        set_source_files_properties(${_photon_windows_rc_file} PROPERTIES GENERATED TRUE OBJECT_DEPENDS "${_photon_windows_staged}")
 
-        add_custom_target(Generate${PEA_ASSET_TARGET} ALL DEPENDS ${_photon_windows_cpp} ${_photon_windows_rc_file})
+        add_custom_target(Generate${PEA_ASSET_TARGET} ALL DEPENDS ${_photon_windows_cpp} ${_photon_windows_rc_file} ${_photon_windows_staged})
 
         add_library(${PEA_ASSET_TARGET} STATIC ${_photon_windows_cpp})
         set_target_properties(${PEA_ASSET_TARGET} PROPERTIES LINKER_LANGUAGE CXX)
