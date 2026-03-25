@@ -1,3 +1,5 @@
+include(${CMAKE_SOURCE_DIR}/find/embed_assets.cmake)
+
 # photon/CMakeLists.txt
 add_subdirectory(engine)
 add_subdirectory(gpu)
@@ -7,6 +9,7 @@ add_subdirectory(parse)
 add_subdirectory(synth)
 
 add_executable(Photon engine/main.cpp)
+photon_attach_windows_resources(Photon)
 
 if (WIN32)
     target_sources(Photon PRIVATE ../assets/fonts/Photon.rc)
