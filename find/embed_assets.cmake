@@ -260,6 +260,7 @@ function(photon_attach_windows_resources target)
 
     get_property(_photon_windows_resource_sources GLOBAL PROPERTY PHOTON_WINDOWS_RESOURCE_SOURCES)
     if (_photon_windows_resource_sources)
+        set_source_files_properties(${_photon_windows_resource_sources} PROPERTIES GENERATED TRUE)
         target_sources(${target} PRIVATE ${_photon_windows_resource_sources})
     endif()
 endfunction()
