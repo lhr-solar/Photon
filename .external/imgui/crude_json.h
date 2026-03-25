@@ -147,18 +147,20 @@ private:
 # undef CRUDE_MAX4
 # undef CRUDE_MAX3
 # undef CRUDE_MAX2
-    using storage_t = std::aligned_storage<max_size, max_align>::type;
+    struct storage_t {
+        alignas(max_align) unsigned char bytes[max_size];
+    };
 
-    static       object*   object_ptr(      storage_t& storage) { return reinterpret_cast<       object*>(&storage); }
-    static const object*   object_ptr(const storage_t& storage) { return reinterpret_cast<const  object*>(&storage); }
-    static       array*     array_ptr(      storage_t& storage) { return reinterpret_cast<        array*>(&storage); }
-    static const array*     array_ptr(const storage_t& storage) { return reinterpret_cast<const   array*>(&storage); }
-    static       string*   string_ptr(      storage_t& storage) { return reinterpret_cast<       string*>(&storage); }
-    static const string*   string_ptr(const storage_t& storage) { return reinterpret_cast<const  string*>(&storage); }
-    static       boolean* boolean_ptr(      storage_t& storage) { return reinterpret_cast<      boolean*>(&storage); }
-    static const boolean* boolean_ptr(const storage_t& storage) { return reinterpret_cast<const boolean*>(&storage); }
-    static       number*   number_ptr(      storage_t& storage) { return reinterpret_cast<       number*>(&storage); }
-    static const number*   number_ptr(const storage_t& storage) { return reinterpret_cast<const  number*>(&storage); }
+    static       object*   object_ptr(      storage_t& storage) { return reinterpret_cast<       object*>(storage.bytes); }
+    static const object*   object_ptr(const storage_t& storage) { return reinterpret_cast<const  object*>(storage.bytes); }
+    static       array*     array_ptr(      storage_t& storage) { return reinterpret_cast<        array*>(storage.bytes); }
+    static const array*     array_ptr(const storage_t& storage) { return reinterpret_cast<const   array*>(storage.bytes); }
+    static       string*   string_ptr(      storage_t& storage) { return reinterpret_cast<       string*>(storage.bytes); }
+    static const string*   string_ptr(const storage_t& storage) { return reinterpret_cast<const  string*>(storage.bytes); }
+    static       boolean* boolean_ptr(      storage_t& storage) { return reinterpret_cast<      boolean*>(storage.bytes); }
+    static const boolean* boolean_ptr(const storage_t& storage) { return reinterpret_cast<const boolean*>(storage.bytes); }
+    static       number*   number_ptr(      storage_t& storage) { return reinterpret_cast<       number*>(storage.bytes); }
+    static const number*   number_ptr(const storage_t& storage) { return reinterpret_cast<const  number*>(storage.bytes); }
 
     static type_t construct(storage_t& storage, type_t type)
     {

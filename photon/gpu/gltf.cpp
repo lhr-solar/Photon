@@ -1104,6 +1104,7 @@ void Gltf::rebuild(GPU& gpu){
 }
 
 void Gltf::destroy(){
+    if(!initialized) return;
     if (device == VK_NULL_HANDLE) return;
     vkDeviceWaitIdle(device);
 

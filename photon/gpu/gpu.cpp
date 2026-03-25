@@ -1663,6 +1663,11 @@ struct PhotonWindowCompositionAttribData {
 using SetWindowCompositionAttributeFn = BOOL (WINAPI *)(HWND, PhotonWindowCompositionAttribData*);
 using DwmExtendFrameIntoClientAreaFn = HRESULT (WINAPI *)(HWND, const MARGINS*);
 using DwmEnableBlurBehindWindowFn = HRESULT (WINAPI *)(HWND, const DWM_BLURBEHIND*);
+using DwmSetWindowAttributeFn = HRESULT (WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#endif
 
 template<typename T>
 void SafeRelease(T*& ptr){
@@ -2081,6 +2086,20 @@ void GPU::configureTransparentWindow(){
             data.dataSize = sizeof(policy);
 
             setWindowCompositionAttribute(hwnd, &data);
+        }
+    }
+
+    const HMODULE dwmapi = LoadLibraryW(L"dwmapi.dll");
+    if (dwmapi != NULL) {
+        auto dwmSetWindowAttribute = reinterpret_cast<DwmSetWindowAttributeFn>(
+                GetProcAddress(dwmapi, "DwmSetWindowAttribute"));
+        if (dwmSetWindowAttribute != NULL) {
+            const DWORD roundedCorners = 2;
+            dwmSetWindowAttribute(
+                hwnd,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                &roundedCorners,
+                static_cast<DWORD>(sizeof(roundedCorners)));
         }
     }
 

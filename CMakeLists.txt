@@ -136,9 +136,6 @@ if (EXISTS "${_photon_sdl3_vendor_root}")
     endforeach()
 endif()
 
-# require python
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-
 option(PHOTON_REQUIRE_STATIC_RELEASE "Fail configuration if a Release build would link against dynamic third-party libraries" OFF)
 option(PHOTON_REQUIRE_STATIC_SDL "Require SDL to be linked statically so the runtime does not depend on libSDL3 being installed" ON)
 

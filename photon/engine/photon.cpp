@@ -5,6 +5,7 @@
 
 #include "background_frag_spv.hpp"
 #include "background_vert_spv.hpp"
+//#include "s26track_glb.hpp"
 #include "newCar_glb.hpp"
 
 void Photon::init(){
@@ -13,9 +14,11 @@ void Photon::init(){
     windowID = SDL_GetWindowID(gpu.window);
     gui.bindWindow(gpu.window);
     gpu.enableCustomTitlebar(&gui.titleBar);
+
     gui.backgroundShader.init(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size, 
                                    (uint32_t*)background_frag_spv, background_frag_spv_size);
     gui.carModel.init(gpu, newCar_glb, newCar_glb_size);
+
     gui.setStyle();
 };
 
@@ -45,11 +48,7 @@ void Photon::renderLoop(){
         io.DeltaTime = deltaTime / 1000;
         handleInput();
         gpu.startFrame(imgIdx);
-        if (imgIdx == UINT32_MAX || gpu.swapchainImages.empty() || gpu.commandBuffers.empty()) {
-            auto endFrame = std::chrono::high_resolution_clock::now();
-            deltaTime = std::chrono::duration<double, std::milli>(endFrame - startFrame).count();
-            continue;
-        }
+
         gui.buildUI();
 
         VkCommandBufferBeginInfo cmdBufferBeginInfo {};

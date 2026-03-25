@@ -297,6 +297,7 @@ void Shader::rebuild(GPU& gpu){
 }
 
 void Shader::destroy(){
+    if(!initialized) return;
     vkDeviceWaitIdle(device);
     for (uint32_t i = 0; i < frames.size(); i++) {
         const VkDescriptorSet descriptorSet = frames[i].descriptorSet;
