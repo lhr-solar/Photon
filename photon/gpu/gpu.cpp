@@ -147,8 +147,11 @@ void GPU::init() {
     queryPhysicalDeviceId();
     for(int i = 0; i < deviceQueueFamilyProperties.size(); i++){
         const auto & p = deviceQueueFamilyProperties[i];
-        if((p.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (p.queueCount >= 1))
-            queueFamilyIndex = i; queueCount = 1; break;
+        if((p.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (p.queueCount >= 1)) {
+            queueFamilyIndex = i;
+            queueCount = 1;
+            break;
+        }
     }
     VkDeviceQueueCreateInfo graphicsQueueCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -474,7 +477,7 @@ void GPU::imguiBackend(){
 
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
-    ImFont* font = io.Fonts->AddFontFromMemoryTTF(
+    io.Fonts->AddFontFromMemoryTTF(
         (void*)Inter_28pt_Regular_ttf,
         static_cast<int>(Inter_28pt_Regular_ttf_size),
         static_cast<float>(16.0f),
@@ -809,7 +812,7 @@ void GPU::imguiBackend(){
 
 void GPU::imguiPresentation(uint32_t imgIdx){
     VkClearValue clearValues[1];
-    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 0.0f}};
+    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 0.3f}};
     VkRenderPassBeginInfo renderPassBeginInfo {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass = renderpass;
@@ -843,7 +846,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         vertexBufferSize = newVertexBufferSize;
         uint32_t& isMapped = vertexIsMapped[frameIndex];
         VkDeviceMemory& memory = vertexBufferMemories[frameIndex];
-        void*& mapped = vertexBufferMapped[frameIndex];
         if(isMapped){ vkUnmapMemory(device, memory); isMapped = false; }
         if(vertexBuffer) vkDestroyBuffer(device, vertexBuffer, nullptr);
         if(memory) vkFreeMemory(device, memory, nullptr);
@@ -860,7 +862,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         memAlloc.allocationSize = memReqs.size;
         memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT 
                                                                        | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
         vkAllocateMemory(device, &memAlloc, nullptr, &memory);
         vkBindBufferMemory(device, vertexBuffer, memory, 0);
         vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &vertexBufferMapped[frameIndex]);
@@ -872,7 +873,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         indexBufferSize = newIndexBufferSize;
         uint32_t& isMapped = indexIsMapped[frameIndex];
         VkDeviceMemory& memory = indexBufferMemories[frameIndex];
-        void*& mapped = indexBufferMapped[frameIndex];
         if(isMapped){ vkUnmapMemory(device, memory); isMapped = false; }
         if(indexBuffer) vkDestroyBuffer(device, indexBuffer, nullptr);
         if(memory) vkFreeMemory(device, memory, nullptr);
@@ -889,7 +889,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         memAlloc.allocationSize = memReqs.size;
         memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT 
                                                                        | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
         vkAllocateMemory(device, &memAlloc, nullptr, &memory);
         vkBindBufferMemory(device, indexBuffer, memory, 0);
         vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &indexBufferMapped[frameIndex]);
@@ -1389,21 +1388,6 @@ bool GPU::startFramePlatform(uint32_t& imgIdx){
     vkResetFences(device, 1, &fences[frameIndex]);
     imgIdx = frameIndex;
     return true;
-}
-
-void GPU::forceInitialTransparentResize(){
-    if (transparentResizeHackApplied) return;
-    if (!wantsTransparentSwapchain()) return;
-    if (window == NULL) return;
-    int baseWidth = 0;
-    int baseHeight = 0;
-    SDL_GetWindowSizeInPixels(window, &baseWidth, &baseHeight);
-    if ((baseWidth <= 0) || (baseHeight <= 0)) return;
-    transparentResizeHackApplied = true;
-    const int shrinkWidth = std::max(1, baseWidth - static_cast<int>(baseWidth * 0.5f));
-    const int shrinkHeight = std::max(1, baseHeight - static_cast<int>(baseHeight * 0.5f));
-    SDL_SetWindowSize(window, shrinkWidth, shrinkHeight);
-    SDL_SetWindowSize(window, baseWidth, baseHeight);
 }
 
 void GPU::releasePresentationResources(){

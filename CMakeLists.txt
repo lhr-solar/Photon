@@ -66,7 +66,7 @@ if (_photon_is_msvc_like)
     endforeach()
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if ((CMAKE_CXX_COMPILER_ID MATCHES "Clang") AND (NOT _photon_is_msvc_like))
     set(_photon_release_opt_flag "-O3")
     foreach(_lang C CXX)
         set(_var "CMAKE_${_lang}_FLAGS_RELEASE")
