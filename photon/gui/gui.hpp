@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "../gpu/shader.hpp"
 #include "../gpu/gltf.hpp"
+#include "../gpu/scene.hpp"
 
 enum class WindowAction {
     None,
@@ -38,6 +39,7 @@ struct NetworkInterface {
 struct GUI{
     Shader backgroundShader{};
     Gltf carModel{};
+    Scene sceneModel{};
     SDL_Window* window = nullptr;
     TitleBar titleBar{};
 
@@ -47,9 +49,11 @@ struct GUI{
     void processEvents(SDL_Event* events);
     void backgroundWindow();
     void gltfWindow();
+    void sceneWindow();
     void shaderWindow();
     void dockspace();
     void setStyle();
+    void newStyle();
     static ImGuiKey sdlToImgui(SDL_Scancode scancode);
     static inline void addModifier(ImGuiIO& io, SDL_Keymod mod);
     static inline int sdlMouseToImgui(Uint8 button);

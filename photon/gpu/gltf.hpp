@@ -141,6 +141,8 @@ struct Gltf{
     VkShaderModule gltfVertModule{VK_NULL_HANDLE};
     VkShaderModule postFragModule{VK_NULL_HANDLE};
     VkShaderModule postVertModule{VK_NULL_HANDLE};
+    const uint32_t* postFragmentShader{nullptr};
+    size_t postFragmentShaderSize{};
     VkSampler offscreenColorSampler{VK_NULL_HANDLE};
     VkBuffer vertexBuffer{VK_NULL_HANDLE};
     VkDeviceMemory vertexBufferMemory{VK_NULL_HANDLE};
@@ -156,9 +158,12 @@ struct Gltf{
     uint32_t fif{};
     uint32_t* frameIndex{};
 
-    void init(GPU& gpu, const unsigned char* newModel, size_t size);
-    void dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size);
-    void prepareInit(GPU& gpu, const unsigned char* newModel, size_t size);
+    void init(GPU& gpu, const unsigned char* newModel, size_t size,
+        const uint32_t* fragmentShader = nullptr, size_t fragmentShaderSize = 0);
+    void dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size,
+        const uint32_t* fragmentShader = nullptr, size_t fragmentShaderSize = 0);
+    void prepareInit(GPU& gpu, const unsigned char* newModel, size_t size,
+        const uint32_t* fragmentShader = nullptr, size_t fragmentShaderSize = 0);
     void finishInit(GPU& gpu);
     void render(GPU& gpu, VkCommandBuffer& commandBuffer);
     void rebuild(GPU& gpu);

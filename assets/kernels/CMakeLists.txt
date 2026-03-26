@@ -12,18 +12,21 @@ set(KERNEL_SOURCES
     ${KERNEL_DIR}/scene.frag
     ${KERNEL_DIR}/ui.vert
     ${KERNEL_DIR}/ui.frag
-    ${KERNEL_DIR}/custom_shader.vert
-    ${KERNEL_DIR}/custom_shader.frag
     ${KERNEL_DIR}/background.vert
     ${KERNEL_DIR}/background.frag
-    ${KERNEL_DIR}/triangle.vert
-    ${KERNEL_DIR}/triangle.frag
-    ${KERNEL_DIR}/viking.vert
-    ${KERNEL_DIR}/viking.frag
     ${KERNEL_DIR}/gltf.vert
     ${KERNEL_DIR}/gltf.frag
     ${KERNEL_DIR}/postProcess.vert
     ${KERNEL_DIR}/postProcess.frag
+    ${KERNEL_DIR}/scenePostProcess.frag
+
+    #${KERNEL_DIR}/triangle.vert
+    #${KERNEL_DIR}/triangle.frag
+    #${KERNEL_DIR}/viking.vert
+    #${KERNEL_DIR}/viking.frag
+    #${KERNEL_DIR}/custom_shader.vert
+    #${KERNEL_DIR}/custom_shader.frag
+    #${KERNEL_DIR}/carPostProcess.frag
 )
 
 function(compile_shader input_file output_list)

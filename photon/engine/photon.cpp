@@ -16,8 +16,9 @@ void Photon::init(){
     gpu.enableCustomTitlebar(&gui.titleBar);
     gui.backgroundShader.dispatchInit(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
-    //gui.carModel.dispatchInit(gpu, newCar_glb, newCar_glb_size);
-    gui.carModel.dispatchInit(gpu, s26track_glb, s26track_glb_size);
+    gui.sceneModel.addModel("s26track_glb", s26track_glb, s26track_glb_size, false);
+    gui.sceneModel.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
+    gui.sceneModel.dispatchInit(gpu);
     gui.setStyle();
 };
 
@@ -57,7 +58,7 @@ void Photon::renderLoop(){
         vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
 
         gui.backgroundShader.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
-        gui.carModel.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
+        gui.sceneModel.render(gpu, gpu.commandBuffers[gpu.frameIndex]);
         gpu.imguiPresentation(imgIdx);
         vkEndCommandBuffer(gpu.commandBuffers[gpu.frameIndex]);
 
@@ -71,6 +72,6 @@ void Photon::renderLoop(){
 
 void Photon::destroy(){
     gui.backgroundShader.destroy();
-    gui.carModel.destroy();
+    gui.sceneModel.destroy();
     gpu.destroy();
 };

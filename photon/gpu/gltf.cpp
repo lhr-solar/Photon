@@ -579,12 +579,14 @@ static void emitPrimitiveVertex(const uint8_t* posData, size_t posStride, const 
     outVertices.push_back(vertex);
 }
 
-void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
-    prepareInit(gpu, newModel, size);
+void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size,
+    const uint32_t* fragmentShader, size_t fragmentShaderSize){
+    prepareInit(gpu, newModel, size, fragmentShader, fragmentShaderSize);
     finishInit(gpu);
 }
 
-void Gltf::prepareInit(GPU& gpu, const unsigned char* newModel, size_t size){
+void Gltf::prepareInit(GPU& gpu, const unsigned char* newModel, size_t size,
+    const uint32_t* fragmentShader, size_t fragmentShaderSize){
     if (device != VK_NULL_HANDLE) destroy();
     if (newModel == nullptr || size == 0) return;
 
@@ -592,6 +594,8 @@ void Gltf::prepareInit(GPU& gpu, const unsigned char* newModel, size_t size){
     physicalDevice = gpu.physicalDevice;
     descriptorPool = gpu.descriptorPool;
     descriptorSetLayout = gpu.descriptorSetLayout;
+    postFragmentShader = fragmentShader != nullptr && fragmentShaderSize > 0 ? fragmentShader : postProcess_frag_spv;
+    postFragmentShaderSize = fragmentShader != nullptr && fragmentShaderSize > 0 ? fragmentShaderSize : postProcess_frag_spv_size;
     frameIndex = &gpu.frameIndex;
     fif = std::max(1u, static_cast<uint32_t>(gpu.swapchainImages.size()));
     msaaSamples = gpu.msaaSamples;
@@ -931,7 +935,7 @@ void Gltf::prepareInit(GPU& gpu, const unsigned char* newModel, size_t size){
 
     VkPipelineShaderStageCreateInfo postStages[2]{};
     postStages[0] = gpu.loadShader(postProcess_vert_spv, postProcess_vert_spv_size, postVertModule, VK_SHADER_STAGE_VERTEX_BIT, device);
-    postStages[1] = gpu.loadShader(postProcess_frag_spv, postProcess_frag_spv_size, postFragModule, VK_SHADER_STAGE_FRAGMENT_BIT, device);
+    postStages[1] = gpu.loadShader(postFragmentShader, postFragmentShaderSize, postFragModule, VK_SHADER_STAGE_FRAGMENT_BIT, device);
 
     VkPipelineVertexInputStateCreateInfo postVertexInput{};
     postVertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -974,9 +978,10 @@ void Gltf::finishInit(GPU& gpu) {
     partInitialized.store(false);
 }
 
-void Gltf::dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size) {
-    std::thread([this, &gpu, newModel, size]() {
-        prepareInit(gpu, newModel, size);
+void Gltf::dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size,
+    const uint32_t* fragmentShader, size_t fragmentShaderSize) {
+    std::thread([this, &gpu, newModel, size, fragmentShader, fragmentShaderSize]() {
+        prepareInit(gpu, newModel, size, fragmentShader, fragmentShaderSize);
     }).detach();
 }
 
@@ -1088,7 +1093,7 @@ void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
     VkClearValue postClear{};
-    postClear.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    postClear.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
     VkRenderPassBeginInfo postBegin{};
     postBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     postBegin.renderPass = postRenderPass;

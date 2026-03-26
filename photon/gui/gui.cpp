@@ -17,7 +17,7 @@ void GUI::buildUI(){
     ImPlot::ShowDemoWindow();
     ImPlot3D::ShowDemoWindow();
     backgroundWindow();
-    gltfWindow();
+    sceneWindow();
     ImGui::Render();
 };
 
@@ -211,6 +211,96 @@ void GUI::gltfWindow() {
     ImGui::PopStyleColor(2);
 }
 
+void GUI::sceneWindow(){
+    const bool ready = sceneModel.initialized.load()
+        && !sceneModel.frames.empty()
+        && sceneModel.frameIndex != nullptr;
+    SceneFrame fallbackFrame{};
+    SceneFrame& frame = ready ? sceneModel.frames[*sceneModel.frameIndex] : fallbackFrame;
+
+    ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+
+    if (ImGui::Begin("scene", nullptr, 0)) {
+        if (ready) {
+            const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+            if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+                frame.extent = nextExtent;
+                sceneModel.dirty = true;
+            }
+        }
+
+        ImVec2 drawSize(frame.extent.width, frame.extent.height);
+        drawSize.x = std::max(drawSize.x, 1.0f);
+        drawSize.y = std::max(drawSize.y, 1.0f);
+        if (ready) {
+            ImGui::Image(frame.texture, drawSize);
+            const bool sceneHovered = ImGui::IsItemHovered();
+            const ImVec2 imageMin = ImGui::GetItemRectMin();
+            const ImVec2 imageMax = ImGui::GetItemRectMax();
+
+            const char* cameraModes[] = {"Free", "Track"};
+            int cameraMode = sceneModel.cameraMode == SceneCameraMode::TrackModel ? 1 : 0;
+            const float overlayWidth = 120.0f;
+            const ImVec2 comboPos(imageMin.x, imageMax.y - 38.0f);
+            ImGui::SetCursorScreenPos(comboPos);
+            ImGui::PushItemWidth(overlayWidth);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.10f, 0.10f, 0.11f, 0.88f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.14f, 0.14f, 0.15f, 0.92f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.16f, 0.16f, 0.17f, 0.94f));
+            ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.08f, 0.08f, 0.09f, 0.96f));
+            if (ImGui::Combo("##SceneCameraMode", &cameraMode, cameraModes, IM_ARRAYSIZE(cameraModes))) {
+                sceneModel.cameraMode = cameraMode == 1 ? SceneCameraMode::TrackModel : SceneCameraMode::Free;
+            }
+            ImGui::PopStyleColor(4);
+            ImGui::PopStyleVar();
+            ImGui::PopItemWidth();
+
+            ImGuiIO& io = ImGui::GetIO();
+            if (sceneHovered) {
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                    sceneModel.camera.yaw -= io.MouseDelta.x * sceneModel.camera.orbitSensitivity;
+                    sceneModel.camera.pitch += io.MouseDelta.y * sceneModel.camera.orbitSensitivity;
+                    sceneModel.camera.pitch = std::clamp(sceneModel.camera.pitch, -89.0f, 89.0f);
+                }
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
+                    if (sceneModel.cameraMode == SceneCameraMode::Free) {
+                        const float yawRadians = glm::radians(sceneModel.camera.yaw);
+                        const float pitchRadians = glm::radians(sceneModel.camera.pitch);
+                        const glm::vec3 front = glm::normalize(glm::vec3(
+                            -std::cos(pitchRadians) * std::cos(yawRadians),
+                            -std::cos(pitchRadians) * std::sin(yawRadians),
+                            -std::sin(pitchRadians)));
+                        const glm::vec3 right = glm::normalize(glm::cross(front, sceneModel.camera.up));
+                        const glm::vec3 cameraUp = glm::normalize(glm::cross(right, front));
+                        const float viewportHeight = std::max(drawSize.y, 1.0f);
+                        const float worldUnitsPerPixel =
+                            (2.0f * sceneModel.camera.distance * std::tan(glm::radians(93.0f) * 0.5f)) / viewportHeight;
+                        const glm::vec3 panOffset =
+                            (-right * io.MouseDelta.x + cameraUp * io.MouseDelta.y)
+                            * worldUnitsPerPixel * sceneModel.camera.panSensitivity;
+                        sceneModel.camera.target += panOffset;
+                    }
+                }
+                if (std::abs(io.MouseWheel) > 0.0f) {
+                    const float zoomScale = std::max(0.1f, 1.0f - io.MouseWheel * sceneModel.camera.zoomSensitivity);
+                    sceneModel.camera.distance *= zoomScale;
+                    sceneModel.camera.distance = std::clamp(
+                        sceneModel.camera.distance,
+                        sceneModel.camera.minDistance,
+                        sceneModel.camera.maxDistance);
+                }
+            }
+        } else {
+            ImGui::Text("loading scene");
+        }
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+};
 
 void GUI::shaderWindow(){
 
