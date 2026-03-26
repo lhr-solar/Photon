@@ -6,6 +6,7 @@
 #include "background_frag_spv.hpp"
 #include "background_vert_spv.hpp"
 #include "s26track_glb.hpp"
+#include "s26_simple_track_glb.hpp"
 #include "newCar_glb.hpp"
 
 void Photon::init(){
@@ -16,6 +17,7 @@ void Photon::init(){
     gpu.enableCustomTitlebar(&gui.titleBar);
     gui.backgroundShader.dispatchInit(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
+    //gui.sceneModel.addModel("s26track_glb", s26_simple_track_glb, s26_simple_track_glb_size, false);
     gui.sceneModel.addModel("s26track_glb", s26track_glb, s26track_glb_size, false);
     gui.sceneModel.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
     gui.sceneModel.dispatchInit(gpu);
