@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include "gpu.hpp"
 #include "tiny_gltf.h"
 #include <array>
@@ -75,10 +76,11 @@ struct Camera {
        float yaw = 0.0;
        float pitch = 0.0;
        float distance = 2.5f;
-       float minDistance = 0.75f;
+       float minDistance = 0.05f;
        float maxDistance = 8.0f;
        float orbitSensitivity = 0.35f;
-       float zoomSensitivity = 0.2f;
+       float panSensitivity = 1.0f;
+       float zoomSensitivity = 0.08f;
 };
 
 struct gltfFrame {
@@ -112,7 +114,8 @@ struct Gltf{
     tinygltf::Model model{};
     std::vector<unsigned char> source{};
     bool dirty{};
-    bool initialized{};
+    std::atomic<bool> initialized{};
+    std::atomic<bool> partInitialized{};
     std::vector<GltfVertex> vertices;
     std::vector<TextureResource> gltfTexturesSrgb;
     std::vector<TextureResource> gltfTexturesLinear;
@@ -154,6 +157,9 @@ struct Gltf{
     uint32_t* frameIndex{};
 
     void init(GPU& gpu, const unsigned char* newModel, size_t size);
+    void dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size);
+    void prepareInit(GPU& gpu, const unsigned char* newModel, size_t size);
+    void finishInit(GPU& gpu);
     void render(GPU& gpu, VkCommandBuffer& commandBuffer);
     void rebuild(GPU& gpu);
     void destroy();

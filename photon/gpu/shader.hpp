@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <vulkan/vulkan.h>
 #include "gpu.hpp"
 struct alignas(16) PushConstants {
@@ -31,7 +32,8 @@ struct Shader{
     size_t vertShaderSize;
     uint32_t* fragShader;
     size_t fragShaderSize;
-    bool initialized{};
+    std::atomic<bool> initialized{};
+    std::atomic<bool> partInitialized{};
     bool dirty{};
     VkShaderModule fragShaderModule{};
     VkShaderModule vertShaderModule{};
@@ -42,6 +44,11 @@ struct Shader{
 
     void init(GPU& gpu, uint32_t* vertexShader, size_t vertexShaderSize,
     uint32_t* fragmentShader, size_t fragmentShaderSize);
+    void dispatchInit(GPU& gpu, uint32_t* vertexShader, size_t vertexShaderSize,
+    uint32_t* fragmentShader, size_t fragmentShaderSize);
+    void prepareInit(GPU& gpu, uint32_t* vertexShader, size_t vertexShaderSize,
+    uint32_t* fragmentShader, size_t fragmentShaderSize);
+    void finishInit(GPU& gpu);
     void render(GPU& gpu, VkCommandBuffer& commandBuffer);
     void rebuild(GPU& gpu);
     void destroy();

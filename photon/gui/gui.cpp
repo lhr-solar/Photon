@@ -9,7 +9,6 @@
 #include "implot.h"
 #include "implot3d.h"
 
-
 void GUI::buildUI(){
     ImGui::NewFrame();
     buildTitleBar();
@@ -92,10 +91,10 @@ void GUI::dockspace(){
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     const ImVec2 dockspacePos(
-        viewport->WorkPos.x + viewport->WorkSize.x * 0.15f,
+        viewport->WorkPos.x + viewport->WorkSize.x * 0.175f,
         viewport->WorkPos.y + static_cast<float>(titleBar.height));
     const ImVec2 dockspaceSize(
-        viewport->WorkSize.x * 0.85f,
+        viewport->WorkSize.x * 0.825f,
         std::max(1.0f, viewport->WorkSize.y - static_cast<float>(titleBar.height)));
     ImGui::SetNextWindowPos(dockspacePos);
     ImGui::SetNextWindowSize(dockspaceSize);
@@ -103,6 +102,9 @@ void GUI::dockspace(){
     ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_DockingEmptyBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
     window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
     window_flags |= ImGuiWindowFlags_NoBackground;
@@ -111,6 +113,7 @@ void GUI::dockspace(){
     ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
     }ImGui::End();
+    ImGui::PopStyleColor(3);
     ImGui::PopStyleVar(3);
 }
 
@@ -122,55 +125,90 @@ VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
 }
 
 void GUI::backgroundWindow(){
-    if(!backgroundShader.initialized || backgroundShader.frames.empty() || backgroundShader.frameIndex == nullptr) return;
-    shaderFrame& frame = backgroundShader.frames[*backgroundShader.frameIndex];
+    const bool ready = backgroundShader.initialized.load()
+        && !backgroundShader.frames.empty()
+        && backgroundShader.frameIndex != nullptr;
+    shaderFrame fallbackFrame{};
+    shaderFrame& frame = ready ? backgroundShader.frames[*backgroundShader.frameIndex] : fallbackFrame;
     ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin("background", NULL, 0)){
-        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
-        if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
-            frame.extent = nextExtent;
-            backgroundShader.dirty = true;
+        if (ready) {
+            const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+            if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+                frame.extent = nextExtent;
+                backgroundShader.dirty = true;
+            }
         }
         ImVec2 drawSize(frame.extent.width, frame.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
-        ImGui::Image(frame.texture, drawSize);
+        if (ready) { ImGui::Image(frame.texture, drawSize);} 
+        else { ImGui::Text("loading shader"); }
     }
     ImGui::End();
 };
 
 void GUI::gltfWindow() {
-    if(!carModel.initialized || carModel.frames.empty() || carModel.frameIndex == nullptr) return;
-    gltfFrame& frame = carModel.frames[*carModel.frameIndex];
+    const bool ready = carModel.initialized.load()
+        && !carModel.frames.empty()
+        && carModel.frameIndex != nullptr;
+    gltfFrame fallbackFrame{};
+    gltfFrame& frame = ready ? carModel.frames[*carModel.frameIndex] : fallbackFrame;
     ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     if(ImGui::Begin("gltf", NULL, 0)){
-        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
-        if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
-            frame.extent = nextExtent;
-            carModel.dirty = true;
+        if (ready) {
+            const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+            if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+                frame.extent = nextExtent;
+                carModel.dirty = true;
+            }
         }
         ImVec2 drawSize(frame.extent.width, frame.extent.height);
         drawSize.x = std::max(drawSize.x, 1.0f);
         drawSize.y = std::max(drawSize.y, 1.0f);
-        ImGui::Image(frame.texture, drawSize);
-        ImGuiIO& io = ImGui::GetIO();
-        if (ImGui::IsItemHovered()) {
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-                carModel.camera.yaw -= io.MouseDelta.x * carModel.camera.orbitSensitivity;
-                carModel.camera.pitch += io.MouseDelta.y * carModel.camera.orbitSensitivity;
-                carModel.camera.pitch = std::clamp(carModel.camera.pitch, -89.0f, 89.0f);
+        if (ready) {
+            ImGui::Image(frame.texture, drawSize);
+            ImGuiIO& io = ImGui::GetIO();
+            if (ImGui::IsItemHovered()) {
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                    carModel.camera.yaw -= io.MouseDelta.x * carModel.camera.orbitSensitivity;
+                    carModel.camera.pitch += io.MouseDelta.y * carModel.camera.orbitSensitivity;
+                    carModel.camera.pitch = std::clamp(carModel.camera.pitch, -89.0f, 89.0f);
+                }
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
+                    const float yawRadians = glm::radians(carModel.camera.yaw);
+                    const float pitchRadians = glm::radians(carModel.camera.pitch);
+                    const glm::vec3 front = glm::normalize(glm::vec3(
+                        -std::cos(pitchRadians) * std::cos(yawRadians),
+                        -std::cos(pitchRadians) * std::sin(yawRadians),
+                        -std::sin(pitchRadians)));
+                    const glm::vec3 right = glm::normalize(glm::cross(front, carModel.camera.up));
+                    const glm::vec3 cameraUp = glm::normalize(glm::cross(right, front));
+                    const float viewportHeight = std::max(drawSize.y, 1.0f);
+                    const float worldUnitsPerPixel =
+                        (2.0f * carModel.camera.distance * std::tan(glm::radians(93.0f) * 0.5f)) / viewportHeight;
+                    const glm::vec3 panOffset =
+                        (-right * io.MouseDelta.x + cameraUp * io.MouseDelta.y)
+                        * worldUnitsPerPixel * carModel.camera.panSensitivity;
+                    carModel.camera.target += panOffset;
+                }
+                if (std::abs(io.MouseWheel) > 0.0f) {
+                    const float zoomScale = std::max(0.1f, 1.0f - io.MouseWheel * carModel.camera.zoomSensitivity);
+                    carModel.camera.distance *= zoomScale;
+                    carModel.camera.distance = std::clamp(
+                        carModel.camera.distance,
+                        carModel.camera.minDistance,
+                        carModel.camera.maxDistance);
+                }
             }
-            if (std::abs(io.MouseWheel) > 0.0f) {
-                carModel.camera.distance -= io.MouseWheel * carModel.camera.zoomSensitivity;
-                carModel.camera.distance = std::clamp(
-                    carModel.camera.distance,
-                    carModel.camera.minDistance,
-                    carModel.camera.maxDistance);
-            }
-        }
+        } else { ImGui::Text("loading model"); }
     }
     ImGui::End();
+    ImGui::PopStyleColor(2);
 }
 
 

@@ -580,6 +580,11 @@ static void emitPrimitiveVertex(const uint8_t* posData, size_t posStride, const 
 }
 
 void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
+    prepareInit(gpu, newModel, size);
+    finishInit(gpu);
+}
+
+void Gltf::prepareInit(GPU& gpu, const unsigned char* newModel, size_t size){
     if (device != VK_NULL_HANDLE) destroy();
     if (newModel == nullptr || size == 0) return;
 
@@ -591,7 +596,8 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     fif = std::max(1u, static_cast<uint32_t>(gpu.swapchainImages.size()));
     msaaSamples = gpu.msaaSamples;
     dirty = false;
-    initialized = false;
+    initialized.store(false);
+    partInitialized.store(false);
 
     loader = tinygltf::TinyGLTF{};
     model = tinygltf::Model{};
@@ -641,10 +647,11 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     camera.yaw = 180.0f;
     camera.pitch = 0.0f;
     camera.distance = 2.5f;
-    camera.minDistance = 0.75f;
-    camera.maxDistance = 8.0f;
+    camera.minDistance = 0.005f;
+    camera.maxDistance = 32.0f;
     camera.orbitSensitivity = 0.35f;
-    camera.zoomSensitivity = 0.2f;
+    camera.panSensitivity = 1.0f;
+    camera.zoomSensitivity = 0.050f;
     camera.front = {-1.0f, 0.0f, 0.0f};
     camera.up = {0.0f, 0.0f, 1.0f};
 
@@ -950,7 +957,11 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.maxAnisotropy = 1.0f;
     vkCreateSampler(device, &samplerInfo, nullptr, &offscreenColorSampler);
+    partInitialized.store(true);
+}
 
+void Gltf::finishInit(GPU& gpu) {
+    if (!partInitialized.load() || initialized.load()) return;
     createFallbackTexture(*this, gpu);
     loadGltfTextures(*this, gpu);
     createVertexBuffer(*this, gpu);
@@ -959,11 +970,19 @@ void Gltf::init(GPU& gpu, const unsigned char* newModel, size_t size){
     frames.assign(fif, {});
     for (uint32_t i = 0; i < fif; i++)
         initFrame(*this, gpu, i);
-    initialized = true;
+    initialized.store(true);
+    partInitialized.store(false);
+}
+
+void Gltf::dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size) {
+    std::thread([this, &gpu, newModel, size]() {
+        prepareInit(gpu, newModel, size);
+    }).detach();
 }
 
 void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
-    if (!initialized || frames.empty() || frameIndex == nullptr || vertexBuffer == VK_NULL_HANDLE) return;
+    if (!initialized.load() && partInitialized.load()) finishInit(gpu);
+    if (!initialized.load() || frames.empty() || frameIndex == nullptr || vertexBuffer == VK_NULL_HANDLE) return;
     if (dirty) rebuild(gpu);
 
     gltfFrame& frame = frames[*frameIndex];
@@ -982,7 +1001,7 @@ void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
     camera.front = glm::normalize(camera.target - camera.position);
     mvp.view = glm::lookAt(camera.position, camera.target, camera.up);
     mvp.proj = glm::perspective(glm::radians(93.0f),
-        static_cast<float>(frame.extent.width) / static_cast<float>(std::max(1u, frame.extent.height)), 0.01f, 32.0f);
+        static_cast<float>(frame.extent.width) / static_cast<float>(std::max(1u, frame.extent.height)), 0.001f, 32.0f);
     mvp.proj[1][1] *= -1.0f;
     mvp.camPos = glm::vec4(camera.position, 1.0f);
     std::memcpy(frame.uniformMapped, &mvp, sizeof(GltfMVP));
@@ -1025,7 +1044,7 @@ void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     VkClearValue sceneClear[2]{};
-    sceneClear[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    sceneClear[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
     sceneClear[1].depthStencil = {1.0f, 0};
     VkRenderPassBeginInfo sceneBegin{};
     sceneBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1096,7 +1115,7 @@ void Gltf::render(GPU& gpu, VkCommandBuffer& commandBuffer){
 }
 
 void Gltf::rebuild(GPU& gpu){
-    if (!initialized || frames.empty() || frameIndex == nullptr) return;
+    if (!initialized.load() || frames.empty() || frameIndex == nullptr) return;
     const uint32_t index = *frameIndex;
     destroyFrame(*this, index);
     initFrame(*this, gpu, index);
@@ -1104,7 +1123,6 @@ void Gltf::rebuild(GPU& gpu){
 }
 
 void Gltf::destroy(){
-    if(!initialized) return;
     if (device == VK_NULL_HANDLE) return;
     vkDeviceWaitIdle(device);
 
@@ -1166,7 +1184,8 @@ void Gltf::destroy(){
     materialDescriptorSetLayout = VK_NULL_HANDLE;
     postDescriptorSetLayout = VK_NULL_HANDLE;
     internalDescriptorPool = VK_NULL_HANDLE;
-    initialized = false;
+    initialized.store(false);
+    partInitialized.store(false);
     dirty = false;
     device = VK_NULL_HANDLE;
 }

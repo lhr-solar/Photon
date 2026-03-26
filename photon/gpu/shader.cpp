@@ -96,6 +96,13 @@ static void initFrame(Shader& shader, GPU& gpu, uint32_t index){
 void Shader::init(GPU& gpu,
     uint32_t* vertexShader, size_t vertexShaderSize,
     uint32_t* fragmentShader, size_t fragmentShaderSize){
+    prepareInit(gpu, vertexShader, vertexShaderSize, fragmentShader, fragmentShaderSize);
+    finishInit(gpu);
+}
+
+void Shader::prepareInit(GPU& gpu,
+    uint32_t* vertexShader, size_t vertexShaderSize,
+    uint32_t* fragmentShader, size_t fragmentShaderSize){
     device = gpu.device;
     descriptorPool = gpu.descriptorPool;
     descriptorSetLayout = gpu.descriptorSetLayout;
@@ -234,16 +241,30 @@ void Shader::init(GPU& gpu,
     samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     vkCreateSampler(device, &samplerCreateInfo, nullptr, &sampler);
+    partInitialized.store(true);
+}
 
+void Shader::finishInit(GPU& gpu) {
+    if (!partInitialized.load() || initialized.load()) return;
     frames.assign(fif, {});
     for (uint32_t i = 0; i < fif; i++)
         initFrame(*this, gpu, i);
-    initialized = true;
+    initialized.store(true);
+    partInitialized.store(false);
     dirty = false;
 }
 
+void Shader::dispatchInit(GPU& gpu,
+    uint32_t* vertexShader, size_t vertexShaderSize,
+    uint32_t* fragmentShader, size_t fragmentShaderSize) {
+    std::thread([this, &gpu, vertexShader, vertexShaderSize, fragmentShader, fragmentShaderSize]() {
+        prepareInit(gpu, vertexShader, vertexShaderSize, fragmentShader, fragmentShaderSize);
+    }).detach();
+}
+
 void Shader::render(GPU& gpu, VkCommandBuffer& commandBuffer){
-    if (!initialized || frames.empty() || frameIndex == nullptr) return;
+    if (!initialized.load() && partInitialized.load()) finishInit(gpu);
+    if (!initialized.load() || frames.empty() || frameIndex == nullptr) return;
     if(dirty) rebuild(gpu);
     shaderFrame& frame = frames[*frameIndex];
     VkImageSubresourceRange range{};
@@ -289,7 +310,7 @@ void Shader::render(GPU& gpu, VkCommandBuffer& commandBuffer){
 }
 
 void Shader::rebuild(GPU& gpu){
-    if (!initialized || frames.empty() || frameIndex == nullptr) return;
+    if (!initialized.load() || frames.empty() || frameIndex == nullptr) return;
     const uint32_t index = *frameIndex;
     destroyFrame(*this, index);
     initFrame(*this, gpu, index);
@@ -297,7 +318,7 @@ void Shader::rebuild(GPU& gpu){
 }
 
 void Shader::destroy(){
-    if(!initialized) return;
+    if (device == VK_NULL_HANDLE) return;
     vkDeviceWaitIdle(device);
     for (uint32_t i = 0; i < frames.size(); i++) {
         const VkDescriptorSet descriptorSet = frames[i].descriptorSet;
@@ -311,4 +332,8 @@ void Shader::destroy(){
     vkDestroyShaderModule(device, vertShaderModule, NULL);
     vkDestroyPipelineLayout(device, pipelineLayout, NULL);
     vkDestroyPipeline(device, pipeline, NULL);
+    frames.clear();
+    initialized.store(false);
+    partInitialized.store(false);
+    device = VK_NULL_HANDLE;
 }

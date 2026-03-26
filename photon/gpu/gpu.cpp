@@ -812,7 +812,7 @@ void GPU::imguiBackend(){
 
 void GPU::imguiPresentation(uint32_t imgIdx){
     VkClearValue clearValues[1];
-    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 0.3f}};
+    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 0.4f}};
     VkRenderPassBeginInfo renderPassBeginInfo {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass = renderpass;

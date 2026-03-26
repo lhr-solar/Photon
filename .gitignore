@@ -8,6 +8,7 @@ perf.data
 perf.data.old
 Photon.exe
 assets/video/*
+assets/models/*.glb
 config.ini
 perf/
 runtime/
