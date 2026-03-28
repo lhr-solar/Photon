@@ -25,14 +25,18 @@ struct TitleBar {
     bool isInteract(int x, int y) const;
 };
 
-struct NetworkInterface {
-    struct MetaData{
-        std::string dataSource{};
-        void* dataSourceMetaData{};
+struct NetworkMetaData{
         std::string dbc{};
-        std::string* availableDBC{};
+        std::vector<std::string> availableDBC{};
+        std::string dataSource{};
         std::string ping{};
-    };
+        std::string device{};
+        std::string dataRate{};
+        std::string applicationVersion{};
+};
+
+struct NetworkInterface {
+    NetworkMetaData metaData{};
     void* MemoryArena{};
 };
 
@@ -42,6 +46,8 @@ struct GUI{
     Scene sceneModel{};
     SDL_Window* window = nullptr;
     TitleBar titleBar{};
+
+    NetworkInterface networkInterface{};
 
     void buildUI();
     void bindWindow(SDL_Window* targetWindow);
