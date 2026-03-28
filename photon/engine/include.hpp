@@ -26,7 +26,7 @@ inline void ensure_console() {
 #ifdef NDEBUG 
     #define logs(x) do {} while(0)
 #else 
-    #define logs(x){ const auto id = std::this_thread::get_id(); std::cout << "[0x" << std::hex << id << "] " << x << std::endl; }
+    #define logs(x){ const auto id = std::this_thread::get_id(); std::cout << "[0x" << std::hex << id << std::dec << "] " << x << std::endl; }
 #endif
 
 #endif

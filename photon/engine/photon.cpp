@@ -18,7 +18,7 @@ void Photon::init(){
     gui.backgroundShader.dispatchInit(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
     //gui.sceneModel.addModel("s26track_glb", s26_simple_track_glb, s26_simple_track_glb_size, false);
-    gui.sceneModel.addModel("s26track_glb", s26track_glb, s26track_glb_size, false);
+    //gui.sceneModel.addModel("s26track_glb", s26track_glb, s26track_glb_size, false);
     gui.sceneModel.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
     gui.sceneModel.dispatchInit(gpu);
     gui.setStyle();
