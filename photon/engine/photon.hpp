@@ -14,7 +14,6 @@ struct Photon {
     bool running = true;
     double timestamp{};
     double deltaTime = 16.67 * 1000;
-    SDL_WindowID windowID{};
     void init();
     void handleInput();
     void appLogic();

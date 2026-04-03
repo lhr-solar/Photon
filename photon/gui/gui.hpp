@@ -5,6 +5,8 @@
 #include "../gpu/shader.hpp"
 #include "../gpu/gltf.hpp"
 #include "../gpu/scene.hpp"
+#include "../network/network.hpp"
+#include "../parse/parse.hpp"
 
 enum class WindowAction {
     None,
@@ -25,30 +27,16 @@ struct TitleBar {
     bool isInteract(int x, int y) const;
 };
 
-struct NetworkMetadata{
-        std::string dbc{};
-        std::vector<std::string> availableDBC{};
-        std::string dataSource{};
-        std::string ping{};
-        std::string device{};
-        std::string dataRate{};
-        std::string applicationVersion{};
-};
-
-struct NetworkInterface {
-    NetworkMetadata metaData{};
-    void* MemoryArena{};
-};
-
 struct GUI{
+    Network* network{};
+    Parse* parse{};
+    GPU* gpu{};
     Shader backgroundShader{};
     Gltf carModel{};
     Scene sceneModel{};
     SDL_Window* window = nullptr;
     TitleBar titleBar{};
-
-    NetworkInterface networkInterface{};
-
+    void init(GPU* gpu, Network* network, Parse* parse);
     void buildUI();
     void bindWindow(SDL_Window* targetWindow);
     void buildTitleBar();

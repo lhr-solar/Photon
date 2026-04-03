@@ -21,13 +21,25 @@ enum datatype {
 
 struct arenaConfig {
     size_t arenaSize{};
-    std::array<uint32_t, MESSAGE_MAX> dataLengths{};
     std::array<uint32_t, MESSAGE_MAX> signalCounts{};
     std::vector<uint32_t> validIds{};
 };
 
 struct Signal{
-    datatype type{};
+    int startBit = 0;
+    int length = 0;
+    int endianness = 0;
+    datatype type = vINT;
+    bool isSigned = false;
+    double scale = 1.0;
+    double offset = 0.0;
+    double min = 0.0;
+    double max = 0.0;
+    std::string name = "NULL";
+    std::string unit = "NULL";
+    std::string receiver = "NULL";
+    std::chrono::system_clock::time_point lastTimeMutated = std::chrono::system_clock::now();
+    std::chrono::milliseconds timeSinceMutation{};
     void* data{};
 };
 
@@ -35,6 +47,13 @@ struct Message{
     uint32_t id{};
     uint32_t dlc{};
     uint32_t signalCount{};
+    std::string name{};
+    std::string transmitter{};
+    std::chrono::system_clock::time_point lastTimeUpdated = std::chrono::system_clock::now();
+    std::chrono::milliseconds timeSinceUpdate{};
+    double dataRate{};
+    double dataTransfer{};
+    double bandwidthPercentage{};
     alignas(64) std::atomic<uint32_t> signalSize{};
     std::array<Signal*, SIGNAL_MAX> signals{};
 };
@@ -57,6 +76,8 @@ struct Arena{
     bool write(uint32_t id, uint32_t signal, void* data, uint32_t size);
     void clear(uint32_t signal);
     void destroy();
+    std::vector<size_t> search(const std::string& query);
 
     void status();
+    void statusUI();
 };
