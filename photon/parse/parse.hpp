@@ -1,4 +1,7 @@
 #pragma once
-struct Parse{
+#include "arena.hpp"
 
+struct Parse{
+    Arena arena{};
+    void init();
 };

@@ -17,41 +17,23 @@ void Photon::init(){
     gpu.enableCustomTitlebar(&gui.titleBar);
     gui.backgroundShader.dispatchInit(gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
-    //gui.sceneModel.addModel("s26track_glb", s26_simple_track_glb, s26_simple_track_glb_size, false);
-    //gui.sceneModel.addModel("s26track_glb", s26track_glb, s26track_glb_size, false);
-    gui.sceneModel.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
+    gui.sceneModel.addModel("s26track_glb", s26_simple_track_glb, s26_simple_track_glb_size, false);
+    gui.sceneModel.addModel("s26track_glb", s26track_glb, s26track_glb_size, false);
+    //gui.sceneModel.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
     gui.sceneModel.dispatchInit(gpu);
     gui.setStyle();
-};
-
-void Photon::handleInput(){
-    ImGuiIO& io = ImGui::GetIO();
-    const bool wantTextInput = io.WantTextInput;
-    if (wantTextInput != SDL_TextInputActive(gpu.window)) {
-        if (wantTextInput) SDL_StartTextInput(gpu.window);
-        else SDL_StopTextInput(gpu.window);
-    }
-
-    SDL_Event events{};
-    while(SDL_PollEvent(&events)) {
-        if (events.type == SDL_EVENT_QUIT) running = false;
-        if ((events.type == SDL_EVENT_WINDOW_RESIZED) || (events.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)) 
-            gpu.requestResize();
-        gui.processEvents(&events);
-    }
-};
+    parse.init(); logs("Initialized Arena");
+    network.init(&parse.arena); logs("Initialized Network");
+}
 
 void Photon::renderLoop(){
     logs("Starting render loop");
     while(running){
         auto startFrame = std::chrono::high_resolution_clock::now();
         uint32_t imgIdx{};
-        ImGuiIO& io = ImGui::GetIO();
-        io.DeltaTime = deltaTime / 1000;
-        handleInput();
         gpu.startFrame(imgIdx);
 
-        gui.buildUI();
+        appLogic();
 
         VkCommandBufferBeginInfo cmdBufferBeginInfo {};
         cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -76,4 +58,29 @@ void Photon::destroy(){
     gui.backgroundShader.destroy();
     gui.sceneModel.destroy();
     gpu.destroy();
+    network.destroy();
+    parse.arena.destroy();
+};
+
+void Photon::handleInput(){
+    ImGuiIO& io = ImGui::GetIO();
+    io.DeltaTime = deltaTime / 1000;
+    const bool wantTextInput = io.WantTextInput;
+    if (wantTextInput != SDL_TextInputActive(gpu.window)) {
+        if (wantTextInput) SDL_StartTextInput(gpu.window);
+        else SDL_StopTextInput(gpu.window);
+    }
+
+    SDL_Event events{};
+    while(SDL_PollEvent(&events)) {
+        if (events.type == SDL_EVENT_QUIT) running = false;
+        if ((events.type == SDL_EVENT_WINDOW_RESIZED) || (events.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)) 
+            gpu.requestResize();
+        gui.processEvents(&events);
+    }
+};
+
+void Photon::appLogic(){
+    handleInput();
+    gui.buildUI();
 };

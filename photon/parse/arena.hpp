@@ -13,17 +13,17 @@ constexpr uint32_t MESSAGE_MAX = 2048;
 constexpr uint32_t SIGNAL_MAX = 32;
 constexpr uint32_t MINIMUM_ARENA_SIZE = PAGE_SIZE * MESSAGE_MAX * SIGNAL_MAX;
 
-struct arenaConfig {
-    uint32_t arenaSize{};
-    std::array<uint32_t, MESSAGE_MAX> dataLengths{};
-    std::array<uint32_t, MESSAGE_MAX> signalCounts{};
-    std::vector<uint32_t> validIds{};
-};
-
 enum datatype {
     vINT = 0,
     vFLOAT = 1,
     vDOUBLE = 2
+};
+
+struct arenaConfig {
+    size_t arenaSize{};
+    std::array<uint32_t, MESSAGE_MAX> dataLengths{};
+    std::array<uint32_t, MESSAGE_MAX> signalCounts{};
+    std::vector<uint32_t> validIds{};
 };
 
 struct Signal{
@@ -35,17 +35,28 @@ struct Message{
     uint32_t id{};
     uint32_t dlc{};
     uint32_t signalCount{};
+    alignas(64) std::atomic<uint32_t> signalSize{};
     std::array<Signal*, SIGNAL_MAX> signals{};
 };
 
 struct Arena{
+    void* pool{};
+    uint8_t* cursor{};
+    size_t remaining{};
+    size_t totalPages{};
+    size_t pagesPerSignal{};
+    size_t bytesPerSignal{};
     uint32_t arenaSize = {};
     uint32_t totalSignals = {};
+    std::vector<uint32_t> validIds{};
     std::array<Message*, MESSAGE_MAX> messages{};
-    void* pool{};
+
     void init(const arenaConfig& config);
-    void read(uint32_t message, uint32_t signal, std::vector<double>& data);
-    void write(uint32_t message, uint32_t signal, std::vector<double>& data);
-    void allocate(uint32_t message);
-    void destroy(uint32_t message);
+    void* alloc(size_t bytes, size_t align);
+    void read(uint32_t id, uint32_t signal, void** data, uint32_t* size);
+    bool write(uint32_t id, uint32_t signal, void* data, uint32_t size);
+    void clear(uint32_t signal);
+    void destroy();
+
+    void status();
 };

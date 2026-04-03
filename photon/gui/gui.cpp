@@ -13,9 +13,6 @@ void GUI::buildUI(){
     ImGui::NewFrame();
     buildTitleBar();
     dockspace();
-    ImGui::ShowDemoWindow();
-    ImPlot::ShowDemoWindow();
-    ImPlot3D::ShowDemoWindow();
     backgroundWindow();
     sceneWindow();
     ImGui::Render();

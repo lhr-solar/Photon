@@ -25,7 +25,7 @@ struct TitleBar {
     bool isInteract(int x, int y) const;
 };
 
-struct NetworkMetaData{
+struct NetworkMetadata{
         std::string dbc{};
         std::vector<std::string> availableDBC{};
         std::string dataSource{};
@@ -36,7 +36,7 @@ struct NetworkMetaData{
 };
 
 struct NetworkInterface {
-    NetworkMetaData metaData{};
+    NetworkMetadata metaData{};
     void* MemoryArena{};
 };
 
