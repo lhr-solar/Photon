@@ -1,7 +1,24 @@
 #include "protocols.hpp"
 #include <chrono>
+#include <cerrno>
+#include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <thread>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <algorithm>
+#else
+#include <linux/can.h>
+#include <linux/can/netlink.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <unistd.h>
+#endif
 
 namespace {
 void publishStatus(SPMCQueue<ProtocolError, 64>* statusBuffer, bool fatal, const char* message){
@@ -26,6 +43,450 @@ void writeFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const char* frame){
         streamBuffer->write([&](uint8_t& slot){ slot = byte; });
     }
 }
+
+#ifdef _WIN32
+using TPCANHandle = WORD;
+using TPCANStatus = DWORD;
+using TPCANParameter = BYTE;
+using TPCANMessageType = BYTE;
+using TPCANBaudrate = WORD;
+
+struct TPCANMsg{
+    DWORD ID;
+    TPCANMessageType MSGTYPE;
+    BYTE LEN;
+    BYTE DATA[8];
+};
+
+struct TPCANTimestamp{
+    DWORD millis;
+    WORD millis_overflow;
+    WORD micros;
+};
+
+struct TPCANChannelInformation{
+    TPCANHandle channel_handle;
+    BYTE device_type;
+    BYTE controller_number;
+    DWORD device_features;
+    char device_name[33];
+    DWORD device_id;
+    DWORD channel_condition;
+};
+
+static constexpr WORD kEnglishLang = 0x09;
+static constexpr TPCANHandle PCAN_NONEBUS = 0x00U;
+static constexpr TPCANHandle PCAN_PCIBUS1 = 0x41U;
+static constexpr TPCANHandle PCAN_USBBUS1 = 0x51U;
+static constexpr TPCANHandle PCAN_LANBUS1 = 0x801U;
+static constexpr TPCANStatus PCAN_ERROR_OK = 0x00000U;
+static constexpr TPCANStatus PCAN_ERROR_QRCVEMPTY = 0x00020U;
+static constexpr TPCANParameter PCAN_BUSOFF_AUTORESET = 0x07U;
+static constexpr TPCANParameter PCAN_LISTEN_ONLY = 0x08U;
+static constexpr TPCANParameter PCAN_ATTACHED_CHANNELS_COUNT = 0x2AU;
+static constexpr TPCANParameter PCAN_ATTACHED_CHANNELS = 0x2BU;
+static constexpr BYTE PCAN_PARAMETER_OFF = 0x00U;
+static constexpr BYTE PCAN_PARAMETER_ON = 0x01U;
+static constexpr DWORD PCAN_CHANNEL_AVAILABLE = 0x01U;
+static constexpr DWORD PCAN_CHANNEL_OCCUPIED = 0x02U;
+static constexpr DWORD PCAN_CHANNEL_PCANVIEW = PCAN_CHANNEL_AVAILABLE | PCAN_CHANNEL_OCCUPIED;
+static constexpr TPCANMessageType PCAN_MESSAGE_STANDARD = 0x00U;
+static constexpr TPCANMessageType PCAN_MESSAGE_RTR = 0x01U;
+static constexpr TPCANMessageType PCAN_MESSAGE_EXTENDED = 0x02U;
+static constexpr TPCANMessageType PCAN_MESSAGE_ERRFRAME = 0x40U;
+static constexpr TPCANMessageType PCAN_MESSAGE_STATUS = 0x80U;
+static constexpr TPCANBaudrate PCAN_BAUD_1M = 0x0014U;
+static constexpr TPCANBaudrate PCAN_BAUD_800K = 0x0016U;
+static constexpr TPCANBaudrate PCAN_BAUD_500K = 0x001CU;
+static constexpr TPCANBaudrate PCAN_BAUD_250K = 0x011CU;
+static constexpr TPCANBaudrate PCAN_BAUD_125K = 0x031CU;
+static constexpr TPCANBaudrate PCAN_BAUD_100K = 0x432FU;
+static constexpr TPCANBaudrate PCAN_BAUD_95K = 0xC34EU;
+static constexpr TPCANBaudrate PCAN_BAUD_83K = 0x852BU;
+static constexpr TPCANBaudrate PCAN_BAUD_50K = 0x472FU;
+static constexpr TPCANBaudrate PCAN_BAUD_47K = 0x1414U;
+static constexpr TPCANBaudrate PCAN_BAUD_33K = 0x8B2FU;
+static constexpr TPCANBaudrate PCAN_BAUD_20K = 0x532FU;
+static constexpr TPCANBaudrate PCAN_BAUD_10K = 0x672FU;
+static constexpr TPCANBaudrate PCAN_BAUD_5K = 0x7F7FU;
+
+struct PcanBasicApi{
+    using InitializeFn = TPCANStatus(__stdcall*)(TPCANHandle, TPCANBaudrate, BYTE, DWORD, WORD);
+    using UninitializeFn = TPCANStatus(__stdcall*)(TPCANHandle);
+    using ReadFn = TPCANStatus(__stdcall*)(TPCANHandle, TPCANMsg*, TPCANTimestamp*);
+    using GetValueFn = TPCANStatus(__stdcall*)(TPCANHandle, TPCANParameter, void*, DWORD);
+    using SetValueFn = TPCANStatus(__stdcall*)(TPCANHandle, TPCANParameter, void*, DWORD);
+    using GetErrorTextFn = TPCANStatus(__stdcall*)(TPCANStatus, WORD, LPSTR);
+
+    HMODULE module{};
+    InitializeFn initialize{};
+    UninitializeFn uninitialize{};
+    ReadFn read{};
+    GetValueFn getValue{};
+    SetValueFn setValue{};
+    GetErrorTextFn getErrorText{};
+};
+
+bool loadPcanBasic(PcanBasicApi& api, char* error, std::size_t errorSize){
+    api.module = LoadLibraryA("PCANBasic.dll");
+    if(!api.module){
+        std::snprintf(error, errorSize, "failed to load DLL, ensure PCAN drivers are installed!");
+        return false;
+    }
+
+    api.initialize = reinterpret_cast<PcanBasicApi::InitializeFn>(GetProcAddress(api.module, "CAN_Initialize"));
+    api.uninitialize = reinterpret_cast<PcanBasicApi::UninitializeFn>(GetProcAddress(api.module, "CAN_Uninitialize"));
+    api.read = reinterpret_cast<PcanBasicApi::ReadFn>(GetProcAddress(api.module, "CAN_Read"));
+    api.getValue = reinterpret_cast<PcanBasicApi::GetValueFn>(GetProcAddress(api.module, "CAN_GetValue"));
+    api.setValue = reinterpret_cast<PcanBasicApi::SetValueFn>(GetProcAddress(api.module, "CAN_SetValue"));
+    api.getErrorText = reinterpret_cast<PcanBasicApi::GetErrorTextFn>(GetProcAddress(api.module, "CAN_GetErrorText"));
+    if(api.initialize && api.uninitialize && api.read && api.getValue && api.setValue && api.getErrorText) return true;
+
+    std::snprintf(error, errorSize, "failed to resolve PCANBasic.dll symbols");
+    FreeLibrary(api.module);
+    api = {};
+    return false;
+}
+
+void unloadPcanBasic(PcanBasicApi& api){
+    if(api.module) FreeLibrary(api.module);
+    api = {};
+}
+
+void lowerString(char* text){
+    if(!text) return;
+    for(; *text != '\0'; ++text){
+        if(*text >= 'A' && *text <= 'Z') *text = static_cast<char>(*text - 'A' + 'a');
+    }
+}
+
+TPCANBaudrate parsePcanBitrate(const char* input){
+    if(!input || input[0] == '\0') return PCAN_BAUD_500K;
+    char value[32]{};
+    std::snprintf(value, sizeof(value), "%s", input);
+    lowerString(value);
+    if(std::strcmp(value, "1m") == 0 || std::strcmp(value, "1000k") == 0) return PCAN_BAUD_1M;
+    if(std::strcmp(value, "800k") == 0) return PCAN_BAUD_800K;
+    if(std::strcmp(value, "500k") == 0) return PCAN_BAUD_500K;
+    if(std::strcmp(value, "250k") == 0) return PCAN_BAUD_250K;
+    if(std::strcmp(value, "125k") == 0) return PCAN_BAUD_125K;
+    if(std::strcmp(value, "100k") == 0) return PCAN_BAUD_100K;
+    if(std::strcmp(value, "95k") == 0) return PCAN_BAUD_95K;
+    if(std::strcmp(value, "83k") == 0) return PCAN_BAUD_83K;
+    if(std::strcmp(value, "50k") == 0) return PCAN_BAUD_50K;
+    if(std::strcmp(value, "47k") == 0) return PCAN_BAUD_47K;
+    if(std::strcmp(value, "33k") == 0) return PCAN_BAUD_33K;
+    if(std::strcmp(value, "20k") == 0) return PCAN_BAUD_20K;
+    if(std::strcmp(value, "10k") == 0) return PCAN_BAUD_10K;
+    if(std::strcmp(value, "5k") == 0) return PCAN_BAUD_5K;
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(input, &end, 0);
+    return (end && *end == '\0' && value <= 0xFFFFUL)
+        ? static_cast<TPCANBaudrate>(value)
+        : static_cast<TPCANBaudrate>(0);
+}
+
+bool formatPcanError(PcanBasicApi& api, TPCANStatus status, const char* operation, char* error, std::size_t errorSize){
+    char description[160]{};
+    if(api.getErrorText && api.getErrorText(status, kEnglishLang, description) == PCAN_ERROR_OK){
+        std::snprintf(error, errorSize, "%s: %s", operation, description);
+        return false;
+    }
+    std::snprintf(error, errorSize, "%s: PCAN error 0x%lX", operation, static_cast<unsigned long>(status));
+    return false;
+}
+
+std::size_t channelBaseOffset(const char* prefix){
+    if(std::strcmp(prefix, "usb") == 0 || std::strcmp(prefix, "usbbus") == 0) return PCAN_USBBUS1;
+    if(std::strcmp(prefix, "pci") == 0 || std::strcmp(prefix, "pcibus") == 0) return PCAN_PCIBUS1;
+    if(std::strcmp(prefix, "lan") == 0 || std::strcmp(prefix, "lanbus") == 0) return PCAN_LANBUS1;
+    return 0;
+}
+
+bool parseNamedChannel(const char* raw, TPCANHandle& handle){
+    if(!raw || raw[0] == '\0') return false;
+    char value[32]{};
+    std::snprintf(value, sizeof(value), "%s", raw);
+    lowerString(value);
+
+    static constexpr const char* prefixes[] = {"usb", "usbbus", "pci", "pcibus", "lan", "lanbus"};
+    for(const char* prefix : prefixes){
+        const std::size_t length = std::strlen(prefix);
+        if(std::strncmp(value, prefix, length) != 0) continue;
+        char* end = nullptr;
+        const unsigned long index = std::strtoul(value + length, &end, 10);
+        if(!end || *end != '\0' || index == 0 || index > 16) return false;
+        handle = static_cast<TPCANHandle>(channelBaseOffset(prefix) + index - 1);
+        return true;
+    }
+    return false;
+}
+
+bool listChannels(PcanBasicApi& api, TPCANChannelInformation* channels, DWORD& count, char* error, std::size_t errorSize){
+    count = 0;
+    TPCANStatus status = api.getValue(PCAN_NONEBUS, PCAN_ATTACHED_CHANNELS_COUNT, &count, sizeof(count));
+    if(status != PCAN_ERROR_OK) return formatPcanError(api, status, "CAN_GetValue(PCAN_ATTACHED_CHANNELS_COUNT)", error, errorSize);
+    if(count == 0) return true;
+
+    status = api.getValue(PCAN_NONEBUS, PCAN_ATTACHED_CHANNELS, channels, count * sizeof(TPCANChannelInformation));
+    if(status != PCAN_ERROR_OK) return formatPcanError(api, status, "CAN_GetValue(PCAN_ATTACHED_CHANNELS)", error, errorSize);
+    return true;
+}
+
+bool resolvePcanChannel(PcanBasicApi& api, const SocketCANConfig& config, TPCANHandle& handle, char* error, std::size_t errorSize){
+    TPCANChannelInformation channels[32]{};
+    DWORD count = 32;
+    if(!listChannels(api, channels, count, error, errorSize)) return false;
+    if(count == 0){
+        std::snprintf(error, errorSize, "no attached PCAN channels found");
+        return false;
+    }
+
+    char requested[32]{};
+    std::snprintf(requested, sizeof(requested), "%s", config.channel);
+    lowerString(requested);
+    if(std::strcmp(requested, "auto") == 0){
+        for(DWORD i = 0; i < count; ++i){
+            if(channels[i].channel_condition == PCAN_CHANNEL_AVAILABLE
+                || channels[i].channel_condition == PCAN_CHANNEL_PCANVIEW
+                || channels[i].channel_condition == PCAN_CHANNEL_OCCUPIED) {
+                handle = channels[i].channel_handle;
+                return true;
+            }
+        }
+        handle = channels[0].channel_handle;
+        return true;
+    }
+
+    if(parseNamedChannel(config.channel, handle)) return true;
+
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(config.channel, &end, 0);
+    if(end && *end == '\0' && value <= 0xFFFFUL){
+        handle = static_cast<TPCANHandle>(value);
+        return true;
+    }
+
+    std::snprintf(error, errorSize, "unable to resolve channel '%s'", config.channel);
+    return false;
+}
+
+bool configurePcanChannel(PcanBasicApi& api, TPCANHandle handle, const SocketCANConfig& config, char* error, std::size_t errorSize){
+    BYTE listenOnly = config.listenOnly ? PCAN_PARAMETER_ON : PCAN_PARAMETER_OFF;
+    TPCANStatus status = api.setValue(handle, PCAN_LISTEN_ONLY, &listenOnly, sizeof(listenOnly));
+    if(status != PCAN_ERROR_OK) return formatPcanError(api, status, "CAN_SetValue(PCAN_LISTEN_ONLY)", error, errorSize);
+
+    BYTE autoReset = config.busoffReset ? PCAN_PARAMETER_ON : PCAN_PARAMETER_OFF;
+    status = api.setValue(handle, PCAN_BUSOFF_AUTORESET, &autoReset, sizeof(autoReset));
+    if(status != PCAN_ERROR_OK) return formatPcanError(api, status, "CAN_SetValue(PCAN_BUSOFF_AUTORESET)", error, errorSize);
+    return true;
+}
+
+bool forwardPcanFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const TPCANMsg& msg){
+    if((msg.MSGTYPE & (PCAN_MESSAGE_EXTENDED | PCAN_MESSAGE_RTR | PCAN_MESSAGE_STATUS | PCAN_MESSAGE_ERRFRAME)) != 0) return false;
+
+    char text[32]{};
+    int length = std::snprintf(text, sizeof(text), "t%03lX%1u",
+        static_cast<unsigned long>(msg.ID & 0x7FFU), static_cast<unsigned int>(msg.LEN));
+    for(BYTE i = 0; i < msg.LEN && length > 0 && length < static_cast<int>(sizeof(text) - 3); ++i){
+        length += std::snprintf(text + length, sizeof(text) - static_cast<std::size_t>(length), "%02X", msg.DATA[i]);
+    }
+    if(length <= 0 || length >= static_cast<int>(sizeof(text) - 1)) return false;
+    text[length++] = '\r';
+    text[length] = '\0';
+    writeFrame(streamBuffer, text);
+    return true;
+}
+#else
+void appendSocketCANPermissionsHint(char* error, std::size_t errorSize){
+    if(!error || errorSize == 0) return;
+    static constexpr const char* hint =
+        ", ensure binary has network permissions, use: "
+        "\"sudo setcap cap_net_admin,cap_net_raw=ep /path/to/executable\"";
+    const std::size_t used = std::strlen(error);
+    if(used >= errorSize - 1) return;
+    std::snprintf(error + used, errorSize - used, "%s", hint);
+}
+
+int ifIndexForName(const char* ifname){
+    const unsigned int index = if_nametoindex(ifname);
+    return index == 0 ? -1 : static_cast<int>(index);
+}
+
+void addAttr(nlmsghdr* header, std::size_t maxLength, uint16_t type, const void* data, std::size_t dataLength){
+    const std::size_t length = RTA_LENGTH(dataLength);
+    const std::size_t newLength = NLMSG_ALIGN(header->nlmsg_len) + RTA_ALIGN(length);
+    if(newLength > maxLength) return;
+
+    auto* attr = reinterpret_cast<rtattr*>(reinterpret_cast<char*>(header) + NLMSG_ALIGN(header->nlmsg_len));
+    attr->rta_type = type;
+    attr->rta_len = static_cast<unsigned short>(length);
+    if(dataLength > 0 && data) std::memcpy(RTA_DATA(attr), data, dataLength);
+    header->nlmsg_len = static_cast<unsigned int>(newLength);
+}
+
+rtattr* beginNest(nlmsghdr* header, std::size_t maxLength, uint16_t type){
+    auto* nest = reinterpret_cast<rtattr*>(reinterpret_cast<char*>(header) + NLMSG_ALIGN(header->nlmsg_len));
+    addAttr(header, maxLength, type, nullptr, 0);
+    return nest;
+}
+
+void endNest(nlmsghdr* header, rtattr* nest){
+    nest->rta_len = static_cast<unsigned short>(
+        reinterpret_cast<char*>(header) + NLMSG_ALIGN(header->nlmsg_len) - reinterpret_cast<char*>(nest));
+}
+
+bool sendNetlinkAck(const nlmsghdr* request, char* error, std::size_t errorSize){
+    sockaddr_nl address{};
+    address.nl_family = AF_NETLINK;
+
+    const int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+    if(fd < 0){
+        std::snprintf(error, errorSize, "socket(NETLINK_ROUTE) failed: %s", std::strerror(errno));
+        return false;
+    }
+
+    iovec io{const_cast<nlmsghdr*>(request), request->nlmsg_len};
+    msghdr message{};
+    message.msg_name = &address;
+    message.msg_namelen = sizeof(address);
+    message.msg_iov = &io;
+    message.msg_iovlen = 1;
+
+    if(sendmsg(fd, &message, 0) < 0){
+        std::snprintf(error, errorSize, "sendmsg(netlink) failed: %s", std::strerror(errno));
+        close(fd);
+        return false;
+    }
+
+    alignas(nlmsghdr) char buffer[8192];
+    iovec responseIO{buffer, sizeof(buffer)};
+    msghdr response{};
+    response.msg_name = &address;
+    response.msg_namelen = sizeof(address);
+    response.msg_iov = &responseIO;
+    response.msg_iovlen = 1;
+
+    const ssize_t received = recvmsg(fd, &response, 0);
+    const int savedErrno = errno;
+    close(fd);
+    if(received < 0){
+        std::snprintf(error, errorSize, "recvmsg(netlink) failed: %s", std::strerror(savedErrno));
+        return false;
+    }
+
+    int remaining = static_cast<int>(received);
+    for(nlmsghdr* header = reinterpret_cast<nlmsghdr*>(buffer); NLMSG_OK(header, remaining);
+        header = NLMSG_NEXT(header, remaining)) {
+        if(header->nlmsg_type != NLMSG_ERROR) continue;
+        auto* reply = reinterpret_cast<nlmsgerr*>(NLMSG_DATA(header));
+        if(reply->error == 0) return true;
+        std::snprintf(error, errorSize, "netlink config failed: %s", std::strerror(-reply->error));
+        if(reply->error == -EPERM || reply->error == -EACCES) appendSocketCANPermissionsHint(error, errorSize);
+        return false;
+    }
+
+    std::snprintf(error, errorSize, "netlink config failed: no ACK received");
+    return false;
+}
+
+bool configureSocketCAN(const SocketCANConfig& config, bool up, char* error, std::size_t errorSize){
+    struct Request {
+        nlmsghdr header;
+        ifinfomsg info;
+        char buffer[256];
+    } request{};
+
+    request.header.nlmsg_len = NLMSG_LENGTH(sizeof(ifinfomsg));
+    request.header.nlmsg_type = RTM_NEWLINK;
+    request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+    request.header.nlmsg_seq = 1;
+    request.info.ifi_family = AF_UNSPEC;
+    request.info.ifi_index = ifIndexForName(config.interfaceName);
+    if(request.info.ifi_index <= 0){
+        std::snprintf(error, errorSize, "if_nametoindex(%s) failed: %s",
+            config.interfaceName, std::strerror(errno));
+        return false;
+    }
+
+    request.info.ifi_change |= IFF_UP;
+    if(up){
+        request.info.ifi_flags |= IFF_UP;
+        if(config.dataRate > 0){
+            auto* linkInfo = beginNest(&request.header, sizeof(request), IFLA_LINKINFO);
+            const char kind[] = "can";
+            addAttr(&request.header, sizeof(request), IFLA_INFO_KIND, kind, sizeof(kind));
+            auto* infoData = beginNest(&request.header, sizeof(request), IFLA_INFO_DATA);
+            can_bittiming bitrate{};
+            bitrate.bitrate = static_cast<__u32>(config.dataRate);
+            addAttr(&request.header, sizeof(request), IFLA_CAN_BITTIMING, &bitrate, sizeof(bitrate));
+            endNest(&request.header, infoData);
+            endNest(&request.header, linkInfo);
+        }
+    } else{
+        request.info.ifi_flags &= ~IFF_UP;
+    }
+
+    return sendNetlinkAck(&request.header, error, errorSize);
+}
+
+bool openSocketCAN(const SocketCANConfig& config, int& fd, char* error, std::size_t errorSize){
+    fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+    if(fd < 0){
+        std::snprintf(error, errorSize, "socket(PF_CAN) failed: %s", std::strerror(errno));
+        if(errno == EPERM || errno == EACCES) appendSocketCANPermissionsHint(error, errorSize);
+        return false;
+    }
+
+    ifreq request{};
+    std::strncpy(request.ifr_name, config.interfaceName, IFNAMSIZ - 1);
+    if(ioctl(fd, SIOCGIFINDEX, &request) < 0){
+        std::snprintf(error, errorSize, "ioctl(SIOCGIFINDEX, %s) failed: %s",
+            config.interfaceName, std::strerror(errno));
+        close(fd);
+        fd = -1;
+        return false;
+    }
+
+    timeval timeout{};
+    timeout.tv_usec = 100000;
+    if(setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0){
+        std::snprintf(error, errorSize, "setsockopt(SO_RCVTIMEO) failed: %s", std::strerror(errno));
+        close(fd);
+        fd = -1;
+        return false;
+    }
+
+    sockaddr_can address{};
+    address.can_family = AF_CAN;
+    address.can_ifindex = request.ifr_ifindex;
+    if(bind(fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0){
+        std::snprintf(error, errorSize, "bind(%s) failed: %s", config.interfaceName, std::strerror(errno));
+        if(errno == EPERM || errno == EACCES) appendSocketCANPermissionsHint(error, errorSize);
+        close(fd);
+        fd = -1;
+        return false;
+    }
+
+    return true;
+}
+
+bool forwardSocketCANFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const can_frame& frame){
+    if((frame.can_id & (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG)) != 0) return false;
+
+    char text[32]{};
+    int length = std::snprintf(text, sizeof(text), "t%03X%1X",
+        frame.can_id & CAN_SFF_MASK, frame.len);
+    for(uint8_t i = 0; i < frame.len && length > 0 && length < static_cast<int>(sizeof(text) - 3); ++i){
+        length += std::snprintf(text + length, sizeof(text) - static_cast<std::size_t>(length), "%02X", frame.data[i]);
+    }
+    if(length <= 0 || length >= static_cast<int>(sizeof(text) - 1)) return false;
+    text[length++] = '\r';
+    text[length] = '\0';
+    writeFrame(streamBuffer, text);
+    return true;
+}
+#endif
 }
 
 const char* Protocols::name(ProtocolKind kind){
@@ -113,8 +574,101 @@ void Protocols::SocketCAN(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
         const SocketCANConfig& config){
-    (void)stopToken;
+#ifdef _WIN32
+    char error[192]{};
+    publishStatus(statusBuffer, false, "SocketCAN Loading PCANBasic");
+
+    PcanBasicApi api{};
+    if(!loadPcanBasic(api, error, sizeof(error))){
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    publishStatus(statusBuffer, false, "SocketCAN Resolving PCAN Channel");
+    TPCANHandle handle = PCAN_NONEBUS;
+    if(!resolvePcanChannel(api, config, handle, error, sizeof(error))){
+        unloadPcanBasic(api);
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    const TPCANBaudrate bitrate = parsePcanBitrate(config.bitrate);
+    if(bitrate == 0){
+        std::snprintf(error, sizeof(error), "unsupported PCAN bitrate '%s'", config.bitrate);
+        unloadPcanBasic(api);
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+    TPCANStatus status = api.initialize(handle, bitrate, 0, 0, 0);
+    if(status != PCAN_ERROR_OK){
+        formatPcanError(api, status, "CAN_Initialize", error, sizeof(error));
+        unloadPcanBasic(api);
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    if(!configurePcanChannel(api, handle, config, error, sizeof(error))){
+        api.uninitialize(handle);
+        unloadPcanBasic(api);
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    publishStatus(statusBuffer, false, "SocketCAN Online");
+    while(!stopToken.stop_requested()){
+        TPCANMsg msg{};
+        TPCANTimestamp timestamp{};
+        status = api.read(handle, &msg, &timestamp);
+        if(status == PCAN_ERROR_QRCVEMPTY){
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+        if(status != PCAN_ERROR_OK){
+            formatPcanError(api, status, "CAN_Read", error, sizeof(error));
+            publishStatus(statusBuffer, true, error);
+            break;
+        }
+        forwardPcanFrame(streamBuffer, msg);
+    }
+
+    api.uninitialize(handle);
+    unloadPcanBasic(api);
+    publishStatus(statusBuffer, false, "SocketCAN Stopped");
+#else
     (void)streamBuffer;
-    (void)config;
-    ::publishFailure(statusBuffer, "SocketCAN");
+    char error[192]{};
+
+    publishStatus(statusBuffer, false, "SocketCAN Configuring Interface");
+    if(!configureSocketCAN(config, false, error, sizeof(error)) && error[0] != '\0'){
+        publishStatus(statusBuffer, false, error);
+    }
+    if(!configureSocketCAN(config, true, error, sizeof(error))){
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    int fd = -1;
+    if(!openSocketCAN(config, fd, error, sizeof(error))){
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    publishStatus(statusBuffer, false, "SocketCAN Online");
+    while(!stopToken.stop_requested()){
+        can_frame frame{};
+        const ssize_t bytesRead = read(fd, &frame, sizeof(frame));
+        if(bytesRead == static_cast<ssize_t>(sizeof(frame))){
+            forwardSocketCANFrame(streamBuffer, frame);
+            continue;
+        }
+        if(bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) continue;
+
+        std::snprintf(error, sizeof(error), "read(can_frame) failed: %s", std::strerror(errno));
+        publishStatus(statusBuffer, true, error);
+        break;
+    }
+
+    close(fd);
+    publishStatus(statusBuffer, false, "SocketCAN Stopped");
+#endif
 }

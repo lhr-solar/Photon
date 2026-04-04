@@ -81,13 +81,13 @@ struct GUI{
     TitleBar titleBar{};
     Pages pages{};
     float leftPaneWidth = 0.0f;
-    ProtocolKind pendingProtocol = ProtocolKind::TCP;
+    ProtocolConfig protocolConfig{};
     std::string networkStatus = "idle";
     std::vector<HandlerMessage> handlerMessages{};
     void init(GPU* gpu, Network* network, Parse* parse);
     void handleNetwork();
     void bindNetworkResponses(GUIResponseQueue::Reader reader);
-    void queueStartProtocol(ProtocolKind kind);
+    void queueStartProtocol();
     void queueStopProtocol();
     void buildUI();
     void bindWindow(SDL_Window* targetWindow);

@@ -30,8 +30,10 @@ struct UARTConfig{
 };
 
 struct SocketCANConfig{
-    char interfaceName[128] = "can0";
-    uint32_t dataRate = 500000;
+    char channel[32] = "auto";
+    char bitrate[32] = "500k";
+    bool listenOnly = false;
+    bool busoffReset = false;
 };
 #else
 struct UARTConfig{

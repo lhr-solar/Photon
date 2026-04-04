@@ -92,11 +92,10 @@ void GUI::bindNetworkResponses(GUIResponseQueue::Reader reader){
     guiResponses = reader;
 }
 
-void GUI::queueStartProtocol(ProtocolKind kind){
-    pendingProtocol = kind;
+void GUI::queueStartProtocol(){
     NetworkCommand command{};
     command.type = NetworkCommandType::StartProtocol;
-    command.config.kind = kind;
+    command.config = protocolConfig;
     guiCommands.write([&](NetworkCommand& slot){ slot = command; });
 }
 
@@ -529,13 +528,55 @@ void GUI::sceneWindow(){
 void GUI::networkWindow(){
     if(ImGui::Begin("network", nullptr, ImGuiWindowFlags_NoTitleBar)){
         const float totalHeight = ImGui::GetContentRegionAvail().y;
-        ImGui::Text("selected protocol: %s", Protocols::name(pendingProtocol));
-        if(ImGui::Button("Start TCP")) queueStartProtocol(ProtocolKind::TCP);
-        ImGui::SameLine();
-        if(ImGui::Button("Start UDP")) queueStartProtocol(ProtocolKind::UDP);
-        if(ImGui::Button("Start UART")) queueStartProtocol(ProtocolKind::UART);
-        ImGui::SameLine();
-        if(ImGui::Button("Start SocketCAN")) queueStartProtocol(ProtocolKind::SocketCAN);
+        int protocol = static_cast<int>((protocolConfig.kind == ProtocolKind::None ? ProtocolKind::TCP : protocolConfig.kind)) - 1;
+        const char* protocolNames[] = {"TCP", "UDP", "UART", "SocketCAN"};
+        ImGui::SetNextItemWidth(220.0f);
+        if(ImGui::Combo("Protocol", &protocol, protocolNames, IM_ARRAYSIZE(protocolNames))){
+            protocolConfig.kind = static_cast<ProtocolKind>(protocol + 1);
+        }
+
+        if(protocolConfig.kind == ProtocolKind::None) protocolConfig.kind = ProtocolKind::TCP;
+        ImGui::Text("selected protocol: %s", Protocols::name(protocolConfig.kind));
+
+        switch(protocolConfig.kind){
+            case ProtocolKind::TCP:
+                ImGui::InputText("TCP IP", protocolConfig.tcp.ip, IM_ARRAYSIZE(protocolConfig.tcp.ip));
+                ImGui::InputScalar("TCP Port", ImGuiDataType_U16, &protocolConfig.tcp.port);
+                break;
+            case ProtocolKind::UDP:
+                ImGui::InputText("UDP IP", protocolConfig.udp.ip, IM_ARRAYSIZE(protocolConfig.udp.ip));
+                ImGui::InputScalar("UDP Port", ImGuiDataType_U16, &protocolConfig.udp.port);
+                ImGui::InputText("Subscribe Message",
+                    protocolConfig.udp.subscribeMessage,
+                    IM_ARRAYSIZE(protocolConfig.udp.subscribeMessage));
+                break;
+            case ProtocolKind::UART:
+                ImGui::InputText("UART Device", protocolConfig.uart.device, IM_ARRAYSIZE(protocolConfig.uart.device));
+                ImGui::InputScalar("UART Baud", ImGuiDataType_U32, &protocolConfig.uart.baudRate);
+                break;
+            case ProtocolKind::SocketCAN:
+#ifdef _WIN32
+                ImGui::InputText("PCAN Channel",
+                    protocolConfig.socketCAN.channel,
+                    IM_ARRAYSIZE(protocolConfig.socketCAN.channel));
+                ImGui::InputText("PCAN Bitrate",
+                    protocolConfig.socketCAN.bitrate,
+                    IM_ARRAYSIZE(protocolConfig.socketCAN.bitrate));
+                ImGui::Checkbox("Listen Only", &protocolConfig.socketCAN.listenOnly);
+                ImGui::Checkbox("Bus-Off Reset", &protocolConfig.socketCAN.busoffReset);
+#else
+                ImGui::InputText("CAN Interface",
+                    protocolConfig.socketCAN.interfaceName,
+                    IM_ARRAYSIZE(protocolConfig.socketCAN.interfaceName));
+                ImGui::InputScalar("CAN Bitrate", ImGuiDataType_U32, &protocolConfig.socketCAN.dataRate);
+#endif
+                break;
+            case ProtocolKind::None:
+            default:
+                break;
+        }
+
+        if(ImGui::Button("Start Protocol")) queueStartProtocol();
         if(ImGui::Button("Stop Protocol")) queueStopProtocol();
         ImGui::SameLine();
         if(ImGui::Button("Clear Messages")) handlerMessages.clear();

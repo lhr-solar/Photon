@@ -11,7 +11,8 @@ void Photon::init(){
     gui.init(&gpu, &network, &parse);                   logs("Initialized GUI");
     network.init(&parse.arena, &gui.guiCommands);       logs("Initialized Network");
     gui.bindNetworkResponses(network.getResponseReader());
-    gui.queueStartProtocol(ProtocolKind::TCP);
+    gui.protocolConfig.kind = ProtocolKind::TCP;
+    gui.queueStartProtocol();
 }
 
 void Photon::renderLoop(){
