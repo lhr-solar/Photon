@@ -56,7 +56,10 @@ struct Message{
     double dataRate{};
     double dataTransfer{};
     double bandwidthPercentage{};
+    std::vector<float> dataRateHistory{};
+    std::vector<float> dataTransferHistory{};
     alignas(64) std::atomic<uint32_t> signalSize{};
+    void* timeData{};
     std::array<Signal*, SIGNAL_MAX> signals{};
 };
 
@@ -65,10 +68,13 @@ struct Arena{
     uint8_t* cursor{};
     size_t remaining{};
     size_t totalPages{};
-    size_t pagesPerSignal{};
-    size_t bytesPerSignal{};
+    size_t pagesPerBuffer{};
+    size_t bytesPerBuffer{};
     uint32_t arenaSize = {};
     uint32_t totalSignals = {};
+    uint32_t totalTimeBuffers = {};
+    uint32_t totalBuffers = {};
+    double totalDataTransfer = 1.0;
     std::vector<uint32_t> validIds{};
     std::array<Message*, MESSAGE_MAX> messages{};
 
@@ -76,6 +82,9 @@ struct Arena{
     void* alloc(size_t bytes, size_t align);
     void read(uint32_t id, uint32_t signal, void** data, uint32_t* size);
     bool write(uint32_t id, uint32_t signal, void* data, uint32_t size);
+    void readTime(uint32_t id, void** data, uint32_t* size);
+    bool writeTime(uint32_t id, void* data, uint32_t size);
+    bool appendFrame(uint32_t id, double timeValue, const double* signalValues, uint32_t signalCount);
     void clear(uint32_t signal);
     void destroy();
     std::vector<size_t> search(const std::string& query);

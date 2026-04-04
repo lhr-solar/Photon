@@ -464,14 +464,14 @@ void GPU::destroyFrameResources(){
     indexIsMapped.clear();
 }
 
-void GPU::imguiBackend(){
+void GPU::imguiBackend(TitleBar* titleBar){
     ImGui::CreateContext();
     ImPlot::CreateContext();
     ImPlot3D::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.DisplaySize = ImVec2(width, height);
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-    //io.IniFilename = nullptr;
+    io.IniFilename = nullptr;
     io.ConfigFlags  |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags  |= ImGuiConfigFlags_NavEnableKeyboard;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
@@ -810,6 +810,7 @@ void GPU::imguiBackend(){
     indexBufferMemories.resize(swapchainImages.size());
     vertexIsMapped.resize(swapchainImages.size());
     indexIsMapped.resize(swapchainImages.size());
+    enableCustomTitlebar(titleBar);
 }
 
 void GPU::imguiPresentation(uint32_t imgIdx){

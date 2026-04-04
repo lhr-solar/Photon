@@ -68,6 +68,8 @@ struct GUI{
     Network* network{};
     Parse* parse{};
     GPU* gpu{};
+    GUICommandQueue guiCommands{};
+    GUIResponseQueue::Reader guiResponses{};
     Shader backgroundShader{};
     Gltf carModel{};
     Scene sceneModel{};
@@ -75,7 +77,14 @@ struct GUI{
     TitleBar titleBar{};
     Pages pages{};
     float leftPaneWidth = 0.0f;
+    ProtocolKind pendingProtocol = ProtocolKind::TCP;
+    std::string networkStatus = "idle";
+    std::vector<std::string> handlerMessages{};
     void init(GPU* gpu, Network* network, Parse* parse);
+    void handleNetwork();
+    void bindNetworkResponses(GUIResponseQueue::Reader reader);
+    void queueStartProtocol(ProtocolKind kind);
+    void queueStopProtocol();
     void buildUI();
     void bindWindow(SDL_Window* targetWindow);
     void buildTitleBar();
@@ -84,6 +93,7 @@ struct GUI{
     void resizeHorizontalLayout();
     void backgroundWindow();
     void gltfWindow();
+    void networkWindow();
     void sceneWindow();
     void shaderWindow();
     void dockspace();

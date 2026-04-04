@@ -5,12 +5,13 @@
 #include <chrono>
 
 void Photon::init(){
-    gpu.init(); logs("Initialized GPU");
-    gpu.imguiBackend(); logs("Initialized ImGui");
-    gpu.enableCustomTitlebar(&gui.titleBar);
-    gui.init(&gpu, &network, &parse); logs("Initialized GUI");
-    parse.init(); logs("Initialized Arena");
-    network.init(&parse.arena); logs("Initialized Network");
+    gpu.init();                                         logs("Initialized GPU");
+    gpu.imguiBackend(&gui.titleBar);                    logs("Initialized ImGui");
+    parse.init();                                       logs("Initialized Arena");
+    gui.init(&gpu, &network, &parse);                   logs("Initialized GUI");
+    network.init(&parse.arena, &gui.guiCommands);       logs("Initialized Network");
+    gui.bindNetworkResponses(network.getResponseReader());
+    gui.queueStartProtocol(ProtocolKind::TCP);
 }
 
 void Photon::renderLoop(){

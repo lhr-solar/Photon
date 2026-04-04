@@ -1,6 +1,7 @@
 #include "arena.hpp"
 #include <algorithm>
 #include <cctype>
+#include <cfloat>
 #include <cstring>
 #include <iomanip>
 #include <limits>
@@ -24,13 +25,25 @@ inline std::string fmtb(uint64_t b){
     return s.str();
 }
 
+inline std::string fmtbs(double bps){
+    static constexpr std::array<const char*,6> u{"B/s","KB/s","MB/s","GB/s","TB/s","PB/s"};
+    double v = bps;
+    size_t i = 0;
+    while(v >= 1024.0 && i < u.size()-1){ v /= 1024.0; ++i; }
+    std::ostringstream s;
+    s << std::fixed << std::setprecision(2) << v << ' ' << u[i];
+    return s.str();
+}
+
 void Arena::status(){
     logs("arena size        : " << fmtb(arenaSize));
     logs("total signals     : " << totalSignals);
+    logs("time buffers      : " << totalTimeBuffers);
+    logs("total buffers     : " << totalBuffers);
     logs("total pages       : " << totalPages);
-    logs("bytes per signal  : " << fmtb(bytesPerSignal));
-    logs("unused            : " << fmtb((arenaSize - (bytesPerSignal * totalSignals))));
-    logs("points per signal : " << bytesPerSignal / sizeof(double));
+    logs("bytes per buffer  : " << fmtb(bytesPerBuffer));
+    logs("unused            : " << fmtb((arenaSize - (bytesPerBuffer * totalBuffers))));
+    logs("points per buffer : " << bytesPerBuffer / sizeof(double));
     for(const auto& i : validIds){
         Message* msg = messages[i];
         if(!msg) continue;
@@ -39,6 +52,7 @@ void Arena::status(){
         logs("dlc               : " << msg->dlc);
         logs("signal count      : " << msg->signalCount);
         logs("signal size       : " << msg->signalSize.load(std::memory_order_acquire));
+        logs("time ptr          : " << msg->timeData);
         logs("transmitter       : " << msg->transmitter);
         logs("data rate         : " << msg->dataRate);
         logs("data transfer     : " << msg->dataTransfer);
@@ -66,23 +80,40 @@ void Arena::status(){
 
 void Arena::statusUI(){
     if(ImGui::Begin("Arena Status", nullptr, ImGuiWindowFlags_NoTitleBar)){
+        auto plotCell = [](const std::vector<float>& values, const char* id){
+            if(values.empty()) return;
+            ImGui::PlotLines(id, values.data(), static_cast<int>(values.size()), 0, nullptr,
+                FLT_MAX, FLT_MAX, ImVec2(-FLT_MIN, 28.0f));
+        };
+        auto progressCell = [](float fraction, const char* overlay = nullptr){
+            const float clamped = std::clamp(fraction, 0.0f, 1.0f);
+            ImGui::ProgressBar(clamped, ImVec2(-FLT_MIN, 0.0f), overlay);
+        };
         ImGuiTableFlags summaryFlags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
             ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
-        if(ImGui::BeginTable("arena_summary", 2, summaryFlags)){
-            ImGui::TableSetupColumn("Field", ImGuiTableColumnFlags_WidthFixed, 180.0f);
-            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+        if(ImGui::BeginTable("arena_summary", 3, summaryFlags)){
+            ImGui::TableSetupColumn("Field", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableHeadersRow();
-            auto row = [](const char* key, const std::string& value){
+            auto row = [&](const char* key, const std::string& value, float visual = -1.0f, const char* overlay = nullptr){
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(key);
                 ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(value.c_str());
+                ImGui::TableSetColumnIndex(2);
+                if(visual >= 0.0f) progressCell(visual, overlay);
             };
+            const size_t usedBytes = bytesPerBuffer * totalBuffers;
+            const float usedFraction = arenaSize > 0 ? static_cast<float>(usedBytes) / static_cast<float>(arenaSize) : 0.0f;
             row("arena size", fmtb(arenaSize));
-            row("total signals", std::to_string(totalSignals));
+            row("buffer usage", fmtb(usedBytes), usedFraction, nullptr);
+            row("fragmented", fmtb(arenaSize - usedBytes), 1.0f - usedFraction, nullptr);
             row("total pages", std::to_string(totalPages));
-            row("bytes per signal", fmtb(bytesPerSignal));
-            row("unused", fmtb(arenaSize - (bytesPerSignal * totalSignals)));
-            row("points per signal", std::to_string(bytesPerSignal / sizeof(double)));
+            row("bytes per signal", fmtb(bytesPerBuffer));
+            row("total buffers", std::to_string(totalBuffers));
+            row("time buffers", std::to_string(totalTimeBuffers));
+            row("total signals", std::to_string(totalSignals));
+            row("points per signal", std::to_string(bytesPerBuffer / sizeof(double)));
             ImGui::EndTable();
         }
         ImGui::SeparatorText("Messages");
@@ -103,29 +134,44 @@ void Arena::statusUI(){
             header << "0x" << std::hex << std::uppercase << msg->id << std::dec << "  " << msg->name << "##msg" << msg->id;
             std::string label = header.str();
             if(ImGui::CollapsingHeader(label.c_str())){
-                if(ImGui::BeginTable(("message_meta##" + std::to_string(msg->id)).c_str(), 2, summaryFlags)){
-                    ImGui::TableSetupColumn("Field", ImGuiTableColumnFlags_WidthFixed, 180.0f);
-                    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+                if(ImGui::BeginTable(("message_meta##" + std::to_string(msg->id)).c_str(), 3, summaryFlags)){
+                    ImGui::TableSetupColumn("Field", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+                    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 160.0f);
+                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
                     ImGui::TableHeadersRow();
-                    auto row = [](const char* key, const std::string& value){
+                    auto row = [&](const char* key, const std::string& value, float visual = -1.0f, const char* overlay = nullptr){
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(key);
                         ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(value.c_str());
+                        ImGui::TableSetColumnIndex(2);
+                        if(visual >= 0.0f) progressCell(visual, overlay);
                     };
                     row("id", std::to_string(msg->id));
                     row("name", msg->name);
                     row("dlc", std::to_string(msg->dlc));
                     row("signal count", std::to_string(msg->signalCount));
-                    row("signal size", std::to_string(msg->signalSize.load(std::memory_order_acquire)));
+                    const uint32_t signalBytes = msg->signalSize.load(std::memory_order_acquire);
+                    const uint32_t sampleCount = signalBytes / sizeof(double);
+                    const float fillFraction = bytesPerBuffer > 0 ? static_cast<float>(signalBytes) / static_cast<float>(bytesPerBuffer) : 0.0f;
+                    row("samples", std::to_string(sampleCount), fillFraction, nullptr);
+                    row("capacity used", fmtb(signalBytes), fillFraction, nullptr);
                     row("transmitter", msg->transmitter);
-                    row("data rate", std::to_string(msg->dataRate));
-                    row("data transfer", std::to_string(msg->dataTransfer));
-                    row("bandwidth %", std::to_string(msg->bandwidthPercentage));
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted("data rate");
+                    ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(fmtbs(msg->dataRate).c_str());
+                    ImGui::TableSetColumnIndex(2);
+                    plotCell(msg->dataRateHistory, ("##rate_plot_" + std::to_string(msg->id)).c_str());
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted("data transfer");
+                    ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(fmtb(static_cast<uint64_t>(msg->dataTransfer)).c_str());
+                    ImGui::TableSetColumnIndex(2);
+                    plotCell(msg->dataTransferHistory, ("##transfer_plot_" + std::to_string(msg->id)).c_str());
+                    row("bandwidth %", std::to_string(msg->bandwidthPercentage), static_cast<float>(msg->bandwidthPercentage), nullptr);
                     ImGui::EndTable();
                 }
                 ImGuiTableFlags signalFlags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                     ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
-                if(ImGui::BeginTable(("signals##" + std::to_string(msg->id)).c_str(), 13, signalFlags)){
+                if(ImGui::BeginTable(("signals##" + std::to_string(msg->id)).c_str(), 14, signalFlags)){
                     ImGui::TableSetupScrollFreeze(0, 1);
                     ImGui::TableSetupColumn("Idx");
                     ImGui::TableSetupColumn("Name");
@@ -140,6 +186,7 @@ void Arena::statusUI(){
                     ImGui::TableSetupColumn("Max");
                     ImGui::TableSetupColumn("Unit");
                     ImGui::TableSetupColumn("Receiver");
+                    ImGui::TableSetupColumn("Age");
                     ImGui::TableHeadersRow();
                     for(size_t s{0uz}; s < msg->signalCount; s++){
                         Signal* sig = msg->signals[s];
@@ -158,6 +205,7 @@ void Arena::statusUI(){
                         ImGui::TableSetColumnIndex(10); ImGui::Text("%.3f", sig->max);
                         ImGui::TableSetColumnIndex(11); ImGui::TextUnformatted(sig->unit.c_str());
                         ImGui::TableSetColumnIndex(12); ImGui::TextUnformatted(sig->receiver.c_str());
+                        ImGui::TableSetColumnIndex(13); ImGui::Text("%lld ms", static_cast<long long>(sig->timeSinceMutation.count()));
                     }
                     ImGui::EndTable();
                 }
@@ -184,17 +232,22 @@ void Arena::init(const arenaConfig& config){
         || pool == MAP_FAILED
 #endif
     ) return;
+    totalSignals = 0;
+    totalTimeBuffers = 0;
+    totalBuffers = 0;
     for(const auto& idx : validIds){
         uint32_t count = config.signalCounts[idx];
         if(count > 32) count = 32;
         totalSignals += count;
+        totalTimeBuffers += 1;
     };
-    if(totalSignals == 0) return;
+    totalBuffers = totalSignals + totalTimeBuffers;
+    if(totalBuffers == 0) return;
     cursor = static_cast<uint8_t*>(pool);
     remaining = arenaSize;
     totalPages = arenaSize / PAGE_SIZE;
-    pagesPerSignal = totalPages / totalSignals;
-    bytesPerSignal = PAGE_SIZE * pagesPerSignal; 
+    pagesPerBuffer = totalPages / totalBuffers;
+    bytesPerBuffer = PAGE_SIZE * pagesPerBuffer; 
 
     for(const auto& idx : validIds){
         messages[idx] = new(Message);
@@ -203,9 +256,10 @@ void Arena::init(const arenaConfig& config){
         msg.signalCount = config.signalCounts[idx];
         msg.signalSize.store(0, std::memory_order_relaxed);
         if(msg.signalCount > 32) msg.signalCount = 32;
+        msg.timeData = alloc(bytesPerBuffer, PAGE_SIZE);
         for(auto i{0uz}; i < msg.signalCount; i++){
             msg.signals[i] = new(Signal);
-            void* mem = alloc(bytesPerSignal, PAGE_SIZE);
+            void* mem = alloc(bytesPerBuffer, PAGE_SIZE);
             msg.signals[i]->data = mem;
         };
     }
@@ -250,13 +304,59 @@ bool Arena::write(uint32_t id, uint32_t signal, void* data, uint32_t size){
     if(signal >= msg.signalCount || !msg.signals[signal]) return false;
 
     const uint32_t offset = msg.signalSize.load(std::memory_order_relaxed);
-    if(offset > bytesPerSignal || size > bytesPerSignal - offset) return false;
+    if(offset > bytesPerBuffer || size > bytesPerBuffer - offset) return false;
 
     auto* dst = static_cast<uint8_t*>(msg.signals[signal]->data) + offset;
     std::memcpy(dst, data, size);
     msg.signalSize.store(offset + size, std::memory_order_release);
     return true;
 };
+
+void Arena::readTime(uint32_t id, void** data, uint32_t* size){
+    if(data) *data = nullptr;
+    if(size) *size = 0;
+    if(id >= messages.size() || !messages[id]) return;
+
+    Message& msg = *messages[id];
+    const uint32_t published = msg.signalSize.load(std::memory_order_acquire);
+    if(data) *data = msg.timeData;
+    if(size) *size = published;
+}
+
+bool Arena::writeTime(uint32_t id, void* data, uint32_t size){
+    if(id >= messages.size() || !messages[id] || !data) return false;
+    Message& msg = *messages[id];
+    if(!msg.timeData) return false;
+
+    const uint32_t offset = msg.signalSize.load(std::memory_order_relaxed);
+    if(offset > bytesPerBuffer || size > bytesPerBuffer - offset) return false;
+
+    auto* dst = static_cast<uint8_t*>(msg.timeData) + offset;
+    std::memcpy(dst, data, size);
+    return true;
+}
+
+bool Arena::appendFrame(uint32_t id, double timeValue, const double* signalValues, uint32_t signalCount){
+    if(id >= messages.size() || !messages[id] || !signalValues) return false;
+    Message& msg = *messages[id];
+    if(signalCount != msg.signalCount || !msg.timeData) return false;
+
+    const uint32_t offset = msg.signalSize.load(std::memory_order_relaxed);
+    if(offset > bytesPerBuffer || sizeof(double) > bytesPerBuffer - offset) return false;
+
+    auto* timeDst = static_cast<uint8_t*>(msg.timeData) + offset;
+    std::memcpy(timeDst, &timeValue, sizeof(double));
+
+    for(uint32_t i = 0; i < signalCount; i++){
+        Signal* sig = msg.signals[i];
+        if(!sig || !sig->data) return false;
+        auto* dst = static_cast<uint8_t*>(sig->data) + offset;
+        std::memcpy(dst, &signalValues[i], sizeof(double));
+    }
+
+    msg.signalSize.store(offset + sizeof(double), std::memory_order_release);
+    return true;
+}
 
 void Arena::destroy(){ 
     for(const auto& id : validIds) clear(id);
@@ -362,5 +462,3 @@ std::vector<size_t> Arena::search(const std::string& query){
     for(const auto& match : matches) out.push_back(match.idx);
     return out;
 }
-
-

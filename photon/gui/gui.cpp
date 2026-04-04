@@ -15,6 +15,7 @@
 #include "newCar_glb.hpp"
 
 void GUI::buildUI(){
+    handleNetwork();
     ImGui::NewFrame();
     buildTitleBar();
     leftSideBar();
@@ -36,12 +37,39 @@ void GUI::init(GPU* gpu, Network* network, Parse* parse){
     sceneModel.dispatchInit(*gpu);
     backgroundShader.dispatchInit(*gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
+    pages.addPage("Network", [this]() { networkWindow(); });
     pages.addPage("Background", [this]() { backgroundWindow(); });
     pages.addPage("Scene", [this]() { sceneWindow(); });
     pages.addPage("Dear ImGui Demo", []() { ImGui::ShowDemoWindow(); });
     pages.addPage("Arena Status", [this]() { this->parse->arena.statusUI(); });
     setStyle();
 };
+
+void GUI::handleNetwork(){
+    while(NetworkResponse* response = guiResponses.read()){
+        networkStatus = response->message;
+        handlerMessages.emplace_back(response->message);
+        if(handlerMessages.size() > 256) handlerMessages.erase(handlerMessages.begin());
+    }
+};
+
+void GUI::bindNetworkResponses(GUIResponseQueue::Reader reader){
+    guiResponses = reader;
+}
+
+void GUI::queueStartProtocol(ProtocolKind kind){
+    pendingProtocol = kind;
+    NetworkCommand command{};
+    command.type = NetworkCommandType::StartProtocol;
+    command.config.kind = kind;
+    guiCommands.write([&](NetworkCommand& slot){ slot = command; });
+}
+
+void GUI::queueStopProtocol(){
+    NetworkCommand command{};
+    command.type = NetworkCommandType::StopProtocol;
+    guiCommands.write([&](NetworkCommand& slot){ slot = command; });
+}
 
 void GUI::demoPlots(){
 };
@@ -434,6 +462,30 @@ void GUI::sceneWindow(){
     ImGui::End();
     ImGui::PopStyleColor(2);
 };
+
+void GUI::networkWindow(){
+    if(ImGui::Begin("network", nullptr, ImGuiWindowFlags_NoTitleBar)){
+        ImGui::Text("status: %s", networkStatus.c_str());
+        ImGui::Text("selected protocol: %s", Protocols::name(pendingProtocol));
+        if(ImGui::Button("Start TCP")) queueStartProtocol(ProtocolKind::TCP);
+        ImGui::SameLine();
+        if(ImGui::Button("Start UDP")) queueStartProtocol(ProtocolKind::UDP);
+        if(ImGui::Button("Start UART")) queueStartProtocol(ProtocolKind::UART);
+        ImGui::SameLine();
+        if(ImGui::Button("Start SocketCAN")) queueStartProtocol(ProtocolKind::SocketCAN);
+        if(ImGui::Button("Stop Protocol")) queueStopProtocol();
+        ImGui::SameLine();
+        if(ImGui::Button("Clear Messages")) handlerMessages.clear();
+        ImGui::Separator();
+        ImGui::TextUnformatted("handler messages");
+        if(ImGui::BeginChild("##network_messages", ImVec2(0.0f, 0.0f), true)){
+            for(const std::string& message : handlerMessages) ImGui::TextUnformatted(message.c_str());
+            if(ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) ImGui::SetScrollHereY(1.0f);
+        }
+        ImGui::EndChild();
+    }
+    ImGui::End();
+}
 
 void GUI::shaderWindow(){
 

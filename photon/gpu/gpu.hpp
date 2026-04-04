@@ -45,7 +45,7 @@ struct GPU{
     void destroyFrameResources();
 
     void init();
-    void imguiBackend();
+    void imguiBackend(TitleBar* titleBar);
     void imguiPresentation(const uint32_t imgIdx);
     void startFrame(uint32_t& imgIdx);
     void submitFrame(const uint32_t imgIdx);
