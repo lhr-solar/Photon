@@ -14,6 +14,7 @@ void Photon::init(){
     gui.bindNetworkResponses(network.getResponseReader());
     gui.protocolConfig.kind = ProtocolKind::TCP;
     gui.queueStartProtocol();
+    update();
 }
 
 void Photon::renderLoop(){
@@ -74,4 +75,8 @@ void Photon::handleInput(){
 void Photon::appLogic(){
     handleInput();
     gui.buildUI();
+};
+
+void Photon::update(){
+
 };

@@ -12,11 +12,12 @@ struct Photon {
     Network network{};
     Parse parse{};
     bool running = true;
-    double timestamp{};
     double deltaTime = 16.67 * 1000;
+    std::string version = "00.00.01";
     void init();
     void handleInput();
     void appLogic();
     void renderLoop();
     void destroy();
+    void update();
 };
