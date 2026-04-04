@@ -1,4 +1,5 @@
 #pragma once
+#include "../parse/parse.hpp"
 #include "../parse/arena.hpp"
 #include "../parse/spmc.hpp"
 #include "protocols.hpp"
@@ -11,6 +12,7 @@ constexpr auto kIdleSleep = std::chrono::milliseconds(1);
 enum class NetworkCommandType : uint32_t {
     None = 0,
     StartProtocol,
+    SetDBC,
     StopProtocol,
     Shutdown,
 };
@@ -25,6 +27,8 @@ enum class NetworkResponseType : uint32_t {
 struct NetworkCommand{
     NetworkCommandType type = NetworkCommandType::None;
     ProtocolConfig config{};
+    DBCKind dbc = DBCKind::VehicleWithUndisclosedName;
+    char dbcPath[512]{};
 };
 
 struct NetworkResponse{
@@ -43,6 +47,7 @@ struct Network{
     std::jthread handlerThread{};
     std::jthread parserThread{};
     std::jthread networkStreamThread{};
+    Parse* parse{};
     Arena* arena{};
     GUICommandQueue* guiCommands{};
     GUICommandQueue::Reader guiCommandReader{};
@@ -52,13 +57,15 @@ struct Network{
     std::atomic<bool> networkStreamRunning = false;
     ProtocolConfig activeConfig{};
 
-    void init(Arena* arena, GUICommandQueue* guiCommands);
+    void init(Parse* parse, GUICommandQueue* guiCommands);
     void destroy();
     GUIResponseQueue::Reader getResponseReader();
 
 private:
     void handler(std::stop_token stopToken);
     void parser(std::stop_token stopToken);
+    void startParser();
+    void stopParser();
     void startNetworkStream(const ProtocolConfig& config);
     void stopNetworkStream();
     void publishResponse(NetworkResponseType type, ProtocolKind protocol, const char* message);

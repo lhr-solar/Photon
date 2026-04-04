@@ -3,6 +3,7 @@
 #include <array>
 #include <bit>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -186,6 +187,18 @@ void Network::publishResponse(NetworkResponseType type, ProtocolKind protocol, c
     });
 }
 
+void Network::startParser(){
+    stopParser();
+    parserThread = std::jthread([this](std::stop_token stopToken){ parser(stopToken); });
+}
+
+void Network::stopParser(){
+    if(parserThread.joinable()){
+        parserThread.request_stop();
+        parserThread.join();
+    }
+}
+
 void Network::startNetworkStream(const ProtocolConfig& config){
     stopNetworkStream();
     activeConfig = config;
@@ -219,6 +232,20 @@ void Network::handler(std::stop_token stopToken){
                 case NetworkCommandType::StartProtocol:
                     startNetworkStream(command->config);
                     break;
+                case NetworkCommandType::SetDBC:
+                    stopParser();
+                    if(parse && ((command->dbc == DBCKind::File && command->dbcPath[0] != '\0')
+                            ? parse->loadDBCFile(command->dbcPath)
+                            : parse->loadDBC(command->dbc))) {
+                        arena = &parse->arena;
+                        char message[192]{};
+                        std::snprintf(message, sizeof(message), "DBC Set: %s", parse->currentDBCName());
+                        publishResponse(NetworkResponseType::Success, activeConfig.kind, message);
+                    } else{
+                        publishResponse(NetworkResponseType::Error, activeConfig.kind, "Failed to Set DBC");
+                    }
+                    startParser();
+                    break;
                 case NetworkCommandType::StopProtocol:
                     stopNetworkStream();
                     break;
@@ -240,6 +267,7 @@ void Network::handler(std::stop_token stopToken){
         if(!didWork) std::this_thread::sleep_for(kIdleSleep);
     }
     stopNetworkStream();
+    stopParser();
 }
 
 void Network::parser(std::stop_token stopToken){
@@ -280,11 +308,12 @@ void Network::parser(std::stop_token stopToken){
     }
 }
 
-void Network::init(Arena* arena, GUICommandQueue* guiCommands){
-    this->arena = arena;
+void Network::init(Parse* parse, GUICommandQueue* guiCommands){
+    this->parse = parse;
+    this->arena = parse ? &parse->arena : nullptr;
     this->guiCommands = guiCommands;
     if(this->guiCommands) guiCommandReader = this->guiCommands->getReader();
-    parserThread = std::jthread([this](std::stop_token stopToken){ parser(stopToken); });
+    startParser();
     handlerThread = std::jthread([this](std::stop_token stopToken){ handler(stopToken); });
 }
 
@@ -294,10 +323,9 @@ GUIResponseQueue::Reader Network::getResponseReader(){
 
 void Network::destroy(){
     if(handlerThread.joinable()) handlerThread.request_stop();
-    if(parserThread.joinable()) parserThread.request_stop();
     if(networkStreamThread.joinable()) networkStreamThread.request_stop();
     if(handlerThread.joinable()) handlerThread.join();
-    if(parserThread.joinable()) parserThread.join();
+    stopParser();
     if(networkStreamThread.joinable()) networkStreamThread.join();
     networkStreamRunning.store(false, std::memory_order_release);
 }

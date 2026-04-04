@@ -108,7 +108,7 @@ void Arena::statusUI(){
             const float usedFraction = arenaSize > 0 ? static_cast<float>(usedBytes) / static_cast<float>(arenaSize) : 0.0f;
             row("arena size", fmtb(arenaSize));
             row("buffer usage", fmtb(usedBytes), usedFraction, nullptr);
-            row("fragmented", fmtb(arenaSize - usedBytes), 1.0f - usedFraction, nullptr);
+            row("fragmentation", fmtb(arenaSize - usedBytes), 1.0f - usedFraction, nullptr);
             row("total pages", std::to_string(totalPages));
             row("bytes per signal", fmtb(bytesPerBuffer));
             row("total buffers", std::to_string(totalBuffers));
@@ -118,9 +118,21 @@ void Arena::statusUI(){
             ImGui::EndTable();
         }
         ImGui::SeparatorText("Messages");
+        auto arenaFingerprint = [&]{
+            size_t fingerprint = validIds.size();
+            for(const auto& id : validIds) fingerprint = (fingerprint * 131u) ^ id;
+            return fingerprint;
+        };
         static char query[128]{};
         static std::string cachedQuery{};
+        static size_t cachedGeneration = 0;
         static std::vector<size_t> cachedMatches = search("");
+        const size_t generation = arenaFingerprint();
+        if(cachedGeneration != generation){
+            cachedGeneration = generation;
+            cachedQuery = query;
+            cachedMatches = search(cachedQuery);
+        }
         ImGui::SetNextItemWidth(-1.0f);
         ImGui::InputTextWithHint("##arena_search", "Search name, id, or signal", query, sizeof(query));
         if(cachedQuery != query){
@@ -128,6 +140,7 @@ void Arena::statusUI(){
             cachedMatches = search(cachedQuery);
         }
         for(const auto& match : cachedMatches){
+            if(match >= validIds.size()) continue;
             const uint32_t id = validIds[match];
             Message* msg = messages[id];
             if(!msg) continue;
@@ -361,7 +374,27 @@ bool Arena::appendFrame(uint32_t id, double timeValue, const double* signalValue
 }
 
 void Arena::destroy(){ 
-    for(const auto& id : validIds) clear(id);
+    for(const auto& id : validIds){
+        clear(id);
+        if(id >= messages.size() || !messages[id]) continue;
+        Message* msg = messages[id];
+        for(size_t i = 0; i < msg->signalCount; ++i){
+            delete msg->signals[i];
+            msg->signals[i] = nullptr;
+        }
+        delete msg;
+        messages[id] = nullptr;
+    }
+    validIds.clear();
+    totalSignals = 0;
+    totalTimeBuffers = 0;
+    totalBuffers = 0;
+    totalDataTransfer = 1.0;
+    cursor = nullptr;
+    remaining = 0;
+    totalPages = 0;
+    pagesPerBuffer = 0;
+    bytesPerBuffer = 0;
     if(pool == nullptr) return;
 #ifdef _WIN32
     VirtualFree(pool, 0, MEM_RELEASE);

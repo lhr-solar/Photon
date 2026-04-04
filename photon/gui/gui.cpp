@@ -5,10 +5,12 @@
 #include <cfloat>
 #include <cmath>
 #include <chrono>
+#include <cstdio>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
 
+#include <SDL3/SDL_dialog.h>
 #include "imgui.h"
 #include "implot.h"
 #include "implot3d.h"
@@ -18,8 +20,26 @@
 #include "s26_simple_track_glb.hpp"
 #include "newCar_glb.hpp"
 
+namespace {
+void SDLCALL onDBCFileSelected(void* userdata, const char* const* filelist, int){
+    GUI* gui = static_cast<GUI*>(userdata);
+    if(!gui) return;
+    std::scoped_lock lock(gui->dbcDialogMutex);
+    gui->dbcDialogError.clear();
+    gui->dbcDialogSelectedPath.clear();
+    if(filelist == nullptr){
+        const char* error = SDL_GetError();
+        gui->dbcDialogError = error ? error : "Failed to Open File Dialog";
+        return;
+    }
+    if(filelist[0] == nullptr) return;
+    gui->dbcDialogSelectedPath = filelist[0];
+}
+}
+
 void GUI::buildUI(){
     handleNetwork();
+    handleDBCDialog();
     ImGui::NewFrame();
     buildTitleBar();
     leftSideBar();
@@ -88,6 +108,30 @@ void GUI::handleNetwork(){
     }
 };
 
+void GUI::handleDBCDialog(){
+    std::string selectedPath{};
+    std::string dialogError{};
+    {
+        std::scoped_lock lock(dbcDialogMutex);
+        selectedPath.swap(dbcDialogSelectedPath);
+        dialogError.swap(dbcDialogError);
+    }
+
+    if(!dialogError.empty()){
+        HandlerMessage entry{};
+        entry.color = messageColor(NetworkResponseType::Error);
+        entry.text = timestampNow() + " " + messagePrefix(NetworkResponseType::Error) + " " + dialogError;
+        handlerMessages.emplace_back(std::move(entry));
+        if(handlerMessages.size() > 256) handlerMessages.erase(handlerMessages.begin());
+    }
+
+    if(selectedPath.empty()) return;
+    pendingDBC = DBCKind::File;
+    pendingDBCFilePath = selectedPath;
+    const size_t slash = selectedPath.find_last_of("/\\");
+    pendingDBCFileLabel = slash == std::string::npos ? selectedPath : selectedPath.substr(slash + 1);
+}
+
 void GUI::bindNetworkResponses(GUIResponseQueue::Reader reader){
     guiResponses = reader;
 }
@@ -97,6 +141,25 @@ void GUI::queueStartProtocol(){
     command.type = NetworkCommandType::StartProtocol;
     command.config = protocolConfig;
     guiCommands.write([&](NetworkCommand& slot){ slot = command; });
+}
+
+void GUI::queueSetDBC(DBCKind kind){
+    pendingDBC = kind;
+    NetworkCommand command{};
+    command.type = NetworkCommandType::SetDBC;
+    command.dbc = kind;
+    if(kind == DBCKind::File && !pendingDBCFilePath.empty()){
+        std::snprintf(command.dbcPath, sizeof(command.dbcPath), "%s", pendingDBCFilePath.c_str());
+    }
+    guiCommands.write([&](NetworkCommand& slot){ slot = command; });
+}
+
+void GUI::selectDBCFile(){
+    static constexpr SDL_DialogFileFilter filters[] = {
+        {"DBC Files", "dbc"},
+        {"All Files", "*"},
+    };
+    SDL_ShowOpenFileDialog(onDBCFileSelected, this, window, filters, SDL_arraysize(filters), nullptr, false);
 }
 
 void GUI::queueStopProtocol(){
@@ -528,6 +591,22 @@ void GUI::sceneWindow(){
 void GUI::networkWindow(){
     if(ImGui::Begin("network", nullptr, ImGuiWindowFlags_NoTitleBar)){
         const float totalHeight = ImGui::GetContentRegionAvail().y;
+        int dbcIndex = static_cast<int>(pendingDBC);
+        const char* dbcNames[] = {
+            Parse::dbcName(DBCKind::VehicleWithUndisclosedName),
+            Parse::dbcName(DBCKind::DaybreakMaster),
+            Parse::dbcName(DBCKind::Test),
+            pendingDBCFileLabel.empty() ? "selected-file" : pendingDBCFileLabel.c_str(),
+        };
+        ImGui::SetNextItemWidth(280.0f);
+        if(ImGui::Combo("DBC", &dbcIndex, dbcNames, IM_ARRAYSIZE(dbcNames))){
+            pendingDBC = static_cast<DBCKind>(dbcIndex);
+        }
+        ImGui::SameLine();
+        if(ImGui::Button("Select File")) selectDBCFile();
+        ImGui::SameLine();
+        if(ImGui::Button("Set DBC")) queueSetDBC(pendingDBC);
+
         int protocol = static_cast<int>((protocolConfig.kind == ProtocolKind::None ? ProtocolKind::TCP : protocolConfig.kind)) - 1;
         const char* protocolNames[] = {"TCP", "UDP", "UART", "SocketCAN"};
         ImGui::SetNextItemWidth(220.0f);

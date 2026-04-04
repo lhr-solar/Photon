@@ -9,7 +9,8 @@ void Photon::init(){
     gpu.imguiBackend(&gui.titleBar);                    logs("Initialized ImGui");
     parse.init();                                       logs("Initialized Arena");
     gui.init(&gpu, &network, &parse);                   logs("Initialized GUI");
-    network.init(&parse.arena, &gui.guiCommands);       logs("Initialized Network");
+    gui.pendingDBC = parse.activeDBC;
+    network.init(&parse, &gui.guiCommands);             logs("Initialized Network");
     gui.bindNetworkResponses(network.getResponseReader());
     gui.protocolConfig.kind = ProtocolKind::TCP;
     gui.queueStartProtocol();

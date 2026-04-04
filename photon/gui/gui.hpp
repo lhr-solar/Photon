@@ -2,6 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <SDL3/SDL.h>
@@ -82,12 +83,21 @@ struct GUI{
     Pages pages{};
     float leftPaneWidth = 0.0f;
     ProtocolConfig protocolConfig{};
+    DBCKind pendingDBC = DBCKind::VehicleWithUndisclosedName;
+    std::string pendingDBCFilePath{};
+    std::string pendingDBCFileLabel{};
+    std::mutex dbcDialogMutex{};
+    std::string dbcDialogSelectedPath{};
+    std::string dbcDialogError{};
     std::string networkStatus = "idle";
     std::vector<HandlerMessage> handlerMessages{};
     void init(GPU* gpu, Network* network, Parse* parse);
     void handleNetwork();
+    void handleDBCDialog();
     void bindNetworkResponses(GUIResponseQueue::Reader reader);
     void queueStartProtocol();
+    void queueSetDBC(DBCKind kind);
+    void selectDBCFile();
     void queueStopProtocol();
     void buildUI();
     void bindWindow(SDL_Window* targetWindow);
