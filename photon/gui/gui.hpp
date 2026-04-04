@@ -91,6 +91,7 @@ struct GUI{
     void processEvents(SDL_Event* events);
     void leftSideBar();
     void resizeHorizontalLayout();
+    void homeWindow();
     void backgroundWindow();
     void gltfWindow();
     void networkWindow();

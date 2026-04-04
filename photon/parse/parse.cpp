@@ -5,7 +5,8 @@
 #include <istream>
 #include <sstream>
 #include <string>
-std::string filePath = "assets/dbc/vehicle-with-undisclosed-name.dbc";
+//std::string filePath = "assets/dbc/vehicle-with-undisclosed-name.dbc";
+std::string filePath = "assets/dbc/test.dbc";
 void Parse::init(){
     arenaConfig config{};
     buildConfig(filePath, config);

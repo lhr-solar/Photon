@@ -37,11 +37,10 @@ void GUI::init(GPU* gpu, Network* network, Parse* parse){
     sceneModel.dispatchInit(*gpu);
     backgroundShader.dispatchInit(*gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
+    pages.addPage("Home", [this]() { homeWindow(); });
+    pages.addPage("Map", [this]() { sceneWindow(); });
     pages.addPage("Network", [this]() { networkWindow(); });
-    pages.addPage("Background", [this]() { backgroundWindow(); });
-    pages.addPage("Scene", [this]() { sceneWindow(); });
-    pages.addPage("Dear ImGui Demo", []() { ImGui::ShowDemoWindow(); });
-    pages.addPage("Arena Status", [this]() { this->parse->arena.statusUI(); });
+    pages.addPage("Arena", [this]() { this->parse->arena.statusUI(); });
     setStyle();
 };
 
@@ -73,6 +72,23 @@ void GUI::queueStopProtocol(){
 
 void GUI::demoPlots(){
 };
+
+void GUI::homeWindow(){
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    if(ImGui::Begin("home", nullptr,
+            ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoBackground |
+            ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoScrollWithMouse)){
+        backgroundWindow();
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(2);
+}
 
 void GUI::buildTitleBar(){
     titleBar.clearInteract();
@@ -144,19 +160,21 @@ void GUI::buildTitleBar(){
 void GUI::dockspace(){
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const float splitterWidth = std::max(1.0f, ImGui::GetStyle().GrabMinSize);
+    const float splitterWidth = 3.0f;
     const float minPaneWidth = std::max(1.0f, ImGui::GetStyle().WindowMinSize.x);
-    if (leftPaneWidth <= 0.0f) leftPaneWidth = viewport->WorkSize.x * 0.175f;
+    const float contentWidth = viewport->Size.x;
+    const float contentHeight = std::max(1.0f, viewport->Size.y - static_cast<float>(titleBar.height));
+    if (leftPaneWidth <= 0.0f) leftPaneWidth = contentWidth * 0.175f;
     leftPaneWidth = std::clamp(
         leftPaneWidth,
         minPaneWidth,
-        std::max(minPaneWidth, viewport->WorkSize.x - splitterWidth - minPaneWidth));
+        std::max(minPaneWidth, contentWidth - splitterWidth - minPaneWidth));
     const ImVec2 dockspacePos(
-        viewport->WorkPos.x + leftPaneWidth + splitterWidth,
-        viewport->WorkPos.y + static_cast<float>(titleBar.height));
+        viewport->Pos.x + leftPaneWidth + splitterWidth,
+        viewport->Pos.y + static_cast<float>(titleBar.height));
     const ImVec2 dockspaceSize(
-        std::max(1.0f, viewport->WorkSize.x - leftPaneWidth - splitterWidth),
-        std::max(1.0f, viewport->WorkSize.y - static_cast<float>(titleBar.height)));
+        std::max(1.0f, contentWidth - leftPaneWidth - splitterWidth),
+        contentHeight);
     ImGui::SetNextWindowPos(dockspacePos);
     ImGui::SetNextWindowSize(dockspaceSize);
     ImGui::SetNextWindowViewport(viewport->ID);
@@ -183,19 +201,21 @@ void GUI::dockspace(){
 void GUI::leftSideBar() {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     const ImGuiStyle& style = ImGui::GetStyle();
-    const float splitterWidth = std::max(1.0f, ImGui::GetStyle().GrabMinSize);
+    const float splitterWidth = 3.0f;
     const float minPaneWidth = std::max(1.0f, ImGui::GetStyle().WindowMinSize.x);
-    if (leftPaneWidth <= 0.0f) leftPaneWidth = viewport->WorkSize.x * 0.175f;
+    const float contentWidth = viewport->Size.x;
+    const float contentHeight = std::max(1.0f, viewport->Size.y - static_cast<float>(titleBar.height));
+    if (leftPaneWidth <= 0.0f) leftPaneWidth = contentWidth * 0.175f;
     leftPaneWidth = std::clamp(
         leftPaneWidth,
         minPaneWidth,
-        std::max(minPaneWidth, viewport->WorkSize.x - splitterWidth - minPaneWidth));
+        std::max(minPaneWidth, contentWidth - splitterWidth - minPaneWidth));
     const ImVec2 sideBarPos(
-        viewport->WorkPos.x,
-        viewport->WorkPos.y + static_cast<float>(titleBar.height));
+        viewport->Pos.x,
+        viewport->Pos.y + static_cast<float>(titleBar.height));
     const ImVec2 sideBarSize(
         leftPaneWidth,
-        std::max(1.0f, viewport->WorkSize.y - static_cast<float>(titleBar.height)));
+        contentHeight);
 
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
         ImGuiWindowFlags_NoDocking |
@@ -232,19 +252,21 @@ void GUI::leftSideBar() {
 
 void GUI::resizeHorizontalLayout() {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const float splitterWidth = std::max(1.0f, ImGui::GetStyle().GrabMinSize);
+    const float splitterWidth = 3.0f;
     const float minPaneWidth = std::max(1.0f, ImGui::GetStyle().WindowMinSize.x);
-    if (leftPaneWidth <= 0.0f) leftPaneWidth = viewport->WorkSize.x * 0.175f;
+    const float contentWidth = viewport->Size.x;
+    const float contentHeight = std::max(1.0f, viewport->Size.y - static_cast<float>(titleBar.height));
+    if (leftPaneWidth <= 0.0f) leftPaneWidth = contentWidth * 0.175f;
     leftPaneWidth = std::clamp(
         leftPaneWidth,
         minPaneWidth,
-        std::max(minPaneWidth, viewport->WorkSize.x - splitterWidth - minPaneWidth));
+        std::max(minPaneWidth, contentWidth - splitterWidth - minPaneWidth));
     const ImVec2 splitterPos(
-        viewport->WorkPos.x + leftPaneWidth,
-        viewport->WorkPos.y + static_cast<float>(titleBar.height));
+        viewport->Pos.x + leftPaneWidth,
+        viewport->Pos.y + static_cast<float>(titleBar.height));
     const ImVec2 splitterSize(
         splitterWidth,
-        std::max(1.0f, viewport->WorkSize.y - static_cast<float>(titleBar.height)));
+        contentHeight);
 
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
         ImGuiWindowFlags_NoMove |
@@ -261,9 +283,12 @@ void GUI::resizeHorizontalLayout() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.24f, 0.25f, 0.27f, 0.22f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.31f, 0.33f, 0.35f, 0.38f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.40f, 0.42f, 0.45f, 0.48f));
 
     if (ImGui::Begin("##LeftPaneSplitter", nullptr, windowFlags)) {
-        ImGui::InvisibleButton("##LeftPaneSplitterHandle", splitterSize);
+        ImGui::Button("##LeftPaneSplitterHandle", splitterSize);
         if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         }
@@ -271,11 +296,12 @@ void GUI::resizeHorizontalLayout() {
             leftPaneWidth = std::clamp(
                 leftPaneWidth + ImGui::GetIO().MouseDelta.x,
                 minPaneWidth,
-                std::max(minPaneWidth, viewport->WorkSize.x - splitterWidth - minPaneWidth));
+                std::max(minPaneWidth, contentWidth - splitterWidth - minPaneWidth));
         }
     }
     ImGui::End();
 
+    ImGui::PopStyleColor(3);
     ImGui::PopStyleVar(3);
 }
 
@@ -292,22 +318,18 @@ void GUI::backgroundWindow(){
         && backgroundShader.frameIndex != nullptr;
     shaderFrame fallbackFrame{};
     shaderFrame& frame = ready ? backgroundShader.frames[*backgroundShader.frameIndex] : fallbackFrame;
-    ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
-    if(ImGui::Begin("background", NULL, ImGuiWindowFlags_NoTitleBar)){
-        if (ready) {
-            const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
-            if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
-                frame.extent = nextExtent;
-                backgroundShader.dirty = true;
-            }
+    if (ready) {
+        const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+        if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+            frame.extent = nextExtent;
+            backgroundShader.dirty = true;
         }
-        ImVec2 drawSize(frame.extent.width, frame.extent.height);
-        drawSize.x = std::max(drawSize.x, 1.0f);
-        drawSize.y = std::max(drawSize.y, 1.0f);
-        if (ready) { ImGui::Image(frame.texture, drawSize);} 
-        else { ImGui::Text("loading shader"); }
     }
-    ImGui::End();
+    ImVec2 drawSize(frame.extent.width, frame.extent.height);
+    drawSize.x = std::max(drawSize.x, 1.0f);
+    drawSize.y = std::max(drawSize.y, 1.0f);
+    if (ready) ImGui::Image(frame.texture, drawSize);
+    else ImGui::Text("loading shader");
 };
 
 void GUI::gltfWindow() {
@@ -553,13 +575,13 @@ void GUI::setStyle(){
     style.ScrollbarRounding = 999.0f;
     style.FrameRounding = 0.0f;
     style.FrameBorderSize = 0.0f;
-    style.WindowBorderSize = 1.0f;
+    style.WindowBorderSize = 0.0f;
     style.ChildBorderSize = 1.0f;
     style.PopupBorderSize = 1.0f;
     style.DockingSeparatorSize = 1.0f;
     style.WindowPadding = ImVec2{18.0f, 16.0f};
     style.FramePadding = ImVec2{12.0f, 9.0f};
-    style.CellPadding = ImVec2{10.0f, 8.0f};
+    style.CellPadding = ImVec2{14.0f, 8.0f};
     style.ItemSpacing = ImVec2{10.0f, 8.0f};
     style.ItemInnerSpacing = ImVec2{8.0f, 6.0f};
     style.IndentSpacing = 18.0f;

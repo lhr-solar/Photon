@@ -90,7 +90,8 @@ void Arena::statusUI(){
             ImGui::ProgressBar(clamped, ImVec2(-FLT_MIN, 0.0f), overlay);
         };
         ImGuiTableFlags summaryFlags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
-            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
+            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings |
+            ImGuiTableFlags_PadOuterX;
         if(ImGui::BeginTable("arena_summary", 3, summaryFlags)){
             ImGui::TableSetupColumn("Field", ImGuiTableColumnFlags_WidthFixed, 150.0f);
             ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
@@ -170,7 +171,8 @@ void Arena::statusUI(){
                     ImGui::EndTable();
                 }
                 ImGuiTableFlags signalFlags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                    ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+                    ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings |
+                    ImGuiTableFlags_PadOuterX;
                 if(ImGui::BeginTable(("signals##" + std::to_string(msg->id)).c_str(), 14, signalFlags)){
                     ImGui::TableSetupScrollFreeze(0, 1);
                     ImGui::TableSetupColumn("Idx");

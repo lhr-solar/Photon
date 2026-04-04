@@ -123,7 +123,6 @@ double decodeSignalValue(const Message& msg, const Signal& sig, const std::array
 
 bool handleFrame(Arena* arena, const std::string& frame, double timeValue){
     if(!arena) return false;
-    //logs(frame);
 
     uint16_t canId = 0;
     std::array<uint8_t, 8> value{};
