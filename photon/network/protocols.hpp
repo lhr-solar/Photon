@@ -10,6 +10,7 @@ enum class ProtocolKind : uint32_t {
     UDP,
     UART,
     SocketCAN,
+    AssettoCorsa,
 };
 
 struct TCPConfig{
@@ -93,4 +94,7 @@ struct Protocols{
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
         const SocketCANConfig& config);
+    static void AssettoCorsa(std::stop_token stopToken,
+        SPMCQueue<ProtocolError, 64>* statusBuffer,
+        SPMCQueue<uint8_t, 4096>* streamBuffer);
 };

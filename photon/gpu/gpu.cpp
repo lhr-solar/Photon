@@ -475,7 +475,9 @@ void GPU::imguiBackend(TitleBar* titleBar){
     io.ConfigFlags  |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags  |= ImGuiConfigFlags_NavEnableKeyboard;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+    // ImDrawIdx is forced to unsigned int in .external/imgui/imconfig.h, per ImGui's guidance for 32-bit index support.
     //io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+    io.IniFilename = nullptr;
 
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
@@ -942,6 +944,7 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         VkBuffer& indexBuffer = indexBuffers[frameIndex];
         VkDeviceSize offsets[1] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
+        // Keep this in sync with imconfig.h: when ImDrawIdx is switched to unsigned int, the backend must bind UINT32 indices.
         const VkIndexType indexType = (sizeof(ImDrawIdx) == sizeof(uint16_t)) ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, indexType);
         VkDescriptorSet boundSet = VK_NULL_HANDLE;

@@ -41,6 +41,7 @@ void GUI::buildUI(){
     handleNetwork();
     handleDBCDialog();
     ImGui::NewFrame();
+    plots.handleHotkeys(homePageActive());
     buildTitleBar();
     leftSideBar();
     dockspace();
@@ -61,10 +62,11 @@ void GUI::init(GPU* gpu, Network* network, Parse* parse){
     sceneModel.dispatchInit(*gpu);
     backgroundShader.dispatchInit(*gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
-    pages.addPage("Home", [this]() { homeWindow(); });
+    homePageIndex = pages.addPage("Home", [this]() { homeWindow(); });
     pages.addPage("Map", [this]() { sceneWindow(); });
     pages.addPage("Network", [this]() { networkWindow(); });
     pages.addPage("Arena", [this]() { this->parse->arena.statusUI(); });
+    plots.init(parse);
     setStyle();
 };
 
@@ -168,6 +170,10 @@ void GUI::queueStopProtocol(){
     guiCommands.write([&](NetworkCommand& slot){ slot = command; });
 }
 
+bool GUI::homePageActive() const {
+    return homePageIndex < pages.entries.size() && pages.activePage == homePageIndex;
+}
+
 void GUI::demoPlots(){
 };
 
@@ -178,10 +184,50 @@ void GUI::homeWindow(){
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     if(ImGui::Begin("home", nullptr,
             ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoCollapse |
             ImGuiWindowFlags_NoBackground |
             ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse)){
-        backgroundWindow();
+        const ImVec2 homePos = ImGui::GetWindowPos();
+        const ImVec2 homeSize = ImGui::GetWindowSize();
+
+        ImGui::SetCursorScreenPos(homePos);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        if(ImGui::BeginChild("##HomeBackgroundLayer", homeSize, false,
+                ImGuiWindowFlags_NoBackground |
+                ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse |
+                ImGuiWindowFlags_NoInputs |
+                ImGuiWindowFlags_NoNavFocus |
+                ImGuiWindowFlags_NoBringToFrontOnFocus)){
+            backgroundWindow();
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
+
+        ImGui::SetCursorScreenPos(homePos);
+        ImGui::SetNextWindowViewport(ImGui::GetWindowViewport()->ID);
+        ImGui::SetNextWindowBgAlpha(0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_DockingEmptyBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        if(ImGui::BeginChild("##HomePlotDockspace", homeSize, false,
+                ImGuiWindowFlags_NoBackground |
+                ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse)){
+            const ImGuiID homeDockspaceID = ImGui::GetID("HomePlotDockspaceID");
+            ImGui::DockSpace(homeDockspaceID, ImVec2(0.0f, 0.0f),
+                ImGuiDockNodeFlags_PassthruCentralNode);
+            const ImVec2 dockMin = ImGui::GetWindowPos();
+            const ImVec2 dockSize = ImGui::GetWindowSize();
+            const ImVec2 dockMax(dockMin.x + dockSize.x, dockMin.y + dockSize.y);
+            plots.renderHome(homeDockspaceID, dockMin, dockMax);
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(2);
     }
     ImGui::End();
     ImGui::PopStyleVar();
@@ -596,26 +642,27 @@ void GUI::networkWindow(){
             Parse::dbcName(DBCKind::VehicleWithUndisclosedName),
             Parse::dbcName(DBCKind::DaybreakMaster),
             Parse::dbcName(DBCKind::Test),
-            pendingDBCFileLabel.empty() ? "selected-file" : pendingDBCFileLabel.c_str(),
+            Parse::dbcName(DBCKind::AssettoCorsa),
+            pendingDBCFileLabel.empty() ? "local file...": pendingDBCFileLabel.c_str(),
         };
+        if(ImGui::Button("Select File")) selectDBCFile();
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(280.0f);
-        if(ImGui::Combo("DBC", &dbcIndex, dbcNames, IM_ARRAYSIZE(dbcNames))){
+        if(ImGui::Combo("##DBC", &dbcIndex, dbcNames, IM_ARRAYSIZE(dbcNames))){
             pendingDBC = static_cast<DBCKind>(dbcIndex);
         }
         ImGui::SameLine();
-        if(ImGui::Button("Select File")) selectDBCFile();
-        ImGui::SameLine();
         if(ImGui::Button("Set DBC")) queueSetDBC(pendingDBC);
+        ImGui::Separator();
 
         int protocol = static_cast<int>((protocolConfig.kind == ProtocolKind::None ? ProtocolKind::TCP : protocolConfig.kind)) - 1;
-        const char* protocolNames[] = {"TCP", "UDP", "UART", "SocketCAN"};
+        const char* protocolNames[] = {"TCP", "UDP", "UART", "SocketCAN", "Assetto Corsa"};
         ImGui::SetNextItemWidth(220.0f);
-        if(ImGui::Combo("Protocol", &protocol, protocolNames, IM_ARRAYSIZE(protocolNames))){
+        if(ImGui::Combo("##Protocol", &protocol, protocolNames, IM_ARRAYSIZE(protocolNames))){
             protocolConfig.kind = static_cast<ProtocolKind>(protocol + 1);
         }
 
         if(protocolConfig.kind == ProtocolKind::None) protocolConfig.kind = ProtocolKind::TCP;
-        ImGui::Text("selected protocol: %s", Protocols::name(protocolConfig.kind));
 
         switch(protocolConfig.kind){
             case ProtocolKind::TCP:
@@ -669,19 +716,25 @@ void GUI::networkWindow(){
                     IM_ARRAYSIZE(protocolConfig.socketCAN.interfaceName));
 #endif
                 break;
+            case ProtocolKind::AssettoCorsa:
+                ImGui::TextUnformatted("Assetto Corsa uses the built-in UDP handshake and default localhost settings.");
+                break;
             case ProtocolKind::None:
             default:
                 break;
         }
 
+        const float footerHeight = totalHeight * 0.24f;
+        const float controlsHeight = ImGui::GetFrameHeightWithSpacing();
+        const float bottomPadding = ImGui::GetStyle().ItemSpacing.y * 2.0f;
+        const float spacerHeight = std::max(0.0f, ImGui::GetContentRegionAvail().y - (footerHeight + controlsHeight + bottomPadding));
+        ImGui::Dummy(ImVec2(0.0f, spacerHeight));
         if(ImGui::Button("Start Protocol")) queueStartProtocol();
+        ImGui::SameLine();
         if(ImGui::Button("Stop Protocol")) queueStopProtocol();
         ImGui::SameLine();
         if(ImGui::Button("Clear Messages")) handlerMessages.clear();
-
-        const float footerHeight = totalHeight * 0.28f;
-        const float spacerHeight = std::max(0.0f, ImGui::GetContentRegionAvail().y - (totalHeight * 0.30f));
-        ImGui::Dummy(ImVec2(0.0f, spacerHeight));
+        ImGui::Dummy(ImVec2(0.0f, bottomPadding));
         if(ImGui::BeginChild("##network_messages", ImVec2(0.0f, footerHeight), true)){
             for(const HandlerMessage& message : handlerMessages){
                 ImGui::PushStyleColor(ImGuiCol_Text, message.color);
@@ -842,11 +895,22 @@ void GUI::setStyle(){
     colors[ImGuiCol_ModalWindowDimBg] = ImVec4{0.04f, 0.03f, 0.02f, 0.72f};
 
     ImPlotStyle &plotStyle = ImPlot::GetStyle();
-    plotStyle.Colors[ImPlotCol_FrameBg] = panelBg;
-    //plotStyle.Colors[ImPlotCol_PlotBg] = ImVec4(0, 0, 0, 0.95f);
-    //plotStyle.Colors[ImPlotCol_PlotBorder] = ImVec4(0, 0, 0, 0.0f);
-    //plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(0, 0, 0, 0.0f);
-    //plotStyle.Colors[ImPlotCol_LegendBorder] = ImVec4(0, 0, 0, 0.0f);
+    plotStyle.Colors[ImPlotCol_FrameBg] = colors[ImGuiCol_FrameBg];
+    plotStyle.Colors[ImPlotCol_PlotBg] = panelBg;
+    plotStyle.Colors[ImPlotCol_PlotBorder] = border;
+    plotStyle.Colors[ImPlotCol_LegendBg] = ImVec4(elevatedBg.x, elevatedBg.y, elevatedBg.z, 0.92f);
+    plotStyle.Colors[ImPlotCol_LegendBorder] = border;
+    plotStyle.Colors[ImPlotCol_LegendText] = textColor;
+    plotStyle.Colors[ImPlotCol_TitleText] = textColor;
+    plotStyle.Colors[ImPlotCol_InlayText] = dimText;
+    plotStyle.Colors[ImPlotCol_AxisText] = dimText;
+    plotStyle.Colors[ImPlotCol_AxisGrid] = ImVec4(border.x, border.y, border.z, 0.45f);
+    plotStyle.Colors[ImPlotCol_AxisTick] = ImVec4(dimText.x, dimText.y, dimText.z, 0.85f);
+    plotStyle.Colors[ImPlotCol_AxisBg] = ImVec4(panelBg.x, panelBg.y, panelBg.z, 0.35f);
+    plotStyle.Colors[ImPlotCol_AxisBgHovered] = ImVec4(elevatedBg.x, elevatedBg.y, elevatedBg.z, 0.65f);
+    plotStyle.Colors[ImPlotCol_AxisBgActive] = ImVec4(elevatedBg.x, elevatedBg.y, elevatedBg.z, 0.85f);
+    plotStyle.Colors[ImPlotCol_Selection] = ImVec4(accent.x, accent.y, accent.z, 0.28f);
+    plotStyle.Colors[ImPlotCol_Crosshairs] = ImVec4(accentHover.x, accentHover.y, accentHover.z, 0.75f);
 
     /*
     ImNodesStyle &nodeStyle = ImNodes::GetStyle();

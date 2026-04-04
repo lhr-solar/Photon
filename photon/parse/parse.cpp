@@ -8,6 +8,7 @@
 #include <string>
 #include "vehicle_with_undisclosed_name_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
+#include "assettoCorsa_dbc.hpp"
 #include "test_dbc.hpp"
 
 namespace {
@@ -22,6 +23,7 @@ const std::array<DBCAsset, Parse::dbcCount()> kDBCAssets{{
     {DBCKind::VehicleWithUndisclosedName, "vehicle-with-undisclosed-name", vehicle_with_undisclosed_name_dbc, vehicle_with_undisclosed_name_dbc_size},
     {DBCKind::DaybreakMaster, "daybreak-master", daybreak_master_dbc, daybreak_master_dbc_size},
     {DBCKind::Test, "test", test_dbc, test_dbc_size},
+    {DBCKind::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size},
     {DBCKind::File, "selected-file", nullptr, 0},
 }};
 

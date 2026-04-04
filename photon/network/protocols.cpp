@@ -1,23 +1,35 @@
 #include "protocols.hpp"
 #include <chrono>
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <cstddef>
+#include <string>
 #include <thread>
 
 #ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <windows.h>
+#include <winsock2.h>
+#include <Ws2tcpip.h>
+using SocketHandle = SOCKET;
 #else
 #include <linux/can.h>
 #include <linux/can/netlink.h>
 #include <linux/rtnetlink.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+using SocketHandle = int;
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR (-1)
 #endif
 
 namespace {
@@ -100,6 +112,244 @@ bool resolveClassicTiming(const SocketCANConfig& config, ClassicTiming& timing){
     return config.useBtr
         ? decodeClassicBtr(config.btr0, config.btr1, timing)
         : synthesizeClassicBtr(config.bitrateKbps, config.samplePointPercent, config.prescaler, timing);
+}
+
+enum platform{
+    eIPhoneDevice = 0,
+};
+
+enum operationId{
+    HANDSHAKE = 0,
+    SUBSCRIBE_UPDATE = 1,
+};
+
+struct handshake{
+    platform id;
+    int ver;
+    operationId opId;
+};
+
+struct handshakeResponse{
+    char carName[50];
+    char driverName[50];
+    int identifier;
+    int version;
+    char trackName[50];
+    char trackConfig[50];
+};
+
+struct RTCarInfo{
+    char identifier;
+    int size;
+    float speed_Kmh;
+    float speed_Mph;
+    float speed_Ms;
+    bool isAbsEnabled;
+    bool isAbsInAction;
+    bool isTcInAction;
+    bool isTcEnabled;
+    bool isInPit;
+    bool isEngineLimiterOn;
+    float accG_vertical;
+    float accG_horizontal;
+    float accG_frontal;
+    int lapTime;
+    int lastLap;
+    int bestLap;
+    int lapCount;
+    float gas;
+    float brake;
+    float clutch;
+    float engineRPM;
+    float steer;
+    int gear;
+    float cgHeight;
+    float wheelAngularSpeed[4];
+    float slipAngle[4];
+    float slipAngle_ContactPatch[4];
+    float slipRatio[4];
+    float tyreSlip[4];
+    float ndSlip[4];
+    float load[4];
+    float Dy[4];
+    float Mz[4];
+    float tyreDirtyLevel[4];
+    float camberRAD[4];
+    float tyreRadius[4];
+    float tyreLoadedRadius[4];
+    float suspensionHeight[4];
+    float carPositionNormalized;
+    float carSlope;
+    float carCoordinates[3];
+};
+
+struct FieldInfo{
+    std::size_t offset;
+    std::size_t size;
+};
+
+#define FIELD(struct_type, member) FieldInfo{offsetof(struct_type, member), sizeof(((struct_type*)0)->member)}
+#define FIELD_PART(struct_type, member, byte_offset, byte_size) FieldInfo{offsetof(struct_type, member) + static_cast<std::size_t>(byte_offset), static_cast<std::size_t>(byte_size)}
+
+constexpr std::array<FieldInfo, 58> kRTCarInfoFields = {{
+    FIELD(RTCarInfo, identifier),
+    FIELD(RTCarInfo, size),
+    FIELD(RTCarInfo, speed_Kmh),
+    FIELD(RTCarInfo, speed_Mph),
+    FIELD(RTCarInfo, speed_Ms),
+    FIELD(RTCarInfo, isAbsEnabled),
+    FIELD(RTCarInfo, isAbsInAction),
+    FIELD(RTCarInfo, isTcInAction),
+    FIELD(RTCarInfo, isTcEnabled),
+    FIELD(RTCarInfo, isInPit),
+    FIELD(RTCarInfo, isEngineLimiterOn),
+    FIELD(RTCarInfo, accG_vertical),
+    FIELD(RTCarInfo, accG_horizontal),
+    FIELD(RTCarInfo, accG_frontal),
+    FIELD(RTCarInfo, lapTime),
+    FIELD(RTCarInfo, lastLap),
+    FIELD(RTCarInfo, bestLap),
+    FIELD(RTCarInfo, lapCount),
+    FIELD(RTCarInfo, gas),
+    FIELD(RTCarInfo, brake),
+    FIELD(RTCarInfo, clutch),
+    FIELD(RTCarInfo, engineRPM),
+    FIELD(RTCarInfo, steer),
+    FIELD(RTCarInfo, gear),
+    FIELD(RTCarInfo, cgHeight),
+    FIELD_PART(RTCarInfo, wheelAngularSpeed, 0, 8),
+    FIELD_PART(RTCarInfo, wheelAngularSpeed, 8, 8),
+    FIELD_PART(RTCarInfo, slipAngle, 0, 8),
+    FIELD_PART(RTCarInfo, slipAngle, 8, 8),
+    FIELD_PART(RTCarInfo, slipAngle_ContactPatch, 0, 8),
+    FIELD_PART(RTCarInfo, slipAngle_ContactPatch, 8, 8),
+    FIELD_PART(RTCarInfo, slipRatio, 0, 8),
+    FIELD_PART(RTCarInfo, slipRatio, 8, 8),
+    FIELD_PART(RTCarInfo, tyreSlip, 0, 8),
+    FIELD_PART(RTCarInfo, tyreSlip, 8, 8),
+    FIELD_PART(RTCarInfo, ndSlip, 0, 8),
+    FIELD_PART(RTCarInfo, ndSlip, 8, 8),
+    FIELD_PART(RTCarInfo, load, 0, 8),
+    FIELD_PART(RTCarInfo, load, 8, 8),
+    FIELD_PART(RTCarInfo, Dy, 0, 8),
+    FIELD_PART(RTCarInfo, Dy, 8, 8),
+    FIELD_PART(RTCarInfo, Mz, 0, 8),
+    FIELD_PART(RTCarInfo, Mz, 8, 8),
+    FIELD_PART(RTCarInfo, tyreDirtyLevel, 0, 8),
+    FIELD_PART(RTCarInfo, tyreDirtyLevel, 8, 8),
+    FIELD_PART(RTCarInfo, camberRAD, 0, 8),
+    FIELD_PART(RTCarInfo, camberRAD, 8, 8),
+    FIELD_PART(RTCarInfo, tyreRadius, 0, 8),
+    FIELD_PART(RTCarInfo, tyreRadius, 8, 8),
+    FIELD_PART(RTCarInfo, tyreLoadedRadius, 0, 8),
+    FIELD_PART(RTCarInfo, tyreLoadedRadius, 8, 8),
+    FIELD_PART(RTCarInfo, suspensionHeight, 0, 8),
+    FIELD_PART(RTCarInfo, suspensionHeight, 8, 8),
+    FIELD(RTCarInfo, carPositionNormalized),
+    FIELD(RTCarInfo, carSlope),
+    FIELD_PART(RTCarInfo, carCoordinates, 0, 4),
+    FIELD_PART(RTCarInfo, carCoordinates, 4, 4),
+    FIELD_PART(RTCarInfo, carCoordinates, 8, 4),
+}};
+
+bool setNonBlocking(SocketHandle sock){
+#ifdef _WIN32
+    u_long mode = 1;
+    return ioctlsocket(sock, FIONBIO, &mode) == 0;
+#else
+    int flags = fcntl(sock, F_GETFL, 0);
+    if(flags < 0) return false;
+    return fcntl(sock, F_SETFL, flags | O_NONBLOCK) == 0;
+#endif
+}
+
+void closeSocket(SocketHandle sock){
+#ifdef _WIN32
+    closesocket(sock);
+#else
+    close(sock);
+#endif
+}
+
+void forwardAssettoFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const RTCarInfo& packet){
+    const std::byte* base = reinterpret_cast<const std::byte*>(&packet);
+    for(std::size_t i = 0; i < kRTCarInfoFields.size(); ++i){
+        const FieldInfo& field = kRTCarInfoFields[i];
+        if(field.size > 8) continue;
+
+        char frame[32]{};
+        int length = std::snprintf(frame, sizeof(frame), "t%03X%1X", static_cast<unsigned>(i), static_cast<unsigned>(field.size));
+        const uint8_t* payload = reinterpret_cast<const uint8_t*>(base + field.offset);
+        for(std::size_t b = 0; b < field.size && length > 0 && length < static_cast<int>(sizeof(frame) - 3); ++b)
+            length += std::snprintf(frame + length, sizeof(frame) - static_cast<std::size_t>(length), "%02x", payload[field.size - b - 1]);
+        if(length <= 0 || length >= static_cast<int>(sizeof(frame) - 1)) continue;
+        frame[length++] = '\r';
+        frame[length] = '\0';
+        writeFrame(streamBuffer, frame);
+    }
+}
+
+bool initAssettoSocket(SocketHandle& sock, sockaddr_in& server, char* error, std::size_t errorSize){
+#ifdef _WIN32
+    static bool wsaStarted = false;
+    if(!wsaStarted){
+        WSADATA wsa{};
+        const int err = WSAStartup(MAKEWORD(2, 2), &wsa);
+        if(err != 0){
+            std::snprintf(error, errorSize, "WSAStartup failed: %d", err);
+            return false;
+        }
+        wsaStarted = true;
+    }
+#endif
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if(sock == INVALID_SOCKET){
+#ifdef _WIN32
+        std::snprintf(error, errorSize, "Assetto socket creation failed: %d", WSAGetLastError());
+#else
+        std::snprintf(error, errorSize, "Assetto socket creation failed: %s", std::strerror(errno));
+#endif
+        return false;
+    }
+    if(!setNonBlocking(sock)){
+#ifdef _WIN32
+        std::snprintf(error, errorSize, "failed to set Assetto socket non-blocking: %d", WSAGetLastError());
+#else
+        std::snprintf(error, errorSize, "failed to set Assetto socket non-blocking: %s", std::strerror(errno));
+#endif
+        closeSocket(sock);
+        sock = INVALID_SOCKET;
+        return false;
+    }
+    server = {};
+    server.sin_family = AF_INET;
+    server.sin_port = htons(9996);
+    inet_pton(AF_INET, "127.0.0.1", &server.sin_addr);
+    return true;
+}
+
+bool performAssettoHandshake(SocketHandle sock, sockaddr_in& server, bool& subscribed){
+    if(subscribed) return true;
+    auto sendControlMessage = [&](operationId op){
+        handshake msg{};
+        msg.id = eIPhoneDevice;
+        msg.ver = 1;
+        msg.opId = op;
+        return sendto(sock, reinterpret_cast<const char*>(&msg), sizeof(msg), 0,
+            reinterpret_cast<const sockaddr*>(&server), sizeof(server)) != SOCKET_ERROR;
+    };
+
+    if(!sendControlMessage(HANDSHAKE)) return false;
+    std::array<char, 2048> buffer{};
+    handshakeResponse response{};
+    socklen_t slen = sizeof(server);
+    const int received = recvfrom(sock, buffer.data(), static_cast<int>(buffer.size()), 0,
+        reinterpret_cast<sockaddr*>(&server), &slen);
+    if(received < static_cast<int>(sizeof(response))) return false;
+    std::memcpy(&response, buffer.data(), sizeof(response));
+    if(!sendControlMessage(SUBSCRIBE_UPDATE)) return false;
+    subscribed = true;
+    return true;
 }
 
 #ifdef _WIN32
@@ -569,6 +819,7 @@ const char* Protocols::name(ProtocolKind kind){
         case ProtocolKind::UDP: return "UDP";
         case ProtocolKind::UART: return "UART";
         case ProtocolKind::SocketCAN: return "SocketCAN";
+        case ProtocolKind::AssettoCorsa: return "Assetto Corsa";
         default: return "None";
     }
 }
@@ -593,6 +844,9 @@ void Protocols::run(std::stop_token stopToken,
             return;
         case ProtocolKind::SocketCAN:
             SocketCAN(stopToken, statusBuffer, streamBuffer, config.socketCAN);
+            return;
+        case ProtocolKind::AssettoCorsa:
+            AssettoCorsa(stopToken, statusBuffer, streamBuffer);
             return;
         case ProtocolKind::None:
         default:
@@ -745,4 +999,77 @@ void Protocols::SocketCAN(std::stop_token stopToken,
     close(fd);
     publishStatus(statusBuffer, false, "SocketCAN Stopped");
 #endif
+}
+
+void Protocols::AssettoCorsa(std::stop_token stopToken,
+        SPMCQueue<ProtocolError, 64>* statusBuffer,
+        SPMCQueue<uint8_t, 4096>* streamBuffer){
+    char error[192]{};
+    SocketHandle sock = INVALID_SOCKET;
+    sockaddr_in server{};
+    if(!initAssettoSocket(sock, server, error, sizeof(error))){
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    publishStatus(statusBuffer, false, "Assetto Corsa Connecting");
+    bool subscribed = false;
+    int consecutiveReadFailures = 0;
+    constexpr int kMaxConsecutiveReadFailures = 3;
+    bool publishedOnline = false;
+
+    while(!stopToken.stop_requested()){
+        if(!performAssettoHandshake(sock, server, subscribed)){
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            continue;
+        }
+        if(!publishedOnline){
+            publishStatus(statusBuffer, false, "Assetto Corsa Online");
+            publishedOnline = true;
+        }
+
+        RTCarInfo packet{};
+        socklen_t slen = sizeof(server);
+        const int bytesRead = recvfrom(sock, reinterpret_cast<char*>(&packet), sizeof(packet), 0,
+            reinterpret_cast<sockaddr*>(&server), &slen);
+        if(bytesRead == 0){
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            continue;
+        }
+        if(bytesRead == SOCKET_ERROR){
+#ifdef _WIN32
+            const int err = WSAGetLastError();
+            if(err == WSAEWOULDBLOCK){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+            consecutiveReadFailures++;
+#else
+            if(errno == EAGAIN || errno == EWOULDBLOCK){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+            consecutiveReadFailures++;
+#endif
+            if(consecutiveReadFailures >= kMaxConsecutiveReadFailures){
+                publishStatus(statusBuffer, false, "Assetto Corsa UDP read failed repeatedly; restarting reader socket");
+                closeSocket(sock);
+                sock = INVALID_SOCKET;
+                subscribed = false;
+                consecutiveReadFailures = 0;
+                publishedOnline = false;
+                if(!initAssettoSocket(sock, server, error, sizeof(error))){
+                    publishStatus(statusBuffer, true, error);
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            }
+            continue;
+        }
+        consecutiveReadFailures = 0;
+        if(bytesRead >= static_cast<int>(sizeof(RTCarInfo))) forwardAssettoFrame(streamBuffer, packet);
+    }
+
+    if(sock != INVALID_SOCKET) closeSocket(sock);
+    publishStatus(statusBuffer, false, "Assetto Corsa Stopped");
 }

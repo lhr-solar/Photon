@@ -6,6 +6,7 @@ enum class DBCKind : uint32_t {
     VehicleWithUndisclosedName = 0,
     DaybreakMaster,
     Test,
+    AssettoCorsa,
     File,
 };
 
@@ -19,7 +20,7 @@ struct Parse{
     bool loadDBCFile(const std::string& path);
     void destroy();
 
-    static constexpr uint32_t dbcCount(){ return 4; }
+    static constexpr uint32_t dbcCount(){ return 5; }
     static const char* dbcName(DBCKind kind);
     const char* currentDBCName() const;
 };

@@ -7,6 +7,7 @@
 #include <vector>
 #include <SDL3/SDL.h>
 #include "imgui.h"
+#include "plots.hpp"
 #include "../gpu/shader.hpp"
 #include "../gpu/gltf.hpp"
 #include "../gpu/scene.hpp"
@@ -81,6 +82,8 @@ struct GUI{
     SDL_Window* window = nullptr;
     TitleBar titleBar{};
     Pages pages{};
+    size_t homePageIndex = 0;
+    PlotManager plots{};
     float leftPaneWidth = 0.0f;
     ProtocolConfig protocolConfig{};
     DBCKind pendingDBC = DBCKind::VehicleWithUndisclosedName;
@@ -100,6 +103,7 @@ struct GUI{
     void selectDBCFile();
     void queueStopProtocol();
     void buildUI();
+    bool homePageActive() const;
     void bindWindow(SDL_Window* targetWindow);
     void buildTitleBar();
     void processEvents(SDL_Event* events);
