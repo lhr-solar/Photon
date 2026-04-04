@@ -30,8 +30,13 @@ struct UARTConfig{
 };
 
 struct SocketCANConfig{
+    bool useBtr = false;
+    uint32_t bitrateKbps = 500;
+    float samplePointPercent = 87.5f;
+    uint32_t prescaler = 1;
+    uint32_t btr0 = 0x00;
+    uint32_t btr1 = 0x1C;
     char channel[32] = "auto";
-    char bitrate[32] = "500k";
     bool listenOnly = false;
     bool busoffReset = false;
 };
@@ -42,8 +47,13 @@ struct UARTConfig{
 };
 
 struct SocketCANConfig{
+    bool useBtr = false;
+    uint32_t bitrateKbps = 500;
+    float samplePointPercent = 87.5f;
+    uint32_t prescaler = 1;
+    uint32_t btr0 = 0x00;
+    uint32_t btr1 = 0x1C;
     char interfaceName[128] = "can0";
-    uint32_t dataRate = 500000;
 };
 #endif
 

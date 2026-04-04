@@ -1,5 +1,6 @@
 #include "protocols.hpp"
 #include <chrono>
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
 #include <cstdio>
@@ -8,7 +9,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include <algorithm>
 #else
 #include <linux/can.h>
 #include <linux/can/netlink.h>
@@ -42,6 +42,64 @@ void writeFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const char* frame){
         const uint8_t byte = static_cast<uint8_t>(*c);
         streamBuffer->write([&](uint8_t& slot){ slot = byte; });
     }
+}
+
+struct ClassicTiming{
+    uint16_t btr = 0;
+    int bitrate = 0;
+    int samplePointX10 = -1;
+    int prescaler = -1;
+    int sjw = 1;
+};
+
+bool decodeClassicBtr(uint32_t btr0, uint32_t btr1, ClassicTiming& timing){
+    constexpr int kClockHz = 16000000;
+    if(btr0 > 0xFF || btr1 > 0xFF) return false;
+    const int brp = static_cast<int>(btr0 & 0x3F) + 1;
+    const int sjw = static_cast<int>((btr0 >> 6) & 0x03) + 1;
+    const int tseg1 = static_cast<int>(btr1 & 0x0F) + 1;
+    const int tseg2 = static_cast<int>((btr1 >> 4) & 0x07) + 1;
+    const int totalTq = 1 + tseg1 + tseg2;
+    if(totalTq <= 0) return false;
+
+    timing = {};
+    timing.btr = static_cast<uint16_t>((btr1 << 8) | btr0);
+    timing.bitrate = kClockHz / (2 * brp * totalTq);
+    timing.samplePointX10 = ((1 + tseg1) * 1000) / totalTq;
+    timing.prescaler = brp;
+    timing.sjw = sjw;
+    return true;
+}
+
+bool synthesizeClassicBtr(uint32_t bitrateKbps, float samplePointPercent, uint32_t prescaler, ClassicTiming& timing){
+    constexpr int kClockHz = 16000000;
+    if(bitrateKbps == 0 || prescaler == 0) return false;
+    const int bitrate = static_cast<int>(bitrateKbps * 1000U);
+    const int brp = static_cast<int>(prescaler);
+    const int samplePointX10 = static_cast<int>(samplePointPercent * 10.0f + 0.5f);
+    if(samplePointX10 <= 0 || samplePointX10 >= 1000) return false;
+
+    const int totalTq = kClockHz / (2 * brp * bitrate);
+    if(totalTq < 8 || totalTq > 25) return false;
+
+    int tseg1 = static_cast<int>((static_cast<double>(samplePointX10) / 1000.0) * totalTq + 0.5) - 1;
+    tseg1 = std::clamp(tseg1, 1, 16);
+    int tseg2 = totalTq - 1 - tseg1;
+    if(tseg2 < 1){
+        tseg2 = 1;
+        tseg1 = totalTq - 2;
+    }
+    if(tseg2 > 8 || tseg1 < 1 || tseg1 > 16) return false;
+
+    const uint32_t btr0 = (static_cast<uint32_t>(0) << 6) | ((prescaler - 1) & 0x3F);
+    const uint32_t btr1 = (static_cast<uint32_t>(tseg2 - 1) << 4) | static_cast<uint32_t>((tseg1 - 1) & 0x0F);
+    return decodeClassicBtr(btr0, btr1, timing);
+}
+
+bool resolveClassicTiming(const SocketCANConfig& config, ClassicTiming& timing){
+    return config.useBtr
+        ? decodeClassicBtr(config.btr0, config.btr1, timing)
+        : synthesizeClassicBtr(config.bitrateKbps, config.samplePointPercent, config.prescaler, timing);
 }
 
 #ifdef _WIN32
@@ -160,30 +218,38 @@ void lowerString(char* text){
     }
 }
 
-TPCANBaudrate parsePcanBitrate(const char* input){
-    if(!input || input[0] == '\0') return PCAN_BAUD_500K;
-    char normalized[32]{};
-    std::snprintf(normalized, sizeof(normalized), "%s", input);
-    lowerString(normalized);
-    if(std::strcmp(normalized, "1m") == 0 || std::strcmp(normalized, "1000k") == 0) return PCAN_BAUD_1M;
-    if(std::strcmp(normalized, "800k") == 0) return PCAN_BAUD_800K;
-    if(std::strcmp(normalized, "500k") == 0) return PCAN_BAUD_500K;
-    if(std::strcmp(normalized, "250k") == 0) return PCAN_BAUD_250K;
-    if(std::strcmp(normalized, "125k") == 0) return PCAN_BAUD_125K;
-    if(std::strcmp(normalized, "100k") == 0) return PCAN_BAUD_100K;
-    if(std::strcmp(normalized, "95k") == 0) return PCAN_BAUD_95K;
-    if(std::strcmp(normalized, "83k") == 0) return PCAN_BAUD_83K;
-    if(std::strcmp(normalized, "50k") == 0) return PCAN_BAUD_50K;
-    if(std::strcmp(normalized, "47k") == 0) return PCAN_BAUD_47K;
-    if(std::strcmp(normalized, "33k") == 0) return PCAN_BAUD_33K;
-    if(std::strcmp(normalized, "20k") == 0) return PCAN_BAUD_20K;
-    if(std::strcmp(normalized, "10k") == 0) return PCAN_BAUD_10K;
-    if(std::strcmp(normalized, "5k") == 0) return PCAN_BAUD_5K;
-    char* end = nullptr;
-    const unsigned long parsed = std::strtoul(input, &end, 0);
-    return (end && *end == '\0' && parsed <= 0xFFFFUL)
-        ? static_cast<TPCANBaudrate>(parsed)
-        : static_cast<TPCANBaudrate>(0);
+TPCANBaudrate basePcanBitrate(uint32_t bitrateKbps){
+    switch(bitrateKbps){
+        case 1000: return PCAN_BAUD_1M;
+        case 800: return PCAN_BAUD_800K;
+        case 500: return PCAN_BAUD_500K;
+        case 250: return PCAN_BAUD_250K;
+        case 125: return PCAN_BAUD_125K;
+        case 100: return PCAN_BAUD_100K;
+        case 95: return PCAN_BAUD_95K;
+        case 83: return PCAN_BAUD_83K;
+        case 50: return PCAN_BAUD_50K;
+        case 47: return PCAN_BAUD_47K;
+        case 33: return PCAN_BAUD_33K;
+        case 20: return PCAN_BAUD_20K;
+        case 10: return PCAN_BAUD_10K;
+        case 5: return PCAN_BAUD_5K;
+        default: return static_cast<TPCANBaudrate>(0);
+    }
+}
+
+bool resolvePcanTiming(const SocketCANConfig& config, ClassicTiming& timing){
+    if(config.useBtr) return resolveClassicTiming(config, timing);
+
+    const TPCANBaudrate base = basePcanBitrate(config.bitrateKbps);
+    if(base == 0) return false;
+
+    if(config.samplePointPercent == 87.5f && config.prescaler == 1){
+        timing = {};
+        timing.btr = base;
+        return decodeClassicBtr(base & 0xFFU, (base >> 8) & 0xFFU, timing);
+    }
+    return resolveClassicTiming(config, timing);
 }
 
 bool formatPcanError(PcanBasicApi& api, TPCANStatus status, const char* operation, char* error, std::size_t errorSize){
@@ -412,13 +478,21 @@ bool configureSocketCAN(const SocketCANConfig& config, bool up, char* error, std
     request.info.ifi_change |= IFF_UP;
     if(up){
         request.info.ifi_flags |= IFF_UP;
-        if(config.dataRate > 0){
+        ClassicTiming timing{};
+        if(!resolveClassicTiming(config, timing)){
+            std::snprintf(error, errorSize, "invalid SocketCAN timing configuration");
+            return false;
+        }
+        if(timing.bitrate > 0){
             auto* linkInfo = beginNest(&request.header, sizeof(request), IFLA_LINKINFO);
             const char kind[] = "can";
             addAttr(&request.header, sizeof(request), IFLA_INFO_KIND, kind, sizeof(kind));
             auto* infoData = beginNest(&request.header, sizeof(request), IFLA_INFO_DATA);
             can_bittiming bitrate{};
-            bitrate.bitrate = static_cast<__u32>(config.dataRate);
+            bitrate.bitrate = static_cast<__u32>(timing.bitrate);
+            if(timing.samplePointX10 > 0) bitrate.sample_point = static_cast<__u32>(timing.samplePointX10);
+            if(timing.prescaler > 0) bitrate.brp = static_cast<__u32>(timing.prescaler);
+            if(timing.sjw > 0) bitrate.sjw = static_cast<__u32>(timing.sjw);
             addAttr(&request.header, sizeof(request), IFLA_CAN_BITTIMING, &bitrate, sizeof(bitrate));
             endNest(&request.header, infoData);
             endNest(&request.header, linkInfo);
@@ -592,14 +666,14 @@ void Protocols::SocketCAN(std::stop_token stopToken,
         return;
     }
 
-    const TPCANBaudrate bitrate = parsePcanBitrate(config.bitrate);
-    if(bitrate == 0){
-        std::snprintf(error, sizeof(error), "unsupported PCAN bitrate '%s'", config.bitrate);
+    ClassicTiming timing{};
+    if(!resolvePcanTiming(config, timing)){
+        std::snprintf(error, sizeof(error), "invalid PCAN timing configuration");
         unloadPcanBasic(api);
         publishStatus(statusBuffer, true, error);
         return;
     }
-    TPCANStatus status = api.initialize(handle, bitrate, 0, 0, 0);
+    TPCANStatus status = api.initialize(handle, static_cast<TPCANBaudrate>(timing.btr), 0, 0, 0);
     if(status != PCAN_ERROR_OK){
         formatPcanError(api, status, "CAN_Initialize", error, sizeof(error));
         unloadPcanBasic(api);

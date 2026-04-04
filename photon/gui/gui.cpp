@@ -555,20 +555,39 @@ void GUI::networkWindow(){
                 ImGui::InputScalar("UART Baud", ImGuiDataType_U32, &protocolConfig.uart.baudRate);
                 break;
             case ProtocolKind::SocketCAN:
+                ImGui::Checkbox("Use BTR0/BTR1", &protocolConfig.socketCAN.useBtr);
+                if(protocolConfig.socketCAN.useBtr){
+                    ImGui::InputScalar("BTR0",
+                        ImGuiDataType_U32,
+                        &protocolConfig.socketCAN.btr0,
+                        nullptr,
+                        nullptr,
+                        "%02X",
+                        ImGuiInputTextFlags_CharsHexadecimal);
+                    ImGui::InputScalar("BTR1",
+                        ImGuiDataType_U32,
+                        &protocolConfig.socketCAN.btr1,
+                        nullptr,
+                        nullptr,
+                        "%02X",
+                        ImGuiInputTextFlags_CharsHexadecimal);
+                } else{
+                    ImGui::InputScalar("Bitrate", ImGuiDataType_U32, &protocolConfig.socketCAN.bitrateKbps);
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted("kbit/s");
+                    ImGui::InputFloat("Sample Point (%)", &protocolConfig.socketCAN.samplePointPercent, 0.1f, 1.0f, "%.1f");
+                    ImGui::InputScalar("Prescaler", ImGuiDataType_U32, &protocolConfig.socketCAN.prescaler);
+                }
 #ifdef _WIN32
                 ImGui::InputText("PCAN Channel",
                     protocolConfig.socketCAN.channel,
                     IM_ARRAYSIZE(protocolConfig.socketCAN.channel));
-                ImGui::InputText("PCAN Bitrate",
-                    protocolConfig.socketCAN.bitrate,
-                    IM_ARRAYSIZE(protocolConfig.socketCAN.bitrate));
                 ImGui::Checkbox("Listen Only", &protocolConfig.socketCAN.listenOnly);
                 ImGui::Checkbox("Bus-Off Reset", &protocolConfig.socketCAN.busoffReset);
 #else
                 ImGui::InputText("CAN Interface",
                     protocolConfig.socketCAN.interfaceName,
                     IM_ARRAYSIZE(protocolConfig.socketCAN.interfaceName));
-                ImGui::InputScalar("CAN Bitrate", ImGuiDataType_U32, &protocolConfig.socketCAN.dataRate);
 #endif
                 break;
             case ProtocolKind::None:
