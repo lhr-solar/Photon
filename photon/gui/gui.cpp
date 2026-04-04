@@ -249,7 +249,6 @@ void GUI::backgroundWindow(){
     shaderFrame fallbackFrame{};
     shaderFrame& frame = ready ? backgroundShader.frames[*backgroundShader.frameIndex] : fallbackFrame;
     ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration;
     if(ImGui::Begin("background", NULL, 0)){
         if (ready) {
             const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
@@ -503,13 +502,11 @@ void GUI::setStyle(){
     const ImVec4 baseBg{0.09f, 0.08f, 0.07f, 1.00f};
     const ImVec4 panelBg{0.12f, 0.11f, 0.09f, 0.98f};
     const ImVec4 elevatedBg{0.13f, 0.12f, 0.11f, 1.00f};
-    const ImVec4 mutedBg{0.17f, 0.17f, 0.17f, 1.00f};
     const ImVec4 border{0.18f, 0.18f, 0.19f, 1.00f};
     const ImVec4 textColor{0.83f, 0.84f, 0.86f, 1.00f};
     const ImVec4 dimText{0.57f, 0.59f, 0.62f, 1.00f};
     const ImVec4 accent{0.90f, 0.88f, 0.82f, 1.00f};
     const ImVec4 accentHover{0.96f, 0.95f, 0.91f, 1.00f};
-    const ImVec4 accentActive{0.82f, 0.80f, 0.74f, 1.00f};
 
     colors[ImGuiCol_Text] = textColor;
     colors[ImGuiCol_TextDisabled] = dimText;

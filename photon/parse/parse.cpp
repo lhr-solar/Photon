@@ -49,7 +49,7 @@ void Parse::buildConfig(const std::string& path, arenaConfig& config){
 // parses the file and populate the fields
 void Parse::populateArena(const std::string& path){
     std::ifstream stream(path); std::string line;
-    uint32_t currentId{}, messageCountLocal{}, signalCountLocal{}, currentIndex{};
+    uint32_t currentId{}, currentIndex{};
     bool haveCurrentMessage = false;
     while(std::getline(stream, line)){
         line.erase(0, line.find_first_not_of(" \t\r\n"));

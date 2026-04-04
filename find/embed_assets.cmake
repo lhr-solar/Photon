@@ -186,8 +186,8 @@ inline const std::size_t ${_photon_symbol}_size =
 "namespace {
 const PhotonEmbeddedAssetView photon_embedded_${_photon_symbol}_view = photonLoadEmbeddedAsset(${_photon_resource_id});
 }
-extern const uint32_t* ${_photon_symbol} = reinterpret_cast<const uint32_t*>(photon_embedded_${_photon_symbol}_view.data);
-extern const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
+const uint32_t* ${_photon_symbol} = reinterpret_cast<const uint32_t*>(photon_embedded_${_photon_symbol}_view.data);
+const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
 
 ")
             else()
@@ -195,8 +195,8 @@ extern const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symb
 "namespace {
 const PhotonEmbeddedAssetView photon_embedded_${_photon_symbol}_view = photonLoadEmbeddedAsset(${_photon_resource_id});
 }
-extern const unsigned char* ${_photon_symbol} = photon_embedded_${_photon_symbol}_view.data;
-extern const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
+const unsigned char* ${_photon_symbol} = photon_embedded_${_photon_symbol}_view.data;
+const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_view.size;
 
 ")
             endif()

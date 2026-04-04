@@ -5,8 +5,12 @@
 #include <iomanip>
 #include <limits>
 #include <memory>
-#include <sys/mman.h>
 #include <iostream>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#endif
 #include "../engine/include.hpp"
 #include "imgui.h"
 
@@ -263,13 +267,23 @@ void Arena::init(const arenaConfig& config){
     for(const auto& m : messages) if(m) clear(m->id);
     arenaSize = MINIMUM_ARENA_SIZE;
     if(config.arenaSize > MINIMUM_ARENA_SIZE) arenaSize = config.arenaSize;
+#ifdef _WIN32
+    pool = VirtualAlloc(nullptr, arenaSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+#else
     pool = mmap(nullptr, arenaSize, 
             PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#endif
+    if(pool == nullptr
+#ifndef _WIN32
+        || pool == MAP_FAILED
+#endif
+    ) return;
     for(const auto& idx : validIds){
         uint32_t count = config.signalCounts[idx];
         if(count > 32) count = 32;
         totalSignals += count;
     };
+    if(totalSignals == 0) return;
     cursor = static_cast<uint8_t*>(pool);
     remaining = arenaSize;
     totalPages = arenaSize / PAGE_SIZE;
@@ -340,5 +354,11 @@ bool Arena::write(uint32_t id, uint32_t signal, void* data, uint32_t size){
 
 void Arena::destroy(){ 
     for(const auto& id : validIds) clear(id);
+    if(pool == nullptr) return;
+#ifdef _WIN32
+    VirtualFree(pool, 0, MEM_RELEASE);
+#else
     munmap(pool, arenaSize);
+#endif
+    pool = nullptr;
 }
