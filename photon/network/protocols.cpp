@@ -91,7 +91,7 @@ void Protocols::UART(std::stop_token stopToken,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
         const UARTConfig& config){
     (void)config;
-    publishStatus(statusBuffer, false, "UART NetworkStream Online");
+    publishStatus(statusBuffer, false, "UART Online");
 
     static constexpr const char* frames[] = {
         "t00181122334455667788\r",
@@ -106,7 +106,7 @@ void Protocols::UART(std::stop_token stopToken,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
-    publishStatus(statusBuffer, false, "UART NetworkStream Stopped");
+    publishStatus(statusBuffer, false, "UART Stopped");
 }
 
 void Protocols::SocketCAN(std::stop_token stopToken,

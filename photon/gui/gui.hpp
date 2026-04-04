@@ -65,6 +65,10 @@ struct Pages{
 };
 
 struct GUI{
+    struct HandlerMessage{
+        std::string text{};
+        ImVec4 color{1.0f, 1.0f, 1.0f, 1.0f};
+    };
     Network* network{};
     Parse* parse{};
     GPU* gpu{};
@@ -79,7 +83,7 @@ struct GUI{
     float leftPaneWidth = 0.0f;
     ProtocolKind pendingProtocol = ProtocolKind::TCP;
     std::string networkStatus = "idle";
-    std::vector<std::string> handlerMessages{};
+    std::vector<HandlerMessage> handlerMessages{};
     void init(GPU* gpu, Network* network, Parse* parse);
     void handleNetwork();
     void bindNetworkResponses(GUIResponseQueue::Reader reader);

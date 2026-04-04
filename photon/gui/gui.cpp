@@ -4,6 +4,10 @@
 #include <array>
 #include <cfloat>
 #include <cmath>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 #include "imgui.h"
 #include "implot.h"
@@ -44,10 +48,42 @@ void GUI::init(GPU* gpu, Network* network, Parse* parse){
     setStyle();
 };
 
+std::string timestampNow(){
+    const auto now = std::chrono::system_clock::now();
+    const auto time = std::chrono::system_clock::to_time_t(now);
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    std::tm localTime = *std::localtime(&time);
+    std::ostringstream out;
+    out << std::put_time(&localTime, "[%H:%M:%S.")
+        << std::setw(3) << std::setfill('0') << ms.count() << "]";
+    return out.str();
+}
+
+ImVec4 messageColor(NetworkResponseType type){
+    switch(type){
+        case NetworkResponseType::Error: return ImVec4(0.95f, 0.63f, 0.63f, 1.0f);
+        case NetworkResponseType::Success: return ImVec4(0.68f, 0.90f, 0.72f, 1.0f);
+        case NetworkResponseType::Info:
+        default: return ImVec4(0.66f, 0.82f, 0.97f, 1.0f);
+    }
+}
+
+const char* messagePrefix(NetworkResponseType type){
+    switch(type){
+        case NetworkResponseType::Error: return "[!]";
+        case NetworkResponseType::Success: return "[+]";
+        case NetworkResponseType::Info:
+        default: return "[-]";
+    }
+}
+
 void GUI::handleNetwork(){
     while(NetworkResponse* response = guiResponses.read()){
         networkStatus = response->message;
-        handlerMessages.emplace_back(response->message);
+        HandlerMessage entry{};
+        entry.color = messageColor(response->type);
+        entry.text = timestampNow() + " " + messagePrefix(response->type) + " " + response->message;
+        handlerMessages.emplace_back(std::move(entry));
         if(handlerMessages.size() > 256) handlerMessages.erase(handlerMessages.begin());
     }
 };
@@ -395,6 +431,11 @@ void GUI::gltfWindow() {
 }
 
 void GUI::sceneWindow(){
+    if (sceneModel.trackedObjectIndex >= 0
+        && sceneModel.trackedObjectIndex < static_cast<int>(sceneModel.objects.size())) {
+        sceneModel.objects[sceneModel.trackedObjectIndex].position.z = 1.0f;
+    }
+
     const bool ready = sceneModel.initialized.load()
         && !sceneModel.frames.empty()
         && sceneModel.frameIndex != nullptr;
@@ -487,7 +528,7 @@ void GUI::sceneWindow(){
 
 void GUI::networkWindow(){
     if(ImGui::Begin("network", nullptr, ImGuiWindowFlags_NoTitleBar)){
-        ImGui::Text("status: %s", networkStatus.c_str());
+        const float totalHeight = ImGui::GetContentRegionAvail().y;
         ImGui::Text("selected protocol: %s", Protocols::name(pendingProtocol));
         if(ImGui::Button("Start TCP")) queueStartProtocol(ProtocolKind::TCP);
         ImGui::SameLine();
@@ -498,10 +539,16 @@ void GUI::networkWindow(){
         if(ImGui::Button("Stop Protocol")) queueStopProtocol();
         ImGui::SameLine();
         if(ImGui::Button("Clear Messages")) handlerMessages.clear();
-        ImGui::Separator();
-        ImGui::TextUnformatted("handler messages");
-        if(ImGui::BeginChild("##network_messages", ImVec2(0.0f, 0.0f), true)){
-            for(const std::string& message : handlerMessages) ImGui::TextUnformatted(message.c_str());
+
+        const float footerHeight = totalHeight * 0.28f;
+        const float spacerHeight = std::max(0.0f, ImGui::GetContentRegionAvail().y - (totalHeight * 0.30f));
+        ImGui::Dummy(ImVec2(0.0f, spacerHeight));
+        if(ImGui::BeginChild("##network_messages", ImVec2(0.0f, footerHeight), true)){
+            for(const HandlerMessage& message : handlerMessages){
+                ImGui::PushStyleColor(ImGuiCol_Text, message.color);
+                ImGui::TextUnformatted(message.text.c_str());
+                ImGui::PopStyleColor();
+            }
             if(ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) ImGui::SetScrollHereY(1.0f);
         }
         ImGui::EndChild();

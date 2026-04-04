@@ -11,6 +11,16 @@
 namespace {
 constexpr size_t kMetricHistoryLimit = 120;
 
+NetworkResponseType statusTypeFromMessage(const char* message){
+    if(!message) return NetworkResponseType::Info;
+    if(std::strstr(message, "Online") != nullptr
+        || std::strstr(message, "Connected") != nullptr
+        || std::strstr(message, "Success") != nullptr) {
+        return NetworkResponseType::Success;
+    }
+    return NetworkResponseType::Info;
+}
+
 int hexValue(char c){
     if(c >= '0' && c <= '9') return c - '0';
     if(c >= 'a' && c <= 'f') return 10 + (c - 'a');
@@ -224,7 +234,7 @@ void Network::handler(std::stop_token stopToken){
 
         while(ProtocolError* status = statusReader.read()){
             didWork = true;
-            publishResponse(status->fatal ? NetworkResponseType::Error : NetworkResponseType::Info,
+            publishResponse(status->fatal ? NetworkResponseType::Error : statusTypeFromMessage(status->message),
                 activeConfig.kind, status->message);
         }
         if(!didWork) std::this_thread::sleep_for(kIdleSleep);

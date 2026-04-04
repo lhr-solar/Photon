@@ -18,6 +18,7 @@ enum class NetworkCommandType : uint32_t {
 enum class NetworkResponseType : uint32_t {
     None = 0,
     Info,
+    Success,
     Error,
 };
 
