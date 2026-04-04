@@ -10,4 +10,5 @@ struct Network{
     void init(Arena* arena);
     void initThreads();
     void destroy();
+    void handler();
 };

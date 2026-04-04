@@ -64,100 +64,6 @@ void Arena::status(){
     }
 };
 
-std::vector<size_t> Arena::search(const std::string& query){
-    auto normalize = [](std::string text){
-        std::string out;
-        out.reserve(text.size());
-        for(unsigned char c : text)
-            if(std::isalnum(c)) out.push_back(static_cast<char>(std::tolower(c)));
-        return out;
-    };
-    auto distance = [&](std::string a, std::string b){
-        a = normalize(std::move(a));
-        b = normalize(std::move(b));
-        if(a.empty()) return 0;
-        if(b.empty()) return std::numeric_limits<int>::max() / 4;
-        if(b.find(a) != std::string::npos) return 0;
-
-        const int n = static_cast<int>(a.size());
-        const int m = static_cast<int>(b.size());
-        auto levenshtein = [&](const std::string& x, const std::string& y){
-            std::vector<int> prev(y.size() + 1), cur(y.size() + 1);
-            for(size_t j = 0; j <= y.size(); j++) prev[j] = static_cast<int>(j);
-            for(size_t i = 1; i <= x.size(); i++){
-                cur[0] = static_cast<int>(i);
-                for(size_t j = 1; j <= y.size(); j++){
-                    const int cost = (x[i - 1] == y[j - 1]) ? 0 : 1;
-                    cur[j] = std::min({ prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost });
-                }
-                prev.swap(cur);
-            }
-            return prev[y.size()];
-        };
-
-        if(n >= m) return levenshtein(a, b);
-        int best = std::numeric_limits<int>::max();
-        for(size_t i = 0; i + a.size() <= b.size(); i++)
-            best = std::min(best, levenshtein(a, b.substr(i, a.size())));
-        return best;
-    };
-
-    std::vector<size_t> out;
-    if(query.empty()){
-        out.resize(validIds.size());
-        for(size_t i{0uz}; i < validIds.size(); i++) out[i] = i;
-        return out;
-    }
-
-    std::string trimmed = query;
-    trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), [](unsigned char c){ return std::isspace(c); }), trimmed.end());
-    uint32_t parsedId{};
-    bool hasParsedId = false;
-    try{
-        if(trimmed.size() > 2 && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X')){
-            parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 16));
-            hasParsedId = true;
-        }else
-        if(!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(), [](unsigned char c){ return std::isdigit(c); })){
-            parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 10));
-            hasParsedId = true;
-        }else
-        if(!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(), [](unsigned char c){ return std::isxdigit(c); })){
-            parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 16));
-            hasParsedId = true;
-        }
-    } catch (...) {}
-
-    struct Match { size_t idx; int score; };
-    std::vector<Match> matches;
-    matches.reserve(validIds.size());
-    for(size_t i{0uz}; i < validIds.size(); i++){
-        Message* msg = messages[validIds[i]];
-        if(!msg) continue;
-
-        std::ostringstream hex;
-        hex << std::uppercase << std::hex << msg->id;
-        int score = std::min({
-            distance(query, msg->name),
-            distance(query, msg->transmitter) + 2,
-            distance(query, std::to_string(msg->id)) + 1,
-            distance(query, hex.str()) + 1,
-            distance(query, "0x" + hex.str()) + 1
-        });
-        if(hasParsedId && parsedId == msg->id) score = -100;
-        for(size_t s{0uz}; s < msg->signalCount; s++)
-            if(msg->signals[s]) score = std::min(score, distance(query, msg->signals[s]->name) + 1);
-        matches.push_back({i, score});
-    }
-    std::sort(matches.begin(), matches.end(), [&](const Match& a, const Match& b){
-        if(a.score != b.score) return a.score < b.score;
-        return validIds[a.idx] < validIds[b.idx];
-    });
-    out.reserve(matches.size());
-    for(const auto& match : matches) out.push_back(match.idx);
-    return out;
-}
-
 void Arena::statusUI(){
     if(ImGui::Begin("Arena Status", nullptr, ImGuiWindowFlags_NoTitleBar)){
         ImGuiTableFlags summaryFlags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
@@ -362,3 +268,99 @@ void Arena::destroy(){
 #endif
     pool = nullptr;
 }
+
+std::vector<size_t> Arena::search(const std::string& query){
+    auto normalize = [](std::string text){
+        std::string out;
+        out.reserve(text.size());
+        for(unsigned char c : text)
+            if(std::isalnum(c)) out.push_back(static_cast<char>(std::tolower(c)));
+        return out;
+    };
+    auto distance = [&](std::string a, std::string b){
+        a = normalize(std::move(a));
+        b = normalize(std::move(b));
+        if(a.empty()) return 0;
+        if(b.empty()) return std::numeric_limits<int>::max() / 4;
+        if(b.find(a) != std::string::npos) return 0;
+
+        const int n = static_cast<int>(a.size());
+        const int m = static_cast<int>(b.size());
+        auto levenshtein = [&](const std::string& x, const std::string& y){
+            std::vector<int> prev(y.size() + 1), cur(y.size() + 1);
+            for(size_t j = 0; j <= y.size(); j++) prev[j] = static_cast<int>(j);
+            for(size_t i = 1; i <= x.size(); i++){
+                cur[0] = static_cast<int>(i);
+                for(size_t j = 1; j <= y.size(); j++){
+                    const int cost = (x[i - 1] == y[j - 1]) ? 0 : 1;
+                    cur[j] = std::min({ prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost });
+                }
+                prev.swap(cur);
+            }
+            return prev[y.size()];
+        };
+
+        if(n >= m) return levenshtein(a, b);
+        int best = std::numeric_limits<int>::max();
+        for(size_t i = 0; i + a.size() <= b.size(); i++)
+            best = std::min(best, levenshtein(a, b.substr(i, a.size())));
+        return best;
+    };
+
+    std::vector<size_t> out;
+    if(query.empty()){
+        out.resize(validIds.size());
+        for(size_t i{0uz}; i < validIds.size(); i++) out[i] = i;
+        return out;
+    }
+
+    std::string trimmed = query;
+    trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), [](unsigned char c){ return std::isspace(c); }), trimmed.end());
+    uint32_t parsedId{};
+    bool hasParsedId = false;
+    try{
+        if(trimmed.size() > 2 && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X')){
+            parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 16));
+            hasParsedId = true;
+        }else
+        if(!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(), [](unsigned char c){ return std::isdigit(c); })){
+            parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 10));
+            hasParsedId = true;
+        }else
+        if(!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(), [](unsigned char c){ return std::isxdigit(c); })){
+            parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 16));
+            hasParsedId = true;
+        }
+    } catch (...) {}
+
+    struct Match { size_t idx; int score; };
+    std::vector<Match> matches;
+    matches.reserve(validIds.size());
+    for(size_t i{0uz}; i < validIds.size(); i++){
+        Message* msg = messages[validIds[i]];
+        if(!msg) continue;
+
+        std::ostringstream hex;
+        hex << std::uppercase << std::hex << msg->id;
+        int score = std::min({
+            distance(query, msg->name),
+            distance(query, msg->transmitter) + 2,
+            distance(query, std::to_string(msg->id)) + 1,
+            distance(query, hex.str()) + 1,
+            distance(query, "0x" + hex.str()) + 1
+        });
+        if(hasParsedId && parsedId == msg->id) score = -100;
+        for(size_t s{0uz}; s < msg->signalCount; s++)
+            if(msg->signals[s]) score = std::min(score, distance(query, msg->signals[s]->name) + 1);
+        matches.push_back({i, score});
+    }
+    std::sort(matches.begin(), matches.end(), [&](const Match& a, const Match& b){
+        if(a.score != b.score) return a.score < b.score;
+        return validIds[a.idx] < validIds[b.idx];
+    });
+    out.reserve(matches.size());
+    for(const auto& match : matches) out.push_back(match.idx);
+    return out;
+}
+
+

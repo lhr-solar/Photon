@@ -89,6 +89,7 @@ struct GUI{
     void dockspace();
     void setStyle();
     void newStyle();
+    void demoPlots();
     static ImGuiKey sdlToImgui(SDL_Scancode scancode);
     static inline void addModifier(ImGuiIO& io, SDL_Keymod mod);
     static inline int sdlMouseToImgui(Uint8 button);

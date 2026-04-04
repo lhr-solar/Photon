@@ -27,14 +27,12 @@ void Network::initThreads(){
 
 void Network::init(Arena* arena){
     this->arena = arena;
-    //initThreads();
+    initThreads();
 };
 
 void Network::destroy(){
-    /*
     writer.request_stop();
     reader.request_stop();
     if(writer.joinable()) writer.join();
     if(reader.joinable()) reader.join();
-    */
 };

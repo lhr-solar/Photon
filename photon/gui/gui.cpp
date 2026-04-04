@@ -43,6 +43,9 @@ void GUI::init(GPU* gpu, Network* network, Parse* parse){
     setStyle();
 };
 
+void GUI::demoPlots(){
+};
+
 void GUI::buildTitleBar(){
     titleBar.clearInteract();
     if (!titleBar.enabled) return;
