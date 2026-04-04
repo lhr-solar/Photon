@@ -724,10 +724,11 @@ void GUI::networkWindow(){
                 break;
         }
 
-        const float footerHeight = totalHeight * 0.24f;
+        const float footerHeight = totalHeight * 0.18f;
         const float controlsHeight = ImGui::GetFrameHeightWithSpacing();
-        const float bottomPadding = ImGui::GetStyle().ItemSpacing.y * 2.0f;
-        const float spacerHeight = std::max(0.0f, ImGui::GetContentRegionAvail().y - (footerHeight + controlsHeight + bottomPadding));
+        const float bottomPadding = 0.0f;
+        const float upwardShift = 24.0f;
+        const float spacerHeight = std::max(0.0f, ImGui::GetContentRegionAvail().y - (footerHeight + controlsHeight + bottomPadding + upwardShift));
         ImGui::Dummy(ImVec2(0.0f, spacerHeight));
         if(ImGui::Button("Start Protocol")) queueStartProtocol();
         ImGui::SameLine();
