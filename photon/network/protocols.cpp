@@ -162,27 +162,27 @@ void lowerString(char* text){
 
 TPCANBaudrate parsePcanBitrate(const char* input){
     if(!input || input[0] == '\0') return PCAN_BAUD_500K;
-    char value[32]{};
-    std::snprintf(value, sizeof(value), "%s", input);
-    lowerString(value);
-    if(std::strcmp(value, "1m") == 0 || std::strcmp(value, "1000k") == 0) return PCAN_BAUD_1M;
-    if(std::strcmp(value, "800k") == 0) return PCAN_BAUD_800K;
-    if(std::strcmp(value, "500k") == 0) return PCAN_BAUD_500K;
-    if(std::strcmp(value, "250k") == 0) return PCAN_BAUD_250K;
-    if(std::strcmp(value, "125k") == 0) return PCAN_BAUD_125K;
-    if(std::strcmp(value, "100k") == 0) return PCAN_BAUD_100K;
-    if(std::strcmp(value, "95k") == 0) return PCAN_BAUD_95K;
-    if(std::strcmp(value, "83k") == 0) return PCAN_BAUD_83K;
-    if(std::strcmp(value, "50k") == 0) return PCAN_BAUD_50K;
-    if(std::strcmp(value, "47k") == 0) return PCAN_BAUD_47K;
-    if(std::strcmp(value, "33k") == 0) return PCAN_BAUD_33K;
-    if(std::strcmp(value, "20k") == 0) return PCAN_BAUD_20K;
-    if(std::strcmp(value, "10k") == 0) return PCAN_BAUD_10K;
-    if(std::strcmp(value, "5k") == 0) return PCAN_BAUD_5K;
+    char normalized[32]{};
+    std::snprintf(normalized, sizeof(normalized), "%s", input);
+    lowerString(normalized);
+    if(std::strcmp(normalized, "1m") == 0 || std::strcmp(normalized, "1000k") == 0) return PCAN_BAUD_1M;
+    if(std::strcmp(normalized, "800k") == 0) return PCAN_BAUD_800K;
+    if(std::strcmp(normalized, "500k") == 0) return PCAN_BAUD_500K;
+    if(std::strcmp(normalized, "250k") == 0) return PCAN_BAUD_250K;
+    if(std::strcmp(normalized, "125k") == 0) return PCAN_BAUD_125K;
+    if(std::strcmp(normalized, "100k") == 0) return PCAN_BAUD_100K;
+    if(std::strcmp(normalized, "95k") == 0) return PCAN_BAUD_95K;
+    if(std::strcmp(normalized, "83k") == 0) return PCAN_BAUD_83K;
+    if(std::strcmp(normalized, "50k") == 0) return PCAN_BAUD_50K;
+    if(std::strcmp(normalized, "47k") == 0) return PCAN_BAUD_47K;
+    if(std::strcmp(normalized, "33k") == 0) return PCAN_BAUD_33K;
+    if(std::strcmp(normalized, "20k") == 0) return PCAN_BAUD_20K;
+    if(std::strcmp(normalized, "10k") == 0) return PCAN_BAUD_10K;
+    if(std::strcmp(normalized, "5k") == 0) return PCAN_BAUD_5K;
     char* end = nullptr;
-    const unsigned long value = std::strtoul(input, &end, 0);
-    return (end && *end == '\0' && value <= 0xFFFFUL)
-        ? static_cast<TPCANBaudrate>(value)
+    const unsigned long parsed = std::strtoul(input, &end, 0);
+    return (end && *end == '\0' && parsed <= 0xFFFFUL)
+        ? static_cast<TPCANBaudrate>(parsed)
         : static_cast<TPCANBaudrate>(0);
 }
 
