@@ -30,6 +30,8 @@
 #include "gpu.hpp"
 #include "../gui/gui.hpp"
 
+std::atomic<uint32_t> gpuAsyncDispatches{0};
+
 static VkSampleCountFlagBits pickMsaaSampleCount(const VkPhysicalDeviceProperties& properties) {
     const VkSampleCountFlags counts =
         properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;

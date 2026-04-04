@@ -980,8 +980,20 @@ void Gltf::finishInit(GPU& gpu) {
 
 void Gltf::dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size,
     const uint32_t* fragmentShader, size_t fragmentShaderSize) {
-    std::thread([this, &gpu, newModel, size, fragmentShader, fragmentShaderSize]() {
-        prepareInit(gpu, newModel, size, fragmentShader, fragmentShaderSize);
+    gpuAsyncDispatches.fetch_add(1, std::memory_order_relaxed);
+    const std::vector<unsigned char> modelCopy = newModel != nullptr && size != 0
+        ? std::vector<unsigned char>(newModel, newModel + size)
+        : std::vector<unsigned char>{};
+    const std::vector<uint32_t> fragmentCopy = fragmentShader != nullptr && fragmentShaderSize != 0
+        ? std::vector<uint32_t>(fragmentShader, fragmentShader + fragmentShaderSize / sizeof(uint32_t))
+        : std::vector<uint32_t>{};
+    std::thread([this, &gpu,
+        modelCopy = std::move(modelCopy), size,
+        fragmentCopy = std::move(fragmentCopy), fragmentShaderSize]() {
+        AsyncDispatchGuard guard{};
+        prepareInit(gpu,
+            modelCopy.empty() ? nullptr : modelCopy.data(), size,
+            fragmentCopy.empty() ? nullptr : fragmentCopy.data(), fragmentShaderSize);
     }).detach();
 }
 

@@ -1,6 +1,7 @@
 #include "photon.hpp"
 #include "imgui.h"
 #include "vulkan_core.h"
+#include <cstdlib>
 #include <chrono>
 
 void Photon::init(){
@@ -41,6 +42,7 @@ void Photon::renderLoop(){
 };
 
 void Photon::destroy(){
+    if (gpuAsyncDispatches.load(std::memory_order_relaxed) != 0) std::quick_exit(0);
     gui.backgroundShader.destroy();
     gui.sceneModel.destroy();
     gpu.destroy();

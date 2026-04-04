@@ -1,5 +1,6 @@
 #pragma once
 #ifndef APPLE
+#include <atomic>
 #include <array>
 #include <vector>
 
@@ -26,6 +27,14 @@ struct IDCompositionVisual;
 #endif
 
 struct TitleBar;
+
+extern std::atomic<uint32_t> gpuAsyncDispatches;
+
+struct AsyncDispatchGuard {
+    ~AsyncDispatchGuard() {
+        gpuAsyncDispatches.fetch_sub(1, std::memory_order_relaxed);
+    }
+};
 
 struct GPU{
     bool validationLayerSupport();

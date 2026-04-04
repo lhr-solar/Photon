@@ -1,6 +1,8 @@
 #include "shader.hpp"
 #include "vulkan_core.h"
 
+#include <vector>
+
 static void destroyFrame(Shader& shader, uint32_t index){
     if (index >= shader.frames.size()) return;
     shaderFrame& frame = shader.frames[index];
@@ -257,8 +259,20 @@ void Shader::finishInit(GPU& gpu) {
 void Shader::dispatchInit(GPU& gpu,
     uint32_t* vertexShader, size_t vertexShaderSize,
     uint32_t* fragmentShader, size_t fragmentShaderSize) {
-    std::thread([this, &gpu, vertexShader, vertexShaderSize, fragmentShader, fragmentShaderSize]() {
-        prepareInit(gpu, vertexShader, vertexShaderSize, fragmentShader, fragmentShaderSize);
+    gpuAsyncDispatches.fetch_add(1, std::memory_order_relaxed);
+    const std::vector<uint32_t> vertexCopy = vertexShader != nullptr && vertexShaderSize != 0
+        ? std::vector<uint32_t>(vertexShader, vertexShader + vertexShaderSize / sizeof(uint32_t))
+        : std::vector<uint32_t>{};
+    const std::vector<uint32_t> fragmentCopy = fragmentShader != nullptr && fragmentShaderSize != 0
+        ? std::vector<uint32_t>(fragmentShader, fragmentShader + fragmentShaderSize / sizeof(uint32_t))
+        : std::vector<uint32_t>{};
+    std::thread([this, &gpu,
+        vertexCopy = std::move(vertexCopy), vertexShaderSize,
+        fragmentCopy = std::move(fragmentCopy), fragmentShaderSize]() {
+        AsyncDispatchGuard guard{};
+        prepareInit(gpu,
+            vertexCopy.empty() ? nullptr : const_cast<uint32_t*>(vertexCopy.data()), vertexShaderSize,
+            fragmentCopy.empty() ? nullptr : const_cast<uint32_t*>(fragmentCopy.data()), fragmentShaderSize);
     }).detach();
 }
 

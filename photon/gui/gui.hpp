@@ -36,11 +36,14 @@ struct GUI{
     Scene sceneModel{};
     SDL_Window* window = nullptr;
     TitleBar titleBar{};
+    float leftPaneWidth = 0.0f;
     void init(GPU* gpu, Network* network, Parse* parse);
     void buildUI();
     void bindWindow(SDL_Window* targetWindow);
     void buildTitleBar();
     void processEvents(SDL_Event* events);
+    void leftSideBar();
+    void resizeHorizontalLayout();
     void backgroundWindow();
     void gltfWindow();
     void sceneWindow();

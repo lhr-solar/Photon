@@ -899,7 +899,9 @@ void Scene::init(GPU& gpu) {
 }
 
 void Scene::dispatchInit(GPU& gpu) {
+    gpuAsyncDispatches.fetch_add(1, std::memory_order_relaxed);
     std::thread([this, &gpu]() {
+        AsyncDispatchGuard guard{};
         prepareInit(gpu);
     }).detach();
 }
