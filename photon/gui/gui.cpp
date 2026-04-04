@@ -20,11 +20,7 @@ void GUI::buildUI(){
     leftSideBar();
     dockspace();
     resizeHorizontalLayout();
-
-    backgroundWindow();
-    sceneWindow();
-    ImGui::ShowDemoWindow();
-    parse->arena.statusUI();
+    pages.showPage(pages.activePage);
 
     ImGui::Render();
 };
@@ -40,6 +36,10 @@ void GUI::init(GPU* gpu, Network* network, Parse* parse){
     sceneModel.dispatchInit(*gpu);
     backgroundShader.dispatchInit(*gpu, (uint32_t*)background_vert_spv, background_vert_spv_size,
         (uint32_t*)background_frag_spv, background_frag_spv_size);
+    pages.addPage("Background", [this]() { backgroundWindow(); });
+    pages.addPage("Scene", [this]() { sceneWindow(); });
+    pages.addPage("Dear ImGui Demo", []() { ImGui::ShowDemoWindow(); });
+    pages.addPage("Arena Status", [this]() { this->parse->arena.statusUI(); });
     setStyle();
 };
 
@@ -48,6 +48,7 @@ void GUI::buildTitleBar(){
     if (!titleBar.enabled) return;
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const ImGuiStyle& style = ImGui::GetStyle();
     const float height = static_cast<float>(titleBar.height);
     const ImVec2 pos = viewport->Pos;
     const ImVec2 size(viewport->Size.x, height);
@@ -57,7 +58,7 @@ void GUI::buildTitleBar(){
     ImGui::SetNextWindowViewport(viewport->ID);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(style.WindowPadding.x, 0.0f));
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
@@ -140,7 +141,9 @@ void GUI::dockspace(){
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     if(ImGui::Begin("Window with a DockSpace", nullptr, window_flags)){
     ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+    pages.dockspaceID = dockspace_id;
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f),
+        ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_AutoHideTabBar);
     }ImGui::End();
     ImGui::PopStyleColor(3);
     ImGui::PopStyleVar(3);
@@ -148,6 +151,7 @@ void GUI::dockspace(){
 
 void GUI::leftSideBar() {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const ImGuiStyle& style = ImGui::GetStyle();
     const float splitterWidth = std::max(1.0f, ImGui::GetStyle().GrabMinSize);
     const float minPaneWidth = std::max(1.0f, ImGui::GetStyle().WindowMinSize.x);
     if (leftPaneWidth <= 0.0f) leftPaneWidth = viewport->WorkSize.x * 0.175f;
@@ -163,6 +167,7 @@ void GUI::leftSideBar() {
         std::max(1.0f, viewport->WorkSize.y - static_cast<float>(titleBar.height)));
 
     ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_NoDocking |
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoSavedSettings |
@@ -176,10 +181,18 @@ void GUI::leftSideBar() {
     ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, style.WindowPadding);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-    ImGui::Begin("##LeftSideBar", nullptr, windowFlags);
+    if (ImGui::Begin("##LeftSideBar", nullptr, windowFlags)) {
+        const float itemWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+        for (size_t i = 0; i < pages.entries.size(); ++i) {
+            const bool selected = i == pages.activePage;
+            if (ImGui::Selectable(pages.entries[i].label.c_str(), selected, 0, ImVec2(itemWidth, 0.0f))) {
+                pages.activePage = i;
+            }
+        }
+    }
     ImGui::End();
 
     ImGui::PopStyleColor();
@@ -249,7 +262,7 @@ void GUI::backgroundWindow(){
     shaderFrame fallbackFrame{};
     shaderFrame& frame = ready ? backgroundShader.frames[*backgroundShader.frameIndex] : fallbackFrame;
     ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
-    if(ImGui::Begin("background", NULL, 0)){
+    if(ImGui::Begin("background", NULL, ImGuiWindowFlags_NoTitleBar)){
         if (ready) {
             const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
             if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
@@ -340,7 +353,7 @@ void GUI::sceneWindow(){
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-    if (ImGui::Begin("scene", nullptr, 0)) {
+    if (ImGui::Begin("scene", nullptr, ImGuiWindowFlags_NoTitleBar)) {
         if (ready) {
             const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
             if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {

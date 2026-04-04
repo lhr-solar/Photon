@@ -159,7 +159,7 @@ std::vector<size_t> Arena::search(const std::string& query){
 }
 
 void Arena::statusUI(){
-    if(ImGui::Begin("Arena Status")){
+    if(ImGui::Begin("Arena Status", nullptr, ImGuiWindowFlags_NoTitleBar)){
         ImGuiTableFlags summaryFlags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
             ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
         if(ImGui::BeginTable("arena_summary", 2, summaryFlags)){
