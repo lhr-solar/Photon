@@ -198,6 +198,8 @@ void UI::build(){
         if (networkINTF->readParsedSignal("Controls_Lighting_Fault", val)) ddashState.lightingFaults = (uint8_t)val;
         if (networkINTF->readParsedSignal("Controls_Leader_Fault", val)) ddashState.controlsLeaderFault = (uint8_t)val;
     }
+    ddashState.leftCameraTexture = leftCameraTexture;
+    ddashState.rightCameraTexture = rightCameraTexture;
     ui::RenderUI(ddashState);
 
     if (!dashboardOnly) {

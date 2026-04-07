@@ -89,6 +89,10 @@ public:
         bool initialized = false;
     } backgroundShader;
 
+    static constexpr int NUM_CAMERAS = 2;
+    static constexpr int CAM_LEFT  = 0;
+    static constexpr int CAM_RIGHT = 1;
+
     struct VideoFeedResources {
         VkImage image = VK_NULL_HANDLE;
         VkDeviceMemory memory = VK_NULL_HANDLE;
@@ -97,12 +101,12 @@ public:
         VkExtent2D extent{0, 0};
         VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
         bool initialized = false;
-    } videoFeed;
+    } videoFeeds[NUM_CAMERAS];
 
-    VulkanBuffer videoStagingBuffer;
-    VkDeviceSize videoStagingBufferSize = 0;
-    std::vector<uint8_t> videoFrameData;
-    WebcamCapture webcam;
+    VulkanBuffer videoStagingBuffers[NUM_CAMERAS];
+    VkDeviceSize videoStagingBufferSizes[NUM_CAMERAS] = {};
+    std::vector<uint8_t> videoFrameData[NUM_CAMERAS];
+    WebcamCapture webcams[NUM_CAMERAS];
     VkDevice deviceHandle = VK_NULL_HANDLE;
 
     Inputs inputs;
@@ -159,9 +163,9 @@ public:
     VkExtent2D calculateBackgroundExtent(float width, float height) const;
     void recordBackgroundPass(VkCommandBuffer commandBuffer);
 
-    void initVideoFeedResources(VulkanDevice vulkanDevice);
-    void updateVideoFeed(VulkanDevice vulkanDevice);
-    void destroyVideoFeedResources(bool releaseDescriptorSet = false);
+    void initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const std::string& devicePath);
+    void updateVideoFeed(VulkanDevice vulkanDevice, int camIndex);
+    void destroyVideoFeedResources(int camIndex, bool releaseDescriptorSet = false);
 
     void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
     void updateBuffers(VulkanDevice vulkanDevice);

@@ -94,7 +94,7 @@ Gui::~Gui(){
 #endif
     destroyBackgroundResources(true);
     destroyCustomShaderResources(true);
-    destroyVideoFeedResources(true);
+    for (int c = 0; c < NUM_CAMERAS; ++c) { destroyVideoFeedResources(c, true); }
     if (deviceHandle != VK_NULL_HANDLE) {
         if (guiDescriptorPool != VK_NULL_HANDLE) {
             vkDestroyDescriptorPool(deviceHandle, guiDescriptorPool, nullptr);
@@ -164,7 +164,7 @@ void Gui::prepareImGui(){
 void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     deviceHandle = vulkanDevice.logicalDevice;
     destroyCustomShaderResources(true);
-    destroyVideoFeedResources(true);
+    for (int c = 0; c < NUM_CAMERAS; ++c) { destroyVideoFeedResources(c, true); }
     std::strncpy(ui.deviceName, vulkanDevice.deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     ui.deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1] = '\0';
     ui.vendorID = vulkanDevice.deviceProperties.vendorID;
@@ -321,12 +321,15 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ui.background.dirty = false;
     ui.videoTexture = static_cast<ImTextureID>(0);
     ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+    ui.leftCameraTexture = nullptr;
+    ui.rightCameraTexture = nullptr;
 
     if (!ui.dashboardOnly) {
         initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
         initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
-        initVideoFeedResources(vulkanDevice);
     }
+    initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/video0");
+    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/video4");
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -1047,21 +1050,20 @@ VkExtent2D Gui::calculateCustomShaderExtent(float width, float height) const {
     return extent;
 }
 
-void Gui::initVideoFeedResources(VulkanDevice vulkanDevice){
+void Gui::initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const std::string& devicePath){
+    auto& feed = videoFeeds[camIndex];
+    auto& cam  = webcams[camIndex];
+
 #if defined(__linux__)
-    if (!webcam.initialize("/dev/video0", 640, 480)) {
-        logs("[!] Webcam: failed to initialize /dev/video0");
-        ui.videoTexture = static_cast<ImTextureID>(0);
-        ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+    if (!cam.initialize(devicePath, 640, 480)) {
+        logs("[!] Webcam[" << camIndex << "]: failed to initialize " << devicePath);
         return;
     }
 
-    videoFeed.extent = {webcam.width(), webcam.height()};
-    if (videoFeed.extent.width == 0 || videoFeed.extent.height == 0) {
-        logs("[!] Webcam: invalid extent " << videoFeed.extent.width << "x" << videoFeed.extent.height);
-        webcam.shutdown();
-        ui.videoTexture = static_cast<ImTextureID>(0);
-        ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+    feed.extent = {cam.width(), cam.height()};
+    if (feed.extent.width == 0 || feed.extent.height == 0) {
+        logs("[!] Webcam[" << camIndex << "]: invalid extent " << feed.extent.width << "x" << feed.extent.height);
+        cam.shutdown();
         return;
     }
 
@@ -1069,8 +1071,8 @@ void Gui::initVideoFeedResources(VulkanDevice vulkanDevice){
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.extent.width = videoFeed.extent.width;
-    imageInfo.extent.height = videoFeed.extent.height;
+    imageInfo.extent.width = feed.extent.width;
+    imageInfo.extent.height = feed.extent.height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
@@ -1079,22 +1081,22 @@ void Gui::initVideoFeedResources(VulkanDevice vulkanDevice){
     imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageInfo, nullptr, &videoFeed.image));
+    VK_CHECK(vkCreateImage(vulkanDevice.logicalDevice, &imageInfo, nullptr, &feed.image));
 
     VkMemoryRequirements memReqs{};
-    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, videoFeed.image, &memReqs);
+    vkGetImageMemoryRequirements(vulkanDevice.logicalDevice, feed.image, &memReqs);
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memReqs.size;
     allocInfo.memoryTypeIndex = vulkanDevice.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
-    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &allocInfo, nullptr, &videoFeed.memory));
-    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, videoFeed.image, videoFeed.memory, 0));
-    videoFeed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    videoFeed.initialized = false;
+    VK_CHECK(vkAllocateMemory(vulkanDevice.logicalDevice, &allocInfo, nullptr, &feed.memory));
+    VK_CHECK(vkBindImageMemory(vulkanDevice.logicalDevice, feed.image, feed.memory, 0));
+    feed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    feed.initialized = false;
 
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = videoFeed.image;
+    viewInfo.image = feed.image;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1102,41 +1104,47 @@ void Gui::initVideoFeedResources(VulkanDevice vulkanDevice){
     viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
-    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &videoFeed.view));
+    VK_CHECK(vkCreateImageView(vulkanDevice.logicalDevice, &viewInfo, nullptr, &feed.view));
 
-    if (videoFeed.descriptorSet == VK_NULL_HANDLE) {
+    if (feed.descriptorSet == VK_NULL_HANDLE) {
         VkDescriptorSetAllocateInfo descriptorAlloc{};
         descriptorAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         descriptorAlloc.descriptorPool = guiDescriptorPool;
         descriptorAlloc.descriptorSetCount = 1;
         descriptorAlloc.pSetLayouts = &guiDescriptorSetLayout;
-        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &videoFeed.descriptorSet));
+        VK_CHECK(vkAllocateDescriptorSets(vulkanDevice.logicalDevice, &descriptorAlloc, &feed.descriptorSet));
     }
 
     VkDescriptorImageInfo imageDescriptor{};
     imageDescriptor.sampler = sampler;
-    imageDescriptor.imageView = videoFeed.view;
+    imageDescriptor.imageView = feed.view;
     imageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet write{};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = videoFeed.descriptorSet;
+    write.dstSet = feed.descriptorSet;
     write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     write.dstBinding = 0;
     write.descriptorCount = 1;
     write.pImageInfo = &imageDescriptor;
     vkUpdateDescriptorSets(vulkanDevice.logicalDevice, 1, &write, 0, nullptr);
 
-    ui.videoTexture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(videoFeed.descriptorSet));
-    ui.videoTextureSize = ImVec2(static_cast<float>(videoFeed.extent.width), static_cast<float>(videoFeed.extent.height));
+    void* texPtr = reinterpret_cast<void*>(feed.descriptorSet);
+    if (camIndex == CAM_LEFT) {
+        ui.leftCameraTexture = texPtr;
+        ui.videoTexture = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(feed.descriptorSet));
+        ui.videoTextureSize = ImVec2(static_cast<float>(feed.extent.width), static_cast<float>(feed.extent.height));
+    } else if (camIndex == CAM_RIGHT) {
+        ui.rightCameraTexture = texPtr;
+    }
 
-    videoStagingBufferSize = 0;
-    videoFrameData.clear();
-    logs("[+] Webcam: initialized video feed " << videoFeed.extent.width << "x" << videoFeed.extent.height);
+    videoStagingBufferSizes[camIndex] = 0;
+    videoFrameData[camIndex].clear();
+    logs("[+] Webcam[" << camIndex << "]: initialized " << devicePath << " " << feed.extent.width << "x" << feed.extent.height);
 #else
     (void)vulkanDevice;
-    ui.videoTexture = static_cast<ImTextureID>(0);
-    ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+    (void)camIndex;
+    (void)devicePath;
     logs("[!] Webcam: capture is only supported on Linux");
 #endif
 }
@@ -1260,33 +1268,36 @@ void Gui::recordCustomShaderPass(VkCommandBuffer commandBuffer){
     customShader.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
-void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
+void Gui::updateVideoFeed(VulkanDevice vulkanDevice, int camIndex){
+    auto& feed    = videoFeeds[camIndex];
+    auto& cam     = webcams[camIndex];
+    auto& staging = videoStagingBuffers[camIndex];
+    auto& stagingSz = videoStagingBufferSizes[camIndex];
+    auto& frameData = videoFrameData[camIndex];
+
 #if defined(__linux__)
-    if (!webcam.isAvailable()) { return; }
-    if (videoFeed.image == VK_NULL_HANDLE) {
-        initVideoFeedResources(vulkanDevice);
-        if (videoFeed.image == VK_NULL_HANDLE) { return; }
-    }
+    if (!cam.isAvailable()) { return; }
+    if (feed.image == VK_NULL_HANDLE) { return; }
 
-    if (!webcam.captureFrame(videoFrameData)) { return; }
-    if (videoFrameData.empty()) { return; }
+    if (!cam.captureFrame(frameData)) { return; }
+    if (frameData.empty()) { return; }
 
-    VkDeviceSize requiredSize = static_cast<VkDeviceSize>(videoFrameData.size());
-    if ((videoStagingBuffer.buffer == VK_NULL_HANDLE) || (requiredSize > videoStagingBufferSize)) {
-        videoStagingBuffer.unmap();
-        videoStagingBuffer.destroy();
+    VkDeviceSize requiredSize = static_cast<VkDeviceSize>(frameData.size());
+    if ((staging.buffer == VK_NULL_HANDLE) || (requiredSize > stagingSz)) {
+        staging.unmap();
+        staging.destroy();
         VK_CHECK(vulkanDevice.createBuffer(
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            &videoStagingBuffer,
+            &staging,
             requiredSize,
             nullptr));
-        videoStagingBufferSize = requiredSize;
+        stagingSz = requiredSize;
     }
 
-    VK_CHECK(videoStagingBuffer.map(requiredSize, 0));
-    memcpy(videoStagingBuffer.mapped, videoFrameData.data(), static_cast<size_t>(requiredSize));
-    videoStagingBuffer.unmap();
+    VK_CHECK(staging.map(requiredSize, 0));
+    memcpy(staging.mapped, frameData.data(), static_cast<size_t>(requiredSize));
+    staging.unmap();
 
     VkCommandBuffer copyCmd = vulkanDevice.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, vulkanDevice.graphicsCommandPool, true);
     VkImageSubresourceRange range{};
@@ -1296,26 +1307,26 @@ void Gui::updateVideoFeed(VulkanDevice vulkanDevice){
     range.baseArrayLayer = 0;
     range.layerCount = 1;
 
-    VkImageLayout oldLayout = videoFeed.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    VkPipelineStageFlags srcStage = videoFeed.initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    Gpu::setImageLayout(copyCmd, videoFeed.image, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    VkImageLayout oldLayout = feed.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    VkPipelineStageFlags srcStage = feed.initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    Gpu::setImageLayout(copyCmd, feed.image, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range, srcStage, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
     VkBufferImageCopy region{};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.layerCount = 1;
-    region.imageExtent.width = videoFeed.extent.width;
-    region.imageExtent.height = videoFeed.extent.height;
+    region.imageExtent.width = feed.extent.width;
+    region.imageExtent.height = feed.extent.height;
     region.imageExtent.depth = 1;
-    vkCmdCopyBufferToImage(copyCmd, videoStagingBuffer.buffer, videoFeed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(copyCmd, staging.buffer, feed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-    Gpu::setImageLayout(copyCmd, videoFeed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    Gpu::setImageLayout(copyCmd, feed.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     vulkanDevice.flushCommandBuffer(copyCmd, vulkanDevice.graphicsQueue, vulkanDevice.graphicsCommandPool, true);
 
-    videoFeed.initialized = true;
-    videoFeed.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    ui.videoTextureSize = ImVec2(static_cast<float>(videoFeed.extent.width), static_cast<float>(videoFeed.extent.height));
+    feed.initialized = true;
+    feed.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 #else
     (void)vulkanDevice;
+    (void)camIndex;
 #endif
 }
 
@@ -1337,8 +1348,8 @@ void Gui::buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass
     renderPassBeginInfo.clearValueCount = 2;
     renderPassBeginInfo.pClearValues = clearValues;
 
-    if (!ui.dashboardOnly) {
-        updateVideoFeed(vulkanDevice);
+    for (int c = 0; c < NUM_CAMERAS; ++c) {
+        updateVideoFeed(vulkanDevice, c);
     }
     ui.build();
 
@@ -1495,36 +1506,46 @@ void Gui::drawFrame(VkCommandBuffer commandBuffer){
     }
 }
 
-void Gui::destroyVideoFeedResources(bool releaseDescriptorSet){
-    webcam.shutdown();
+void Gui::destroyVideoFeedResources(int camIndex, bool releaseDescriptorSet){
+    auto& feed    = videoFeeds[camIndex];
+    auto& cam     = webcams[camIndex];
+    auto& staging = videoStagingBuffers[camIndex];
 
-    if (videoStagingBuffer.buffer != VK_NULL_HANDLE) {
-        videoStagingBuffer.unmap();
-        videoStagingBuffer.destroy();
-        videoStagingBufferSize = 0;
+    cam.shutdown();
+
+    if (staging.buffer != VK_NULL_HANDLE) {
+        staging.unmap();
+        staging.destroy();
+        videoStagingBufferSizes[camIndex] = 0;
     }
 
-    if (releaseDescriptorSet && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE && videoFeed.descriptorSet != VK_NULL_HANDLE) {
-        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &videoFeed.descriptorSet);
-        videoFeed.descriptorSet = VK_NULL_HANDLE;
+    if (releaseDescriptorSet && deviceHandle != VK_NULL_HANDLE && guiDescriptorPool != VK_NULL_HANDLE && feed.descriptorSet != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(deviceHandle, guiDescriptorPool, 1, &feed.descriptorSet);
+        feed.descriptorSet = VK_NULL_HANDLE;
     }
 
     if (deviceHandle != VK_NULL_HANDLE) {
-        if (videoFeed.view != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, videoFeed.view, nullptr); }
-        if (videoFeed.image != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, videoFeed.image, nullptr); }
-        if (videoFeed.memory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, videoFeed.memory, nullptr); }
+        if (feed.view != VK_NULL_HANDLE) { vkDestroyImageView(deviceHandle, feed.view, nullptr); }
+        if (feed.image != VK_NULL_HANDLE) { vkDestroyImage(deviceHandle, feed.image, nullptr); }
+        if (feed.memory != VK_NULL_HANDLE) { vkFreeMemory(deviceHandle, feed.memory, nullptr); }
     }
 
-    videoFeed.view = VK_NULL_HANDLE;
-    videoFeed.image = VK_NULL_HANDLE;
-    videoFeed.memory = VK_NULL_HANDLE;
-    videoFeed.extent = {0, 0};
-    videoFeed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    videoFeed.initialized = false;
+    feed.view = VK_NULL_HANDLE;
+    feed.image = VK_NULL_HANDLE;
+    feed.memory = VK_NULL_HANDLE;
+    feed.extent = {0, 0};
+    feed.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    feed.initialized = false;
 
-    videoFrameData.clear();
-    ui.videoTexture = static_cast<ImTextureID>(0);
-    ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+    videoFrameData[camIndex].clear();
+
+    if (camIndex == CAM_LEFT) {
+        ui.leftCameraTexture = nullptr;
+        ui.videoTexture = static_cast<ImTextureID>(0);
+        ui.videoTextureSize = ImVec2(0.0f, 0.0f);
+    } else if (camIndex == CAM_RIGHT) {
+        ui.rightCameraTexture = nullptr;
+    }
 }
 
 #ifdef XCB

@@ -50,6 +50,9 @@ struct UI{
     ImVec2 videoTextureSize = ImVec2(0.0f, 0.0f);
     bool dashboardOnly = false;
 
+    void* leftCameraTexture = nullptr;
+    void* rightCameraTexture = nullptr;
+
     void setStyle();
     void build();
     void fpsWindow();
