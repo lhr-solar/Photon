@@ -328,8 +328,8 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
         initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
         initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
     }
-    initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/video0");
-    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/video4");
+    initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/video0", 640, 480);
+    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/video4", 320, 240);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -1050,12 +1050,12 @@ VkExtent2D Gui::calculateCustomShaderExtent(float width, float height) const {
     return extent;
 }
 
-void Gui::initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const std::string& devicePath){
+void Gui::initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const std::string& devicePath, uint32_t w, uint32_t h){
     auto& feed = videoFeeds[camIndex];
     auto& cam  = webcams[camIndex];
 
 #if defined(__linux__)
-    if (!cam.initialize(devicePath, 640, 480)) {
+    if (!cam.initialize(devicePath, w, h)) {
         logs("[!] Webcam[" << camIndex << "]: failed to initialize " << devicePath);
         return;
     }

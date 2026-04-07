@@ -163,7 +163,7 @@ public:
     VkExtent2D calculateBackgroundExtent(float width, float height) const;
     void recordBackgroundPass(VkCommandBuffer commandBuffer);
 
-    void initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const std::string& devicePath);
+    void initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const std::string& devicePath, uint32_t w = 640, uint32_t h = 480);
     void updateVideoFeed(VulkanDevice vulkanDevice, int camIndex);
     void destroyVideoFeedResources(int camIndex, bool releaseDescriptorSet = false);
 
