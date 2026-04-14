@@ -1,4 +1,5 @@
 /*[Δ] the photon heterogenous compute engine*/
+#include <filesystem>
 #include <thread>
 #include <iostream>
 
@@ -57,8 +58,28 @@ void Photon::initThreads(){
     logs("[?] Cache line size (constructive): " << std::hardware_constructive_interference_size);
     logs("[?] Usable Hardware Threads: " << std::thread::hardware_concurrency());
 #endif
-    DbcWatcher watcher(network.getDbcManager(), "dbc", 3);
-    watcher.start();
+    // Load every .dbc file from ./dbc once at startup. DBCs are baked into
+    // the image and never change at runtime in a shipped kiosk, so the
+    // polling DbcWatcher was pure overhead — it also stalled initThreads()
+    // by up to one poll interval (3s) during destruction while joining the
+    // poll thread. Synchronous load of ~7 small text files is <50ms.
+    {
+        namespace fs = std::filesystem;
+        try {
+            for (const auto& entry : fs::directory_iterator("dbc")) {
+                if (!entry.is_regular_file()) continue;
+                if (entry.path().extension() != ".dbc") continue;
+                const std::string path = entry.path().string();
+                if (network.getDbcManager().loadFromFile(path)) {
+                    std::cerr << "[DBC] Loaded: " << path << "\n";
+                } else {
+                    std::cerr << "[DBC] Failed to load: " << path << "\n";
+                }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[DBC] Scan error: " << e.what() << "\n";
+        }
+    }
     network.printDBCMap();
 #ifndef WIN32
     std::thread candump_t(&Network::candumpParser, &network);
