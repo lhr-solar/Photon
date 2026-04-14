@@ -309,13 +309,18 @@ void Gpu::setupRenderPass(VkDevice device, VkSurfaceFormatKHR surfaceFormat){
     logs("[+] Created Render Pass ");
 }
 
+// Persistent location on the ext4 rootfs so the cache survives reboots.
+// /tmp is tmpfs on the kiosk image and /var/cache gets redirected to the
+// var-volatile tmpfs, so both of those make the cache cold-on-every-boot.
+static constexpr const char* kPipelineCachePath = "/root/.photon_pipeline_cache";
+
 void Gpu::createPipelineCache(VkDevice device){
     VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
     pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
     // Load cached data from disk if available (skip shader recompilation on subsequent boots)
     std::vector<char> cacheData;
-    std::ifstream cacheFile("/tmp/.photon_pipeline_cache", std::ios::binary | std::ios::ate);
+    std::ifstream cacheFile(kPipelineCachePath, std::ios::binary | std::ios::ate);
     if (cacheFile.is_open()) {
         auto size = cacheFile.tellg();
         if (size > 0) {
@@ -340,7 +345,7 @@ void Gpu::savePipelineCache(){
     if (cacheSize > 0) {
         std::vector<char> cacheData(cacheSize);
         vkGetPipelineCacheData(vulkanDevice.logicalDevice, pipelineCache, &cacheSize, cacheData.data());
-        std::ofstream out("/tmp/.photon_pipeline_cache", std::ios::binary);
+        std::ofstream out(kPipelineCachePath, std::ios::binary);
         if (out.is_open()) {
             out.write(cacheData.data(), cacheSize);
             out.close();
