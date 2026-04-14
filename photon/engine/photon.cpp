@@ -58,12 +58,14 @@ void Photon::initThreads(){
     logs("[?] Cache line size (constructive): " << std::hardware_constructive_interference_size);
     logs("[?] Usable Hardware Threads: " << std::thread::hardware_concurrency());
 #endif
-    // Load every .dbc file from ./dbc once at startup. DBCs are baked into
-    // the image and never change at runtime in a shipped kiosk, so the
-    // polling DbcWatcher was pure overhead — it also stalled initThreads()
-    // by up to one poll interval (3s) during destruction while joining the
-    // poll thread. Synchronous load of ~7 small text files is <50ms.
-    {
+    // Load every .dbc file from ./dbc once at startup, on a detached worker so
+    // the ~50ms of text parsing overlaps Vulkan init instead of blocking it.
+    // Safe: DbcManager::loadFromFile locks mapMutex; Network's CAN parser
+    // reads dbcMap under the same mutex. UI's readParsedSignal targets a
+    // different map (parsedSignals) that is only populated once CAN frames
+    // arrive, so the first few frames naturally return false if the DBC
+    // loader hasn't finished yet — fields stay at default, which is imperceptible.
+    std::thread([this]{
         namespace fs = std::filesystem;
         try {
             for (const auto& entry : fs::directory_iterator("dbc")) {
@@ -79,8 +81,8 @@ void Photon::initThreads(){
         } catch (const std::exception& e) {
             std::cerr << "[DBC] Scan error: " << e.what() << "\n";
         }
-    }
-    network.printDBCMap();
+        network.printDBCMap();
+    }).detach();
 #ifndef WIN32
     std::thread candump_t(&Network::candumpParser, &network);
     candump_t.detach();
