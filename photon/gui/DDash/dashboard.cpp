@@ -660,16 +660,24 @@ static const char* BpsFaultName(uint8_t code) {
 }
 
 static const char* VcuFaultName(uint8_t code) {
-    switch (code) {
-        case 0: return "No Fault";
-        case 1: return "Motor Ctr Sense";
-        case 2: return "Motor Pchg Ctr Sense";
-        case 3: return "Motor Pchg Timeout";
-        case 4: return "Motor Ctr Fault";
-        case 5: return "Motor HV Overvoltage";
-        case 6: return "Motor HV Undervoltage";
-        default: return "Unknown";
-    }
+    // McQueen VCU_Status replaced the old single-byte VCU_Fault enum with five
+    // independent *_FAULT_DETECTED bits. ui.cpp packs them into a bitfield:
+    //   bit0=BPS, bit1=Controls, bit2=Motor, bit3=Pedals, bit4=Steering.
+    // Decode into a +-joined list so the dashboard still shows something human-
+    // readable even when multiple subsystems are faulted simultaneously.
+    if (code == 0) return "No Fault";
+    static thread_local char buf[96];
+    buf[0] = '\0';
+    auto append = [&](const char* s) {
+        if (buf[0] != '\0') strncat(buf, "+", sizeof(buf) - strlen(buf) - 1);
+        strncat(buf, s, sizeof(buf) - strlen(buf) - 1);
+    };
+    if (code & (1u << 0)) append("BPS");
+    if (code & (1u << 1)) append("Ctrl");
+    if (code & (1u << 2)) append("Motor");
+    if (code & (1u << 3)) append("Pedal");
+    if (code & (1u << 4)) append("Steer");
+    return buf;
 }
 
 static const char* SuppChargerStatusStr(uint8_t s) {

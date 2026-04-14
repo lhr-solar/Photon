@@ -13,32 +13,45 @@ void UI::build(){
         ui::UpdateSimulation(ddashState, ImGui::GetIO().DeltaTime);
     } else if (networkINTF) {
         double val = 0;
-        if (networkINTF->readParsedSignal("VehicleVelocity", val)) ddashState.speed = (int)(val * 3.6);
+        // Motor controller basics — McQueen DBCs prefix every MC signal with "MC_".
+        if (networkINTF->readParsedSignal("MC_VehicleVelocity", val)) ddashState.speed = (int)(val * 3.6);
         if (networkINTF->readParsedSignal("Main_Battery_Voltage", val)) ddashState.mainBattery.voltage = (float)val;
         if (networkINTF->readParsedSignal("Main_Battery_Current", val)) ddashState.mainBattery.current = (float)val;
         if (networkINTF->readParsedSignal("Supplemental_Battery_Voltage", val)) ddashState.suppBattery.voltage = (float)val;
-        if (networkINTF->readParsedSignal("HeatsinkTemp", val)) ddashState.motorController.heatsinkTemp = (float)val;
-        if (networkINTF->readParsedSignal("BusVoltage", val)) ddashState.motorController.voltage = (float)val;
-        if (networkINTF->readParsedSignal("BusCurrent", val)) ddashState.motorController.current = (float)val;
-        
-        // Motor Controller extra telemetry
-        if (networkINTF->readParsedSignal("PhaseCurrentB", val)) ddashState.motorController.phaseCurrentB = (float)val;
-        if (networkINTF->readParsedSignal("PhaseCurrentC", val)) ddashState.motorController.phaseCurrentC = (float)val;
-        if (networkINTF->readParsedSignal("BEMFq", val)) ddashState.motorController.backEmfQ = (float)val;
-        if (networkINTF->readParsedSignal("BEMFd", val)) ddashState.motorController.backEmfD = (float)val;
+        if (networkINTF->readParsedSignal("MC_HeatsinkTemp", val)) ddashState.motorController.heatsinkTemp = (float)val;
+        if (networkINTF->readParsedSignal("MC_BusVoltage", val)) ddashState.motorController.voltage = (float)val;
+        if (networkINTF->readParsedSignal("MC_BusCurrent", val)) ddashState.motorController.current = (float)val;
 
-        // Motor Controller limits
-        if (networkINTF->readParsedSignal("LimitOutputVoltagePWM", val)) ddashState.motorController.limitOutputVoltage = (val != 0);
-        if (networkINTF->readParsedSignal("LimitMotorCurrent", val)) ddashState.motorController.limitMotorCurrent = (val != 0);
-        if (networkINTF->readParsedSignal("LimitVelocity", val)) ddashState.motorController.limitVelocity = (val != 0);
-        if (networkINTF->readParsedSignal("LimitBusCurrent", val)) ddashState.motorController.limitBusCurrent = (val != 0);
-        if (networkINTF->readParsedSignal("LimitBusVoltageUpper", val)) ddashState.motorController.limitBusVoltageUpper = (val != 0);
-        if (networkINTF->readParsedSignal("LimitBusVoltageLower", val)) ddashState.motorController.limitBusVoltageLower = (val != 0);
-        if (networkINTF->readParsedSignal("LimitIpmOrMotorTemp", val)) ddashState.motorController.limitIpmOrMotorTemp = (val != 0);
+        // Motor Controller extra telemetry
+        if (networkINTF->readParsedSignal("MC_PhaseCurrentB", val)) ddashState.motorController.phaseCurrentB = (float)val;
+        if (networkINTF->readParsedSignal("MC_PhaseCurrentC", val)) ddashState.motorController.phaseCurrentC = (float)val;
+        if (networkINTF->readParsedSignal("MC_BEMFq", val)) ddashState.motorController.backEmfQ = (float)val;
+        if (networkINTF->readParsedSignal("MC_BEMFd", val)) ddashState.motorController.backEmfD = (float)val;
+
+        // Motor Controller limits — McQueen DBC names them MC_LIMIT_*.
+        if (networkINTF->readParsedSignal("MC_LIMIT_OutputVoltagePWM", val)) ddashState.motorController.limitOutputVoltage = (val != 0);
+        if (networkINTF->readParsedSignal("MC_LIMIT_MotorCurrent", val)) ddashState.motorController.limitMotorCurrent = (val != 0);
+        if (networkINTF->readParsedSignal("MC_LIMIT_Velocity", val)) ddashState.motorController.limitVelocity = (val != 0);
+        if (networkINTF->readParsedSignal("MC_LIMIT_BusCurrent", val)) ddashState.motorController.limitBusCurrent = (val != 0);
+        if (networkINTF->readParsedSignal("MC_LIMIT_BusVoltageUpper", val)) ddashState.motorController.limitBusVoltageUpper = (val != 0);
+        if (networkINTF->readParsedSignal("MC_LIMIT_BusVoltageLower", val)) ddashState.motorController.limitBusVoltageLower = (val != 0);
+        if (networkINTF->readParsedSignal("MC_LIMIT_MotorTemp", val)) ddashState.motorController.limitIpmOrMotorTemp = (val != 0);
         
-        double bpsF = 0, vcuF = 0;
+        // Overall CAN-fault gate. The McQueen VCU_Status no longer has a single
+        // VCU_Fault byte — it has individual VCU_*_FAULT_DETECTED bits. OR the
+        // ones that represent an unrecoverable or pipeline fault into a single
+        // "VCU faulted" signal.
+        double bpsF = 0;
+        double vcuFaults[5] = {0};
         bool hasBps = networkINTF->readParsedSignal("BPS_Fault", bpsF);
-        bool hasVcu = networkINTF->readParsedSignal("VCU_Fault", vcuF);
+        bool hasVcu = false;
+        hasVcu |= networkINTF->readParsedSignal("VCU_BPS_FAULT_DETECTED",       vcuFaults[0]);
+        hasVcu |= networkINTF->readParsedSignal("VCU_CONTROLS_FAULT_DETECTED",  vcuFaults[1]);
+        hasVcu |= networkINTF->readParsedSignal("VCU_MTR_FAULT_DETECTED",       vcuFaults[2]);
+        hasVcu |= networkINTF->readParsedSignal("VCU_PEDALS_FAULT_DETECTED",    vcuFaults[3]);
+        hasVcu |= networkINTF->readParsedSignal("VCU_STEERING_FAULT_DETECTED",  vcuFaults[4]);
+        double vcuF = 0;
+        for (int i = 0; i < 5; ++i) vcuF += vcuFaults[i];
         if (hasBps && bpsF != 0) {
             ddashState.canFault = true;
             ddashState.canFaultId = 1;
@@ -46,7 +59,7 @@ void UI::build(){
             ddashState.canFaultMessage = "BPS Fault";
         } else if (hasVcu && vcuF != 0) {
             ddashState.canFault = true;
-            ddashState.canFaultId = 16;
+            ddashState.canFaultId = 24; // VCU_Status message ID in McQueen CarCAN
             ddashState.canFaultName = "VCU";
             ddashState.canFaultMessage = "VCU Fault";
         } else {
@@ -75,10 +88,10 @@ void UI::build(){
 
         if (networkINTF->readParsedSignal("Cruise_Enable", val)) ddashState.cruise.enabled = (val != 0);
         if (networkINTF->readParsedSignal("Regen_Enable", val)) ddashState.regenEnabled = (val != 0);
-        if (networkINTF->readParsedSignal("Brake_Pos_Main", val)) ddashState.brakeEngaged = (val > 5.0);
+        if (networkINTF->readParsedSignal("BrakePedal_Main_Pos", val)) ddashState.brakeEngaged = (val > 5.0);
 
-        // New Telemetry
-        if (networkINTF->readParsedSignal("Pedal_Pos_Main", val)) ddashState.pedalPercent = (float)val;
+        // New Telemetry — accel position is AccelPedal_Main_Pos in McQueen Pedal_Status.
+        if (networkINTF->readParsedSignal("AccelPedal_Main_Pos", val)) ddashState.pedalPercent = (float)val;
         // BPSCAN has Main_Battery_Current but user asked for supp battery current, mapped to Supplemental_Battery_Current
         if (networkINTF->readParsedSignal("Supplemental_Battery_Current", val)) ddashState.suppBattery.current = (float)val;
         if (networkINTF->readParsedSignal("Brake_Pressure", val)) ddashState.brakePressure = (float)val;
@@ -102,26 +115,44 @@ void UI::build(){
         if (networkINTF->readParsedSignal("Main_Battery_Avg_Temperature", val)) ddashState.mainBatteryAvgTemp = (float)val;
         if (networkINTF->readParsedSignal("BPS_Regen_OK", val)) ddashState.bpsRegenOK = (val != 0);
         if (networkINTF->readParsedSignal("BPS_Charge_OK", val)) ddashState.bpsChargeOK = (val != 0);
-        if (networkINTF->readParsedSignal("Precharge_Battery_Voltage", val)) ddashState.prechargeBatteryV = (float)val;
-        if (networkINTF->readParsedSignal("Precharge_Array_Voltage", val)) ddashState.prechargeArrayV = (float)val;
+        // Precharge voltages live in two separate McQueen CarCAN messages:
+        //   BPS_Precharge_Voltages (ID 32)  → battery-side + array-side
+        //   VCU_Precharge_Voltages (ID 33)  → battery-side + motor-side (see below)
+        if (networkINTF->readParsedSignal("BPS_Precharge_Battery_Voltage", val)) ddashState.prechargeBatteryV = (float)val;
+        if (networkINTF->readParsedSignal("BPS_Precharge_Array_Voltage", val)) ddashState.prechargeArrayV = (float)val;
         if (networkINTF->readParsedSignal("Main_Battery_Current_RawV", val)) ddashState.mainBatteryCurrentRawV = (float)val;
         if (networkINTF->readParsedSignal("BPS_Fault", val)) ddashState.bpsFaultCode = (uint8_t)val;
 
-        // VCU status (CarCAN ID 24)
+        // VCU status (CarCAN ID 24 in McQueen)
         if (networkINTF->readParsedSignal("VCU_FSM_State", val)) ddashState.vcuFsmState = (uint8_t)val;
-        if (networkINTF->readParsedSignal("VCU_Fault", val)) ddashState.vcuFaultCode = (uint8_t)val;
-        if (networkINTF->readParsedSignal("Motor_Ready_To_Drive", val)) ddashState.motorReadyToDrive = (val != 0);
-        if (networkINTF->readParsedSignal("VCU_Pedals_OK", val)) ddashState.vcuPedalsOK = (val != 0);
-        if (networkINTF->readParsedSignal("VCU_Driver_Input_OK", val)) ddashState.vcuDriverInputOK = (val != 0);
+        // No single VCU_Fault byte in McQueen — pack the five *_FAULT_DETECTED
+        // bits into a bitfield (bit0=BPS, bit1=Controls, bit2=Mtr, bit3=Pedals, bit4=Steering).
+        {
+            uint8_t packed = 0;
+            if (networkINTF->readParsedSignal("VCU_BPS_FAULT_DETECTED",      val) && val != 0) packed |= (1u << 0);
+            if (networkINTF->readParsedSignal("VCU_CONTROLS_FAULT_DETECTED", val) && val != 0) packed |= (1u << 1);
+            if (networkINTF->readParsedSignal("VCU_MTR_FAULT_DETECTED",      val) && val != 0) packed |= (1u << 2);
+            if (networkINTF->readParsedSignal("VCU_PEDALS_FAULT_DETECTED",   val) && val != 0) packed |= (1u << 3);
+            if (networkINTF->readParsedSignal("VCU_STEERING_FAULT_DETECTED", val) && val != 0) packed |= (1u << 4);
+            ddashState.vcuFaultCode = packed;
+        }
+        // Motor_Ready signal replaces Motor_Ready_To_Drive in McQueen VCU_Status.
+        if (networkINTF->readParsedSignal("Motor_Ready", val)) ddashState.motorReadyToDrive = (val != 0);
+        // Derive "OK" flags from the McQueen watchdog bits — watchdog=1 means stale/fault.
+        if (networkINTF->readParsedSignal("VCU_Pedals_Watchdog", val))       ddashState.vcuPedalsOK = (val == 0);
+        if (networkINTF->readParsedSignal("VCU_Driver_Input_Watchdog", val)) ddashState.vcuDriverInputOK = (val == 0);
         if (networkINTF->readParsedSignal("VCU_Regen_Active", val)) ddashState.vcuRegenActive = (val != 0);
         if (networkINTF->readParsedSignal("VCU_Regen_OK", val)) ddashState.vcuRegenOK = (val != 0);
-        if (networkINTF->readParsedSignal("Precharge_Motor_Voltage", val)) ddashState.prechargeMotorV = (float)val;
+        // Motor-side precharge voltage lives in VCU_Precharge_Voltages (ID 33) in McQueen.
+        if (networkINTF->readParsedSignal("VCU_Precharge_Motor_Voltage", val)) ddashState.prechargeMotorV = (float)val;
 
-        // MPPT solar - 3 channels (A=512/513, B=528/529, C=544/545)
-        if (networkINTF->readParsedSignal("MPPT_Vin", val)) ddashState.mppt[0].vin = (float)val;
-        if (networkINTF->readParsedSignal("MPPT_Iin", val)) ddashState.mppt[0].iin = (float)val;
-        if (networkINTF->readParsedSignal("MPPT_Vout", val)) ddashState.mppt[0].vout = (float)val;
-        if (networkINTF->readParsedSignal("MPPT_Iout", val)) ddashState.mppt[0].iout = (float)val;
+        // MPPT solar - 3 channels (A=512/513, B=544/545, C=576/577 in McQueen).
+        // McQueen renames the power-measurement signals. MPPT_Mode/Fault/Enabled
+        // plus temperatures are shared names across all three channels.
+        if (networkINTF->readParsedSignal("MPPT_Input_Voltage", val))  ddashState.mppt[0].vin  = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_Input_Current", val))  ddashState.mppt[0].iin  = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_Output_Voltage", val)) ddashState.mppt[0].vout = (float)val;
+        if (networkINTF->readParsedSignal("MPPT_Output_Current", val)) ddashState.mppt[0].iout = (float)val;
         if (networkINTF->readParsedSignal("MPPT_HeatsinkTemperature", val)) ddashState.mppt[0].heatsinkTemp = (float)val;
         if (networkINTF->readParsedSignal("MPPT_AmbientTemperature", val)) ddashState.mppt[0].ambientTemp = (float)val;
         if (networkINTF->readParsedSignal("MPPT_Fault", val)) ddashState.mppt[0].fault = (uint8_t)val;
@@ -140,22 +171,25 @@ void UI::build(){
 
         // Steering wheel
         if (networkINTF->readParsedSignal("LWS_Angle", val)) ddashState.steeringAngle = (float)val;
-        if (networkINTF->readParsedSignal("LWS_OK", val)) ddashState.steeringSensorOK = (val != 0);
+        // McQueen SteeringCAN exposes LWS_Fault (1 = fault). Invert to derive OK.
+        if (networkINTF->readParsedSignal("LWS_Fault", val)) ddashState.steeringSensorOK = (val == 0);
 
-        // Supp battery charger
-        if (networkINTF->readParsedSignal("SuppCharger_Status", val)) ddashState.suppChargerStatus = (uint8_t)val;
-        if (networkINTF->readParsedSignal("Supplemental_DCDC_Voltage", val)) ddashState.suppDcdcVoltage = (float)val;
-        if (networkINTF->readParsedSignal("Supplemental_DCDC_Current", val)) ddashState.suppDcdcCurrent = (float)val;
+        // Supp battery charger. McQueen names the charger status / DCDC rails
+        // after the Vicor module in Supp_Charging_Status (ID 769).
+        if (networkINTF->readParsedSignal("Supplemental_Charging_Status", val)) ddashState.suppChargerStatus = (uint8_t)val;
+        if (networkINTF->readParsedSignal("Supplemental_Vicor_Voltage", val)) ddashState.suppDcdcVoltage = (float)val;
+        if (networkINTF->readParsedSignal("Supplemental_Vicor_Current", val)) ddashState.suppDcdcCurrent = (float)val;
 
-        // Pedal sensor details (ID 80)
-        if (networkINTF->readParsedSignal("Accel_Pos_Main", val)) ddashState.accelPosMain = (uint8_t)val;
-        if (networkINTF->readParsedSignal("Accel_Pos_Redundant", val)) ddashState.accelPosRedundant = (uint8_t)val;
-        if (networkINTF->readParsedSignal("Brake_Pos_Main", val)) ddashState.brakePosMain = (uint8_t)val;
-        if (networkINTF->readParsedSignal("Brake_Pos_Redundant", val)) ddashState.brakePosRedundant = (uint8_t)val;
-        if (networkINTF->readParsedSignal("Accel_Pos_Main_Fault", val)) ddashState.accelMainFault = (val != 0);
-        if (networkINTF->readParsedSignal("Accel_Pos_Redundant_Fault", val)) ddashState.accelRedundantFault = (val != 0);
-        if (networkINTF->readParsedSignal("Brake_Pos_Main_Fault", val)) ddashState.brakeMainFault = (val != 0);
-        if (networkINTF->readParsedSignal("Brake_Pos_Redundant_Fault", val)) ddashState.brakeRedundantFault = (val != 0);
+        // Pedal sensor details — McQueen renamed Accel_Pos_* / Brake_Pos_*
+        // into the AccelPedal_*_Pos / BrakePedal_*_Pos form in Pedal_Status (ID 80).
+        if (networkINTF->readParsedSignal("AccelPedal_Main_Pos", val)) ddashState.accelPosMain = (uint8_t)val;
+        if (networkINTF->readParsedSignal("AccelPedal_Redundant_Pos", val)) ddashState.accelPosRedundant = (uint8_t)val;
+        if (networkINTF->readParsedSignal("BrakePedal_Main_Pos", val)) ddashState.brakePosMain = (uint8_t)val;
+        if (networkINTF->readParsedSignal("BrakePedal_Redundant_Pos", val)) ddashState.brakePosRedundant = (uint8_t)val;
+        if (networkINTF->readParsedSignal("AccelPedal_Main_Fault", val)) ddashState.accelMainFault = (val != 0);
+        if (networkINTF->readParsedSignal("AccelPedal_Redundant_Fault", val)) ddashState.accelRedundantFault = (val != 0);
+        if (networkINTF->readParsedSignal("BrakePedal_Main_Fault", val)) ddashState.brakeMainFault = (val != 0);
+        if (networkINTF->readParsedSignal("BrakePedal_Redundant_Fault", val)) ddashState.brakeRedundantFault = (val != 0);
         if (networkINTF->readParsedSignal("Brake_Pressure_1_Fault", val)) ddashState.brakePressure1Fault = (val != 0);
         if (networkINTF->readParsedSignal("Brake_Pressure_2_Fault", val)) ddashState.brakePressure2Fault = (val != 0);
 
