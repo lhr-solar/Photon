@@ -161,6 +161,18 @@ bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWi
         return false;
     }
 
+    // Cap the framerate so UVC picks a smaller USB altsetting. Three MJPEG
+    // 640x480 cams at 30 fps don't fit on USB 2.0 and STREAMON returns
+    // ENOSPC; at 15 fps each cam fits comfortably.
+    v4l2_streamparm parm{};
+    parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    parm.parm.capture.timeperframe.numerator = 1;
+    parm.parm.capture.timeperframe.denominator = 15;
+    if (!xioctl(fd, VIDIOC_S_PARM, &parm)) {
+        logs("[!] WebcamCapture: VIDIOC_S_PARM failed error=" << strerror(errno));
+        // not fatal -- fall through
+    }
+
     if (!jpegDecoder) {
         jpegDecoder = tjInitDecompress();
         if (!jpegDecoder) {
