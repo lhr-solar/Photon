@@ -20,9 +20,9 @@
 #include <ShellScalingAPI.h>
 #endif
 
-#ifdef NDEBUG
-    #define logs(x) do {} while(0)
-#elif defined(XCB)
+#if defined(XCB)
+    // Keep logs on in release too -- systemd journal captures stderr and this
+    // is the only way to diagnose failures when running via a service unit.
     #define logs(x) std::cout << x << '\n'
 #elif defined(WIN)
     inline void ensure_console() {
@@ -36,6 +36,10 @@
         }
     }
     #define logs(x) do { ensure_console(); std::cout << x << std::endl; } while(0)
+#elif defined(NDEBUG)
+    #define logs(x) do {} while(0)
+#else
+    #define logs(x) std::cout << x << '\n'
 #endif
 
 #ifdef XCB
