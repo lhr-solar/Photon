@@ -323,13 +323,15 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     ui.videoTextureSize = ImVec2(0.0f, 0.0f);
     ui.leftCameraTexture = nullptr;
     ui.rightCameraTexture = nullptr;
+    ui.rearCameraTexture = nullptr;
 
     if (!ui.dashboardOnly) {
         initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
         initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
     }
     initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/video0", 640, 480);
-    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/video4", 320, 240);
+    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/video4", 640, 480);
+    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/video2", 640, 480);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache
@@ -1136,6 +1138,8 @@ void Gui::initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const 
         ui.videoTextureSize = ImVec2(static_cast<float>(feed.extent.width), static_cast<float>(feed.extent.height));
     } else if (camIndex == CAM_RIGHT) {
         ui.rightCameraTexture = texPtr;
+    } else if (camIndex == CAM_REAR) {
+        ui.rearCameraTexture = texPtr;
     }
 
     videoStagingBufferSizes[camIndex] = 0;
@@ -1545,6 +1549,8 @@ void Gui::destroyVideoFeedResources(int camIndex, bool releaseDescriptorSet){
         ui.videoTextureSize = ImVec2(0.0f, 0.0f);
     } else if (camIndex == CAM_RIGHT) {
         ui.rightCameraTexture = nullptr;
+    } else if (camIndex == CAM_REAR) {
+        ui.rearCameraTexture = nullptr;
     }
 }
 

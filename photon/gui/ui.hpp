@@ -52,6 +52,7 @@ struct UI{
 
     void* leftCameraTexture = nullptr;
     void* rightCameraTexture = nullptr;
+    void* rearCameraTexture = nullptr;
 
     void setStyle();
     void build();

@@ -89,9 +89,10 @@ public:
         bool initialized = false;
     } backgroundShader;
 
-    static constexpr int NUM_CAMERAS = 2;
+    static constexpr int NUM_CAMERAS = 3;
     static constexpr int CAM_LEFT  = 0;
     static constexpr int CAM_RIGHT = 1;
+    static constexpr int CAM_REAR  = 2;
 
     struct VideoFeedResources {
         VkImage image = VK_NULL_HANDLE;

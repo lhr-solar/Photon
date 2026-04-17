@@ -234,6 +234,7 @@ void UI::build(){
     }
     ddashState.leftCameraTexture = leftCameraTexture;
     ddashState.rightCameraTexture = rightCameraTexture;
+    ddashState.rearCameraTexture = rearCameraTexture;
     ui::RenderUI(ddashState);
 
     if (!dashboardOnly) {
