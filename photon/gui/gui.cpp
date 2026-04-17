@@ -1057,12 +1057,16 @@ void Gui::initVideoFeedResources(VulkanDevice vulkanDevice, int camIndex, const 
     auto& cam  = webcams[camIndex];
 
 #if defined(__linux__)
-    if (!cam.initialize(devicePath, w, h)) {
-        logs("[!] Webcam[" << camIndex << "]: failed to initialize " << devicePath);
-        return;
-    }
+    // Kick off the cam even if the device isn't ready yet (udev hasn't
+    // populated /dev/cam-* at boot time). Failure just arms the reconnect
+    // loop in captureFrame() so the tile comes alive as soon as the device
+    // appears. Always allocate Vulkan resources at the requested size so
+    // the UI has somewhere to render frames when they do arrive.
+    cam.initialize(devicePath, w, h);
 
-    feed.extent = {cam.width(), cam.height()};
+    uint32_t extentW = cam.width()  ? cam.width()  : w;
+    uint32_t extentH = cam.height() ? cam.height() : h;
+    feed.extent = {extentW, extentH};
     if (feed.extent.width == 0 || feed.extent.height == 0) {
         logs("[!] Webcam[" << camIndex << "]: invalid extent " << feed.extent.width << "x" << feed.extent.height);
         cam.shutdown();
@@ -1280,9 +1284,11 @@ void Gui::updateVideoFeed(VulkanDevice vulkanDevice, int camIndex){
     auto& frameData = videoFrameData[camIndex];
 
 #if defined(__linux__)
-    if (!cam.isAvailable()) { return; }
     if (feed.image == VK_NULL_HANDLE) { return; }
 
+    // captureFrame() drives the rate-limited reconnect loop internally when
+    // the cam isn't available, so we always call it and only skip this frame
+    // when it returns false.
     if (!cam.captureFrame(frameData)) { return; }
     if (frameData.empty()) { return; }
 
