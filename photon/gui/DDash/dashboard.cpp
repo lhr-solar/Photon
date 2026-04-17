@@ -1028,17 +1028,20 @@ void RenderDashboard(AppState& state) {
 
     ImGui::Dummy(ImVec2(0, gap)); 
 
-    // bottom
+    // bottom: center rear at the top-row tile size; battery and button grid
+    // share the remaining width evenly on either side.
+    float rearBotW = topColLeft;
+    float sideW    = (availW - rearBotW - gap * 2.0f) * 0.5f;
 
-    RenderBatteryPanel(state, ImVec2(botColLeft, rowBottom));
+    RenderBatteryPanel(state, ImVec2(sideW, rowBottom));
     ImGui::SameLine(0, gap);
 
     RenderCameraView(state, "REAR VIEW",
                      state.rearCameraTexture,
-                     ImVec2(botColCenter, rowBottom));
+                     ImVec2(rearBotW, rowTop));
     ImGui::SameLine(0, gap);
 
-        RenderButtonGrid(state, ImVec2(botColRight, rowBottom));
+        RenderButtonGrid(state, ImVec2(sideW, rowBottom));
     } // End normal dashboard render
 
     ImGui::End();

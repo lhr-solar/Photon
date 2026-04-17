@@ -329,9 +329,9 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
         initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
         initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
     }
-    initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/video0", 640, 480);
-    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/video4", 640, 480);
-    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/video8", 640, 480);
+    initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/cam-left",  640, 480);
+    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/cam-right", 640, 480);
+    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/cam-rear",  640, 480);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache

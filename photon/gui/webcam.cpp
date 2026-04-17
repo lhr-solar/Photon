@@ -5,6 +5,7 @@
 #ifdef __linux__
 
 #include <algorithm>
+#include <time.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -16,6 +17,8 @@
 #include <unistd.h>
 
 namespace {
+
+constexpr int64_t kReconnectIntervalMs = 1000;
 
 bool xioctl(int fd, unsigned long request, void* arg) {
     int r;
@@ -34,6 +37,16 @@ bool mjpegToRgba(tjhandle decoder, const uint8_t* src, size_t bytesUsed, uint32_
     return rc == 0;
 }
 
+int64_t nowMs() {
+    struct timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<int64_t>(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
+}
+
+bool isDeviceLostErrno(int err) {
+    return err == ENODEV || err == EIO || err == EPIPE || err == ENXIO;
+}
+
 } // namespace
 
 WebcamCapture::WebcamCapture() = default;
@@ -44,20 +57,60 @@ WebcamCapture::~WebcamCapture() {
 
 bool WebcamCapture::initialize(const std::string& devicePath, uint32_t requestWidth, uint32_t requestHeight) {
     shutdown();
-    if (!initDevice(devicePath, requestWidth, requestHeight)) {
-        shutdown();
+    targetDevicePath = devicePath;
+    targetWidth = requestWidth;
+    targetHeight = requestHeight;
+    lastReconnectMs = 0;
+    return openDevice();
+}
+
+bool WebcamCapture::openDevice() {
+    if (targetDevicePath.empty()) { return false; }
+    if (!initDevice(targetDevicePath, targetWidth, targetHeight)) {
+        closeDevice();
         return false;
     }
     if (!initMMap()) {
-        shutdown();
+        closeDevice();
         return false;
     }
     if (!startStreaming()) {
-        shutdown();
+        closeDevice();
         return false;
     }
     available = true;
     return true;
+}
+
+void WebcamCapture::closeDevice() {
+    if (streaming) { stopStreaming(); }
+
+    for (auto& buffer : buffers) {
+        if (buffer.start && buffer.start != MAP_FAILED) {
+            munmap(buffer.start, buffer.length);
+        }
+    }
+    buffers.clear();
+
+    if (fd >= 0) {
+        close(fd);
+        fd = -1;
+    }
+
+    available = false;
+}
+
+void WebcamCapture::markDeviceLost() {
+    closeDevice();
+    // Keep targetDevicePath + decoder; captureFrame() will retry on next call.
+}
+
+bool WebcamCapture::maybeReconnect() {
+    int64_t t = nowMs();
+    if (t - lastReconnectMs < kReconnectIntervalMs) { return false; }
+    lastReconnectMs = t;
+    closeDevice();
+    return openDevice();
 }
 
 bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWidth, uint32_t requestHeight) {
@@ -176,14 +229,24 @@ bool WebcamCapture::startStreaming() {
 }
 
 bool WebcamCapture::captureFrame(std::vector<uint8_t>& outRGBA) {
-    if (!available) { return false; }
+    if (!available) {
+        if (!maybeReconnect()) { return false; }
+    }
 
     pollfd fds{};
     fds.fd = fd;
     fds.events = POLLIN;
 
     int pollResult = poll(&fds, 1, 0);
-    if (pollResult <= 0) { return false; }
+    if (pollResult < 0) {
+        if (isDeviceLostErrno(errno)) { markDeviceLost(); }
+        return false;
+    }
+    if (pollResult == 0) { return false; }
+    if (fds.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        markDeviceLost();
+        return false;
+    }
 
     return dequeueFrame(outRGBA);
 }
@@ -194,9 +257,10 @@ bool WebcamCapture::dequeueFrame(std::vector<uint8_t>& outRGBA) {
     buf.memory = V4L2_MEMORY_MMAP;
 
     if (!xioctl(fd, VIDIOC_DQBUF, &buf)) {
-        if (errno != EAGAIN) {
-            logs("[!] WebcamCapture: VIDIOC_DQBUF failed error=" << strerror(errno));
-        }
+        int err = errno;
+        if (err == EAGAIN) { return false; }
+        logs("[!] WebcamCapture: VIDIOC_DQBUF failed error=" << strerror(err));
+        if (isDeviceLostErrno(err)) { markDeviceLost(); }
         return false;
     }
 
@@ -212,7 +276,9 @@ bool WebcamCapture::dequeueFrame(std::vector<uint8_t>& outRGBA) {
     }
 
     if (!xioctl(fd, VIDIOC_QBUF, &buf)) {
-        logs("[!] WebcamCapture: VIDIOC_QBUF failed error=" << strerror(errno));
+        int err = errno;
+        logs("[!] WebcamCapture: VIDIOC_QBUF failed error=" << strerror(err));
+        if (isDeviceLostErrno(err)) { markDeviceLost(); }
         return false;
     }
 
@@ -229,27 +295,17 @@ void WebcamCapture::stopStreaming() {
 }
 
 void WebcamCapture::shutdown() {
-    if (!available && fd < 0 && !jpegDecoder) { return; }
-    if (streaming) { stopStreaming(); }
-
-    for (auto& buffer : buffers) {
-        if (buffer.start && buffer.start != MAP_FAILED) {
-            munmap(buffer.start, buffer.length);
-        }
-    }
-    buffers.clear();
-
-    if (fd >= 0) {
-        close(fd);
-        fd = -1;
-    }
+    closeDevice();
 
     if (jpegDecoder) {
         tjDestroy(jpegDecoder);
         jpegDecoder = nullptr;
     }
 
-    available = false;
+    targetDevicePath.clear();
+    targetWidth = 0;
+    targetHeight = 0;
+    lastReconnectMs = 0;
     frameWidth = 0;
     frameHeight = 0;
 }

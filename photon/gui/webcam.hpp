@@ -38,10 +38,21 @@ private:
     bool streaming = false;
     tjhandle jpegDecoder = nullptr;
 
+    // Saved so we can reopen the same device after an unplug without the
+    // caller having to reinitialize.
+    std::string targetDevicePath;
+    uint32_t targetWidth = 0;
+    uint32_t targetHeight = 0;
+    int64_t lastReconnectMs = 0;
+
+    bool openDevice();
+    void closeDevice();
     bool initDevice(const std::string& devicePath, uint32_t requestWidth, uint32_t requestHeight);
     bool initMMap();
     bool startStreaming();
     bool dequeueFrame(std::vector<uint8_t>& outRGBA);
     void stopStreaming();
+    void markDeviceLost();
+    bool maybeReconnect();
 #endif
 };
