@@ -19,62 +19,19 @@ namespace {
 
 bool xioctl(int fd, unsigned long request, void* arg) {
     int r;
-    do { r = ioctl(fd, request, arg); } 
+    do { r = ioctl(fd, request, arg); }
     while (r == -1 && errno == EINTR);
     return r != -1;
 }
 
-inline uint8_t clampToByte(int value) {
-    if (value < 0) { return 0; }
-    if (value > 255) { return 255; }
-    return static_cast<uint8_t>(value);
-}
-
-void yuyvToRgba(const uint8_t* src, size_t bytesUsed, uint32_t width, uint32_t height, std::vector<uint8_t>& dst) {
-    const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
-    const size_t pairCount = std::min(pixelCount / 2, bytesUsed / 4);
-
-    dst.resize(pixelCount * 4);
-    uint8_t* out = dst.data();
-
-    for (size_t i = 0; i < pairCount; ++i) {
-        const size_t srcIndex = i * 4;
-        const size_t dstIndex = i * 8;
-
-        const uint8_t y0 = src[srcIndex + 0];
-        const uint8_t u  = src[srcIndex + 1];
-        const uint8_t y1 = src[srcIndex + 2];
-        const uint8_t v  = src[srcIndex + 3];
-
-        const int c0 = static_cast<int>(y0) - 16;
-        const int c1 = static_cast<int>(y1) - 16;
-        const int d  = static_cast<int>(u) - 128;
-        const int e  = static_cast<int>(v) - 128;
-
-        const int r0 = (298 * c0 + 409 * e + 128) >> 8;
-        const int g0 = (298 * c0 - 100 * d - 208 * e + 128) >> 8;
-        const int b0 = (298 * c0 + 516 * d + 128) >> 8;
-
-        const int r1 = (298 * c1 + 409 * e + 128) >> 8;
-        const int g1 = (298 * c1 - 100 * d - 208 * e + 128) >> 8;
-        const int b1 = (298 * c1 + 516 * d + 128) >> 8;
-
-        out[dstIndex + 0] = clampToByte(r0);
-        out[dstIndex + 1] = clampToByte(g0);
-        out[dstIndex + 2] = clampToByte(b0);
-        out[dstIndex + 3] = 255;
-
-        out[dstIndex + 4] = clampToByte(r1);
-        out[dstIndex + 5] = clampToByte(g1);
-        out[dstIndex + 6] = clampToByte(b1);
-        out[dstIndex + 7] = 255;
-    }
-
-    // Zero any trailing pixels if the camera delivered less data than expected
-    const size_t convertedPixels = pairCount * 2;
-    if (convertedPixels < pixelCount) {
-        memset(out + convertedPixels * 4, 0, (pixelCount - convertedPixels) * 4);
-    }
+bool mjpegToRgba(tjhandle decoder, const uint8_t* src, size_t bytesUsed, uint32_t width, uint32_t height, std::vector<uint8_t>& dst) {
+    dst.resize(static_cast<size_t>(width) * height * 4);
+    int rc = tjDecompress2(decoder,
+                           src, static_cast<unsigned long>(bytesUsed),
+                           dst.data(),
+                           static_cast<int>(width), 0 /*pitch=auto*/, static_cast<int>(height),
+                           TJPF_RGBA, TJFLAG_FASTDCT);
+    return rc == 0;
 }
 
 } // namespace
@@ -130,11 +87,16 @@ bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWi
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width = requestWidth;
     fmt.fmt.pix.height = requestHeight;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
     fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
     if (!xioctl(fd, VIDIOC_S_FMT, &fmt)) {
         logs("[!] WebcamCapture: VIDIOC_S_FMT failed error=" << strerror(errno));
+        return false;
+    }
+
+    if (fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_MJPEG) {
+        logs("[!] WebcamCapture: driver did not accept MJPEG");
         return false;
     }
 
@@ -146,7 +108,15 @@ bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWi
         return false;
     }
 
-    logs("[+] WebcamCapture: using format " << frameWidth << "x" << frameHeight << " YUYV");
+    if (!jpegDecoder) {
+        jpegDecoder = tjInitDecompress();
+        if (!jpegDecoder) {
+            logs("[!] WebcamCapture: tjInitDecompress failed: " << tjGetErrorStr());
+            return false;
+        }
+    }
+
+    logs("[+] WebcamCapture: using format " << frameWidth << "x" << frameHeight << " MJPEG");
     return true;
 }
 
@@ -236,14 +206,17 @@ bool WebcamCapture::dequeueFrame(std::vector<uint8_t>& outRGBA) {
     }
 
     const uint8_t* src = static_cast<uint8_t*>(buffers[buf.index].start);
-    yuyvToRgba(src, buf.bytesused, frameWidth, frameHeight, outRGBA);
+    bool decoded = mjpegToRgba(jpegDecoder, src, buf.bytesused, frameWidth, frameHeight, outRGBA);
+    if (!decoded) {
+        logs("[!] WebcamCapture: MJPEG decode failed: " << tjGetErrorStr());
+    }
 
     if (!xioctl(fd, VIDIOC_QBUF, &buf)) {
         logs("[!] WebcamCapture: VIDIOC_QBUF failed error=" << strerror(errno));
         return false;
     }
 
-    return true;
+    return decoded;
 }
 
 void WebcamCapture::stopStreaming() {
@@ -256,7 +229,7 @@ void WebcamCapture::stopStreaming() {
 }
 
 void WebcamCapture::shutdown() {
-    if (!available && fd < 0) { return; }
+    if (!available && fd < 0 && !jpegDecoder) { return; }
     if (streaming) { stopStreaming(); }
 
     for (auto& buffer : buffers) {
@@ -269,6 +242,11 @@ void WebcamCapture::shutdown() {
     if (fd >= 0) {
         close(fd);
         fd = -1;
+    }
+
+    if (jpegDecoder) {
+        tjDestroy(jpegDecoder);
+        jpegDecoder = nullptr;
     }
 
     available = false;

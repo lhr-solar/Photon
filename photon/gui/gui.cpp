@@ -331,7 +331,7 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     }
     initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/video0", 640, 480);
     initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/video4", 640, 480);
-    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/video2", 640, 480);
+    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/video8", 640, 480);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache

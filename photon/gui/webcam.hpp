@@ -4,6 +4,10 @@
 #include <string>
 #include <vector>
 
+#ifdef __linux__
+#include <turbojpeg.h>
+#endif
+
 class WebcamCapture {
 public:
     WebcamCapture();
@@ -32,6 +36,7 @@ private:
     std::vector<Buffer> buffers;
     int fd = -1;
     bool streaming = false;
+    tjhandle jpegDecoder = nullptr;
 
     bool initDevice(const std::string& devicePath, uint32_t requestWidth, uint32_t requestHeight);
     bool initMMap();
