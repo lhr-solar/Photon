@@ -23,7 +23,8 @@
 #if defined(XCB)
     // Keep logs on in release too -- systemd journal captures stderr and this
     // is the only way to diagnose failures when running via a service unit.
-    #define logs(x) std::cout << x << '\n'
+    // std::endl flushes; '\n' would leave stdout block-buffered when piped.
+    #define logs(x) std::cout << x << std::endl
 #elif defined(WIN)
     inline void ensure_console() {
         static bool attached = false;
@@ -39,7 +40,7 @@
 #elif defined(NDEBUG)
     #define logs(x) do {} while(0)
 #else
-    #define logs(x) std::cout << x << '\n'
+    #define logs(x) std::cout << x << std::endl
 #endif
 
 #ifdef XCB
