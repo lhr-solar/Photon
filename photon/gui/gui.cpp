@@ -329,9 +329,11 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
         initBackgroundResources(vulkanDevice, calculateBackgroundExtent(static_cast<float>(width), static_cast<float>(height)));
         initCustomShaderResources(vulkanDevice, calculateCustomShaderExtent(ui.customShader.x, ui.customShader.y));
     }
-    initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/cam-left",  640, 480);
-    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/cam-right", 640, 480);
-    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/cam-rear",  640, 480);
+    // All three cams at 320x240 MJPEG so the UVC driver picks the smallest
+    // declared altsetting and three streams fit on the shared USB 2.0 leg.
+    initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/cam-left",  320, 240);
+    initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/cam-right", 320, 240);
+    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/cam-rear",  320, 240);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache

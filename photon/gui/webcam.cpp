@@ -14,11 +14,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-extern "C" {
-#include <libavutil/imgutils.h>
-#include <libavutil/pixfmt.h>
-}
-
 namespace {
 
 constexpr int64_t kReconnectIntervalMs = 1000;
@@ -28,6 +23,16 @@ bool xioctl(int fd, unsigned long request, void* arg) {
     do { r = ioctl(fd, request, arg); }
     while (r == -1 && errno == EINTR);
     return r != -1;
+}
+
+bool mjpegToRgba(tjhandle decoder, const uint8_t* src, size_t bytesUsed, uint32_t width, uint32_t height, std::vector<uint8_t>& dst) {
+    dst.resize(static_cast<size_t>(width) * height * 4);
+    int rc = tjDecompress2(decoder,
+                           src, static_cast<unsigned long>(bytesUsed),
+                           dst.data(),
+                           static_cast<int>(width), 0 /*pitch=auto*/, static_cast<int>(height),
+                           TJPF_RGBA, TJFLAG_FASTDCT);
+    return rc == 0;
 }
 
 int64_t nowMs() {
@@ -54,9 +59,6 @@ bool WebcamCapture::initialize(const std::string& devicePath, uint32_t requestWi
     targetWidth = requestWidth;
     targetHeight = requestHeight;
     lastReconnectMs = 0;
-    if (!initDecoder()) {
-        return false;
-    }
     return openDevice();
 }
 
@@ -98,9 +100,6 @@ void WebcamCapture::closeDevice() {
 
 void WebcamCapture::markDeviceLost() {
     closeDevice();
-    if (avctx) {
-        avcodec_flush_buffers(avctx);
-    }
 }
 
 bool WebcamCapture::maybeReconnect() {
@@ -109,56 +108,6 @@ bool WebcamCapture::maybeReconnect() {
     lastReconnectMs = t;
     closeDevice();
     return openDevice();
-}
-
-bool WebcamCapture::initDecoder() {
-    closeDecoder();
-
-    const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H264);
-    if (!codec) {
-        logs("[!] WebcamCapture: libavcodec has no H.264 decoder");
-        return false;
-    }
-
-    avctx = avcodec_alloc_context3(codec);
-    if (!avctx) {
-        logs("[!] WebcamCapture: avcodec_alloc_context3 failed");
-        return false;
-    }
-
-    if (avcodec_open2(avctx, codec, nullptr) < 0) {
-        logs("[!] WebcamCapture: avcodec_open2 failed");
-        closeDecoder();
-        return false;
-    }
-
-    avpkt = av_packet_alloc();
-    avframe = av_frame_alloc();
-    if (!avpkt || !avframe) {
-        logs("[!] WebcamCapture: av_packet/frame_alloc failed");
-        closeDecoder();
-        return false;
-    }
-    return true;
-}
-
-void WebcamCapture::closeDecoder() {
-    if (sws) {
-        sws_freeContext(sws);
-        sws = nullptr;
-    }
-    swsSrcW = swsSrcH = 0;
-    swsSrcFmt = -1;
-
-    if (avframe) {
-        av_frame_free(&avframe);
-    }
-    if (avpkt) {
-        av_packet_free(&avpkt);
-    }
-    if (avctx) {
-        avcodec_free_context(&avctx);
-    }
 }
 
 bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWidth, uint32_t requestHeight) {
@@ -188,7 +137,7 @@ bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWi
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width = requestWidth;
     fmt.fmt.pix.height = requestHeight;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_H264;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
     fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
     if (!xioctl(fd, VIDIOC_S_FMT, &fmt)) {
@@ -196,8 +145,8 @@ bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWi
         return false;
     }
 
-    if (fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_H264) {
-        logs("[!] WebcamCapture: driver did not accept H.264");
+    if (fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_MJPEG) {
+        logs("[!] WebcamCapture: driver did not accept MJPEG");
         return false;
     }
 
@@ -209,9 +158,8 @@ bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWi
         return false;
     }
 
-    // Cap the framerate so UVC picks a smaller USB altsetting. H.264 already
-    // fits 3 cams comfortably on USB 2.0 vs MJPEG, but we keep the cap so
-    // bandwidth has headroom for hub overhead.
+    // Cap the framerate so UVC picks a smaller USB altsetting. Three cams on
+    // a single USB 2.0 hub leg need every byte of headroom we can get.
     v4l2_streamparm parm{};
     parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     parm.parm.capture.timeperframe.numerator = 1;
@@ -221,13 +169,23 @@ bool WebcamCapture::initDevice(const std::string& devicePath, uint32_t requestWi
         // not fatal -- fall through
     }
 
-    logs("[+] WebcamCapture: using format " << frameWidth << "x" << frameHeight << " H264");
+    if (!jpegDecoder) {
+        jpegDecoder = tjInitDecompress();
+        if (!jpegDecoder) {
+            logs("[!] WebcamCapture: tjInitDecompress failed: " << tjGetErrorStr());
+            return false;
+        }
+    }
+
+    logs("[+] WebcamCapture: using format " << frameWidth << "x" << frameHeight << " MJPEG");
     return true;
 }
 
 bool WebcamCapture::initMMap() {
     v4l2_requestbuffers req{};
-    req.count = 4;
+    // Two buffers: one being filled by the kernel, one being decoded by us.
+    // More than that just adds queue latency for the rear-view path.
+    req.count = 2;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
 
@@ -285,22 +243,34 @@ bool WebcamCapture::captureFrame(std::vector<uint8_t>& outRGBA) {
         if (!maybeReconnect()) { return false; }
     }
 
-    pollfd fds{};
-    fds.fd = fd;
-    fds.events = POLLIN;
+    // Drain everything queued by the kernel so we end up displaying the most
+    // recent frame instead of an older one, then decode just that. Keeps
+    // rear-view latency low when the GUI lags.
+    bool gotFrame = false;
+    for (;;) {
+        pollfd fds{};
+        fds.fd = fd;
+        fds.events = POLLIN;
 
-    int pollResult = poll(&fds, 1, 0);
-    if (pollResult < 0) {
-        if (isDeviceLostErrno(errno)) { markDeviceLost(); }
-        return false;
-    }
-    if (pollResult == 0) { return false; }
-    if (fds.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        markDeviceLost();
-        return false;
-    }
+        int pollResult = poll(&fds, 1, 0);
+        if (pollResult < 0) {
+            if (isDeviceLostErrno(errno)) { markDeviceLost(); }
+            return gotFrame;
+        }
+        if (pollResult == 0) {
+            return gotFrame;
+        }
+        if (fds.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            markDeviceLost();
+            return gotFrame;
+        }
 
-    return dequeueFrame(outRGBA);
+        if (!dequeueFrame(outRGBA)) {
+            return gotFrame;
+        }
+        gotFrame = true;
+        // Loop back: if another frame is already queued, prefer it.
+    }
 }
 
 bool WebcamCapture::dequeueFrame(std::vector<uint8_t>& outRGBA) {
@@ -322,7 +292,10 @@ bool WebcamCapture::dequeueFrame(std::vector<uint8_t>& outRGBA) {
     }
 
     const uint8_t* src = static_cast<uint8_t*>(buffers[buf.index].start);
-    bool decoded = decodeH264(src, buf.bytesused, outRGBA);
+    bool decoded = mjpegToRgba(jpegDecoder, src, buf.bytesused, frameWidth, frameHeight, outRGBA);
+    if (!decoded) {
+        logs("[!] WebcamCapture: MJPEG decode failed: " << tjGetErrorStr());
+    }
 
     if (!xioctl(fd, VIDIOC_QBUF, &buf)) {
         int err = errno;
@@ -332,60 +305,6 @@ bool WebcamCapture::dequeueFrame(std::vector<uint8_t>& outRGBA) {
     }
 
     return decoded;
-}
-
-bool WebcamCapture::decodeH264(const uint8_t* src, size_t bytesUsed, std::vector<uint8_t>& outRGBA) {
-    if (!avctx || !avpkt || !avframe) { return false; }
-    if (bytesUsed == 0) { return false; }
-
-    av_packet_unref(avpkt);
-    avpkt->data = const_cast<uint8_t*>(src);
-    avpkt->size = static_cast<int>(bytesUsed);
-
-    int sret = avcodec_send_packet(avctx, avpkt);
-    if (sret < 0 && sret != AVERROR(EAGAIN)) {
-        // Bad packet -- skip this frame, decoder stays usable.
-        return false;
-    }
-
-    int rret = avcodec_receive_frame(avctx, avframe);
-    if (rret == AVERROR(EAGAIN)) {
-        // Decoder needs more packets (SPS/PPS, B-frames). Normal during the
-        // first ~1-3 frames after a stream starts.
-        return false;
-    }
-    if (rret < 0) {
-        return false;
-    }
-
-    int srcW = avframe->width;
-    int srcH = avframe->height;
-    int srcFmt = avframe->format;
-    if (srcW <= 0 || srcH <= 0) { return false; }
-
-    if (!sws || srcW != swsSrcW || srcH != swsSrcH || srcFmt != swsSrcFmt
-            || srcW != static_cast<int>(frameWidth)
-            || srcH != static_cast<int>(frameHeight)) {
-        if (sws) { sws_freeContext(sws); sws = nullptr; }
-        sws = sws_getContext(srcW, srcH, static_cast<AVPixelFormat>(srcFmt),
-                             static_cast<int>(frameWidth), static_cast<int>(frameHeight),
-                             AV_PIX_FMT_RGBA,
-                             SWS_BILINEAR, nullptr, nullptr, nullptr);
-        if (!sws) {
-            logs("[!] WebcamCapture: sws_getContext failed");
-            return false;
-        }
-        swsSrcW = srcW;
-        swsSrcH = srcH;
-        swsSrcFmt = srcFmt;
-    }
-
-    outRGBA.resize(static_cast<size_t>(frameWidth) * frameHeight * 4);
-    uint8_t* dstData[1] = { outRGBA.data() };
-    int dstStride[1] = { static_cast<int>(frameWidth) * 4 };
-    int scaled = sws_scale(sws, avframe->data, avframe->linesize, 0, srcH,
-                           dstData, dstStride);
-    return scaled > 0;
 }
 
 void WebcamCapture::stopStreaming() {
@@ -399,7 +318,11 @@ void WebcamCapture::stopStreaming() {
 
 void WebcamCapture::shutdown() {
     closeDevice();
-    closeDecoder();
+
+    if (jpegDecoder) {
+        tjDestroy(jpegDecoder);
+        jpegDecoder = nullptr;
+    }
 
     targetDevicePath.clear();
     targetWidth = 0;
