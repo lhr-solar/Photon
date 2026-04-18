@@ -198,14 +198,15 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
                 dl->AddRect(barPos,
                     ImVec2(barPos.x + barW, barPos.y + barH),
                     ColorToU32(Colors::MutedForeground()), rounding, 0, 1.0f);
-                // % text centered in bar
+                // % text centered in bar. Dark text on the colored fill so
+                // it stays readable at any SOC.
                 char socTxt[8];
                 snprintf(socTxt, sizeof(socTxt), "%.0f%%", soc);
                 ImVec2 socSz = ImGui::CalcTextSize(socTxt);
                 dl->AddText(
                     ImVec2(barPos.x + (barW - socSz.x) * 0.5f,
                            barPos.y + (barH - socSz.y) * 0.5f),
-                    ColorToU32(Colors::Foreground()), socTxt);
+                    ColorToU32(Colors::Background()), socTxt);
 
                 ImGui::Dummy(ImVec2(barW, barH));
             }
