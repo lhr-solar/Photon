@@ -2,6 +2,8 @@
 
 #include "../engine/include.hpp"
 
+#ifdef __linux__
+
 #include <algorithm>
 #include <time.h>
 
@@ -331,3 +333,25 @@ void WebcamCapture::shutdown() {
     frameWidth = 0;
     frameHeight = 0;
 }
+
+#else // __linux__
+
+WebcamCapture::WebcamCapture() = default;
+WebcamCapture::~WebcamCapture() = default;
+
+bool WebcamCapture::initialize(const std::string&, uint32_t, uint32_t) {
+    available = false;
+    frameWidth = 0;
+    frameHeight = 0;
+    return false;
+}
+
+bool WebcamCapture::captureFrame(std::vector<uint8_t>&) { return false; }
+
+void WebcamCapture::shutdown() {
+    available = false;
+    frameWidth = 0;
+    frameHeight = 0;
+}
+
+#endif // __linux__

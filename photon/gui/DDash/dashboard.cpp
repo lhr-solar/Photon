@@ -298,7 +298,12 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
     ImGui::PopStyleColor();
 }
 
-// contactors + IGN states
+// Contactors (top) + Ignition (bottom) in one panel with a visible divider.
+//
+// Contactor grid (3x2):        Ignition row (1x3):
+//   H+   H-                      LV  A  M
+//   AP   AC
+//   MP   MC
 
 static void RenderButtonGrid(AppState& state, const ImVec2& size) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
@@ -308,76 +313,126 @@ static void RenderButtonGrid(AppState& state, const ImVec2& size) {
     ImGui::BeginChild("##ButtonGrid", size, ImGuiChildFlags_None,
                       ImGuiWindowFlags_NoScrollbar);
     {
-
-        // Grid layout:
-        //   HP   HN   LV
-        //   AP    A   AN
-        //   MP    M   MM
-
         struct BtnDef {
             const char* label;
             bool* statePtr;
         };
 
-        BtnDef buttons[3][3] = {
-            { {"H+", &state.contactorStates.hvPositive},
-              {"H-", &state.contactorStates.hvNegative},
-              {"LV", &state.ignitionStates.lvEnabled} },
-            { {"AP", &state.contactorStates.arrayPrecharge},
-              {"A",  &state.ignitionStates.arrayEnabled},
-              {"AC", &state.contactorStates.arrayContactor} },
-            { {"MP", &state.contactorStates.motorPrecharge},
-              {"M",  &state.ignitionStates.motorEnabled},
-              {"MC", &state.contactorStates.motorContactor} },
+        BtnDef contactors[3][2] = {
+            { {"HV+",        &state.contactorStates.hvPositive},
+              {"HV-",        &state.contactorStates.hvNegative} },
+            { {"Array Pre",  &state.contactorStates.arrayPrecharge},
+              {"Array",      &state.contactorStates.arrayContactor} },
+            { {"Motor Pre",  &state.contactorStates.motorPrecharge},
+              {"Motor",      &state.contactorStates.motorContactor} },
         };
 
-                ImDrawList* dl = ImGui::GetWindowDrawList();
-                ImGuiIO& io = ImGui::GetIO();
-                ImFont* labelFont = (io.Fonts->Fonts.Size > 2)
-                                                                ? io.Fonts->Fonts[2] : nullptr;
+        BtnDef ignition[3] = {
+            {"Low Voltage", &state.ignitionStates.lvEnabled},
+            {"Array",       &state.ignitionStates.arrayEnabled},
+            {"Motor",       &state.ignitionStates.motorEnabled},
+        };
+
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImGuiIO& io = ImGui::GetIO();
+        ImFont* labelFont = (io.Fonts->Fonts.Size > 2)
+                                ? io.Fonts->Fonts[2] : nullptr;
 
         ImVec2 avail = ImGui::GetContentRegionAvail();
-        float gap = 1.0f;
-        float btnW = (avail.x - gap * 2.0f) / 3.0f;
-        float btnH = (avail.y - gap * 2.0f) / 5.0f;
+        float gap        = 1.0f;
+        float headerH    = 16.0f;
+        float dividerH   = 8.0f;
+        // 3 contactor rows + 1 ignition row = 4 button rows, plus 2 headers
+        // and 1 divider. Spread whatever's left across the buttons evenly.
+        float buttonTotalH = avail.y - (headerH * 2.0f) - dividerH - gap * 3.0f;
+        if (buttonTotalH < 80.0f) buttonTotalH = 80.0f;
+        float btnH = buttonTotalH / 4.0f;
 
+        auto drawLabel = [&](const char* text) {
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            float labelFs = 13.0f;
+            ImVec2 tSz = ImGui::CalcTextSize(text);
+            dl->AddText(ImVec2(pos.x + (avail.x - tSz.x) * 0.5f, pos.y + (headerH - tSz.y) * 0.5f),
+                        ColorToU32(Colors::MutedForeground()), text);
+            ImGui::Dummy(ImVec2(avail.x, headerH));
+            (void)labelFs;
+        };
+
+        auto drawButton = [&](const BtnDef& b, float bw, const char* idSuffix) {
+            bool active = *b.statePtr;
+            char id[48];
+            snprintf(id, sizeof(id), "%s##%s", b.label, idSuffix);
+
+            ImVec2 cellPos = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton(id, ImVec2(bw, btnH));
+
+            ImVec4 fillCol = active ? Colors::Primary() : Colors::Muted();
+            ImVec4 textCol = active ? Colors::PrimaryForeground()
+                                    : Colors::MutedForeground();
+            ImVec4 outlineCol = ColorWithAlpha(Colors::MutedForeground(), 0.55f);
+
+            // Rounded rectangle so longer labels actually fit.
+            float pad = 3.0f;
+            ImVec2 rectMin(cellPos.x + pad, cellPos.y + pad);
+            ImVec2 rectMax(cellPos.x + bw - pad, cellPos.y + btnH - pad);
+            float rounding = std::min((bw - 2*pad) * 0.15f, (btnH - 2*pad) * 0.35f);
+
+            dl->AddRectFilled(rectMin, rectMax, ColorToU32(fillCol), rounding);
+            dl->AddRect(rectMin, rectMax, ColorToU32(outlineCol), rounding, 0, 1.5f);
+
+            // Auto-shrink font so the full label fits the button width.
+            float fs = std::min(btnH * 0.45f, 22.0f);
+            if (labelFont) {
+                ImVec2 probe = labelFont->CalcTextSizeA(fs, FLT_MAX, 0, b.label);
+                float textBudget = (bw - 2*pad) - 10.0f;
+                if (probe.x > textBudget && probe.x > 0.0f) {
+                    fs *= (textBudget / probe.x);
+                }
+                if (fs < 10.0f) fs = 10.0f;
+            }
+            ImVec2 tSz = labelFont
+                ? labelFont->CalcTextSizeA(fs, FLT_MAX, 0, b.label)
+                : ImGui::CalcTextSize(b.label);
+            ImVec2 center(cellPos.x + bw * 0.5f, cellPos.y + btnH * 0.5f);
+            dl->AddText(labelFont, fs,
+                        ImVec2(center.x - tSz.x * 0.5f,
+                               center.y - tSz.y * 0.5f),
+                        ColorToU32(textCol), b.label);
+        };
+
+        // CONTACTORS
+        drawLabel("CONTACTORS");
+        float contactorBtnW = (avail.x - gap) / 2.0f;
         for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 3; col++) {
-                BtnDef& b = buttons[row][col];
-                bool active = *b.statePtr;
-
-                char id[32];
-                snprintf(id, sizeof(id), "%s##grid%d%d", b.label, row, col);
-
-                ImVec2 cellPos = ImGui::GetCursorScreenPos();
-                ImGui::InvisibleButton(id, ImVec2(btnW, btnH));
-            
-
-                ImVec4 fillCol = active ? Colors::Primary() : Colors::Muted();
-                ImVec4 textCol = active ? Colors::PrimaryForeground()
-                                        : Colors::MutedForeground();
-                ImVec4 outlineCol = ColorWithAlpha(Colors::MutedForeground(), 0.55f);
-
-                ImVec2 center(cellPos.x + btnW * 0.5f, cellPos.y + btnH * 0.5f);
-                float radius = std::min(btnW, btnH) * 0.40f;
-
-                dl->AddCircleFilled(center, radius, ColorToU32(fillCol), 48);
-                dl->AddCircle(center, radius, ColorToU32(outlineCol), 48, 2.0f);
-
-                float fs = std::min(radius * 0.90f, 34.0f);
-                ImVec2 tSz = labelFont
-                    ? labelFont->CalcTextSizeA(fs, FLT_MAX, 0, b.label)
-                    : ImGui::CalcTextSize(b.label);
-                dl->AddText(labelFont, fs,
-                            ImVec2(center.x - tSz.x * 0.5f,
-                                   center.y - tSz.y * 0.5f),
-                            ColorToU32(textCol), b.label);
-
-                if (col < 2) ImGui::SameLine(0, gap);
+            for (int col = 0; col < 2; col++) {
+                char suffix[16];
+                snprintf(suffix, sizeof(suffix), "ct%d%d", row, col);
+                drawButton(contactors[row][col], contactorBtnW, suffix);
+                if (col < 1) ImGui::SameLine(0, gap);
             }
-            if (row < 2) {
-                ImGui::Dummy(ImVec2(0, gap));
-            }
+            if (row < 2) ImGui::Dummy(ImVec2(0, gap));
+        }
+
+        // Divider
+        ImGui::Dummy(ImVec2(0, dividerH * 0.5f));
+        {
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            float inset = 8.0f;
+            ImVec4 lineCol = ColorWithAlpha(Colors::MutedForeground(), 0.35f);
+            dl->AddLine(ImVec2(pos.x + inset, pos.y),
+                        ImVec2(pos.x + avail.x - inset, pos.y),
+                        ColorToU32(lineCol), 1.0f);
+        }
+        ImGui::Dummy(ImVec2(0, dividerH * 0.5f));
+
+        // IGNITION
+        drawLabel("IGNITION");
+        float ignBtnW = (avail.x - gap * 2.0f) / 3.0f;
+        for (int col = 0; col < 3; col++) {
+            char suffix[16];
+            snprintf(suffix, sizeof(suffix), "ig%d", col);
+            drawButton(ignition[col], ignBtnW, suffix);
+            if (col < 2) ImGui::SameLine(0, gap);
         }
     }
     ImGui::EndChild();

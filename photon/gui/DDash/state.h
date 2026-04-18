@@ -131,7 +131,9 @@ struct AppState {
     bool regenEnabled;
     ContactorStates contactorStates;
     IgnitionStates ignitionStates;
-    bool simulationEnabled = false;
+    // Default ON so the dashboard shows animated values when CAN isn't live.
+    // ui.cpp skips the simulator whenever real signals are being decoded.
+    bool simulationEnabled = true;
     uint8_t heartbeat;      // 0-255 cycling heartbeat counter
     std::vector<Fault> faults;
     TurnSignal turnSignal;
