@@ -5,7 +5,10 @@
 #include <vector>
 
 #ifdef __linux__
-#include <turbojpeg.h>
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+}
 #endif
 
 class WebcamCapture {
@@ -36,7 +39,16 @@ private:
     std::vector<Buffer> buffers;
     int fd = -1;
     bool streaming = false;
-    tjhandle jpegDecoder = nullptr;
+
+    // H.264 decode pipeline. SPS/PPS often arrive in the first few packets,
+    // so the decoder may need a couple of frames before producing output.
+    AVCodecContext* avctx = nullptr;
+    AVPacket* avpkt = nullptr;
+    AVFrame* avframe = nullptr;
+    SwsContext* sws = nullptr;
+    int swsSrcW = 0;
+    int swsSrcH = 0;
+    int swsSrcFmt = -1;
 
     // Saved so we can reopen the same device after an unplug without the
     // caller having to reinitialize.
@@ -54,5 +66,8 @@ private:
     void stopStreaming();
     void markDeviceLost();
     bool maybeReconnect();
+    bool initDecoder();
+    void closeDecoder();
+    bool decodeH264(const uint8_t* src, size_t bytesUsed, std::vector<uint8_t>& outRGBA);
 #endif
 };

@@ -1016,34 +1016,40 @@ void RenderDashboard(AppState& state) {
     float botColRight  = availW * 0.24f;
     float botColCenter = availW - botColLeft - botColRight - gap * 2.0f;
 
+    // Bottom row uses the same side / center widths as the top row so the
+    // two rows line up vertically. Compute them before positioning.
+    float rearBotW = topColCenter;
+    float sideW    = topColSide;
+    float colCenterX = topColLeft + gap;
+    float colRightX  = colCenterX + topColCenter + gap;
+    float topY       = 0.0f;
+    float botY       = rowTop + gap;
+
+    // Top row -- explicit positions so ImGui's cursor tracking can't drift.
+    ImGui::SetCursorPos(ImVec2(0.0f, topY));
     RenderCameraView(state, "LEFT VIEW",
                      state.leftCameraTexture,
                      ImVec2(topColLeft, rowTop));
-    ImGui::SameLine(0, gap);
 
+    ImGui::SetCursorPos(ImVec2(colCenterX, topY));
     RenderSpeedGauge(state, ImVec2(topColCenter, rowTop));
-    ImGui::SameLine(0, gap);
 
+    ImGui::SetCursorPos(ImVec2(colRightX, topY));
     RenderCameraView(state, "RIGHT VIEW",
                      state.rightCameraTexture,
                      ImVec2(topColRight, rowTop));
 
-    ImGui::Dummy(ImVec2(0, gap)); 
-
-    // Bottom row: line up the rear view under the speed gauge (same width),
-    // and split the leftover space evenly between battery and button grid.
-    float rearBotW = topColCenter;
-    float sideW    = (availW - rearBotW - gap * 2.0f) * 0.5f;
-
+    // Bottom row -- mirror of the top row at botY.
+    ImGui::SetCursorPos(ImVec2(0.0f, botY));
     RenderBatteryPanel(state, ImVec2(sideW, rowBottom));
-    ImGui::SameLine(0, gap);
 
+    ImGui::SetCursorPos(ImVec2(colCenterX, botY));
     RenderCameraView(state, "REAR VIEW",
                      state.rearCameraTexture,
                      ImVec2(rearBotW, rowBottom));
-    ImGui::SameLine(0, gap);
 
-        RenderButtonGrid(state, ImVec2(sideW, rowBottom));
+    ImGui::SetCursorPos(ImVec2(colRightX, botY));
+    RenderButtonGrid(state, ImVec2(sideW, rowBottom));
     } // End normal dashboard render
 
     ImGui::End();
