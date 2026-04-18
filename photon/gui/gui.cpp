@@ -331,7 +331,9 @@ void Gui::initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass){
     }
     initVideoFeedResources(vulkanDevice, CAM_LEFT,  "/dev/cam-left",  640, 480);
     initVideoFeedResources(vulkanDevice, CAM_RIGHT, "/dev/cam-right", 640, 480);
-    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/cam-rear",  640, 480);
+    // Rear drops to 320x240 so UVC reserves less USB 2.0 bandwidth and the
+    // third STREAMON doesn't fail with ENOSPC.
+    initVideoFeedResources(vulkanDevice, CAM_REAR,  "/dev/cam-rear",  320, 240);
     logs("[+] Updated Gui Descriptor Sets ");
 
     // Pipeline cache

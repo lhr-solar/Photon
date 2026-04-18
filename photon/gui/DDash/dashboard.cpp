@@ -320,15 +320,15 @@ static void RenderButtonGrid(AppState& state, const ImVec2& size) {
         };
 
         BtnDef buttons[3][3] = {
-            { {"HP", &state.contactorStates.hvPositive},
-              {"HN", &state.contactorStates.hvNegative},
+            { {"H+", &state.contactorStates.hvPositive},
+              {"H-", &state.contactorStates.hvNegative},
               {"LV", &state.ignitionStates.lvEnabled} },
             { {"AP", &state.contactorStates.arrayPrecharge},
               {"A",  &state.ignitionStates.arrayEnabled},
-              {"AN", &state.contactorStates.arrayContactor} },
+              {"AC", &state.contactorStates.arrayContactor} },
             { {"MP", &state.contactorStates.motorPrecharge},
               {"M",  &state.ignitionStates.motorEnabled},
-              {"MM", &state.contactorStates.motorContactor} },
+              {"MC", &state.contactorStates.motorContactor} },
         };
 
                 ImDrawList* dl = ImGui::GetWindowDrawList();
