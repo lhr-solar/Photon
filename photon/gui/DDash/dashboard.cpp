@@ -1001,12 +1001,14 @@ void RenderDashboard(AppState& state) {
         RenderDebugScreen(state);
     } else {
         float gap       = 4.0f;
-        float rowTop    = availH * 0.50f;
-        float rowBottom = availH - rowTop - gap;
+        // Split the height evenly so top and bottom rows are the same size.
+        float rowTop    = (availH - gap) * 0.5f;
+        float rowBottom = rowTop;
 
-        // Top row: wider camera views, narrower speed gauge
-    float topColLeft   = availW * 0.34f;
-    float topColRight  = availW * 0.32f;
+        // Top row: symmetric left/right cam tiles around the centered speed gauge.
+    float topColSide   = availW * 0.33f;
+    float topColLeft   = topColSide;
+    float topColRight  = topColSide;
     float topColCenter = availW - topColLeft - topColRight - gap * 2.0f;
 
     // Bottom row even proportions
@@ -1028,9 +1030,9 @@ void RenderDashboard(AppState& state) {
 
     ImGui::Dummy(ImVec2(0, gap)); 
 
-    // bottom: center rear at the top-row tile size; battery and button grid
-    // share the remaining width evenly on either side.
-    float rearBotW = topColLeft;
+    // Bottom row: line up the rear view under the speed gauge (same width),
+    // and split the leftover space evenly between battery and button grid.
+    float rearBotW = topColCenter;
     float sideW    = (availW - rearBotW - gap * 2.0f) * 0.5f;
 
     RenderBatteryPanel(state, ImVec2(sideW, rowBottom));
@@ -1038,7 +1040,7 @@ void RenderDashboard(AppState& state) {
 
     RenderCameraView(state, "REAR VIEW",
                      state.rearCameraTexture,
-                     ImVec2(rearBotW, rowTop));
+                     ImVec2(rearBotW, rowBottom));
     ImGui::SameLine(0, gap);
 
         RenderButtonGrid(state, ImVec2(sideW, rowBottom));

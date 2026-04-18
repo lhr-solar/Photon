@@ -322,27 +322,3 @@ void WebcamCapture::shutdown() {
     frameHeight = 0;
 }
 
-#else
-
-WebcamCapture::WebcamCapture() = default;
-WebcamCapture::~WebcamCapture() = default;
-
-bool WebcamCapture::initialize(const std::string&, uint32_t, uint32_t) {
-    logs("[!] WebcamCapture: webcam capture is only supported on Linux builds");
-    available = false;
-    frameWidth = 0;
-    frameHeight = 0;
-    return false;
-}
-
-bool WebcamCapture::captureFrame(std::vector<uint8_t>&) {
-    return false;
-}
-
-void WebcamCapture::shutdown() {
-    available = false;
-    frameWidth = 0;
-    frameHeight = 0;
-}
-
-#endif
