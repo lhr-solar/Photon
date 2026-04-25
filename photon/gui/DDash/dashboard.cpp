@@ -751,35 +751,41 @@ static int g_selectedSnapshotIndex = -1; // -1 means live data
 
 static void RenderBpsGrid(const AppState& s) {
     ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "BPS 32-MODULE GRID");
-    
+
     int nMod = static_cast<int>(std::max(s.moduleVoltages.size(), s.moduleTemps.size()));
 
-    if (ImGui::BeginTable("BpsGrid", 8, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2.0f, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2.0f, 0.0f));
+    ImGui::SetWindowFontScale(0.85f);
+
+    if (ImGui::BeginTable("BpsGrid", 8, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame)) {
         for (int i = 0; i < 32; i++) {
             ImGui::TableNextColumn();
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "#%d", i);
             if (i < nMod) {
-                float v = i < s.moduleVoltages.size() ? s.moduleVoltages[i] : 0.0f;
-                float t = i < s.moduleTemps.size() ? s.moduleTemps[i] : 0.0f;
-                
+                float v = i < (int)s.moduleVoltages.size() ? s.moduleVoltages[i] : 0.0f;
+                float t = i < (int)s.moduleTemps.size()    ? s.moduleTemps[i]    : 0.0f;
+
                 ImVec4 vCol = Colors::Foreground();
-                if (v > 4.2f || v < 2.5f) vCol = Colors::Destructive();
+                if      (v > 4.2f  || v < 2.5f) vCol = Colors::Destructive();
                 else if (v > 4.15f || v < 3.0f) vCol = Colors::Warning();
-                
+
                 ImVec4 tCol = Colors::Foreground();
-                if (t > 45.0f) tCol = Colors::Destructive();
+                if      (t > 45.0f) tCol = Colors::Destructive();
                 else if (t > 35.0f) tCol = Colors::Warning();
-                
-                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "#%d", i);
-                ImGui::TextColored(vCol, "%.3fV", v);
-                ImGui::TextColored(tCol, "%.1fC", t);
+
+                ImGui::TextColored(vCol, "%.2fV", v);
+                ImGui::SameLine();
+                ImGui::TextColored(tCol, "%.0fC", t);
             } else {
-                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "#%d", i);
-                ImGui::Text("-");
-                ImGui::Text("-");
+                ImGui::TextDisabled("-  -");
             }
         }
         ImGui::EndTable();
     }
+
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleVar(2);
 }
 
 static void RenderDebugScreen(AppState& liveState) {
@@ -817,7 +823,6 @@ static void RenderDebugScreen(AppState& liveState) {
     }
     
     ImGui::SameLine();
-    if (state.simulationEnabled) { ImGui::TextColored(ImVec4(1,1,0,1), "[SIM]"); ImGui::SameLine(); }
     ImGui::Text("HB:%d %.0fFPS %.1fms", state.heartbeat, dbgIo.Framerate, dbgIo.DeltaTime * 1000.0f);
     ImGui::Separator();
 
@@ -1029,21 +1034,30 @@ void RenderDashboard(AppState& state) {
     float availW = ImGui::GetContentRegionAvail().x;
     float availH = ImGui::GetContentRegionAvail().y;
     
-    // Invisible buttons for debug screen toggle
-    ImGui::SetCursorPos(ImVec2(0, 0));
-    ImGui::InvisibleButton("##DebugToggleLeft", ImVec2(80, availH));
-    bool leftHeld = ImGui::IsItemActive();
-    
-    ImGui::SetCursorPos(ImVec2(availW - 80, 0));
-    ImGui::InvisibleButton("##DebugToggleRight", ImVec2(80, availH));
-    bool rightHeld = ImGui::IsItemActive();
-    
-    static bool wasBothHeld = false;
-    bool bothHeld = leftHeld && rightHeld;
-    if (bothHeld && !wasBothHeld) {
-        state.showDebugScreen = !state.showDebugScreen;
+    // Top-corner chord: tap top-left then top-right (or vice versa) within
+    // CHORD_WINDOW_S to toggle the debug screen. Uses raw mouse-position
+    // checks instead of InvisibleButton so it isn't shadowed by widgets drawn
+    // on top later in the frame. Single-pointer-friendly (works on touch).
+    {
+        constexpr float CORNER_PX = 80.0f;
+        constexpr double CHORD_WINDOW_S = 1.0;
+        static double lastLeftClickT  = -1e9;
+        static double lastRightClickT = -1e9;
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            ImVec2 mp = io.MousePos;
+            ImVec2 ds = io.DisplaySize;
+            double nowT = ImGui::GetTime();
+            if (mp.y >= 0 && mp.y <= CORNER_PX) {
+                if (mp.x >= 0 && mp.x <= CORNER_PX)              lastLeftClickT  = nowT;
+                if (mp.x >= ds.x - CORNER_PX && mp.x <= ds.x)    lastRightClickT = nowT;
+            }
+            if ((nowT - lastLeftClickT)  < CHORD_WINDOW_S &&
+                (nowT - lastRightClickT) < CHORD_WINDOW_S) {
+                state.showDebugScreen = !state.showDebugScreen;
+                lastLeftClickT = lastRightClickT = -1e9;
+            }
+        }
     }
-    wasBothHeld = bothHeld;
 
     // Desktop shortcut: press 'D' to toggle debug screen
     if (ImGui::IsKeyPressed(ImGuiKey_D)) {

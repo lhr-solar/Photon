@@ -1,6 +1,7 @@
 #include "ui.hpp"
 #include "../engine/include.hpp"
 #include "DDash/ui.h"
+#include "DDash/kart_launcher.h"
 #include <chrono>
 #include <cmath>
 #include <algorithm>
@@ -9,9 +10,8 @@ void UI::build(){
     ImGui::NewFrame();
 
     static ui::AppState ddashState = ui::CreateDefaultState();
-    if (ddashState.simulationEnabled) {
-        ui::UpdateSimulation(ddashState, ImGui::GetIO().DeltaTime);
-    } else if (networkINTF) {
+    ddashState.heartbeat = static_cast<uint8_t>((ddashState.heartbeat + 1) % 256);
+    if (networkINTF) {
         double val = 0;
         // Motor controller basics — McQueen DBCs prefix every MC signal with "MC_".
         if (networkINTF->readParsedSignal("MC_VehicleVelocity", val)) ddashState.speed = (int)(val * 3.6);
@@ -236,6 +236,19 @@ void UI::build(){
     ddashState.rightCameraTexture = rightCameraTexture;
     ddashState.rearCameraTexture = rearCameraTexture;
     ui::RenderUI(ddashState);
+
+    {
+        kart::Inputs ki;
+        float steerNorm = ddashState.steeringAngle / 270.0f;
+        if (steerNorm >  1.0f) steerNorm =  1.0f;
+        if (steerNorm < -1.0f) steerNorm = -1.0f;
+        ki.steering = steerNorm;
+        ki.throttle = std::clamp(ddashState.pedalPercent / 100.0f, 0.0f, 1.0f);
+        ki.brake    = ddashState.brakeEngaged ? 1.0f
+                      : std::clamp(ddashState.brakePressure / 1000.0f, 0.0f, 1.0f);
+        ki.drift    = 0.0f;
+        kart::update(ki);
+    }
 
     if (!dashboardOnly) {
         slcanWindow();

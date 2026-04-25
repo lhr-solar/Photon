@@ -17,3 +17,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_library(TURBOJPEG_LIB turbojpeg REQUIRED)
     target_link_libraries(gui PUBLIC v4l2 ${TURBOJPEG_LIB})
 endif()
+
+if (WIN32)
+    target_link_libraries(gui PUBLIC ws2_32)
+endif()
