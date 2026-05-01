@@ -4,6 +4,7 @@
 .notes
 .vscode
 .artifacts
+.old
 build
 assets/video/
 Photon.exe
