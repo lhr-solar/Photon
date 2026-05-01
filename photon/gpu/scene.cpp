@@ -5,6 +5,7 @@
 #include <cstring>
 #include <limits>
 #include <thread>
+#include <tracy/Tracy.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -902,6 +903,7 @@ void Scene::init(GPU& gpu) {
 void Scene::dispatchInit(GPU& gpu) {
     gpuAsyncDispatches.fetch_add(1, std::memory_order_relaxed);
     std::thread([this, &gpu]() {
+        tracy::SetThreadName("Scene Init");
         AsyncDispatchGuard guard{};
         prepareInit(gpu);
     }).detach();

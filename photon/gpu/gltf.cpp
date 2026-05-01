@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <tracy/Tracy.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -991,6 +992,7 @@ void Gltf::dispatchInit(GPU& gpu, const unsigned char* newModel, size_t size,
     std::thread([this, &gpu,
         modelCopy = std::move(modelCopy), size,
         fragmentCopy = std::move(fragmentCopy), fragmentShaderSize]() {
+        tracy::SetThreadName("Gltf Init");
         AsyncDispatchGuard guard{};
         prepareInit(gpu,
             modelCopy.empty() ? nullptr : modelCopy.data(), size,

@@ -31,6 +31,7 @@
 
 #include "gpu.hpp"
 #include "../gui/titlebar.hpp"
+#include <tracy/Tracy.hpp>
 
 std::atomic<uint32_t> gpuAsyncDispatches{0};
 
@@ -1313,6 +1314,7 @@ void GPU::endCommands(){
 };
 
 void GPU::startFrame(uint32_t& imgIdx){
+    ZoneScopedN("GPU::startFrame");
     imgIdx = UINT32_MAX;
     while (true){
         if (resizePending){
@@ -1373,6 +1375,7 @@ void GPU::resizeWindow(){
 };
 
 void GPU::submitFrame(const uint32_t imgIdx){
+    ZoneScopedN("GPU::submitFrame");
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSemaphore waitSemaphore = imageAvailableSemaphores[frameIndex];
     VkSemaphore signalSemaphore = renderCompleteSemaphores[imgIdx];

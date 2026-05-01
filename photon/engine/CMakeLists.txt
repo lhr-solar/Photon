@@ -15,4 +15,5 @@ target_link_libraries(engine
     ModelAssets
     DbcHeaders
     DbcAssets
+    Tracy::TracyClient
 )

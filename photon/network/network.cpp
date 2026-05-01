@@ -7,6 +7,7 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <tracy/Tracy.hpp>
 #include <vector>
 
 #ifdef _WIN32
@@ -227,7 +228,10 @@ void Network::publishResponse(NetworkResponseType type, ProtocolKind protocol, c
 
 void Network::startParser(){
     stopParser();
-    parserThread = std::jthread([this](std::stop_token stopToken){ parser(stopToken); });
+    parserThread = std::jthread([this](std::stop_token stopToken){
+        tracy::SetThreadName("Network Parser");
+        parser(stopToken);
+    });
 }
 
 void Network::stopParser(){
@@ -243,6 +247,7 @@ void Network::startNetworkStream(const ProtocolConfig& config){
     networkStreamRunning.store(true, std::memory_order_release);
     publishResponse(NetworkResponseType::Info, activeConfig.kind, "Starting Network Stream");
     networkStreamThread = std::jthread([this, config](std::stop_token stopToken){
+        tracy::SetThreadName("Network Stream");
         Protocols::run(stopToken, &networkStreamStatus, &networkStream, &networkStream, config);
     });
 }
@@ -262,7 +267,10 @@ void Network::startStreamForward(){
     stopStreamForward();
     streamForwardRunning.store(true, std::memory_order_release);
     publishResponse(NetworkResponseType::Info, activeConfig.kind, "Starting Data Stream Forward");
-    streamForwardThread = std::jthread([this](std::stop_token stopToken){ forwardStream(stopToken); });
+    streamForwardThread = std::jthread([this](std::stop_token stopToken){
+        tracy::SetThreadName("Stream Forward");
+        forwardStream(stopToken);
+    });
 }
 
 void Network::stopStreamForward(){
@@ -480,7 +488,10 @@ void Network::init(Parse* parse, SPMCQueue<NetworkCommand, 64>* guiCommands){
     this->guiCommands = guiCommands;
     if(this->guiCommands) guiCommandReader = this->guiCommands->getReader();
     startParser();
-    handlerThread = std::jthread([this](std::stop_token stopToken){ handler(stopToken); });
+    handlerThread = std::jthread([this](std::stop_token stopToken){
+        tracy::SetThreadName("Network Handler");
+        handler(stopToken);
+    });
 }
 
 SPMCQueue<NetworkResponse, 64>::Reader Network::getResponseReader(){

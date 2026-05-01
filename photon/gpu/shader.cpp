@@ -1,6 +1,7 @@
 #include "shader.hpp"
 #include "vulkan_core.h"
 
+#include <tracy/Tracy.hpp>
 #include <vector>
 
 static void destroyFrame(Shader& shader, uint32_t index){
@@ -270,6 +271,7 @@ void Shader::dispatchInit(GPU& gpu,
     std::thread([this, &gpu,
         vertexCopy = std::move(vertexCopy), vertexShaderSize,
         fragmentCopy = std::move(fragmentCopy), fragmentShaderSize]() {
+        tracy::SetThreadName("Shader Init");
         AsyncDispatchGuard guard{};
         prepareInit(gpu,
             vertexCopy.empty() ? nullptr : const_cast<uint32_t*>(vertexCopy.data()), vertexShaderSize,

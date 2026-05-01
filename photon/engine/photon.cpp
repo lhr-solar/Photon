@@ -2,6 +2,7 @@
 #include "../gui/io.hpp"
 #include "imgui.h"
 #include "vulkan_core.h"
+#include <tracy/Tracy.hpp>
 #include <cstdlib>
 #include <chrono>
 #include <filesystem>
@@ -28,6 +29,8 @@ void Photon::init(){
 void Photon::renderLoop(){
     logs("Starting render loop");
     while(running){
+        FrameMark;
+        ZoneScopedN("Photon::renderLoop");
         auto startFrame = std::chrono::high_resolution_clock::now();
         uint32_t imgIdx{};
         gpu.startFrame(imgIdx);
@@ -158,6 +161,7 @@ bool Photon::reloadUI(){
 };
 
 void Photon::appLogic(){
+    ZoneScopedN("Photon::appLogic");
     handleInput();
 #if defined(__linux__) && !defined(NDEBUG)
     if(!reloadUI()){

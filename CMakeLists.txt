@@ -45,6 +45,9 @@ else()
 endif()
 
 add_compile_options(-fno-omit-frame-pointer)
+if(NOT WIN32)
+    add_link_options(-rdynamic)
+endif()
 
 include_directories(
     .external
@@ -57,6 +60,13 @@ include_directories(
     .external/tinygltf
     ${CMAKE_BINARY_DIR}/generated
 )
+
+set(TRACY_ENABLE OFF CACHE BOOL "" FORCE)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(TRACY_ENABLE ON CACHE BOOL "" FORCE)
+endif()
+set(TRACY_STATIC ON CACHE BOOL "" FORCE)
+add_subdirectory(.external/tracy EXCLUDE_FROM_ALL)
 
 if(NOT DEFINED VULKAN_SDK AND DEFINED ENV{VULKAN_SDK})
     set(VULKAN_SDK "$ENV{VULKAN_SDK}")

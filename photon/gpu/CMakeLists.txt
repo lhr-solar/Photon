@@ -10,4 +10,5 @@ target_link_libraries(gpu
     KernelAssets
     FontHeaders
     FontAssets
+    Tracy::TracyClient
 )
