@@ -13,6 +13,8 @@ enum class NetworkCommandType : uint32_t {
     None = 0,
     StartProtocol,
     SetDBC,
+    StartStreamForward,
+    StopStreamForward,
     StopProtocol,
     Shutdown,
 };
@@ -35,31 +37,29 @@ struct NetworkResponse{
     NetworkResponseType type = NetworkResponseType::None;
     ProtocolKind protocol = ProtocolKind::None;
     bool networkStreamRunning = false;
+    bool streamForwardRunning = false;
     char message[192]{};
 };
-
-using GUICommandQueue = SPMCQueue<NetworkCommand, 64>;
-using GUIResponseQueue = SPMCQueue<NetworkResponse, 64>;
-using NetworkStreamStatusQueue = SPMCQueue<ProtocolError, 64>;
-using NetworkStreamQueue = SPMCQueue<uint8_t, 4096>;
 
 struct Network{
     std::jthread handlerThread{};
     std::jthread parserThread{};
     std::jthread networkStreamThread{};
+    std::jthread streamForwardThread{};
     Parse* parse{};
     Arena* arena{};
-    GUICommandQueue* guiCommands{};
-    GUICommandQueue::Reader guiCommandReader{};
-    GUIResponseQueue guiResponses{};
-    NetworkStreamStatusQueue networkStreamStatus{};
-    NetworkStreamQueue networkStream{};
+    SPMCQueue<NetworkCommand, 64>* guiCommands{};
+    SPMCQueue<NetworkCommand, 64>::Reader guiCommandReader{};
+    SPMCQueue<NetworkResponse, 64> guiResponses{};
+    SPMCQueue<ProtocolError, 64> networkStreamStatus{};
+    SPMCQueue<uint8_t, 4096> networkStream{};
     std::atomic<bool> networkStreamRunning = false;
+    std::atomic<bool> streamForwardRunning = false;
     ProtocolConfig activeConfig{};
 
-    void init(Parse* parse, GUICommandQueue* guiCommands);
+    void init(Parse* parse, SPMCQueue<NetworkCommand, 64>* guiCommands);
     void destroy();
-    GUIResponseQueue::Reader getResponseReader();
+    SPMCQueue<NetworkResponse, 64>::Reader getResponseReader();
 
 private:
     void handler(std::stop_token stopToken);
@@ -68,5 +68,8 @@ private:
     void stopParser();
     void startNetworkStream(const ProtocolConfig& config);
     void stopNetworkStream();
+    void startStreamForward();
+    void stopStreamForward();
+    void forwardStream(std::stop_token stopToken);
     void publishResponse(NetworkResponseType type, ProtocolKind protocol, const char* message);
 };

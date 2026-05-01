@@ -13,6 +13,7 @@
 #include "implot.h"
 #include "implot3d.h"
 #include "imnodes.h"
+#include "im_anim.h"
 #include "../engine/include.hpp"
 #include "../gpu/vulkanDevice.hpp"
 #include "../gpu/vulkanBuffer.hpp"

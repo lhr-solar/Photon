@@ -36,6 +36,12 @@ struct AsyncDispatchGuard {
     }
 };
 
+struct ImGuiTextureBackendData{
+    VkImage image{VK_NULL_HANDLE};
+    VkDeviceMemory memory{VK_NULL_HANDLE};
+    VkImageView view{VK_NULL_HANDLE};
+    VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
+};
 struct GPU{
     bool validationLayerSupport();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo);
@@ -48,13 +54,31 @@ struct GPU{
     void imguiBackend(TitleBar* titleBar);
     void imguiPresentation(const uint32_t imgIdx);
     void startFrame(uint32_t& imgIdx);
+    void startCommands();
+    void endCommands();
     void submitFrame(const uint32_t imgIdx);
     void resizeWindow();
-    void requestResize() { resizePending = true; }
     void destroy();
     SDL_Window* createWindow();
     void enableCustomTitlebar(TitleBar* titleBarState);
+    void updateImguiDisplayMetrics();
     bool wantsTransparentSwapchain() const;
+    VkResult allocateMemory(const VkMemoryAllocateInfo& allocateInfo, VkDeviceMemory* memory);
+    void freeMemory(VkDeviceMemory& memory);
+    VkResult createBuffer(const VkBufferCreateInfo& createInfo, VkBuffer* buffer);
+    void destroyBuffer(VkBuffer& buffer);
+    VkResult createImage(const VkImageCreateInfo& createInfo, VkImage* image);
+    void destroyImage(VkImage& image);
+    VkResult createDescriptorPool(const VkDescriptorPoolCreateInfo& createInfo, VkDescriptorPool* pool);
+    void destroyDescriptorPool(VkDescriptorPool& pool);
+    VkResult createDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& createInfo, VkDescriptorSetLayout* layout);
+    void destroyDescriptorSetLayout(VkDescriptorSetLayout& layout);
+    VkResult allocateDescriptorSets(const VkDescriptorSetAllocateInfo& allocateInfo, VkDescriptorSet* sets);
+    void freeDescriptorSets(VkDescriptorPool pool, uint32_t count, const VkDescriptorSet* sets);
+    VkResult createCommandPool(const VkCommandPoolCreateInfo& createInfo, VkCommandPool* pool);
+    void destroyCommandPool(VkCommandPool& pool);
+    VkResult allocateCommandBuffers(const VkCommandBufferAllocateInfo& allocateInfo, VkCommandBuffer* buffers);
+    void freeCommandBuffers(VkCommandPool pool, uint32_t count, VkCommandBuffer* buffers);
     VkCompositeAlphaFlagBitsKHR pickCompositeAlpha(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
     void queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const;
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags propertyFlags);
@@ -97,6 +121,34 @@ struct GPU{
     VkPhysicalDeviceProperties deviceProperties{};
     VkPhysicalDeviceFeatures deviceFeatures{};
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties{};
+    std::vector<VkDeviceMemory> memoryAllocationHandles{};
+    std::vector<VkDeviceSize> memoryAllocationSizes{};
+    std::vector<uint32_t> memoryAllocationTypeIndices{};
+    std::vector<uint32_t> memoryAllocationHeapIndices{};
+    std::vector<VkMemoryPropertyFlags> memoryAllocationPropertyFlags{};
+    std::vector<VkBuffer> bufferHandles{};
+    std::vector<VkDeviceSize> bufferSizes{};
+    std::vector<VkBufferUsageFlags> bufferUsageFlags{};
+    std::vector<VkImage> imageHandles{};
+    std::vector<VkExtent3D> imageExtents{};
+    std::vector<VkFormat> imageFormats{};
+    std::vector<VkImageUsageFlags> imageUsageFlags{};
+    std::vector<VkSampleCountFlagBits> imageSampleCounts{};
+    std::vector<VkDescriptorPool> descriptorPoolHandles{};
+    std::vector<uint32_t> descriptorPoolMaxSets{};
+    std::vector<VkDescriptorPoolCreateFlags> descriptorPoolFlags{};
+    std::vector<VkDescriptorSetLayout> descriptorSetLayoutHandles{};
+    std::vector<uint32_t> descriptorSetLayoutBindingCounts{};
+    std::vector<VkDescriptorSet> descriptorSetHandles{};
+    std::vector<VkDescriptorPool> descriptorSetPoolHandles{};
+    std::vector<VkDescriptorSetLayout> descriptorSetLayoutRefs{};
+    std::vector<VkCommandPool> commandPoolHandles{};
+    std::vector<uint32_t> commandPoolQueueFamilyIndices{};
+    std::vector<VkCommandPoolCreateFlags> commandPoolFlags{};
+    std::vector<VkCommandBuffer> commandBufferHandles{};
+    std::vector<VkCommandPool> commandBufferPoolHandles{};
+    std::vector<VkCommandBufferLevel> commandBufferLevels{};
+    VkDeviceSize allocatedMemoryBytes{};
     std::vector<VkQueueFamilyProperties> deviceQueueFamilyProperties{};
     VkCommandPool commandPool{};
     VkSampleCountFlagBits msaaSamples{VK_SAMPLE_COUNT_1_BIT};
@@ -106,15 +158,12 @@ struct GPU{
     // IMGUI resources
     VkShaderModule uiShaderVert{};
     VkShaderModule uiShaderIndex{};
-    VkImage fontImage = VK_NULL_HANDLE;
-    VkDeviceMemory fontMemory = VK_NULL_HANDLE;
-    VkImageView fontView = VK_NULL_HANDLE;
     VkSampler fontSampler = VK_NULL_HANDLE;
     VkDescriptorPool descriptorPool{};
     VkDescriptorSetLayout descriptorSetLayout{};
-    VkDescriptorSet descriptorSet{};
     VkPipelineLayout imguiPipelineLayout{};
     VkPipeline imguiPipeline;
+    ImGuiTextureBackendData backend;
     struct PushConstBlock {
         glm::vec2 scale;
         glm::vec2 translate;

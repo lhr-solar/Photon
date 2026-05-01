@@ -3,12 +3,8 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-#include <mutex>
 #include <string>
-#include <thread>
-#include <type_traits>
 #include <vector>
-#include "spmc.hpp"
 
 constexpr uint32_t PAGE_SIZE = 4096;
 constexpr uint32_t MESSAGE_MAX = 2048;

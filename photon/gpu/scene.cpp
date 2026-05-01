@@ -44,11 +44,11 @@ VkFormat pickDepthFormat(VkPhysicalDevice physicalDevice) {
     return VK_FORMAT_UNDEFINED;
 }
 
-void destroyTexture(TextureResource& texture, VkDevice device) {
-    if (texture.sampler != VK_NULL_HANDLE) vkDestroySampler(device, texture.sampler, nullptr);
-    if (texture.view != VK_NULL_HANDLE) vkDestroyImageView(device, texture.view, nullptr);
-    if (texture.image != VK_NULL_HANDLE) vkDestroyImage(device, texture.image, nullptr);
-    if (texture.memory != VK_NULL_HANDLE) vkFreeMemory(device, texture.memory, nullptr);
+void destroyTexture(Scene& scene, TextureResource& texture) {
+    if (texture.sampler != VK_NULL_HANDLE) vkDestroySampler(scene.device, texture.sampler, nullptr);
+    if (texture.view != VK_NULL_HANDLE) vkDestroyImageView(scene.device, texture.view, nullptr);
+    if (texture.image != VK_NULL_HANDLE) scene.gpu->destroyImage(texture.image);
+    if (texture.memory != VK_NULL_HANDLE) scene.gpu->freeMemory(texture.memory);
     texture = {};
 }
 
@@ -59,7 +59,7 @@ void createBufferResource(GPU& gpu, VkDeviceSize size, VkBufferUsageFlags usage,
     bufferInfo.size = size;
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    vkCreateBuffer(gpu.device, &bufferInfo, nullptr, &buffer);
+    gpu.createBuffer(bufferInfo, &buffer);
 
     VkMemoryRequirements requirements{};
     vkGetBufferMemoryRequirements(gpu.device, buffer, &requirements);
@@ -68,7 +68,7 @@ void createBufferResource(GPU& gpu, VkDeviceSize size, VkBufferUsageFlags usage,
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = requirements.size;
     allocInfo.memoryTypeIndex = gpu.getMemoryType(requirements.memoryTypeBits, properties);
-    vkAllocateMemory(gpu.device, &allocInfo, nullptr, &memory);
+    gpu.allocateMemory(allocInfo, &memory);
     vkBindBufferMemory(gpu.device, buffer, memory, 0);
 }
 
@@ -87,7 +87,7 @@ void createImageResource(GPU& gpu, VkExtent2D extent, VkFormat format, VkImageUs
     imageInfo.usage = usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    vkCreateImage(gpu.device, &imageInfo, nullptr, &image);
+    gpu.createImage(imageInfo, &image);
 
     VkMemoryRequirements requirements{};
     vkGetImageMemoryRequirements(gpu.device, image, &requirements);
@@ -96,7 +96,7 @@ void createImageResource(GPU& gpu, VkExtent2D extent, VkFormat format, VkImageUs
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = requirements.size;
     allocInfo.memoryTypeIndex = gpu.getMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkAllocateMemory(gpu.device, &allocInfo, nullptr, &memory);
+    gpu.allocateMemory(allocInfo, &memory);
     vkBindImageMemory(gpu.device, image, memory, 0);
 
     VkImageViewCreateInfo viewInfo{};
@@ -140,7 +140,7 @@ TextureResource createTexture2DFromRGBA(Scene& scene, GPU& gpu,
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-    vkAllocateCommandBuffers(gpu.device, &allocInfo, &commandBuffer);
+    gpu.allocateCommandBuffers(allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -177,10 +177,10 @@ TextureResource createTexture2DFromRGBA(Scene& scene, GPU& gpu,
     submitInfo.pCommandBuffers = &commandBuffer;
     vkQueueSubmit(gpu.queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(gpu.queue);
-    vkFreeCommandBuffers(gpu.device, gpu.commandPool, 1, &commandBuffer);
+    gpu.freeCommandBuffers(gpu.commandPool, 1, &commandBuffer);
 
-    vkDestroyBuffer(gpu.device, stagingBuffer, nullptr);
-    vkFreeMemory(gpu.device, stagingMemory, nullptr);
+    gpu.destroyBuffer(stagingBuffer);
+    gpu.freeMemory(stagingMemory);
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -275,7 +275,7 @@ void createObjectVertexBuffer(SceneObject& object, GPU& gpu) {
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = 1;
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-    vkAllocateCommandBuffers(gpu.device, &allocInfo, &commandBuffer);
+    gpu.allocateCommandBuffers(allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -293,10 +293,10 @@ void createObjectVertexBuffer(SceneObject& object, GPU& gpu) {
     submitInfo.pCommandBuffers = &commandBuffer;
     vkQueueSubmit(gpu.queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(gpu.queue);
-    vkFreeCommandBuffers(gpu.device, gpu.commandPool, 1, &commandBuffer);
+    gpu.freeCommandBuffers(gpu.commandPool, 1, &commandBuffer);
 
-    vkDestroyBuffer(gpu.device, stagingBuffer, nullptr);
-    vkFreeMemory(gpu.device, stagingMemory, nullptr);
+    gpu.destroyBuffer(stagingBuffer);
+    gpu.freeMemory(stagingMemory);
 }
 
 void createObjectMaterialResources(Scene& scene, SceneObject& object, GPU& gpu) {
@@ -312,7 +312,7 @@ void createObjectMaterialResources(Scene& scene, SceneObject& object, GPU& gpu) 
     allocInfo.descriptorPool = scene.internalDescriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     allocInfo.pSetLayouts = layouts.data();
-    vkAllocateDescriptorSets(gpu.device, &allocInfo, object.materialDescriptorSets.data());
+    gpu.allocateDescriptorSets(allocInfo, object.materialDescriptorSets.data());
 
     for (size_t i = 0; i < object.materials.size(); i++) {
         createBufferResource(gpu, sizeof(MaterialParams), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -371,20 +371,20 @@ void destroyFrame(Scene& scene, uint32_t index) {
     if (frame.sceneFramebuffer != VK_NULL_HANDLE) vkDestroyFramebuffer(scene.device, frame.sceneFramebuffer, nullptr);
     if (frame.postFramebuffer != VK_NULL_HANDLE) vkDestroyFramebuffer(scene.device, frame.postFramebuffer, nullptr);
     if (frame.sceneMsaaColorView != VK_NULL_HANDLE) vkDestroyImageView(scene.device, frame.sceneMsaaColorView, nullptr);
-    if (frame.sceneMsaaColorImage != VK_NULL_HANDLE) vkDestroyImage(scene.device, frame.sceneMsaaColorImage, nullptr);
-    if (frame.sceneMsaaColorMemory != VK_NULL_HANDLE) vkFreeMemory(scene.device, frame.sceneMsaaColorMemory, nullptr);
+    if (frame.sceneMsaaColorImage != VK_NULL_HANDLE) scene.gpu->destroyImage(frame.sceneMsaaColorImage);
+    if (frame.sceneMsaaColorMemory != VK_NULL_HANDLE) scene.gpu->freeMemory(frame.sceneMsaaColorMemory);
     if (frame.sceneColorView != VK_NULL_HANDLE) vkDestroyImageView(scene.device, frame.sceneColorView, nullptr);
-    if (frame.sceneColorImage != VK_NULL_HANDLE) vkDestroyImage(scene.device, frame.sceneColorImage, nullptr);
-    if (frame.sceneColorMemory != VK_NULL_HANDLE) vkFreeMemory(scene.device, frame.sceneColorMemory, nullptr);
+    if (frame.sceneColorImage != VK_NULL_HANDLE) scene.gpu->destroyImage(frame.sceneColorImage);
+    if (frame.sceneColorMemory != VK_NULL_HANDLE) scene.gpu->freeMemory(frame.sceneColorMemory);
     if (frame.sceneDepthView != VK_NULL_HANDLE) vkDestroyImageView(scene.device, frame.sceneDepthView, nullptr);
-    if (frame.sceneDepthImage != VK_NULL_HANDLE) vkDestroyImage(scene.device, frame.sceneDepthImage, nullptr);
-    if (frame.sceneDepthMemory != VK_NULL_HANDLE) vkFreeMemory(scene.device, frame.sceneDepthMemory, nullptr);
+    if (frame.sceneDepthImage != VK_NULL_HANDLE) scene.gpu->destroyImage(frame.sceneDepthImage);
+    if (frame.sceneDepthMemory != VK_NULL_HANDLE) scene.gpu->freeMemory(frame.sceneDepthMemory);
     if (frame.outputView != VK_NULL_HANDLE) vkDestroyImageView(scene.device, frame.outputView, nullptr);
-    if (frame.outputImage != VK_NULL_HANDLE) vkDestroyImage(scene.device, frame.outputImage, nullptr);
-    if (frame.outputMemory != VK_NULL_HANDLE) vkFreeMemory(scene.device, frame.outputMemory, nullptr);
+    if (frame.outputImage != VK_NULL_HANDLE) scene.gpu->destroyImage(frame.outputImage);
+    if (frame.outputMemory != VK_NULL_HANDLE) scene.gpu->freeMemory(frame.outputMemory);
     if (frame.uniformMapped != nullptr && frame.uniformMemory != VK_NULL_HANDLE) vkUnmapMemory(scene.device, frame.uniformMemory);
-    if (frame.uniformBuffer != VK_NULL_HANDLE) vkDestroyBuffer(scene.device, frame.uniformBuffer, nullptr);
-    if (frame.uniformMemory != VK_NULL_HANDLE) vkFreeMemory(scene.device, frame.uniformMemory, nullptr);
+    if (frame.uniformBuffer != VK_NULL_HANDLE) scene.gpu->destroyBuffer(frame.uniformBuffer);
+    if (frame.uniformMemory != VK_NULL_HANDLE) scene.gpu->freeMemory(frame.uniformMemory);
     frame = {};
     frame.descriptorSet = descriptorSet;
     frame.frameDescriptorSet = frameDescriptorSet;
@@ -449,7 +449,7 @@ void initFrame(Scene& scene, GPU& gpu, uint32_t index) {
         allocInfo.descriptorPool = scene.internalDescriptorPool;
         allocInfo.descriptorSetCount = 1;
         allocInfo.pSetLayouts = &scene.uniformDescriptorSetLayout;
-        vkAllocateDescriptorSets(gpu.device, &allocInfo, &frame.frameDescriptorSet);
+        gpu.allocateDescriptorSets(allocInfo, &frame.frameDescriptorSet);
     }
     if (frame.postDescriptorSet == VK_NULL_HANDLE) {
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -457,7 +457,7 @@ void initFrame(Scene& scene, GPU& gpu, uint32_t index) {
         allocInfo.descriptorPool = scene.internalDescriptorPool;
         allocInfo.descriptorSetCount = 1;
         allocInfo.pSetLayouts = &scene.postDescriptorSetLayout;
-        vkAllocateDescriptorSets(gpu.device, &allocInfo, &frame.postDescriptorSet);
+        gpu.allocateDescriptorSets(allocInfo, &frame.postDescriptorSet);
     }
     if (frame.descriptorSet == VK_NULL_HANDLE) {
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -465,7 +465,7 @@ void initFrame(Scene& scene, GPU& gpu, uint32_t index) {
         allocInfo.descriptorPool = scene.descriptorPool;
         allocInfo.descriptorSetCount = 1;
         allocInfo.pSetLayouts = &scene.descriptorSetLayout;
-        vkAllocateDescriptorSets(gpu.device, &allocInfo, &frame.descriptorSet);
+        gpu.allocateDescriptorSets(allocInfo, &frame.descriptorSet);
     }
 
     VkDescriptorBufferInfo frameBufferInfo{};
@@ -851,7 +851,8 @@ glm::vec3 positionToVec3(const Position& position) {
 
 glm::mat4 objectModelMatrix(const SceneObject& object) {
     const glm::mat4 baseRotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    return glm::translate(glm::mat4(1.0f), positionToVec3(object.position)) * baseRotation;
+    const glm::mat4 worldRotation = glm::rotate(glm::mat4(1.0f), glm::radians(object.rotationDegrees), glm::vec3(0.0f, 0.0f, 1.0f));
+    return glm::translate(glm::mat4(1.0f), positionToVec3(object.position)) * worldRotation * baseRotation;
 }
 
 void computeSceneBounds(const Scene& scene, glm::vec3& outMin, glm::vec3& outMax, bool& hasBounds) {
@@ -910,6 +911,7 @@ void Scene::prepareInit(GPU& gpu) {
     if (device != VK_NULL_HANDLE) destroy();
     if (objects.empty()) return;
 
+    this->gpu = &gpu;
     device = gpu.device;
     physicalDevice = gpu.physicalDevice;
     descriptorPool = gpu.descriptorPool;
@@ -971,7 +973,7 @@ void Scene::prepareInit(GPU& gpu) {
     poolInfo.maxSets = requiredSetCount + setSlack;
     poolInfo.poolSizeCount = 2;
     poolInfo.pPoolSizes = poolSizes;
-    vkCreateDescriptorPool(device, &poolInfo, nullptr, &internalDescriptorPool);
+    gpu.createDescriptorPool(poolInfo, &internalDescriptorPool);
 
     VkDescriptorSetLayoutBinding frameBinding{};
     frameBinding.binding = 0;
@@ -982,7 +984,7 @@ void Scene::prepareInit(GPU& gpu) {
     frameLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     frameLayoutInfo.bindingCount = 1;
     frameLayoutInfo.pBindings = &frameBinding;
-    vkCreateDescriptorSetLayout(device, &frameLayoutInfo, nullptr, &uniformDescriptorSetLayout);
+    gpu.createDescriptorSetLayout(frameLayoutInfo, &uniformDescriptorSetLayout);
 
     VkDescriptorSetLayoutBinding materialBindings[6]{};
     materialBindings[0] = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
@@ -993,7 +995,7 @@ void Scene::prepareInit(GPU& gpu) {
     materialLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     materialLayoutInfo.bindingCount = 6;
     materialLayoutInfo.pBindings = materialBindings;
-    vkCreateDescriptorSetLayout(device, &materialLayoutInfo, nullptr, &materialDescriptorSetLayout);
+    gpu.createDescriptorSetLayout(materialLayoutInfo, &materialDescriptorSetLayout);
 
     VkDescriptorSetLayoutBinding postBinding{};
     postBinding.binding = 0;
@@ -1004,7 +1006,7 @@ void Scene::prepareInit(GPU& gpu) {
     postLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     postLayoutInfo.bindingCount = 1;
     postLayoutInfo.pBindings = &postBinding;
-    vkCreateDescriptorSetLayout(device, &postLayoutInfo, nullptr, &postDescriptorSetLayout);
+    gpu.createDescriptorSetLayout(postLayoutInfo, &postDescriptorSetLayout);
 
     VkAttachmentDescription sceneAttachments[3]{};
     sceneAttachments[0].format = sceneColorFormat;
@@ -1401,33 +1403,33 @@ void Scene::destroy() {
         const VkDescriptorSet descriptorSet = frames[i].descriptorSet;
         destroyFrame(*this, i);
         if (descriptorSet != VK_NULL_HANDLE) {
-            vkFreeDescriptorSets(device, descriptorPool, 1, &descriptorSet);
+            gpu->freeDescriptorSets(descriptorPool, 1, &descriptorSet);
         }
     }
     frames.clear();
 
     for (SceneObject& object : objects) {
         for (size_t i = 0; i < object.materialUniformBuffers.size(); i++) {
-            if (object.materialUniformBuffers[i] != VK_NULL_HANDLE) vkDestroyBuffer(device, object.materialUniformBuffers[i], nullptr);
-            if (object.materialUniformMemories[i] != VK_NULL_HANDLE) vkFreeMemory(device, object.materialUniformMemories[i], nullptr);
+            if (object.materialUniformBuffers[i] != VK_NULL_HANDLE) gpu->destroyBuffer(object.materialUniformBuffers[i]);
+            if (object.materialUniformMemories[i] != VK_NULL_HANDLE) gpu->freeMemory(object.materialUniformMemories[i]);
         }
         object.materialUniformBuffers.clear();
         object.materialUniformMemories.clear();
         object.materialDescriptorSets.clear();
 
-        if (object.vertexBuffer != VK_NULL_HANDLE) vkDestroyBuffer(device, object.vertexBuffer, nullptr);
-        if (object.vertexBufferMemory != VK_NULL_HANDLE) vkFreeMemory(device, object.vertexBufferMemory, nullptr);
+        if (object.vertexBuffer != VK_NULL_HANDLE) gpu->destroyBuffer(object.vertexBuffer);
+        if (object.vertexBufferMemory != VK_NULL_HANDLE) gpu->freeMemory(object.vertexBufferMemory);
         object.vertexBuffer = VK_NULL_HANDLE;
         object.vertexBufferMemory = VK_NULL_HANDLE;
 
-        for (TextureResource& texture : object.gltfTexturesSrgb) destroyTexture(texture, device);
-        for (TextureResource& texture : object.gltfTexturesLinear) destroyTexture(texture, device);
+        for (TextureResource& texture : object.gltfTexturesSrgb) destroyTexture(*this, texture);
+        for (TextureResource& texture : object.gltfTexturesLinear) destroyTexture(*this, texture);
         object.gltfTexturesSrgb.clear();
         object.gltfTexturesLinear.clear();
         object.loaded = false;
     }
 
-    destroyTexture(fallbackWhiteTexture, device);
+    destroyTexture(*this, fallbackWhiteTexture);
 
     if (offscreenColorSampler != VK_NULL_HANDLE) vkDestroySampler(device, offscreenColorSampler, nullptr);
     if (scenePipeline != VK_NULL_HANDLE) vkDestroyPipeline(device, scenePipeline, nullptr);
@@ -1440,10 +1442,10 @@ void Scene::destroy() {
     if (sceneVertModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, sceneVertModule, nullptr);
     if (postFragModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, postFragModule, nullptr);
     if (postVertModule != VK_NULL_HANDLE) vkDestroyShaderModule(device, postVertModule, nullptr);
-    if (uniformDescriptorSetLayout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device, uniformDescriptorSetLayout, nullptr);
-    if (materialDescriptorSetLayout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device, materialDescriptorSetLayout, nullptr);
-    if (postDescriptorSetLayout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device, postDescriptorSetLayout, nullptr);
-    if (internalDescriptorPool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, internalDescriptorPool, nullptr);
+    if (uniformDescriptorSetLayout != VK_NULL_HANDLE) gpu->destroyDescriptorSetLayout(uniformDescriptorSetLayout);
+    if (materialDescriptorSetLayout != VK_NULL_HANDLE) gpu->destroyDescriptorSetLayout(materialDescriptorSetLayout);
+    if (postDescriptorSetLayout != VK_NULL_HANDLE) gpu->destroyDescriptorSetLayout(postDescriptorSetLayout);
+    if (internalDescriptorPool != VK_NULL_HANDLE) gpu->destroyDescriptorPool(internalDescriptorPool);
 
     offscreenColorSampler = VK_NULL_HANDLE;
     scenePipeline = VK_NULL_HANDLE;

@@ -1,9 +1,5 @@
 #include "include.hpp"
 #include "photon.hpp"
-#include "arena.hpp"
-#include <cstdio>
-#include <new>
-#include <thread>
 
 int main() {
     logs("Starting");

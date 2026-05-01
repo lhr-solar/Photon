@@ -8,8 +8,8 @@ static void destroyFrame(Shader& shader, uint32_t index){
     shaderFrame& frame = shader.frames[index];
     if (frame.framebuffer != VK_NULL_HANDLE) vkDestroyFramebuffer(shader.device, frame.framebuffer, NULL);
     if (frame.view != VK_NULL_HANDLE) vkDestroyImageView(shader.device, frame.view, NULL);
-    if (frame.image != VK_NULL_HANDLE) vkDestroyImage(shader.device, frame.image, NULL);
-    if (frame.imageMemory != VK_NULL_HANDLE) vkFreeMemory(shader.device, frame.imageMemory, NULL);
+    if (frame.image != VK_NULL_HANDLE) shader.gpu->destroyImage(frame.image);
+    if (frame.imageMemory != VK_NULL_HANDLE) shader.gpu->freeMemory(frame.imageMemory);
     frame.image = VK_NULL_HANDLE;
     frame.view = VK_NULL_HANDLE;
     frame.layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -36,7 +36,7 @@ static void initFrame(Shader& shader, GPU& gpu, uint32_t index){
     imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    vkCreateImage(shader.device, &imageInfo, nullptr, &frame.image);
+    gpu.createImage(imageInfo, &frame.image);
 
     VkMemoryRequirements memReqs{};
     vkGetImageMemoryRequirements(shader.device, frame.image, &memReqs);
@@ -44,7 +44,7 @@ static void initFrame(Shader& shader, GPU& gpu, uint32_t index){
     imageAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     imageAllocInfo.allocationSize = memReqs.size;
     imageAllocInfo.memoryTypeIndex = gpu.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkAllocateMemory(shader.device, &imageAllocInfo, nullptr, &frame.imageMemory);
+    gpu.allocateMemory(imageAllocInfo, &frame.imageMemory);
     vkBindImageMemory(shader.device, frame.image, frame.imageMemory, 0);
     frame.layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
@@ -76,7 +76,7 @@ static void initFrame(Shader& shader, GPU& gpu, uint32_t index){
         descriptorAlloc.descriptorPool = shader.descriptorPool;
         descriptorAlloc.descriptorSetCount = 1;
         descriptorAlloc.pSetLayouts = &shader.descriptorSetLayout;
-        vkAllocateDescriptorSets(shader.device, &descriptorAlloc, &frame.descriptorSet);
+        gpu.allocateDescriptorSets(descriptorAlloc, &frame.descriptorSet);
     }
 
     VkDescriptorImageInfo imageDescriptor{};
@@ -105,6 +105,7 @@ void Shader::init(GPU& gpu,
 void Shader::prepareInit(GPU& gpu,
     uint32_t* vertexShader, size_t vertexShaderSize,
     uint32_t* fragmentShader, size_t fragmentShaderSize){
+    this->gpu = &gpu;
     device = gpu.device;
     descriptorPool = gpu.descriptorPool;
     descriptorSetLayout = gpu.descriptorSetLayout;
@@ -338,7 +339,7 @@ void Shader::destroy(){
         const VkDescriptorSet descriptorSet = frames[i].descriptorSet;
         destroyFrame(*this, i);
         if (descriptorSet != VK_NULL_HANDLE)
-            vkFreeDescriptorSets(device, descriptorPool, 1, &descriptorSet);
+            gpu->freeDescriptorSets(descriptorPool, 1, &descriptorSet);
     }
     vkDestroySampler(device, sampler, NULL);
     vkDestroyRenderPass(device, renderPass, NULL);

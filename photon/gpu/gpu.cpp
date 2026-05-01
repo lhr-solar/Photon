@@ -1,4 +1,3 @@
-#include "implot.h"
 #ifndef APPLE
 #include <SDL3/SDL_oldnames.h>
 #include <algorithm>
@@ -26,9 +25,12 @@
 #include "Inter_28pt_Regular_ttf.hpp"
 #include "imgui.h"
 #include "implot3d.h"
+#include "imnodes.h"
+#include "implot.h"
+#include "im_anim.h"
 
 #include "gpu.hpp"
-#include "../gui/gui.hpp"
+#include "../gui/titlebar.hpp"
 
 std::atomic<uint32_t> gpuAsyncDispatches{0};
 
@@ -75,6 +77,417 @@ static SDL_HitTestResult SDLCALL photonWindowHitTest(SDL_Window* window, const S
         return SDL_HITTEST_DRAGGABLE;
 
     return SDL_HITTEST_NORMAL;
+}
+
+VkFormat imguiTextureFormat(const ImTextureData& texture) {
+    return texture.Format == ImTextureFormat_Alpha8 ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8G8B8A8_UNORM;
+}
+
+VkComponentMapping imguiTextureSwizzle(const ImTextureData& texture) {
+    if (texture.Format != ImTextureFormat_Alpha8) return {};
+    return {
+        .r = VK_COMPONENT_SWIZZLE_ONE,
+        .g = VK_COMPONENT_SWIZZLE_ONE,
+        .b = VK_COMPONENT_SWIZZLE_ONE,
+        .a = VK_COMPONENT_SWIZZLE_R,
+    };
+}
+
+void submitImguiUpload(GPU& gpu, VkImage image, VkBuffer stagingBuffer, uint32_t width, uint32_t height, VkImageLayout oldLayout) {
+    VkCommandBufferAllocateInfo allocateInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = gpu.commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    gpu.allocateCommandBuffers(allocateInfo, &commandBuffer);
+    VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    VkImageSubresourceRange range{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .levelCount = 1,
+        .layerCount = 1,
+    };
+    gpu.setImageLayout(commandBuffer, image, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range,
+        oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_PIPELINE_STAGE_HOST_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT);
+    VkBufferImageCopy copyRegion{};
+    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.imageSubresource.layerCount = 1;
+    copyRegion.imageExtent = {width, height, 1};
+    vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    gpu.setImageLayout(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        range, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    vkEndCommandBuffer(commandBuffer);
+    VkSubmitInfo submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    VkFenceCreateInfo fenceInfo{.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    VkFence fence = VK_NULL_HANDLE;
+    vkCreateFence(gpu.device, &fenceInfo, nullptr, &fence);
+    vkQueueSubmit(gpu.queue, 1, &submitInfo, fence);
+    vkWaitForFences(gpu.device, 1, &fence, VK_TRUE, UINT64_MAX);
+    vkDestroyFence(gpu.device, fence, nullptr);
+    gpu.freeCommandBuffers(gpu.commandPool, 1, &commandBuffer);
+}
+
+bool updateImguiTexture(GPU& gpu, ImTextureData* texture, ImGuiTextureBackendData* backend, VkImageLayout oldLayout) {
+    if (texture == nullptr || backend == nullptr || texture->Pixels == nullptr) return false;
+    VkBufferCreateInfo bufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = static_cast<VkDeviceSize>(texture->GetSizeInBytes()),
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    gpu.createBuffer(bufferInfo, &stagingBuffer);
+    VkMemoryRequirements requirements{};
+    vkGetBufferMemoryRequirements(gpu.device, stagingBuffer, &requirements);
+    VkMemoryAllocateInfo allocateInfo{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = requirements.size,
+        .memoryTypeIndex = gpu.getMemoryType(requirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+    };
+    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
+    gpu.allocateMemory(allocateInfo, &stagingMemory);
+    vkBindBufferMemory(gpu.device, stagingBuffer, stagingMemory, 0);
+    void* mapped = nullptr;
+    vkMapMemory(gpu.device, stagingMemory, 0, VK_WHOLE_SIZE, 0, &mapped);
+    std::memcpy(mapped, texture->Pixels, texture->GetSizeInBytes());
+    vkUnmapMemory(gpu.device, stagingMemory);
+    submitImguiUpload(gpu, backend->image, stagingBuffer, static_cast<uint32_t>(texture->Width),
+        static_cast<uint32_t>(texture->Height), oldLayout);
+    gpu.destroyBuffer(stagingBuffer);
+    gpu.freeMemory(stagingMemory);
+    return true;
+}
+
+void destroyImguiTexture(GPU& gpu, ImTextureData* texture) {
+    auto* backend = texture ? static_cast<ImGuiTextureBackendData*>(texture->BackendUserData) : nullptr;
+    if (backend == nullptr) return;
+    vkDeviceWaitIdle(gpu.device);
+    if (backend->descriptorSet != VK_NULL_HANDLE)
+        gpu.freeDescriptorSets(gpu.descriptorPool, 1, &backend->descriptorSet);
+    if (backend->view != VK_NULL_HANDLE) vkDestroyImageView(gpu.device, backend->view, nullptr);
+    if (backend->image != VK_NULL_HANDLE) gpu.destroyImage(backend->image);
+    if (backend->memory != VK_NULL_HANDLE) gpu.freeMemory(backend->memory);
+    delete backend;
+    texture->BackendUserData = nullptr;
+    texture->SetTexID(ImTextureID_Invalid);
+    texture->SetStatus(ImTextureStatus_Destroyed);
+}
+
+bool createImguiTexture(GPU& gpu, ImTextureData* texture) {
+    if (texture == nullptr) return false;
+    destroyImguiTexture(gpu, texture);
+    auto* backend = new ImGuiTextureBackendData{};
+    const VkFormat format = imguiTextureFormat(*texture);
+    VkImageCreateInfo imageInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .extent = {static_cast<uint32_t>(texture->Width), static_cast<uint32_t>(texture->Height), 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    gpu.createImage(imageInfo, &backend->image);
+    VkMemoryRequirements requirements{};
+    vkGetImageMemoryRequirements(gpu.device, backend->image, &requirements);
+    VkMemoryAllocateInfo allocateInfo{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = requirements.size,
+        .memoryTypeIndex = gpu.getMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+    };
+    gpu.allocateMemory(allocateInfo, &backend->memory);
+    vkBindImageMemory(gpu.device, backend->image, backend->memory, 0);
+    VkImageViewCreateInfo viewInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = backend->image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = format,
+        .components = imguiTextureSwizzle(*texture),
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .levelCount = 1,
+            .layerCount = 1,
+        },
+    };
+    vkCreateImageView(gpu.device, &viewInfo, nullptr, &backend->view);
+    VkDescriptorSetAllocateInfo setInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = gpu.descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &gpu.descriptorSetLayout,
+    };
+    gpu.allocateDescriptorSets(setInfo, &backend->descriptorSet);
+    VkDescriptorImageInfo imageDescriptor{
+        .sampler = gpu.fontSampler,
+        .imageView = backend->view,
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+    VkWriteDescriptorSet write{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = backend->descriptorSet,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &imageDescriptor,
+    };
+    vkUpdateDescriptorSets(gpu.device, 1, &write, 0, nullptr);
+    texture->BackendUserData = backend;
+    texture->SetTexID(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(backend->descriptorSet)));
+    if (!updateImguiTexture(gpu, texture, backend, VK_IMAGE_LAYOUT_UNDEFINED)) {
+        destroyImguiTexture(gpu, texture);
+        return false;
+    }
+    texture->SetStatus(ImTextureStatus_OK);
+    return true;
+}
+
+void processImguiTextures(GPU& gpu, ImVector<ImTextureData*>* textures) {
+    if (textures == nullptr) return;
+    for (int i = 0; i < textures->Size; i++) {
+        ImTextureData* texture = (*textures)[i];
+        if (texture == nullptr) continue;
+        switch (texture->Status) {
+            case ImTextureStatus_WantCreate:
+                createImguiTexture(gpu, texture);
+                break;
+            case ImTextureStatus_WantUpdates: {
+                auto* backend = static_cast<ImGuiTextureBackendData*>(texture->BackendUserData);
+                if (backend != nullptr && updateImguiTexture(gpu, texture, backend, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
+                    texture->SetStatus(ImTextureStatus_OK);
+                else
+                    createImguiTexture(gpu, texture);
+                break;
+            }
+            case ImTextureStatus_WantDestroy:
+                destroyImguiTexture(gpu, texture);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+VkResult GPU::allocateMemory(const VkMemoryAllocateInfo& allocateInfo, VkDeviceMemory* memory){
+    const VkResult result = vkAllocateMemory(device, &allocateInfo, nullptr, memory);
+    if (result != VK_SUCCESS || memory == nullptr || *memory == VK_NULL_HANDLE) return result;
+    const uint32_t memoryTypeIndex = allocateInfo.memoryTypeIndex;
+    memoryAllocationHandles.push_back(*memory);
+    memoryAllocationSizes.push_back(allocateInfo.allocationSize);
+    memoryAllocationTypeIndices.push_back(memoryTypeIndex);
+    memoryAllocationHeapIndices.push_back(deviceMemoryProperties.memoryTypes[memoryTypeIndex].heapIndex);
+    memoryAllocationPropertyFlags.push_back(deviceMemoryProperties.memoryTypes[memoryTypeIndex].propertyFlags);
+    allocatedMemoryBytes += allocateInfo.allocationSize;
+    return result;
+}
+
+void GPU::freeMemory(VkDeviceMemory& memory){
+    if (memory == VK_NULL_HANDLE) return;
+    for (auto i{0uz}; i < memoryAllocationHandles.size(); ++i) {
+        if (memoryAllocationHandles[i] != memory) continue;
+        allocatedMemoryBytes -= memoryAllocationSizes[i];
+        memoryAllocationHandles.erase(memoryAllocationHandles.begin() + static_cast<long>(i));
+        memoryAllocationSizes.erase(memoryAllocationSizes.begin() + static_cast<long>(i));
+        memoryAllocationTypeIndices.erase(memoryAllocationTypeIndices.begin() + static_cast<long>(i));
+        memoryAllocationHeapIndices.erase(memoryAllocationHeapIndices.begin() + static_cast<long>(i));
+        memoryAllocationPropertyFlags.erase(memoryAllocationPropertyFlags.begin() + static_cast<long>(i));
+        break;
+    }
+    vkFreeMemory(device, memory, nullptr);
+    memory = VK_NULL_HANDLE;
+}
+
+VkResult GPU::createBuffer(const VkBufferCreateInfo& createInfo, VkBuffer* buffer){
+    const VkResult result = vkCreateBuffer(device, &createInfo, nullptr, buffer);
+    if (result != VK_SUCCESS || buffer == nullptr || *buffer == VK_NULL_HANDLE) return result;
+    bufferHandles.push_back(*buffer);
+    bufferSizes.push_back(createInfo.size);
+    bufferUsageFlags.push_back(createInfo.usage);
+    return result;
+}
+
+void GPU::destroyBuffer(VkBuffer& buffer){
+    if (buffer == VK_NULL_HANDLE) return;
+    for (auto i{0uz}; i < bufferHandles.size(); ++i) {
+        if (bufferHandles[i] != buffer) continue;
+        bufferHandles.erase(bufferHandles.begin() + static_cast<long>(i));
+        bufferSizes.erase(bufferSizes.begin() + static_cast<long>(i));
+        bufferUsageFlags.erase(bufferUsageFlags.begin() + static_cast<long>(i));
+        break;
+    }
+    vkDestroyBuffer(device, buffer, nullptr);
+    buffer = VK_NULL_HANDLE;
+}
+
+VkResult GPU::createImage(const VkImageCreateInfo& createInfo, VkImage* image){
+    const VkResult result = vkCreateImage(device, &createInfo, nullptr, image);
+    if (result != VK_SUCCESS || image == nullptr || *image == VK_NULL_HANDLE) return result;
+    imageHandles.push_back(*image);
+    imageExtents.push_back(createInfo.extent);
+    imageFormats.push_back(createInfo.format);
+    imageUsageFlags.push_back(createInfo.usage);
+    imageSampleCounts.push_back(createInfo.samples);
+    return result;
+}
+
+void GPU::destroyImage(VkImage& image){
+    if (image == VK_NULL_HANDLE) return;
+    for (auto i{0uz}; i < imageHandles.size(); ++i) {
+        if (imageHandles[i] != image) continue;
+        imageHandles.erase(imageHandles.begin() + static_cast<long>(i));
+        imageExtents.erase(imageExtents.begin() + static_cast<long>(i));
+        imageFormats.erase(imageFormats.begin() + static_cast<long>(i));
+        imageUsageFlags.erase(imageUsageFlags.begin() + static_cast<long>(i));
+        imageSampleCounts.erase(imageSampleCounts.begin() + static_cast<long>(i));
+        break;
+    }
+    vkDestroyImage(device, image, nullptr);
+    image = VK_NULL_HANDLE;
+}
+
+VkResult GPU::createDescriptorPool(const VkDescriptorPoolCreateInfo& createInfo, VkDescriptorPool* pool){
+    const VkResult result = vkCreateDescriptorPool(device, &createInfo, nullptr, pool);
+    if (result != VK_SUCCESS || pool == nullptr || *pool == VK_NULL_HANDLE) return result;
+    descriptorPoolHandles.push_back(*pool);
+    descriptorPoolMaxSets.push_back(createInfo.maxSets);
+    descriptorPoolFlags.push_back(createInfo.flags);
+    return result;
+}
+
+void GPU::destroyDescriptorPool(VkDescriptorPool& pool){
+    if (pool == VK_NULL_HANDLE) return;
+    for (auto i{0uz}; i < descriptorSetHandles.size();) {
+        if (descriptorSetPoolHandles[i] != pool) {
+            ++i;
+            continue;
+        }
+        descriptorSetHandles.erase(descriptorSetHandles.begin() + static_cast<long>(i));
+        descriptorSetPoolHandles.erase(descriptorSetPoolHandles.begin() + static_cast<long>(i));
+        descriptorSetLayoutRefs.erase(descriptorSetLayoutRefs.begin() + static_cast<long>(i));
+    }
+    for (auto i{0uz}; i < descriptorPoolHandles.size(); ++i) {
+        if (descriptorPoolHandles[i] != pool) continue;
+        descriptorPoolHandles.erase(descriptorPoolHandles.begin() + static_cast<long>(i));
+        descriptorPoolMaxSets.erase(descriptorPoolMaxSets.begin() + static_cast<long>(i));
+        descriptorPoolFlags.erase(descriptorPoolFlags.begin() + static_cast<long>(i));
+        break;
+    }
+    vkDestroyDescriptorPool(device, pool, nullptr);
+    pool = VK_NULL_HANDLE;
+}
+
+VkResult GPU::createDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo& createInfo, VkDescriptorSetLayout* layout){
+    const VkResult result = vkCreateDescriptorSetLayout(device, &createInfo, nullptr, layout);
+    if (result != VK_SUCCESS || layout == nullptr || *layout == VK_NULL_HANDLE) return result;
+    descriptorSetLayoutHandles.push_back(*layout);
+    descriptorSetLayoutBindingCounts.push_back(createInfo.bindingCount);
+    return result;
+}
+
+void GPU::destroyDescriptorSetLayout(VkDescriptorSetLayout& layout){
+    if (layout == VK_NULL_HANDLE) return;
+    for (auto i{0uz}; i < descriptorSetLayoutHandles.size(); ++i) {
+        if (descriptorSetLayoutHandles[i] != layout) continue;
+        descriptorSetLayoutHandles.erase(descriptorSetLayoutHandles.begin() + static_cast<long>(i));
+        descriptorSetLayoutBindingCounts.erase(descriptorSetLayoutBindingCounts.begin() + static_cast<long>(i));
+        break;
+    }
+    vkDestroyDescriptorSetLayout(device, layout, nullptr);
+    layout = VK_NULL_HANDLE;
+}
+
+VkResult GPU::allocateDescriptorSets(const VkDescriptorSetAllocateInfo& allocateInfo, VkDescriptorSet* sets){
+    const VkResult result = vkAllocateDescriptorSets(device, &allocateInfo, sets);
+    if (result != VK_SUCCESS || sets == nullptr) return result;
+    for (uint32_t i = 0; i < allocateInfo.descriptorSetCount; ++i) {
+        if (sets[i] == VK_NULL_HANDLE) continue;
+        descriptorSetHandles.push_back(sets[i]);
+        descriptorSetPoolHandles.push_back(allocateInfo.descriptorPool);
+        descriptorSetLayoutRefs.push_back(allocateInfo.pSetLayouts ? allocateInfo.pSetLayouts[i] : VK_NULL_HANDLE);
+    }
+    return result;
+}
+
+void GPU::freeDescriptorSets(VkDescriptorPool pool, uint32_t count, const VkDescriptorSet* sets){
+    if (count == 0 || sets == nullptr) return;
+    for (uint32_t j = 0; j < count; ++j) {
+        if (sets[j] == VK_NULL_HANDLE) continue;
+        for (auto i{0uz}; i < descriptorSetHandles.size(); ++i) {
+            if (descriptorSetHandles[i] != sets[j]) continue;
+            descriptorSetHandles.erase(descriptorSetHandles.begin() + static_cast<long>(i));
+            descriptorSetPoolHandles.erase(descriptorSetPoolHandles.begin() + static_cast<long>(i));
+            descriptorSetLayoutRefs.erase(descriptorSetLayoutRefs.begin() + static_cast<long>(i));
+            break;
+        }
+    }
+    vkFreeDescriptorSets(device, pool, count, sets);
+}
+
+VkResult GPU::createCommandPool(const VkCommandPoolCreateInfo& createInfo, VkCommandPool* pool){
+    const VkResult result = vkCreateCommandPool(device, &createInfo, nullptr, pool);
+    if (result != VK_SUCCESS || pool == nullptr || *pool == VK_NULL_HANDLE) return result;
+    commandPoolHandles.push_back(*pool);
+    commandPoolQueueFamilyIndices.push_back(createInfo.queueFamilyIndex);
+    commandPoolFlags.push_back(createInfo.flags);
+    return result;
+}
+
+void GPU::destroyCommandPool(VkCommandPool& pool){
+    if (pool == VK_NULL_HANDLE) return;
+    for (auto i{0uz}; i < commandBufferHandles.size();) {
+        if (commandBufferPoolHandles[i] != pool) {
+            ++i;
+            continue;
+        }
+        commandBufferHandles.erase(commandBufferHandles.begin() + static_cast<long>(i));
+        commandBufferPoolHandles.erase(commandBufferPoolHandles.begin() + static_cast<long>(i));
+        commandBufferLevels.erase(commandBufferLevels.begin() + static_cast<long>(i));
+    }
+    for (auto i{0uz}; i < commandPoolHandles.size(); ++i) {
+        if (commandPoolHandles[i] != pool) continue;
+        commandPoolHandles.erase(commandPoolHandles.begin() + static_cast<long>(i));
+        commandPoolQueueFamilyIndices.erase(commandPoolQueueFamilyIndices.begin() + static_cast<long>(i));
+        commandPoolFlags.erase(commandPoolFlags.begin() + static_cast<long>(i));
+        break;
+    }
+    vkDestroyCommandPool(device, pool, nullptr);
+    pool = VK_NULL_HANDLE;
+}
+
+VkResult GPU::allocateCommandBuffers(const VkCommandBufferAllocateInfo& allocateInfo, VkCommandBuffer* buffers){
+    const VkResult result = vkAllocateCommandBuffers(device, &allocateInfo, buffers);
+    if (result != VK_SUCCESS || buffers == nullptr) return result;
+    for (uint32_t i = 0; i < allocateInfo.commandBufferCount; ++i) {
+        if (buffers[i] == VK_NULL_HANDLE) continue;
+        commandBufferHandles.push_back(buffers[i]);
+        commandBufferPoolHandles.push_back(allocateInfo.commandPool);
+        commandBufferLevels.push_back(allocateInfo.level);
+    }
+    return result;
+}
+
+void GPU::freeCommandBuffers(VkCommandPool pool, uint32_t count, VkCommandBuffer* buffers){
+    if (count == 0 || buffers == nullptr) return;
+    for (uint32_t j = 0; j < count; ++j) {
+        if (buffers[j] == VK_NULL_HANDLE) continue;
+        for (auto i{0uz}; i < commandBufferHandles.size(); ++i) {
+            if (commandBufferHandles[i] != buffers[j]) continue;
+            commandBufferHandles.erase(commandBufferHandles.begin() + static_cast<long>(i));
+            commandBufferPoolHandles.erase(commandBufferPoolHandles.begin() + static_cast<long>(i));
+            commandBufferLevels.erase(commandBufferLevels.begin() + static_cast<long>(i));
+            break;
+        }
+        buffers[j] = VK_NULL_HANDLE;
+    }
+    vkFreeCommandBuffers(device, pool, count, buffers);
 }
 
 void GPU::init() {
@@ -383,7 +796,7 @@ void GPU::createFrameResources(){
             .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
             .queueFamilyIndex = queueFamilyIndex,
         };
-        vkCreateCommandPool(device, &commandPoolCreateInfo, NULL, &commandPool);
+        createCommandPool(commandPoolCreateInfo, &commandPool);
     }
 
     renderCompleteSemaphores.assign(swapchainImages.size(), VK_NULL_HANDLE);
@@ -405,7 +818,7 @@ void GPU::createFrameResources(){
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = static_cast<uint32_t>(commandBuffers.size()),
     };
-    vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, commandBuffers.data());
+    allocateCommandBuffers(commandBufferAllocateInfo, commandBuffers.data());
 
     vertexBuffers.assign(swapchainImages.size(), VK_NULL_HANDLE);
     indexBuffers.assign(swapchainImages.size(), VK_NULL_HANDLE);
@@ -427,14 +840,14 @@ void GPU::destroyFrameResources(){
             vkUnmapMemory(device, vertexBufferMemories[i]);
         if ((i < indexIsMapped.size()) && indexIsMapped[i] && (i < indexBufferMemories.size()) && (indexBufferMemories[i] != VK_NULL_HANDLE))
             vkUnmapMemory(device, indexBufferMemories[i]);
-        if ((i < vertexBuffers.size()) && (vertexBuffers[i] != VK_NULL_HANDLE)) vkDestroyBuffer(device, vertexBuffers[i], NULL);
-        if ((i < indexBuffers.size()) && (indexBuffers[i] != VK_NULL_HANDLE)) vkDestroyBuffer(device, indexBuffers[i], NULL);
-        if ((i < vertexBufferMemories.size()) && (vertexBufferMemories[i] != VK_NULL_HANDLE)) vkFreeMemory(device, vertexBufferMemories[i], NULL);
-        if ((i < indexBufferMemories.size()) && (indexBufferMemories[i] != VK_NULL_HANDLE)) vkFreeMemory(device, indexBufferMemories[i], NULL);
+        if ((i < vertexBuffers.size()) && (vertexBuffers[i] != VK_NULL_HANDLE)) destroyBuffer(vertexBuffers[i]);
+        if ((i < indexBuffers.size()) && (indexBuffers[i] != VK_NULL_HANDLE)) destroyBuffer(indexBuffers[i]);
+        if ((i < vertexBufferMemories.size()) && (vertexBufferMemories[i] != VK_NULL_HANDLE)) freeMemory(vertexBufferMemories[i]);
+        if ((i < indexBufferMemories.size()) && (indexBufferMemories[i] != VK_NULL_HANDLE)) freeMemory(indexBufferMemories[i]);
     }
 
     if (!commandBuffers.empty())
-        vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+        freeCommandBuffers(commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     for(auto& s : renderCompleteSemaphores){
         if (s != VK_NULL_HANDLE) vkDestroySemaphore(device, s, NULL);
@@ -468,16 +881,16 @@ void GPU::imguiBackend(TitleBar* titleBar){
     ImGui::CreateContext();
     ImPlot::CreateContext();
     ImPlot3D::CreateContext();
+    ImNodes::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(width, height);
-    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
     io.IniFilename = nullptr;
     io.ConfigFlags  |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags  |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigDpiScaleFonts = true;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
-    // ImDrawIdx is forced to unsigned int in .external/imgui/imconfig.h, per ImGui's guidance for 32-bit index support.
-    //io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
     io.IniFilename = nullptr;
+    updateImguiDisplayMetrics();
 
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
@@ -486,113 +899,6 @@ void GPU::imguiBackend(TitleBar* titleBar){
         static_cast<int>(Inter_28pt_Regular_ttf_size),
         static_cast<float>(16.0f),
         &fontConfig);
-
-    unsigned char *fontData = nullptr;
-    int texWidth = 0;
-    int texHeight = 0;
-    io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
-    VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
-    VkImageCreateInfo imageCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
-        .extent = {(uint32_t)texWidth, (uint32_t)texHeight, 1,},
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices = 0,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    }; vkCreateImage(device, &imageCreateInfo, NULL, &fontImage);
-
-    VkMemoryRequirements memReqs;
-    vkGetImageMemoryRequirements(device, fontImage, &memReqs);
-    VkMemoryAllocateInfo memAllocInfo {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = NULL,
-        .allocationSize = memReqs.size,
-        .memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-    }; vkAllocateMemory(device, &memAllocInfo, NULL, &fontMemory);
-    vkBindImageMemory(device, fontImage, fontMemory, 0);
-
-    VkImageViewCreateInfo imageViewCreateInfo {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .image = fontImage,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
-        .components = {},
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .levelCount = 1,
-            .layerCount = 1,
-        }
-    }; vkCreateImageView(device, &imageViewCreateInfo, nullptr, &fontView);
-
-    VkBuffer stagingBuffer;
-    memReqs = {};
-    VkMemoryAllocateInfo memAlloc{};
-    VkDeviceMemory tempMemory{};
-    void* mapped;
-    VkBufferCreateInfo bufferCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = uploadSize,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    }; vkCreateBuffer(device, &bufferCreateInfo, NULL, &stagingBuffer);
-    memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    vkGetBufferMemoryRequirements(device, stagingBuffer, &memReqs);
-    memAlloc.allocationSize = memReqs.size;
-    memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, 
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    vkAllocateMemory(device, &memAlloc, nullptr, &tempMemory);
-    vkBindBufferMemory(device, stagingBuffer, tempMemory, 0);
-    vkMapMemory(device, tempMemory, 0, VK_WHOLE_SIZE, 0, &mapped);
-    memcpy(mapped, fontData, uploadSize);
-    vkUnmapMemory(device, tempMemory);
-
-    VkCommandBufferBeginInfo commandBeginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-    commandBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(commandBuffers[0], &commandBeginInfo);
-    VkImageSubresourceRange imageSubresourceRange = {
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .layerCount = 1,
-    };
-    setImageLayout(commandBuffers[0], fontImage, VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageSubresourceRange, VK_PIPELINE_STAGE_HOST_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    VkBufferImageCopy bufferCopyRegion = {};
-    bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    bufferCopyRegion.imageSubresource.layerCount = 1;
-    bufferCopyRegion.imageExtent.width = texWidth;
-    bufferCopyRegion.imageExtent.height = texHeight;
-    bufferCopyRegion.imageExtent.depth = 1;
-    vkCmdCopyBufferToImage(commandBuffers[0], stagingBuffer, fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferCopyRegion);
-    setImageLayout(commandBuffers[0], fontImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imageSubresourceRange, VK_PIPELINE_STAGE_TRANSFER_BIT, 
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    vkEndCommandBuffer(commandBuffers[0]);
-    VkSubmitInfo submitInfo {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[0];
-    VkFenceCreateInfo fenceCreateInfo {};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = 0;
-    VkFence fence; vkCreateFence(device, &fenceCreateInfo, nullptr, &fence);
-    vkQueueSubmit(queue, 1, &submitInfo, fence);
-    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT32_MAX);
-    vkDestroyFence(device, fence, NULL);
-    vkDestroyBuffer(device, stagingBuffer, NULL);
-    vkFreeMemory(device, tempMemory, NULL);
     VkSamplerCreateInfo samplerCreateInfo {};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerCreateInfo.maxAnisotropy = 1.0f;
@@ -604,12 +910,6 @@ void GPU::imguiBackend(TitleBar* titleBar){
     samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     vkCreateSampler(device, &samplerCreateInfo, nullptr, &fontSampler);
-    VkDescriptorImageInfo fontDescriptorImageInfo {};
-    fontDescriptorImageInfo.sampler = fontSampler;
-    fontDescriptorImageInfo.imageView = fontView;
-    fontDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    // descriptor s here
     VkDescriptorPoolSize descriptorPoolSize {};
     descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorPoolSize.descriptorCount = 64;
@@ -620,7 +920,7 @@ void GPU::imguiBackend(TitleBar* titleBar){
     descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
     descriptorPoolInfo.maxSets = 64;
-    vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool);
+    createDescriptorPool(descriptorPoolInfo, &descriptorPool);
     VkDescriptorSetLayoutBinding setLayoutBinding0 {};
     setLayoutBinding0.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     setLayoutBinding0.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -631,24 +931,7 @@ void GPU::imguiBackend(TitleBar* titleBar){
     descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     descriptorSetLayoutCreateInfo.pBindings = setLayoutBindings.data();
     descriptorSetLayoutCreateInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-    vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout);
-    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
-    descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descriptorSetAllocateInfo.descriptorPool = descriptorPool;
-    descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
-    descriptorSetAllocateInfo.descriptorSetCount = 1;
-    vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet);
-
-    VkWriteDescriptorSet fontWriteDescriptorSet {};
-    fontWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    fontWriteDescriptorSet.dstSet = descriptorSet;
-    fontWriteDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    fontWriteDescriptorSet.dstBinding = 0;
-    fontWriteDescriptorSet.pImageInfo = &fontDescriptorImageInfo;
-    fontWriteDescriptorSet.descriptorCount = 1;
-
-    vkUpdateDescriptorSets(device, 1, &fontWriteDescriptorSet, 0, nullptr);
-    io.Fonts->SetTexID(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(descriptorSet)));
+    createDescriptorSetLayout(descriptorSetLayoutCreateInfo, &descriptorSetLayout);
 
     VkPushConstantRange pushConstantRange {};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -831,6 +1114,7 @@ void GPU::imguiPresentation(uint32_t imgIdx){
     static VkDeviceSize dedicatedVertexSize = 8 * 1024 * 1024;
     static VkDeviceSize dedicatedIndexSize  = 8 * 1024 * 1024;
     ImDrawData *imDrawData = ImGui::GetDrawData();
+    processImguiTextures(*this, imDrawData ? imDrawData->Textures : &ImGui::GetPlatformIO().Textures);
     VkDeviceSize newVertexBufferSize = imDrawData->TotalVtxCount * sizeof(ImDrawVert);
     VkDeviceSize newIndexBufferSize = imDrawData->TotalIdxCount * sizeof(ImDrawIdx);
     VkDeviceSize& vertexBufferSize = vertexBufferSizes[frameIndex];
@@ -852,14 +1136,14 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         uint32_t& isMapped = vertexIsMapped[frameIndex];
         VkDeviceMemory& memory = vertexBufferMemories[frameIndex];
         if(isMapped){ vkUnmapMemory(device, memory); isMapped = false; }
-        if(vertexBuffer) vkDestroyBuffer(device, vertexBuffer, nullptr);
-        if(memory) vkFreeMemory(device, memory, nullptr);
+        if(vertexBuffer) destroyBuffer(vertexBuffer);
+        if(memory) freeMemory(memory);
 
         VkBufferCreateInfo bufferCreateInfo{};
         bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         bufferCreateInfo.size = vertexBufferSize;
-        vkCreateBuffer(device, &bufferCreateInfo, nullptr, &vertexBuffer);
+        createBuffer(bufferCreateInfo, &vertexBuffer);
         VkMemoryRequirements memReqs;
         VkMemoryAllocateInfo memAlloc{};
         memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -867,7 +1151,7 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         memAlloc.allocationSize = memReqs.size;
         memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT 
                                                                        | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        vkAllocateMemory(device, &memAlloc, nullptr, &memory);
+        allocateMemory(memAlloc, &memory);
         vkBindBufferMemory(device, vertexBuffer, memory, 0);
         vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &vertexBufferMapped[frameIndex]);
         isMapped = true;
@@ -879,14 +1163,14 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         uint32_t& isMapped = indexIsMapped[frameIndex];
         VkDeviceMemory& memory = indexBufferMemories[frameIndex];
         if(isMapped){ vkUnmapMemory(device, memory); isMapped = false; }
-        if(indexBuffer) vkDestroyBuffer(device, indexBuffer, nullptr);
-        if(memory) vkFreeMemory(device, memory, nullptr);
+        if(indexBuffer) destroyBuffer(indexBuffer);
+        if(memory) freeMemory(memory);
 
         VkBufferCreateInfo bufferCreateInfo{};
         bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
         bufferCreateInfo.size = indexBufferSize;
-        vkCreateBuffer(device, &bufferCreateInfo, nullptr, &indexBuffer);
+        createBuffer(bufferCreateInfo, &indexBuffer);
         VkMemoryRequirements memReqs;
         VkMemoryAllocateInfo memAlloc{};
         memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -894,7 +1178,7 @@ void GPU::imguiPresentation(uint32_t imgIdx){
         memAlloc.allocationSize = memReqs.size;
         memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT 
                                                                        | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        vkAllocateMemory(device, &memAlloc, nullptr, &memory);
+        allocateMemory(memAlloc, &memory);
         vkBindBufferMemory(device, indexBuffer, memory, 0);
         vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &indexBufferMapped[frameIndex]);
         isMapped = true;
@@ -915,7 +1199,6 @@ void GPU::imguiPresentation(uint32_t imgIdx){
     VkCommandBuffer& commandBuffer = commandBuffers[frameIndex];
     renderPassBeginInfo.framebuffer = framebuffer[imgIdx];
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipeline);
     VkViewport viewport {};
@@ -958,9 +1241,8 @@ void GPU::imguiPresentation(uint32_t imgIdx){
                     pcmd->UserCallback(cmd_list, pcmd);
                     continue;
                 }
-                VkDescriptorSet textureSet = descriptorSet;
-                if (pcmd->GetTexID() != 0) textureSet = reinterpret_cast<VkDescriptorSet>(static_cast<uintptr_t>(pcmd->GetTexID()));
-                if (textureSet == VK_NULL_HANDLE) textureSet = descriptorSet;
+                VkDescriptorSet textureSet = reinterpret_cast<VkDescriptorSet>(static_cast<uintptr_t>(pcmd->GetTexID()));
+                if (textureSet == VK_NULL_HANDLE) continue;
                 if (textureSet != boundSet) {
                     vkCmdBindDescriptorSets(commandBuffer, 
                             VK_PIPELINE_BIND_POINT_GRAPHICS, imguiPipelineLayout, 0, 1, &textureSet, 0, nullptr);
@@ -1002,6 +1284,34 @@ void GPU::imguiPresentation(uint32_t imgIdx){
 //    vkEndCommandBuffer(commandBuffer);
 };
 
+void GPU::updateImguiDisplayMetrics(){
+    if (window == nullptr) return;
+    int logicalWidth = 0;
+    int logicalHeight = 0;
+    SDL_GetWindowSize(window, &logicalWidth, &logicalHeight);
+    uint32_t pixelWidth = 0;
+    uint32_t pixelHeight = 0;
+    queryWindowPixelSize(pixelWidth, pixelHeight);
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(static_cast<float>(logicalWidth > 0 ? logicalWidth : width),
+        static_cast<float>(logicalHeight > 0 ? logicalHeight : height));
+    io.DisplayFramebufferScale = ImVec2(
+        logicalWidth > 0 ? static_cast<float>(pixelWidth) / static_cast<float>(logicalWidth) : 1.0f,
+        logicalHeight > 0 ? static_cast<float>(pixelHeight) / static_cast<float>(logicalHeight) : 1.0f);
+}
+
+void GPU::startCommands(){
+    VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+    cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    VkCommandBuffer& commandBuffer = commandBuffers[frameIndex];
+    vkResetCommandBuffer(commandBuffer, 0);
+    vkBeginCommandBuffer(commandBuffer, &cmdBufferBeginInfo);
+};
+
+void GPU::endCommands(){
+    vkEndCommandBuffer(commandBuffers[frameIndex]);
+};
+
 void GPU::startFrame(uint32_t& imgIdx){
     imgIdx = UINT32_MAX;
     while (true){
@@ -1016,7 +1326,7 @@ void GPU::startFrame(uint32_t& imgIdx){
         VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
             imageAvailableSemaphores[frameIndex], VK_NULL_HANDLE, &imgIdx);
         if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)){
-            requestResize();
+            resizePending = true;
             continue;
         }
         vkResetFences(device, 1, &fences[frameIndex]);
@@ -1059,10 +1369,7 @@ void GPU::resizeWindow(){
 #endif
     createFrameResources();
     frameIndex = 0;
-
-    ImGuiIO& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
-    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    updateImguiDisplayMetrics();
 };
 
 void GPU::submitFrame(const uint32_t imgIdx){
@@ -1120,7 +1427,7 @@ void GPU::submitFrame(const uint32_t imgIdx){
         .pResults = NULL
     };
     const VkResult result = vkQueuePresentKHR(queue, &presentInfo);
-    if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) requestResize();
+    if((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) resizePending = true;
 }
 
 void GPU::queryWindowPixelSize(uint32_t& outWidth, uint32_t& outHeight) const{
@@ -1166,23 +1473,22 @@ void GPU::destroy() {
 #ifdef _WIN32
     destroyDirectCompositionPresenter();
 #endif
+    ImVector<ImTextureData*>& textures = ImGui::GetPlatformIO().Textures;
+    for (int i = 0; i < textures.Size; i++) destroyImguiTexture(*this, textures[i]);
     ImGui::DestroyContext();
     ImPlot::DestroyContext();
     ImPlot3D::DestroyContext();
+    ImNodes::DestroyContext();
     destroyFrameResources();
     destroySwapchainResources();
     vkDestroyShaderModule(device, uiShaderVert, NULL);
     vkDestroyShaderModule(device, uiShaderIndex, NULL);
-    vkDestroyImage(device, fontImage, NULL);
-    vkDestroyImageView(device, fontView, NULL);
     vkDestroySampler(device, fontSampler, NULL);
-    vkFreeMemory(device, fontMemory, NULL);
     vkDestroySurfaceKHR(instance, surface, NULL);
     vkDestroyRenderPass(device, renderpass, NULL);
-    vkDestroyCommandPool(device, commandPool, NULL);
-    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, NULL);
-    vkFreeDescriptorSets(device, descriptorPool, 1, &descriptorSet);
-    vkDestroyDescriptorPool(device, descriptorPool, NULL);
+    destroyCommandPool(commandPool);
+    destroyDescriptorSetLayout(descriptorSetLayout);
+    destroyDescriptorPool(descriptorPool);
     vkDestroyPipeline(device, imguiPipeline, NULL);
     vkDestroyPipelineLayout(device, imguiPipelineLayout, NULL);
     vkDestroyDevice(device, NULL);
@@ -1613,9 +1919,7 @@ bool GPU::recreateDirectCompositionTargets(uint32_t pixelWidth, uint32_t pixelHe
         return false;
     }
     createFrameResources();
-    ImGuiIO& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
-    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    updateImguiDisplayMetrics();
     frameIndex = 0;
     return true;
 }
@@ -1916,7 +2220,7 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        if (vkCreateImage(device, &imageInfo, nullptr, &directImages[i].image) != VK_SUCCESS){
+        if (createImage(imageInfo, &directImages[i].image) != VK_SUCCESS){
             destroySharedRenderTargets();
             return false;
         }
@@ -1943,7 +2247,7 @@ bool GPU::createSharedRenderTargets(uint32_t imageCount){
         }
         allocInfo.pNext = &importInfo;
 
-        if (vkAllocateMemory(device, &allocInfo, nullptr, &directImages[i].memory) != VK_SUCCESS){
+        if (allocateMemory(allocInfo, &directImages[i].memory) != VK_SUCCESS){
             destroySharedRenderTargets();
             return false;
         }
@@ -2014,11 +2318,11 @@ void GPU::destroySharedRenderTargets(){
             img.view = VK_NULL_HANDLE;
         }
         if (img.image != VK_NULL_HANDLE){
-            vkDestroyImage(device, img.image, nullptr);
+            destroyImage(img.image);
             img.image = VK_NULL_HANDLE;
         }
         if (img.memory != VK_NULL_HANDLE){
-            vkFreeMemory(device, img.memory, nullptr);
+            freeMemory(img.memory);
             img.memory = VK_NULL_HANDLE;
         }
     }

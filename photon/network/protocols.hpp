@@ -77,24 +77,30 @@ struct Protocols{
     static void run(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const ProtocolConfig& config);
     static void TCP(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const TCPConfig& config);
     static void UDP(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const UDPConfig& config);
     static void UART(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const UARTConfig& config);
     static void SocketCAN(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const SocketCANConfig& config);
     static void AssettoCorsa(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
-        SPMCQueue<uint8_t, 4096>* streamBuffer);
+        SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer);
 };

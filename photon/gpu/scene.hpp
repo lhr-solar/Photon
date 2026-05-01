@@ -46,6 +46,7 @@ struct SceneObject {
     std::vector<VkDeviceMemory> materialUniformMemories{};
     std::vector<VkDescriptorSet> materialDescriptorSets{};
     Position position{};
+    float rotationDegrees{0.0f};
     bool trackable{false};
     bool loaded{false};
 };
@@ -77,6 +78,7 @@ struct SceneFrame {
 };
 
 struct Scene {
+    GPU* gpu{};
     std::vector<SceneObject> objects{};
     Camera camera{};
     SceneCameraMode cameraMode{SceneCameraMode::Free};

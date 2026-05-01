@@ -21,6 +21,7 @@ struct shaderFrame{
 };
 
 struct Shader{
+    GPU* gpu{};
     VkDevice device{};
     VkDescriptorSetLayout descriptorSetLayout{};
     VkDescriptorPool descriptorPool{};

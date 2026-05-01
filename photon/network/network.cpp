@@ -9,8 +9,26 @@
 #include <thread>
 #include <vector>
 
+#ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#include <winsock2.h>
+#include <Ws2tcpip.h>
+using ForwardSocketHandle = SOCKET;
+#else
+#include <arpa/inet.h>
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+using ForwardSocketHandle = int;
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR (-1)
+#endif
+
 namespace {
 constexpr size_t kMetricHistoryLimit = 120;
+constexpr uint16_t kStreamForwardPort = 6100;
+constexpr char kStreamForwardIp[] = "3.141.38.115";
 
 NetworkResponseType statusTypeFromMessage(const char* message){
     if(!message) return NetworkResponseType::Info;
@@ -175,6 +193,25 @@ bool handleFrame(Arena* arena, const std::string& frame, double timeValue){
 
     return arena->appendFrame(canId, timeValue, decodedValues.data(), static_cast<uint32_t>(decodedValues.size()));
 }
+
+bool setForwardSocketNonBlocking(ForwardSocketHandle sock){
+#ifdef _WIN32
+    u_long mode = 1;
+    return ioctlsocket(sock, FIONBIO, &mode) == 0;
+#else
+    const int flags = fcntl(sock, F_GETFL, 0);
+    if(flags < 0) return false;
+    return fcntl(sock, F_SETFL, flags | O_NONBLOCK) == 0;
+#endif
+}
+
+void closeForwardSocket(ForwardSocketHandle sock){
+#ifdef _WIN32
+    closesocket(sock);
+#else
+    close(sock);
+#endif
+}
 }
 
 void Network::publishResponse(NetworkResponseType type, ProtocolKind protocol, const char* message){
@@ -183,6 +220,7 @@ void Network::publishResponse(NetworkResponseType type, ProtocolKind protocol, c
         response.type = type;
         response.protocol = protocol;
         response.networkStreamRunning = networkStreamRunning.load(std::memory_order_acquire);
+        response.streamForwardRunning = streamForwardRunning.load(std::memory_order_acquire);
         if(message) std::strncpy(response.message, message, sizeof(response.message) - 1);
     });
 }
@@ -205,7 +243,7 @@ void Network::startNetworkStream(const ProtocolConfig& config){
     networkStreamRunning.store(true, std::memory_order_release);
     publishResponse(NetworkResponseType::Info, activeConfig.kind, "Starting Network Stream");
     networkStreamThread = std::jthread([this, config](std::stop_token stopToken){
-        Protocols::run(stopToken, &networkStreamStatus, &networkStream, config);
+        Protocols::run(stopToken, &networkStreamStatus, &networkStream, &networkStream, config);
     });
 }
 
@@ -218,6 +256,126 @@ void Network::stopNetworkStream(){
     }
     activeConfig = {};
     if(previous != ProtocolKind::None) publishResponse(NetworkResponseType::Info, previous, "Network Stream Stopped");
+}
+
+void Network::startStreamForward(){
+    stopStreamForward();
+    streamForwardRunning.store(true, std::memory_order_release);
+    publishResponse(NetworkResponseType::Info, activeConfig.kind, "Starting Data Stream Forward");
+    streamForwardThread = std::jthread([this](std::stop_token stopToken){ forwardStream(stopToken); });
+}
+
+void Network::stopStreamForward(){
+    const bool wasRunning = streamForwardRunning.exchange(false, std::memory_order_acq_rel);
+    if(streamForwardThread.joinable()){
+        streamForwardThread.request_stop();
+        streamForwardThread.join();
+    }
+    if(wasRunning) publishResponse(NetworkResponseType::Info, activeConfig.kind, "Data Stream Forward Stopped");
+}
+
+void Network::forwardStream(std::stop_token stopToken){
+#ifdef _WIN32
+    static bool wsaStarted = false;
+    if(!wsaStarted){
+        WSADATA wsa{};
+        const int err = WSAStartup(MAKEWORD(2, 2), &wsa);
+        if(err != 0){
+            char message[192]{};
+            std::snprintf(message, sizeof(message), "Stream forward WSAStartup failed: %d", err);
+            streamForwardRunning.store(false, std::memory_order_release);
+            publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
+            return;
+        }
+        wsaStarted = true;
+    }
+#endif
+
+    ForwardSocketHandle sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(sock == INVALID_SOCKET){
+        char message[192]{};
+#ifdef _WIN32
+        std::snprintf(message, sizeof(message), "Stream forward TCP socket creation failed: %d", WSAGetLastError());
+#else
+        std::snprintf(message, sizeof(message), "Stream forward TCP socket creation failed: %s", std::strerror(errno));
+#endif
+        streamForwardRunning.store(false, std::memory_order_release);
+        publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
+        return;
+    }
+
+    if(!setForwardSocketNonBlocking(sock)){
+        char message[192]{};
+#ifdef _WIN32
+        std::snprintf(message, sizeof(message), "Stream forward TCP non-blocking setup failed: %d", WSAGetLastError());
+#else
+        std::snprintf(message, sizeof(message), "Stream forward TCP non-blocking setup failed: %s", std::strerror(errno));
+#endif
+        closeForwardSocket(sock);
+        streamForwardRunning.store(false, std::memory_order_release);
+        publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
+        return;
+    }
+
+    sockaddr_in server{};
+    server.sin_family = AF_INET;
+    server.sin_port = htons(kStreamForwardPort);
+    if(inet_pton(AF_INET, kStreamForwardIp, &server.sin_addr) != 1){
+        closeForwardSocket(sock);
+        streamForwardRunning.store(false, std::memory_order_release);
+        publishResponse(NetworkResponseType::Error, activeConfig.kind, "Stream forward IP parse failed");
+        return;
+    }
+
+    if(connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == SOCKET_ERROR){
+        char message[192]{};
+#ifdef _WIN32
+        const int err = WSAGetLastError();
+        if(err != WSAEWOULDBLOCK && err != WSAEINPROGRESS && err != WSAEALREADY && err != WSAEISCONN){
+            std::snprintf(message, sizeof(message), "Stream forward TCP connect failed: %d", err);
+            closeForwardSocket(sock);
+            streamForwardRunning.store(false, std::memory_order_release);
+            publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
+            return;
+        }
+#else
+        if(errno != EINPROGRESS && errno != EWOULDBLOCK && errno != EALREADY && errno != EISCONN){
+            std::snprintf(message, sizeof(message), "Stream forward TCP connect failed: %s", std::strerror(errno));
+            closeForwardSocket(sock);
+            streamForwardRunning.store(false, std::memory_order_release);
+            publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
+            return;
+        }
+#endif
+    }
+
+    publishResponse(NetworkResponseType::Success, activeConfig.kind, "SLCAN Stream Forward Online");
+    auto streamReader = networkStream.getReader();
+    bool sendFailed = false;
+    while(!stopToken.stop_requested()){
+        while(uint8_t* byte = streamReader.read()){
+            const char payload = static_cast<char>(*byte);
+            if(send(sock, &payload, 1, 0) == SOCKET_ERROR){
+#ifdef _WIN32
+                const int err = WSAGetLastError();
+                if(err == WSAEWOULDBLOCK) continue;
+                char message[192]{};
+                std::snprintf(message, sizeof(message), "Data Stream Forward send failed: %d", err);
+#else
+                if(errno == EAGAIN || errno == EWOULDBLOCK) continue;
+                char message[192]{};
+                std::snprintf(message, sizeof(message), "Data Stream Forward send failed: %s", std::strerror(errno));
+#endif
+                publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
+                sendFailed = true;
+                break;
+            }
+        }
+        if(sendFailed) break;
+    }
+
+    closeForwardSocket(sock);
+    streamForwardRunning.store(false, std::memory_order_release);
 }
 
 void Network::handler(std::stop_token stopToken){
@@ -246,10 +404,17 @@ void Network::handler(std::stop_token stopToken){
                     }
                     startParser();
                     break;
+                case NetworkCommandType::StartStreamForward:
+                    startStreamForward();
+                    break;
+                case NetworkCommandType::StopStreamForward:
+                    stopStreamForward();
+                    break;
                 case NetworkCommandType::StopProtocol:
                     stopNetworkStream();
                     break;
                 case NetworkCommandType::Shutdown:
+                    stopStreamForward();
                     stopNetworkStream();
                     publishResponse(NetworkResponseType::Info, ProtocolKind::None, "Network Shutdown Requested");
                     break;
@@ -266,6 +431,7 @@ void Network::handler(std::stop_token stopToken){
         }
         if(!didWork) std::this_thread::sleep_for(kIdleSleep);
     }
+    stopStreamForward();
     stopNetworkStream();
     stopParser();
 }
@@ -308,7 +474,7 @@ void Network::parser(std::stop_token stopToken){
     }
 }
 
-void Network::init(Parse* parse, GUICommandQueue* guiCommands){
+void Network::init(Parse* parse, SPMCQueue<NetworkCommand, 64>* guiCommands){
     this->parse = parse;
     this->arena = parse ? &parse->arena : nullptr;
     this->guiCommands = guiCommands;
@@ -317,15 +483,18 @@ void Network::init(Parse* parse, GUICommandQueue* guiCommands){
     handlerThread = std::jthread([this](std::stop_token stopToken){ handler(stopToken); });
 }
 
-GUIResponseQueue::Reader Network::getResponseReader(){
+SPMCQueue<NetworkResponse, 64>::Reader Network::getResponseReader(){
     return guiResponses.getReader();
 }
 
 void Network::destroy(){
     if(handlerThread.joinable()) handlerThread.request_stop();
+    if(streamForwardThread.joinable()) streamForwardThread.request_stop();
     if(networkStreamThread.joinable()) networkStreamThread.request_stop();
     if(handlerThread.joinable()) handlerThread.join();
     stopParser();
+    if(streamForwardThread.joinable()) streamForwardThread.join();
     if(networkStreamThread.joinable()) networkStreamThread.join();
     networkStreamRunning.store(false, std::memory_order_release);
+    streamForwardRunning.store(false, std::memory_order_release);
 }

@@ -1,13 +1,8 @@
 .cache
 .notes
 .vscode
-artifacts
 .artifacts
-imgui.ini
-perf.data
-perf.data.old
+build
+assets/video/
 Photon.exe
-assets/video/*
-config.ini
-perf/
-runtime/
+*.ini

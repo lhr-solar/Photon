@@ -110,6 +110,7 @@ struct gltfFrame {
 };
 
 struct Gltf{
+    GPU* gpu{};
     tinygltf::TinyGLTF loader{};
     tinygltf::Model model{};
     std::vector<unsigned char> source{};

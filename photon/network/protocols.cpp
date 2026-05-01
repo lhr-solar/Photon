@@ -56,6 +56,14 @@ void writeFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const char* frame){
     }
 }
 
+void writeBytes(SPMCQueue<uint8_t, 4096>* streamBuffer, const uint8_t* data, std::size_t size){
+    if(!streamBuffer || !data || size == 0) return;
+    for(std::size_t i = 0; i < size; ++i){
+        const uint8_t byte = data[i];
+        streamBuffer->write([&](uint8_t& slot){ slot = byte; });
+    }
+}
+
 struct ClassicTiming{
     uint16_t btr = 0;
     int bitrate = 0;
@@ -271,6 +279,150 @@ void closeSocket(SocketHandle sock){
 #endif
 }
 
+bool initUdpSocket(SocketHandle& sock, sockaddr_in& server, const UDPConfig& config, char* error, std::size_t errorSize){
+#ifdef _WIN32
+    static bool wsaStarted = false;
+    if(!wsaStarted){
+        WSADATA wsa{};
+        const int err = WSAStartup(MAKEWORD(2, 2), &wsa);
+        if(err != 0){
+            std::snprintf(error, errorSize, "WSAStartup failed: %d", err);
+            return false;
+        }
+        wsaStarted = true;
+    }
+#endif
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if(sock == INVALID_SOCKET){
+#ifdef _WIN32
+        std::snprintf(error, errorSize, "UDP socket creation failed: %d", WSAGetLastError());
+#else
+        std::snprintf(error, errorSize, "UDP socket creation failed: %s", std::strerror(errno));
+#endif
+        return false;
+    }
+
+#ifdef _WIN32
+#ifndef SIO_UDP_CONNRESET
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+#endif
+    BOOL disableConnReset = FALSE;
+    DWORD bytesReturned = 0;
+    WSAIoctl(sock, SIO_UDP_CONNRESET, &disableConnReset, sizeof(disableConnReset),
+        nullptr, 0, &bytesReturned, nullptr, nullptr);
+#endif
+
+    if(!setNonBlocking(sock)){
+#ifdef _WIN32
+        std::snprintf(error, errorSize, "failed to set UDP socket non-blocking: %d", WSAGetLastError());
+#else
+        std::snprintf(error, errorSize, "failed to set UDP socket non-blocking: %s", std::strerror(errno));
+#endif
+        closeSocket(sock);
+        sock = INVALID_SOCKET;
+        return false;
+    }
+
+    server = {};
+    server.sin_family = AF_INET;
+    server.sin_port = htons(config.port);
+    if(inet_pton(AF_INET, config.ip, &server.sin_addr) != 1){
+        std::snprintf(error, errorSize, "invalid UDP IP address: %s", config.ip);
+        closeSocket(sock);
+        sock = INVALID_SOCKET;
+        return false;
+    }
+
+    if(connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == SOCKET_ERROR){
+#ifdef _WIN32
+        const int err = WSAGetLastError();
+        if(err != WSAEWOULDBLOCK && err != WSAEINPROGRESS && err != WSAEISCONN){
+            std::snprintf(error, errorSize, "UDP connect failed: %d", err);
+            closeSocket(sock);
+            sock = INVALID_SOCKET;
+            return false;
+        }
+#else
+        if(errno != EINPROGRESS && errno != EWOULDBLOCK && errno != EISCONN){
+            std::snprintf(error, errorSize, "UDP connect failed: %s", std::strerror(errno));
+            closeSocket(sock);
+            sock = INVALID_SOCKET;
+            return false;
+        }
+#endif
+    }
+
+    return true;
+}
+
+bool initTcpSocket(SocketHandle& sock, sockaddr_in& server, const TCPConfig& config, char* error, std::size_t errorSize){
+#ifdef _WIN32
+    static bool wsaStarted = false;
+    if(!wsaStarted){
+        WSADATA wsa{};
+        const int err = WSAStartup(MAKEWORD(2, 2), &wsa);
+        if(err != 0){
+            std::snprintf(error, errorSize, "WSAStartup failed: %d", err);
+            return false;
+        }
+        wsaStarted = true;
+    }
+#endif
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(sock == INVALID_SOCKET){
+#ifdef _WIN32
+        std::snprintf(error, errorSize, "TCP socket creation failed: %d", WSAGetLastError());
+#else
+        std::snprintf(error, errorSize, "TCP socket creation failed: %s", std::strerror(errno));
+#endif
+        return false;
+    }
+
+    if(!setNonBlocking(sock)){
+#ifdef _WIN32
+        std::snprintf(error, errorSize, "failed to set TCP socket non-blocking: %d", WSAGetLastError());
+#else
+        std::snprintf(error, errorSize, "failed to set TCP socket non-blocking: %s", std::strerror(errno));
+#endif
+        closeSocket(sock);
+        sock = INVALID_SOCKET;
+        return false;
+    }
+
+    server = {};
+    server.sin_family = AF_INET;
+    server.sin_port = htons(config.port);
+    if(inet_pton(AF_INET, config.ip, &server.sin_addr) != 1){
+        std::snprintf(error, errorSize, "invalid TCP IP address: %s", config.ip);
+        closeSocket(sock);
+        sock = INVALID_SOCKET;
+        return false;
+    }
+
+    if(connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == SOCKET_ERROR){
+#ifdef _WIN32
+        const int err = WSAGetLastError();
+        if(err != WSAEINPROGRESS && err != WSAEWOULDBLOCK && err != WSAEALREADY && err != WSAEISCONN){
+            std::snprintf(error, errorSize, "TCP connect failed: %d", err);
+            closeSocket(sock);
+            sock = INVALID_SOCKET;
+            return false;
+        }
+#else
+        if(errno != EINPROGRESS && errno != EWOULDBLOCK && errno != EALREADY && errno != EISCONN){
+            std::snprintf(error, errorSize, "TCP connect failed: %s", std::strerror(errno));
+            closeSocket(sock);
+            sock = INVALID_SOCKET;
+            return false;
+        }
+#endif
+    }
+
+    return true;
+}
+
 void forwardAssettoFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const RTCarInfo& packet){
     const std::byte* base = reinterpret_cast<const std::byte*>(&packet);
     for(std::size_t i = 0; i < kRTCarInfoFields.size(); ++i){
@@ -290,45 +442,15 @@ void forwardAssettoFrame(SPMCQueue<uint8_t, 4096>* streamBuffer, const RTCarInfo
 }
 
 bool initAssettoSocket(SocketHandle& sock, sockaddr_in& server, char* error, std::size_t errorSize){
-#ifdef _WIN32
-    static bool wsaStarted = false;
-    if(!wsaStarted){
-        WSADATA wsa{};
-        const int err = WSAStartup(MAKEWORD(2, 2), &wsa);
-        if(err != 0){
-            std::snprintf(error, errorSize, "WSAStartup failed: %d", err);
-            return false;
-        }
-        wsaStarted = true;
-    }
-#endif
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if(sock == INVALID_SOCKET){
-#ifdef _WIN32
-        std::snprintf(error, errorSize, "Assetto socket creation failed: %d", WSAGetLastError());
-#else
-        std::snprintf(error, errorSize, "Assetto socket creation failed: %s", std::strerror(errno));
-#endif
-        return false;
-    }
-    if(!setNonBlocking(sock)){
-#ifdef _WIN32
-        std::snprintf(error, errorSize, "failed to set Assetto socket non-blocking: %d", WSAGetLastError());
-#else
-        std::snprintf(error, errorSize, "failed to set Assetto socket non-blocking: %s", std::strerror(errno));
-#endif
-        closeSocket(sock);
-        sock = INVALID_SOCKET;
-        return false;
-    }
-    server = {};
-    server.sin_family = AF_INET;
-    server.sin_port = htons(9996);
-    inet_pton(AF_INET, "127.0.0.1", &server.sin_addr);
-    return true;
+    UDPConfig udpConfig{};
+    std::snprintf(udpConfig.ip, sizeof(udpConfig.ip), "%s", "127.0.0.1");
+    udpConfig.port = 9996;
+    return initUdpSocket(sock, server, udpConfig, error, errorSize);
 }
 
-bool performAssettoHandshake(SocketHandle sock, sockaddr_in& server, bool& subscribed){
+bool performAssettoHandshake(SocketHandle sock,
+        sockaddr_in& server,
+        bool& subscribed){
     if(subscribed) return true;
     auto sendControlMessage = [&](operationId op){
         handshake msg{};
@@ -831,22 +953,23 @@ void Protocols::publishFailure(SPMCQueue<ProtocolError, 64>* statusBuffer, const
 void Protocols::run(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const ProtocolConfig& config){
     switch(config.kind){
         case ProtocolKind::TCP:
-            TCP(stopToken, statusBuffer, streamBuffer, config.tcp);
+            TCP(stopToken, statusBuffer, streamBuffer, forwardBuffer, config.tcp);
             return;
         case ProtocolKind::UDP:
-            UDP(stopToken, statusBuffer, streamBuffer, config.udp);
+            UDP(stopToken, statusBuffer, streamBuffer, forwardBuffer, config.udp);
             return;
         case ProtocolKind::UART:
-            UART(stopToken, statusBuffer, streamBuffer, config.uart);
+            UART(stopToken, statusBuffer, streamBuffer, forwardBuffer, config.uart);
             return;
         case ProtocolKind::SocketCAN:
-            SocketCAN(stopToken, statusBuffer, streamBuffer, config.socketCAN);
+            SocketCAN(stopToken, statusBuffer, streamBuffer, forwardBuffer, config.socketCAN);
             return;
         case ProtocolKind::AssettoCorsa:
-            AssettoCorsa(stopToken, statusBuffer, streamBuffer);
+            AssettoCorsa(stopToken, statusBuffer, streamBuffer, forwardBuffer);
             return;
         case ProtocolKind::None:
         default:
@@ -858,26 +981,117 @@ void Protocols::run(std::stop_token stopToken,
 void Protocols::TCP(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const TCPConfig& config){
-    (void)stopToken;
-    (void)streamBuffer;
-    (void)config;
-    ::publishFailure(statusBuffer, "TCP");
+    char error[192]{};
+    SocketHandle sock = INVALID_SOCKET;
+    sockaddr_in server{};
+    if(!initTcpSocket(sock, server, config, error, sizeof(error))){
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    publishStatus(statusBuffer, false, "TCP Online");
+    std::array<uint8_t, 2048> buffer{};
+    while(!stopToken.stop_requested()){
+        const int bytesRead = recv(sock, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0);
+        if(bytesRead == 0){
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            continue;
+        }
+        if(bytesRead == SOCKET_ERROR){
+#ifdef _WIN32
+            const int err = WSAGetLastError();
+            if(err == WSAEWOULDBLOCK){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+            std::snprintf(error, sizeof(error), "TCP recv failed: %d", err);
+#else
+            if(errno == EAGAIN || errno == EWOULDBLOCK){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+            std::snprintf(error, sizeof(error), "TCP recv failed: %s", std::strerror(errno));
+#endif
+            publishStatus(statusBuffer, true, error);
+            break;
+        }
+
+        writeBytes(streamBuffer, buffer.data(), static_cast<std::size_t>(bytesRead));
+        writeBytes(forwardBuffer, buffer.data(), static_cast<std::size_t>(bytesRead));
+    }
+
+    closeSocket(sock);
+    publishStatus(statusBuffer, false, "TCP Stopped");
 }
 
 void Protocols::UDP(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const UDPConfig& config){
-    (void)stopToken;
-    (void)streamBuffer;
-    (void)config;
-    ::publishFailure(statusBuffer, "UDP");
+    char error[192]{};
+    SocketHandle sock = INVALID_SOCKET;
+    sockaddr_in server{};
+    if(!initUdpSocket(sock, server, config, error, sizeof(error))){
+        publishStatus(statusBuffer, true, error);
+        return;
+    }
+
+    if(config.subscribeMessage[0] != '\0'){
+        const int sent = send(sock, config.subscribeMessage, static_cast<int>(std::strlen(config.subscribeMessage)), 0);
+        if(sent == SOCKET_ERROR){
+#ifdef _WIN32
+            std::snprintf(error, sizeof(error), "UDP subscribe send failed: %d", WSAGetLastError());
+#else
+            std::snprintf(error, sizeof(error), "UDP subscribe send failed: %s", std::strerror(errno));
+#endif
+            closeSocket(sock);
+            publishStatus(statusBuffer, true, error);
+            return;
+        }
+    }
+
+    publishStatus(statusBuffer, false, "UDP Online");
+    std::array<uint8_t, 2048> buffer{};
+    while(!stopToken.stop_requested()){
+        const int bytesRead = recv(sock, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0);
+        if(bytesRead == 0){
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            continue;
+        }
+        if(bytesRead == SOCKET_ERROR){
+#ifdef _WIN32
+            const int err = WSAGetLastError();
+            if(err == WSAEWOULDBLOCK){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+            std::snprintf(error, sizeof(error), "UDP recv failed: %d", err);
+#else
+            if(errno == EAGAIN || errno == EWOULDBLOCK){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+            std::snprintf(error, sizeof(error), "UDP recv failed: %s", std::strerror(errno));
+#endif
+            publishStatus(statusBuffer, true, error);
+            break;
+        }
+
+        writeBytes(streamBuffer, buffer.data(), static_cast<std::size_t>(bytesRead));
+        writeBytes(forwardBuffer, buffer.data(), static_cast<std::size_t>(bytesRead));
+    }
+
+    closeSocket(sock);
+    publishStatus(statusBuffer, false, "UDP Stopped");
 }
 
 void Protocols::UART(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const UARTConfig& config){
     (void)config;
     publishStatus(statusBuffer, false, "UART Online");
@@ -891,6 +1105,7 @@ void Protocols::UART(std::stop_token stopToken,
     size_t index = 0;
     while(!stopToken.stop_requested()){
         writeFrame(streamBuffer, frames[index]);
+        writeFrame(forwardBuffer, frames[index]);
         index = (index + 1) % (sizeof(frames) / sizeof(frames[0]));
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
@@ -901,6 +1116,7 @@ void Protocols::UART(std::stop_token stopToken,
 void Protocols::SocketCAN(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
         SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer,
         const SocketCANConfig& config){
 #ifdef _WIN32
     char error[192]{};
@@ -957,6 +1173,7 @@ void Protocols::SocketCAN(std::stop_token stopToken,
             break;
         }
         forwardPcanFrame(streamBuffer, msg);
+        forwardPcanFrame(forwardBuffer, msg);
     }
 
     api.uninitialize(handle);
@@ -987,6 +1204,7 @@ void Protocols::SocketCAN(std::stop_token stopToken,
         const ssize_t bytesRead = read(fd, &frame, sizeof(frame));
         if(bytesRead == static_cast<ssize_t>(sizeof(frame))){
             forwardSocketCANFrame(streamBuffer, frame);
+            forwardSocketCANFrame(forwardBuffer, frame);
             continue;
         }
         if(bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) continue;
@@ -1003,7 +1221,9 @@ void Protocols::SocketCAN(std::stop_token stopToken,
 
 void Protocols::AssettoCorsa(std::stop_token stopToken,
         SPMCQueue<ProtocolError, 64>* statusBuffer,
-        SPMCQueue<uint8_t, 4096>* streamBuffer){
+        SPMCQueue<uint8_t, 4096>* streamBuffer,
+        SPMCQueue<uint8_t, 4096>* forwardBuffer){
+    (void)forwardBuffer;
     char error[192]{};
     SocketHandle sock = INVALID_SOCKET;
     sockaddr_in server{};
