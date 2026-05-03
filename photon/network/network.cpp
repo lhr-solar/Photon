@@ -13,6 +13,7 @@
 #include <iostream>
 #include <sstream>
 #include <cctype>
+#include <cstring>
 
 #define QUEUE_CAPACITY 2048
 #define BUFFER_CAPACITY 1024
@@ -227,24 +228,60 @@ void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
     for (const auto& [sigName, sig] : msg.signals) {
 
         uint64_t rawSignal = 0;
-        int byteIndex = sig.startBit / 8;
-        int bitOffset = sig.startBit % 8;
-        int bitsLeft = sig.length;
-        int dstPos = 0;
 
-        while (bitsLeft > 0 && byteIndex < dlc) {
-            int bitsInByte = std::min(8 - bitOffset, bitsLeft);
-            uint8_t mask = ((1 << bitsInByte) - 1) << bitOffset;
-            uint8_t extracted = (bytes[byteIndex] & mask) >> bitOffset;
-            rawSignal |= (uint64_t(extracted) << dstPos);
+        if (sig.endianness == 1) {
+            // Intel / little-endian: walk bytes low → high.
+            int byteIndex = sig.startBit / 8;
+            int bitOffset = sig.startBit % 8;
+            int bitsLeft = sig.length;
+            int dstPos = 0;
+            while (bitsLeft > 0 && byteIndex < dlc) {
+                int bitsInByte = std::min(8 - bitOffset, bitsLeft);
+                uint32_t mask = ((1u << bitsInByte) - 1u) << bitOffset;
+                uint8_t extracted = static_cast<uint8_t>((bytes[byteIndex] & mask) >> bitOffset);
+                rawSignal |= (static_cast<uint64_t>(extracted) << dstPos);
 
-            bitsLeft -= bitsInByte;
-            dstPos += bitsInByte;
-            byteIndex++;
-            bitOffset = 0;
+                bitsLeft -= bitsInByte;
+                dstPos += bitsInByte;
+                byteIndex++;
+                bitOffset = 0;
+            }
+        } else {
+            // Motorola / big-endian: start bit is MSB; walk bit-by-bit toward
+            // bit 0 of the current byte, then jump to bit 7 of the next byte.
+            int bitPos = sig.startBit;
+            for (int i = 0; i < sig.length; ++i) {
+                int byteIndex = bitPos / 8;
+                int bitInByte = bitPos % 8;
+                if (byteIndex >= dlc) break;
+                uint64_t bit = (bytes[byteIndex] >> bitInByte) & 0x1u;
+                rawSignal |= bit << (sig.length - 1 - i);
+                if (bitInByte == 0) bitPos += 15; // next byte, bit 7
+                else                bitPos -= 1;
+            }
         }
 
-        double physValue = sig.scale * rawSignal + sig.offset;
+        double physValue;
+        if (sig.isFloat && sig.length == 32) {
+            uint32_t r = static_cast<uint32_t>(rawSignal);
+            float f;
+            std::memcpy(&f, &r, sizeof(f));
+            physValue = sig.scale * static_cast<double>(f) + sig.offset;
+        } else if (sig.isFloat && sig.length == 64) {
+            double d;
+            std::memcpy(&d, &rawSignal, sizeof(d));
+            physValue = sig.scale * d + sig.offset;
+        } else if (sig.isSigned && sig.length > 0 && sig.length < 64) {
+            // Sign-extend the rawSignal from sig.length bits to 64.
+            uint64_t signBit = 1ULL << (sig.length - 1);
+            int64_t s = static_cast<int64_t>(rawSignal);
+            if (rawSignal & signBit) {
+                s |= ~((1ULL << sig.length) - 1ULL);
+            }
+            physValue = sig.scale * static_cast<double>(s) + sig.offset;
+        } else {
+            physValue = sig.scale * static_cast<double>(rawSignal) + sig.offset;
+        }
 
         // ---- STORE PARSED VALUE ----
         {

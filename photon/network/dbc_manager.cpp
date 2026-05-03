@@ -135,6 +135,32 @@ bool DbcManager::loadFromFile(const std::string& path) {
             std::cerr << "[DBC] Registered signal: " << sigName
                       << " (ID=" << currentId << ")\n";
         }
+
+        // --- Parse SIG_VALTYPE_ lines (float / double signal annotations) ---
+        // Format: SIG_VALTYPE_ <can_id> <signal_name> : <type>;
+        //   type 1 = IEEE float32, type 2 = IEEE float64
+        else if (line.rfind("SIG_VALTYPE_", 0) == 0) {
+            std::istringstream iss(line);
+            std::string tag, sigName;
+            uint32_t mid = 0;
+            int type = 0;
+            iss >> tag >> mid >> sigName;
+            char c = 0;
+            while (iss >> c) {
+                if (c == ':') break;
+            }
+            if (c != ':') continue;
+            iss >> type;
+
+            std::lock_guard<std::mutex> lock(mapMutex);
+            auto it = dbcMap.find(static_cast<int>(mid));
+            if (it != dbcMap.end()) {
+                auto sit = it->second.signals.find(sigName);
+                if (sit != it->second.signals.end()) {
+                    sit->second.isFloat = (type == 1 || type == 2);
+                }
+            }
+        }
     }
 
     // --- Summary + dump ---

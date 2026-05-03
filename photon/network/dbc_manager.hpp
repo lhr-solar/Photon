@@ -14,8 +14,9 @@ namespace fs = std::filesystem;
 struct DbcSignal {
     int startBit = 0;
     int length = 0;
-    int endianness = 0;
+    int endianness = 0;     // 1 = Intel/little-endian, 0 = Motorola/big-endian
     bool isSigned = false;
+    bool isFloat = false;   // set from SIG_VALTYPE_ (1=float32, 2=float64)
     double scale = 1.0;
     double offset = 0.0;
     double min = 0.0;
