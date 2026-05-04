@@ -6,10 +6,14 @@
 #include <cstdlib>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <string>
 
 #if defined(__linux__) && !defined(NDEBUG)
 #include <dlfcn.h>
 #endif
+
+static std::string uiErrorText{};
 
 void Photon::init(){
     gpu.init();
@@ -81,7 +85,9 @@ bool Photon::reloadUI(){
 #if defined(__linux__) && !defined(NDEBUG)
     namespace fs = std::filesystem;
     using BuildUI = bool (*)(GUI*);
-    static constexpr const char* kBuildCommand = "cmake --build \"" PHOTON_BUILD_DIR "\" --target photonUI --parallel";
+    static const fs::path buildLogPath = fs::path(PHOTON_BUILD_DIR) / "photon_ui_build.log";
+    static const std::string kBuildCommand =
+        "cmake --build \"" PHOTON_BUILD_DIR "\" --target photonUI --parallel > \"" + buildLogPath.string() + "\" 2>&1";
     struct State {
         void* handle{};
         BuildUI build{};
@@ -92,6 +98,10 @@ bool Photon::reloadUI(){
     static State state{};
     static const fs::path soPath = PHOTON_UI_SO_PATH;
     static const fs::path uiDirPath = PHOTON_UI_DIR_PATH;
+    const auto readText = [](const fs::path& path) {
+        std::ifstream file(path);
+        return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    };
     const auto readTime = [](const fs::path& path) {
         std::error_code ec;
         return fs::exists(path, ec) ? fs::last_write_time(path, ec) : fs::file_time_type::min();
@@ -121,6 +131,7 @@ bool Photon::reloadUI(){
         std::error_code ec;
         fs::copy_file(soPath, loadPath, fs::copy_options::overwrite_existing, ec);
         if (ec) {
+            uiErrorText = "UI copy failed:\n" + ec.message();
             logs("UI copy failed: " << ec.message());
             return false;
         }
@@ -128,12 +139,14 @@ bool Photon::reloadUI(){
         state.handle = dlopen(loadPath.c_str(), RTLD_NOW | RTLD_LOCAL);
         state.build = state.handle ? reinterpret_cast<BuildUI>(dlsym(state.handle, "photonBuildUI")) : nullptr;
         if (!state.build) {
+            uiErrorText = dlerror() ? std::string("UI load failed:\n") + dlerror() : "UI load failed";
             unloadUI();
             return false;
         }
         state.loadedAt = soAt;
         state.loadedPath = loadPath;
         state.failedAt = fs::file_time_type::min();
+        uiErrorText.clear();
         return true;
     };
 
@@ -141,8 +154,10 @@ bool Photon::reloadUI(){
     auto soAt = readTime(soPath);
     if ((soAt == fs::file_time_type::min() || sourceAt > soAt) && sourceAt != state.failedAt) {
         logs("Rebuilding UI: " << kBuildCommand);
-        if (std::system(kBuildCommand) != 0) {
+        if (std::system(kBuildCommand.c_str()) != 0) {
             state.failedAt = sourceAt;
+            uiErrorText = readText(buildLogPath);
+            if (uiErrorText.empty()) uiErrorText = "UI rebuild failed";
             logs("UI rebuild failed");
             return false;
         }
@@ -166,7 +181,11 @@ void Photon::appLogic(){
 #if defined(__linux__) && !defined(NDEBUG)
     if(!reloadUI()){
         ImGui::NewFrame();
-        ImGui::Text("UI Not Found...");
+        ImGui::TextUnformatted("UI Not Found...");
+        if(!uiErrorText.empty()){
+            ImGui::Separator();
+            ImGui::TextWrapped("%s", uiErrorText.c_str());
+        }
         ImGui::Render();
     };
 #else

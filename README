@@ -37,3 +37,21 @@ analysis & synthesis
 ┌ windows ───────────────┐
 │ > .\winBuild.ps1       │
 └────────────────────────┘
+
+build using cmake:
+
+mkdir .artifacts
+cd .artifacts
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j"$(nproc)" release
+./bin/Photon
+
+if compiled for debug (no "release" flag)
+
+enable tracy:
+
+make tracy
+
+disable tracy:
+
+make notracy

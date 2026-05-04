@@ -768,6 +768,7 @@ void GPU::createSwapchainResources(){
 
 void GPU::enableCustomTitlebar(TitleBar* titleBarState) {
     titleBar = titleBarState;
+    titleBar->window = window;
     if (window == NULL) return;
     SDL_SetWindowBordered(window, false);
     SDL_SetWindowHitTest(window, photonWindowHitTest, titleBar);
@@ -1101,7 +1102,7 @@ void GPU::imguiBackend(TitleBar* titleBar){
 
 void GPU::imguiPresentation(uint32_t imgIdx){
     VkClearValue clearValues[1];
-    clearValues[0].color = {{0.0f, 0.00f, 0.00f, 0.4f}};
+    clearValues[0].color = {{0.10f, 0.10f, 0.10f, 0.00f}};
     VkRenderPassBeginInfo renderPassBeginInfo {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass = renderpass;

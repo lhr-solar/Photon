@@ -1,5 +1,8 @@
 #pragma once
 #include "titlebar.hpp"
+#include "sideBar.hpp"
+#include "canvas.hpp"
+#include "tabs.hpp"
 #include "style.hpp"
 #include "../parse/spmc.hpp"
 #include "../network/network.hpp"
@@ -7,22 +10,25 @@
 
 struct GUI{
     void init(GPU& gpu);
+    void setTabs();
     void destroy();
     void setFont();
     void buildUI();
     void render();
-    void setStyle();
-    void showColors(colorScheme& colors);
-    void drawTest();
-    void animTextBox(std::string_view text, bool start);
-    void animLine(ImVec2 begin, ImVec2 end, bool start);
+    void settingsUI();
+    void updateUI();
 
     GPU* gpu;
+
     TitleBar titleBar{};
-    colorScheme colors = baseColors;
+    Sidebar sideBar{};
+    Tabs tabs{};
+    Canvas canvas{};
+    Style style{};
     SPMCQueue<NetworkCommand, 64> networkCommandBuffer{};
     struct {
         bool showGPUInfo = false;
+        bool showColorConfig = false;
     } flags;
 };
 

@@ -11,8 +11,10 @@ enum class WindowAction{
 };
 
 struct TitleBar{
-    int height = 32;
+    SDL_Window* window;
+    float height = 40;
     bool enabled = true;
+    bool showSidebar = true;
     int interactiveRectCount = 0;
     WindowAction pendingAction = WindowAction::None;
     static constexpr int buttonCount = 3;
@@ -20,4 +22,5 @@ struct TitleBar{
     void clearInteract();
     void addInteract(const ImVec2& min, const ImVec2& max);
     bool isInteract(int x, int y) const;
+    void draw();
 };

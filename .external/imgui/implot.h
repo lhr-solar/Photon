@@ -1314,6 +1314,8 @@ IMPLOT_API void PopPlotClipRect();
 IMPLOT_API bool ShowStyleSelector(const char* label);
 // Shows ImPlot colormap selector dropdown menu.
 IMPLOT_API bool ShowColormapSelector(const char* label);
+// Shows ImPlot custom colormap selector
+IMPLOT_API bool ShowCustomColormapSelector(const char* label);
 // Shows ImPlot input map selector dropdown menu.
 IMPLOT_API bool ShowInputMapSelector(const char* label);
 // Shows ImPlot style editor block (not a window).

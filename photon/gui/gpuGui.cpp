@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include <cstdio>
 #include <cinttypes>
+#include <iomanip>
 #include "gui.hpp"
 
 inline std::string fmtb(uint64_t b){
@@ -23,12 +24,13 @@ inline std::string fmth(uint64_t h){
 void gpuGUI::buildUI(GPU& gpu){
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos({0,0});
-    ImGui::SetNextWindowBgAlpha(0.0);
+    ImGui::SetNextWindowBgAlpha(0.5);
     ImGui::SetNextWindowSize(io.DisplaySize);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar;
     if(ImGui::Begin("GPU Info Window", nullptr, flags)){
         ImGui::Text("%s", gpu.deviceProperties.deviceName); ImGui::SameLine();
-        TextRightAligned("(%.1f, %.1f)", io.DisplaySize.x, io.DisplaySize.y);
+        float fSize = ImGui::GetFontSize();
+        TextRightAligned("%.1f : (%.1f, %.1f)", fSize, io.DisplaySize.x, io.DisplaySize.y);
         const auto& qFlags = VkQueueFlagsToString(gpu.deviceQueueFamilyProperties[gpu.queueFamilyIndex].queueFlags);
         for(const auto& s : qFlags){
             ImGui::Text("%s", s.c_str());

@@ -4985,6 +4985,34 @@ bool ShowColormapSelector(const char* label) {
     return set;
 }
 
+bool ShowCustomColormapSelector(const char* label){
+    ImPlotContext& gp = *GImPlot;
+    bool set = false;
+    const int count = gp.ColormapData.Count;
+    ImGui::PushID(label);
+    if (ImGui::ArrowButton("##prev", ImGuiDir_Left)) {
+        gp.Style.Colormap = (gp.Style.Colormap + count - 1) % count;
+        ImPlot::BustItemCache();
+        set = true;
+    }
+    ImGui::SameLine();
+    const ImU32* keys = gp.ColormapData.GetKeys(gp.Style.Colormap);
+    const int key_count = gp.ColormapData.GetKeyCount(gp.Style.Colormap);
+    ImVec2 size = ImVec2(225, ImGui::GetFrameHeight());
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(size);
+    RenderColorBar(keys, key_count, *ImGui::GetWindowDrawList(), ImRect(pos.x, pos.y, pos.x + size.x, pos.y + size.y), false, false, true);
+    ImGui::GetWindowDrawList()->AddRect(pos, ImVec2(pos.x + size.x, pos.y + size.y), ImGui::GetColorU32(ImGuiCol_Border));
+    ImGui::SameLine();
+    if (ImGui::ArrowButton("##next", ImGuiDir_Right)) {
+        gp.Style.Colormap = (gp.Style.Colormap + 1) % count;
+        ImPlot::BustItemCache();
+        set = true;
+    }
+    ImGui::PopID();
+    return set;
+};
+
 bool ShowInputMapSelector(const char* label) {
     static int map_idx = -1;
     if (ImGui::Combo(label, &map_idx, "Default\0Reversed\0"))
