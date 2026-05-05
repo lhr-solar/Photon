@@ -60,7 +60,7 @@ void TitleBar::draw(){
         draw->AddLine({p.x, p.y+(s*0.4f)}, {p.x + s, p.y+(s*0.4f)}, IM_COL32(255, 255, 255, 255), 1.0f);
         draw->AddLine({p.x, p.y+(s*0.8f)}, {p.x + s, p.y+(s*0.8f)}, IM_COL32(255, 255, 255, 255), 1.0f);
 
-        ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - buttonWidth * static_cast<float>(buttonCount), 0.0f));
+        ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - buttonWidth * static_cast<float>(3), 0.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, style.ItemSpacing.y));
 
         if (ImGui::Button("##minimize", ImVec2(buttonWidth, barHeight))) pendingAction = WindowAction::Minimize;

@@ -17,7 +17,7 @@ struct TitleBar{
     bool showSidebar = true;
     int interactiveRectCount = 0;
     WindowAction pendingAction = WindowAction::None;
-    static constexpr int buttonCount = 3;
+    static constexpr int buttonCount = 4;
     std::array<SDL_Rect, buttonCount> interactiveRects{};
     void clearInteract();
     void addInteract(const ImVec2& min, const ImVec2& max);

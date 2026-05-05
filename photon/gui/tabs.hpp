@@ -1,11 +1,12 @@
 #pragma once
 #include <vector>
-#include <functional>
 #include <string>
 #include "imgui.h"
 
+using TabFunction = void (*)(ImGuiWindowFlags);
+
 struct Tab{
-    std::function<void(ImGuiWindowFlags)> function = {};
+    TabFunction function = nullptr;
     std::string name = {};
 };
 

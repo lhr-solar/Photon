@@ -101,8 +101,6 @@ void GUI::buildUI(){
     titleBar.draw();
     sideBar.draw(*this);
     canvas.draw(titleBar, sideBar, tabs);
-    //style.colorUI();
-    //settingsUI();
 
     /* stateful UI building */
     ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu); 

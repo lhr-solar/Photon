@@ -9,10 +9,8 @@
 #include <fstream>
 #include <string>
 
-#if !defined(NDEBUG) && defined(__linux__)
+#if defined(__linux__) && !defined(NDEBUG)
 #include <dlfcn.h>
-#elif !defined(NDEBUG) && defined(_WIN32)
-#include <windows.h>
 #endif
 
 static std::string uiErrorText{};
@@ -43,7 +41,6 @@ void Photon::renderLoop(){
         gpu.startCommands();
 
         appLogic();
-        gui.render();
         gpu.imguiPresentation(imgIdx);
 
         gpu.endCommands();
@@ -84,19 +81,14 @@ void Photon::handleInput(){
 };
 
 bool Photon::reloadUI(){
-#if !defined(NDEBUG) && (defined(__linux__) || defined(_WIN32))
+#if defined(__linux__) && !defined(NDEBUG)
     namespace fs = std::filesystem;
     using BuildUI = bool (*)(GUI*);
     static const fs::path buildLogPath = fs::path(PHOTON_BUILD_DIR) / "photon_ui_build.log";
     static const std::string kBuildCommand =
         "cmake --build \"" PHOTON_BUILD_DIR "\" --target photonUI --parallel > \"" + buildLogPath.string() + "\" 2>&1";
-    #if defined(_WIN32)
-    using UiHandle = HMODULE;
-    #else
-    using UiHandle = void*;
-    #endif
     struct State {
-        UiHandle handle{};
+        void* handle{};
         BuildUI build{};
         fs::file_time_type loadedAt{};
         fs::file_time_type failedAt{};
@@ -128,11 +120,7 @@ bool Photon::reloadUI(){
         return latest;
     };
     const auto unloadUI = [&] {
-        #if defined(_WIN32)
-        if (state.handle) FreeLibrary(state.handle);
-        #else
         if (state.handle) dlclose(state.handle);
-        #endif
         if (!state.loadedPath.empty()) fs::remove(state.loadedPath);
         state = {};
     };
@@ -147,19 +135,10 @@ bool Photon::reloadUI(){
             return false;
         }
         logs("Loading UI: " << loadPath.string());
-        #if defined(_WIN32)
-        state.handle = LoadLibraryA(loadPath.string().c_str());
-        state.build = state.handle ? reinterpret_cast<BuildUI>(GetProcAddress(state.handle, "photonBuildUI")) : nullptr;
-        #else
         state.handle = dlopen(loadPath.c_str(), RTLD_NOW | RTLD_LOCAL);
         state.build = state.handle ? reinterpret_cast<BuildUI>(dlsym(state.handle, "photonBuildUI")) : nullptr;
-        #endif
         if (!state.build) {
-            #if defined(_WIN32)
-            uiErrorText = "UI load failed";
-            #else
             uiErrorText = dlerror() ? std::string("UI load failed:\n") + dlerror() : "UI load failed";
-            #endif
             unloadUI();
             return false;
         }
@@ -198,7 +177,7 @@ bool Photon::reloadUI(){
 void Photon::appLogic(){
     ZoneScopedN("Photon::appLogic");
     handleInput();
-#if !defined(NDEBUG) && (defined(__linux__) || defined(_WIN32))
+#if defined(__linux__) && !defined(NDEBUG)
     if(!reloadUI()){
         ImGui::NewFrame();
         ImGui::TextUnformatted("UI Not Found...");
