@@ -54,7 +54,7 @@ void TitleBar::draw(){
         addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
         ImVec2 min = ImGui::GetItemRectMin();
         ImVec2 max = ImGui::GetItemRectMax();
-        float s = 8.0f;
+        float s = max.x * 0.2f;
         ImVec2 p = ImVec2((min.x + max.x - s)*0.5f, (min.y + max.y - s) * 0.5f);
         draw->AddLine({p.x, p.y}, {p.x + s, p.y}, IM_COL32(255, 255, 255, 255), 1.0f);
         draw->AddLine({p.x, p.y+(s*0.4f)}, {p.x + s, p.y+(s*0.4f)}, IM_COL32(255, 255, 255, 255), 1.0f);
@@ -66,12 +66,12 @@ void TitleBar::draw(){
         if (ImGui::Button("##minimize", ImVec2(buttonWidth, barHeight))) pendingAction = WindowAction::Minimize;
         min = ImGui::GetItemRectMin();
         max = ImGui::GetItemRectMax();
-        s = 8.0f;
+        s = s;
         p = ImVec2((min.x + max.x - s) * 0.5f, (min.y + max.y - s) * 0.5f);
         draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, color, 2.0f);
         addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
-        s = 4.0f;
+        s = s / 2.0f;
         ImGui::SameLine();
         if (ImGui::Button("##maximize", ImVec2(buttonWidth, barHeight))) pendingAction = WindowAction::ToggleMaximize;
         min = ImGui::GetItemRectMin();
@@ -82,7 +82,7 @@ void TitleBar::draw(){
         draw->AddRect({p.x, p.y + s}, {p.x + 2.0f * s, p.y + 3.0f * s}, color);
         addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
-        s = 8.0f;
+        s = s * 2.0f;
         ImGui::SameLine();
         if (ImGui::Button("##exit", ImVec2(buttonWidth, barHeight))) pendingAction = WindowAction::Close;
         min = ImGui::GetItemRectMin();

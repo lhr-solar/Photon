@@ -899,7 +899,7 @@ void GPU::imguiBackend(TitleBar* titleBar){
     io.Fonts->AddFontFromMemoryTTF(
         (void*)Inter_28pt_Regular_ttf,
         static_cast<int>(Inter_28pt_Regular_ttf_size),
-        static_cast<float>(16.0f),
+        static_cast<float>(28.0f),
         &fontConfig);
     VkSamplerCreateInfo samplerCreateInfo {};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

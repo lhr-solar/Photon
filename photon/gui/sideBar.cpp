@@ -51,6 +51,7 @@ void Sidebar::draw(GUI &gui){
     ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
     if(ImGui::Begin("sideBar", NULL, windowFlags)){
+        ImDrawList* draw = ImGui::GetWindowDrawList();
         ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
         ImVec2 padding = ImGui::GetStyle().WindowPadding;
         ImVec4 tabSelectedColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
@@ -76,9 +77,12 @@ void Sidebar::draw(GUI &gui){
         if(ImGui::Button("Settings")) ImGui::OpenPopup("Settings");
         ImGui::SameLine();
         if(ImGui::Button("Update")) ImGui::OpenPopup("Update");
+        ImGui::SameLine();
+        if(ImGui::Button("Export")) ImGui::OpenPopup("Export");
         gui.style.colorUI();
         gui.settingsUI();
         gui.updateUI();
+        gui.exportUI();
 
         float resizeButtonWidth = 6.0f;
         ImGui::SetCursorPos({width - resizeButtonWidth, 0.0});

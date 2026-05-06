@@ -17,6 +17,7 @@ struct GUI{
     void render();
     void settingsUI();
     void updateUI();
+    void exportUI();
 
     GPU* gpu;
 
