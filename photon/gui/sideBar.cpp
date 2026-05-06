@@ -1,27 +1,55 @@
 #include "gui.hpp"
 #include "sideBar.hpp"
+#include "imgui_internal.h"
 #include "titlebar.hpp"
 #include "imgui.h"
-#include "im_anim.h"
 #include "tabs.hpp"
 #include "style.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+static ImTextureData* loadImguiTexture(const char* path) {
+    int w = 0, h = 0, comp = 0;
+    unsigned char* pixels = stbi_load(path, &w, &h, &comp, 4);
+    if (!pixels) return nullptr;
+    ImTextureData* tex = IM_NEW(ImTextureData)();
+    tex->Create(ImTextureFormat_RGBA32, w, h);
+    memcpy(tex->Pixels, pixels, w * h * 4);
+    tex->UseColors = true;
+
+    ImGui::RegisterUserTexture(tex);
+    stbi_image_free(pixels);
+    return tex;
+}
 
 void Sidebar::draw(GUI &gui){
+    static ImTextureData* bg = nullptr;
     auto& titleBar = gui.titleBar;
     auto& tabs = gui.tabs;
     ImVec2 winSize = ImGui::GetMainViewport()->Size;
     storedWidth = std::clamp(storedWidth, winSize.x * 0.05f, winSize.x * 0.5f);
-    width = iam_tween_float(
-        ImGui::GetID("sidebar"), 0, titleBar.showSidebar ? storedWidth : 0.0f, 0.10f,
-        iam_ease_preset(iam_ease_out_cubic), iam_policy_crossfade, ImGui::GetIO().DeltaTime
-    );
-    if(width <= 0.5f && !titleBar.showSidebar) { width = 0.0f; return; }
+    if(!titleBar.showSidebar) { width = 0.0f; return; }
+    width = storedWidth;
+    float sideBarHeight = winSize.y - (float)titleBar.height;
     ImVec2 pos = {0, (float)titleBar.height};
-    ImVec2 dim = {width, winSize.y - (float)titleBar.height};
+    ImVec2 dim = {width, sideBarHeight};
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNavFocus;
     ImGui::SetNextWindowPos(pos);
     ImGui::SetNextWindowSize(dim);
-    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNavFocus;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.1, 0.1});
+    if(ImGui::Begin("##pictureWindow", nullptr, windowFlags)){
+        if(!bg) bg = loadImguiTexture("/home/pablo/documents/Photon/assets/environments/background.jpg");
+        if(bg && bg->Status == ImTextureStatus_OK){
+            ImVec2 avail = ImGui::GetContentRegionAvail();
+            ImGui::Image(bg->GetTexRef(), winSize);
+        }
+    }; ImGui::End();
+    ImGui::PopStyleVar(1);
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
+    ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
     if(ImGui::Begin("sideBar", NULL, windowFlags)){
         ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
         ImVec2 padding = ImGui::GetStyle().WindowPadding;
@@ -36,15 +64,21 @@ void Sidebar::draw(GUI &gui){
             ImGui::PopStyleColor(1);
             ImGui::PopStyleVar();
         }
+        float buttonH = ImGui::GetFrameHeightWithSpacing();
+        ImVec2 framePadding = ImGui::GetStyle().FramePadding;
+        float spacingY = ImGui::GetStyle().ItemSpacing.y;
+        float rowH = buttonH + spacingY + framePadding.y;
+        pos = {framePadding.x, sideBarHeight - rowH};
+        ImGui::SetCursorPos(pos);
         ImGui::Separator();
-        if(ImGui::Button("Colors")) showingColors = !showingColors;
+        if(ImGui::Button("Theme")) ImGui::OpenPopup("Theme");
         ImGui::SameLine();
-        if(ImGui::Button("Settings")) showingSettings = !showingSettings;
+        if(ImGui::Button("Settings")) ImGui::OpenPopup("Settings");
         ImGui::SameLine();
-        if(ImGui::Button("Update")) showingUpdate = !showingUpdate;
-        if(showingColors) gui.style.colorUI();
-        if(showingSettings) gui.settingsUI();
-        if(showingUpdate) gui.updateUI();
+        if(ImGui::Button("Update")) ImGui::OpenPopup("Update");
+        gui.style.colorUI();
+        gui.settingsUI();
+        gui.updateUI();
 
         float resizeButtonWidth = 6.0f;
         ImGui::SetCursorPos({width - resizeButtonWidth, 0.0});
@@ -59,4 +93,5 @@ void Sidebar::draw(GUI &gui){
         if(ImGui::IsItemActive()) width = storedWidth = std::clamp(width + ImGui::GetIO().MouseDelta.x, winSize.x * 0.05f, winSize.x * 0.5f);
     } ImGui::End();
     ImGui::PopStyleVar(1);
+    ImGui::PopStyleColor(1);
 };

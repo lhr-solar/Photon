@@ -2421,7 +2421,25 @@ void GPU::configureTransparentWindow(){
 
 #else
 SDL_Window* GPU::createWindow(){
-    return SDL_CreateWindow("Photon", width, height, 
+    SDL_PropertiesID properties = SDL_CreateProperties();
+    if (properties != 0){
+        SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Photon");
+        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
+        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_TRANSPARENT_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN, true);
+        SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_MOUSE_GRABBED_BOOLEAN, false);
+        SDL_Window* created = SDL_CreateWindowWithProperties(properties);
+        SDL_DestroyProperties(properties);
+        if (created != NULL){
+            return created;
+        }
+    }
+    return SDL_CreateWindow("Photon", width, height,
         SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS |
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 }

@@ -1,5 +1,6 @@
 #include "im_anim.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "implot.h"
 #include "implot3d.h"
 #include "imnodes.h"
@@ -34,7 +35,8 @@ void GUI::setFont(){
 };
 
 void GUI::settingsUI(){
-    if(ImGui::Begin("boxes & lines")){
+    if(ImGui::BeginPopupModal("Settings")){
+        if(ImGui::Button("Exit")) ImGui::CloseCurrentPopup();
         bool val1 = ImGui::Button("button1");
         bool val2 = ImGui::Button("button2");
         ImGui::PushID(0); Widget::animTextBox("some text here", val1);  ImGui::PopID();
@@ -56,13 +58,20 @@ void GUI::settingsUI(){
                 IM_COL32(255,   0,   0, 255), IM_COL32(  0, 255,   0, 255), 
                 IM_COL32(  0,   0, 255, 255), IM_COL32(255, 255, 255, 255)
         );
-
-    }ImGui::End();
+        ImGui::EndPopup();
+    }
 };
 
 void GUI::updateUI(){
-
+    if(ImGui::BeginPopupModal("Update", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Are you sure?");
+        if(ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+        ImGui::SameLine();
+        if(ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+  }
 };
+
 void page1(ImGuiWindowFlags flags){
     std::vector<double> time = {1.0, 2.0, 3.0, 4.0, 5.0};
     std::vector<double> data = {2.0, 4.0, 3.0, 1.0, 2.0};
@@ -82,10 +91,17 @@ void page2(ImGuiWindowFlags flags){
     } ImGui::End();
 }
 
+void testFunc(ImGuiWindowFlags flags){
+    if(ImGui::Begin("test page", NULL, flags)){
+        ImGui::Text("wasldfkjasdlfkj");
+
+    } ImGui::End();
+};
 void GUI::setTabs(){
     tabs.list.clear();
     tabs.list.push_back(Tab{.function = page1, .name = "Page 1 Name"});
     tabs.list.push_back(Tab{.function = page2, .name = "Page 2 Name"});
+    tabs.list.push_back(Tab{.function = testFunc, .name = "test func page"});
 };
 
 void GUI::buildUI(){

@@ -143,7 +143,7 @@ void Style::setStyle(){
     colors[ImGuiCol_TextDisabled] = color3;
     colors[ImGuiCol_WindowBg] = {color7.x, color7.y, color7.z, 1.0};
     colors[ImGuiCol_ChildBg] = color7;
-    colors[ImGuiCol_PopupBg] = color4;
+    colors[ImGuiCol_PopupBg] = color7;
     colors[ImGuiCol_Border] = color5;
     colors[ImGuiCol_BorderShadow] = color7;
     colors[ImGuiCol_FrameBg] = color4;
@@ -193,8 +193,8 @@ void Style::setStyle(){
     colors[ImGuiCol_DragDropTarget] = color3;
     colors[ImGuiCol_NavHighlight] = color1;
     colors[ImGuiCol_NavWindowingHighlight] = color1;
-    colors[ImGuiCol_NavWindowingDimBg] = {color1.x, color1.y, color1.z, 0.2};
-    colors[ImGuiCol_ModalWindowDimBg] = color7;
+    colors[ImGuiCol_NavWindowingDimBg] = {color1.x, color1.y, color1.z, 0.2f};
+    colors[ImGuiCol_ModalWindowDimBg] = {color0.x, color0.y, color0.z, 0.0f};
 
     ImPlotStyle &plotStyle = ImPlot::GetStyle();
     colors = plotStyle.Colors;
@@ -348,7 +348,7 @@ void Style::colorUI() {
     auto color7 = colorScheme.color7;
     const ImVec4 cv[] = { color0, color1, color2, color3, color4, color5, color6, color7 };
 
-    if (ImGui::Begin("Theme")) {
+    if (ImGui::BeginPopupModal("Theme")) {
         constexpr float hueMax = 0.999f;
         constexpr float valueMin = 0.001f;
         constexpr float gap = 12.0f;
@@ -474,5 +474,7 @@ void Style::colorUI() {
             }
             ImPlot::EndPlot();
         }
-    } ImGui::End();
+        if(ImGui::Button("Exit")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
 }
