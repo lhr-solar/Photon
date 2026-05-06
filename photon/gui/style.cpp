@@ -461,11 +461,17 @@ void Style::colorUI() {
         }
         ImGui::Dummy({4.0f * paletteSize + 3.0f * gap, 2.0f * paletteSize + gap});
         ImGui::SeparatorText("Plots");
+        if (plotLineSpec.LineWeight < 1.0f) plotLineSpec.LineWeight = 1.0f;
+        if (ImGui::Button("-")) plotLineSpec.LineWeight = std::max(1.0f, plotLineSpec.LineWeight - 1.0f);
+        ImGui::SameLine();
+        ImGui::Text("%.0f", plotLineSpec.LineWeight);
+        ImGui::SameLine();
+        if (ImGui::Button("+")) plotLineSpec.LineWeight += 1.0f;
+        ImGui::SameLine();
         ImPlot::ShowCustomColormapSelector("##ImPlotColormap");
         std::vector<double> time = {0, 5};
         std::vector<double> points = {0, 2};
-        plotLineSpec.LineWeight = 4.0f;
-        if(ImPlot::BeginPlot("##colorPalletePlot")){
+        if(ImPlot::BeginPlot("##colorPalletePlot", {}, ImPlotFlags_NoInputs)){
             for(int i{0uz}; i < 10; i++){
                 char buf[10];
                 snprintf(buf, sizeof(buf), "##Color %i", i);

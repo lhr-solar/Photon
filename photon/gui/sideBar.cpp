@@ -26,7 +26,6 @@ static ImTextureData* loadImguiTexture(const unsigned char* data, std::size_t si
 }
 
 void Sidebar::draw(GUI &gui){
-    static ImTextureData* bg = nullptr;
     auto& titleBar = gui.titleBar;
     auto& tabs = gui.tabs;
     ImVec2 winSize = ImGui::GetMainViewport()->Size;
@@ -41,10 +40,10 @@ void Sidebar::draw(GUI &gui){
     ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.1, 0.1});
     if(ImGui::Begin("##pictureWindow", nullptr, windowFlags)){
-        if(!bg) bg = loadImguiTexture(background_jpg, background_jpg_size);
-        if(bg && bg->Status == ImTextureStatus_OK){
+        if(!backgroundTexture) backgroundTexture = loadImguiTexture(background_jpg, background_jpg_size);
+        if(backgroundTexture && backgroundTexture->Status == ImTextureStatus_OK){
             ImVec2 avail = ImGui::GetContentRegionAvail();
-            ImGui::Image(bg->GetTexRef(), winSize);
+            ImGui::Image(backgroundTexture->GetTexRef(), winSize);
         }
     }; ImGui::End();
     ImGui::PopStyleVar(1);
@@ -52,7 +51,7 @@ void Sidebar::draw(GUI &gui){
     ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
     ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.55});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
     if(ImGui::Begin("sideBar", NULL, windowFlags)){
         ImDrawList* draw = ImGui::GetWindowDrawList();
         ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);

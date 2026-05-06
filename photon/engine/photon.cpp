@@ -88,6 +88,7 @@ bool Photon::reloadUI(){
 #if !defined(NDEBUG) && (defined(__linux__) || defined(_WIN32))
     namespace fs = std::filesystem;
     using BuildUI = bool (*)(GUI*);
+    using DestroyUI = void (*)(GUI*);
     #if defined(_WIN32)
     using ModuleHandle = HMODULE;
     #else
@@ -99,6 +100,7 @@ bool Photon::reloadUI(){
     struct State {
         ModuleHandle handle{};
         BuildUI build{};
+        DestroyUI destroy{};
         fs::file_time_type loadedAt{};
         fs::file_time_type failedAt{};
         fs::path loadedPath{};
@@ -150,6 +152,7 @@ bool Photon::reloadUI(){
         return latest;
     };
     const auto unloadUI = [&] {
+        if (state.destroy) state.destroy(&gui);
         if (state.handle) {
 #if defined(_WIN32)
             FreeLibrary(state.handle);
@@ -177,9 +180,11 @@ bool Photon::reloadUI(){
         #if defined(_WIN32)
         state.handle = LoadLibraryW(loadPath.c_str());
         state.build = state.handle ? reinterpret_cast<BuildUI>(GetProcAddress(state.handle, "photonBuildUI")) : nullptr;
+        state.destroy = state.handle ? reinterpret_cast<DestroyUI>(GetProcAddress(state.handle, "photonDestroyUI")) : nullptr;
         #else
         state.handle = dlopen(loadPath.c_str(), RTLD_NOW | RTLD_LOCAL);
         state.build = state.handle ? reinterpret_cast<BuildUI>(dlsym(state.handle, "photonBuildUI")) : nullptr;
+        state.destroy = state.handle ? reinterpret_cast<DestroyUI>(dlsym(state.handle, "photonDestroyUI")) : nullptr;
         #endif
         if (!state.build) {
             #if defined(_WIN32)

@@ -22,6 +22,11 @@ void GUI::render(){
 };
 
 void GUI::destroy(){
+    if (sideBar.backgroundTexture) {
+        ImGui::UnregisterUserTexture(sideBar.backgroundTexture);
+        sideBar.backgroundTexture->SetStatus(ImTextureStatus_WantDestroy);
+        sideBar.backgroundTexture = nullptr;
+    }
 };
 
 void GUI::setFont(){
@@ -176,6 +181,7 @@ void GUI::buildUI(){
     ImGui::NewFrame();
     iam_update_begin_frame();
     iam_clip_update(ImGui::GetIO().DeltaTime);
+    ImGui::Button("asdlfkkjasdfkljas");
 
     /* Per-Frame UI building */
     titleBar.draw();
