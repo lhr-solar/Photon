@@ -11,7 +11,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-static ImTextureData* loadImguiTexture(const unsigned char* data, std::size_t size) {
+ImTextureData* loadImguiTexture(const unsigned char* data, std::size_t size) {
     int w = 0, h = 0, comp = 0;
     unsigned char* pixels = stbi_load_from_memory(data, static_cast<int>(size), &w, &h, &comp, 4);
     if (!pixels) return nullptr;

@@ -181,7 +181,6 @@ void GUI::buildUI(){
     ImGui::NewFrame();
     iam_update_begin_frame();
     iam_clip_update(ImGui::GetIO().DeltaTime);
-    ImGui::Button("asdlfkkjasdfkljas");
 
     /* Per-Frame UI building */
     titleBar.draw();
