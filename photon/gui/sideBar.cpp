@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "gui.hpp"
 #include "sideBar.hpp"
 #include "imgui_internal.h"
@@ -5,12 +7,13 @@
 #include "imgui.h"
 #include "tabs.hpp"
 #include "style.hpp"
+#include "background_jpg.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-static ImTextureData* loadImguiTexture(const char* path) {
+static ImTextureData* loadImguiTexture(const unsigned char* data, std::size_t size) {
     int w = 0, h = 0, comp = 0;
-    unsigned char* pixels = stbi_load(path, &w, &h, &comp, 4);
+    unsigned char* pixels = stbi_load_from_memory(data, static_cast<int>(size), &w, &h, &comp, 4);
     if (!pixels) return nullptr;
     ImTextureData* tex = IM_NEW(ImTextureData)();
     tex->Create(ImTextureFormat_RGBA32, w, h);
@@ -38,7 +41,7 @@ void Sidebar::draw(GUI &gui){
     ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.1, 0.1});
     if(ImGui::Begin("##pictureWindow", nullptr, windowFlags)){
-        if(!bg) bg = loadImguiTexture("/home/pablo/documents/Photon/assets/environments/background.jpg");
+        if(!bg) bg = loadImguiTexture(background_jpg, background_jpg_size);
         if(bg && bg->Status == ImTextureStatus_OK){
             ImVec2 avail = ImGui::GetContentRegionAvail();
             ImGui::Image(bg->GetTexRef(), winSize);
@@ -49,7 +52,7 @@ void Sidebar::draw(GUI &gui){
     ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
     ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.55});
     if(ImGui::Begin("sideBar", NULL, windowFlags)){
         ImDrawList* draw = ImGui::GetWindowDrawList();
         ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);

@@ -1404,7 +1404,7 @@ static void ShowUsecase_SkeletonLoading()
 			for (int j = 0; j < 3; j++)
 			{
 				float offset = j * shimmer_width * 0.3f;
-				float alpha = 0.15f * (1.0f - fabsf(j - 1) * 0.5f);
+				float alpha = 0.15f * (1.0f - (float)ImAbs(j - 1) * 0.5f);
 				dl->AddRectFilledMultiColor(
 					ImVec2(shimmer_x + offset, elem_pos.y),
 					ImVec2(shimmer_x + offset + shimmer_width * 0.3f, elem_pos.y + elem_size.y),

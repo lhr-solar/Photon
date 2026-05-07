@@ -20,7 +20,21 @@ project(Photon VERSION 1.0 LANGUAGES C CXX)
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/find")
 
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    message(FATAL_ERROR "Photon requires clang. Configure with CC=clang CXX=clang++.")
+    if(WIN32)
+        message(FATAL_ERROR
+            "Photon requires clang.\n"
+            "\n"
+            "On Windows, configure a fresh build directory with clang explicitly selected, for example:\n"
+            "  cmake -S . -B .artifacts -G Ninja -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++\n"
+        )
+    else()
+        message(FATAL_ERROR
+            "Photon requires clang.\n"
+            "\n"
+            "Configure a fresh build directory with clang explicitly selected, for example:\n"
+            "  cmake -S . -B build -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++"
+        )
+    endif()
 endif()
 
 set(CMAKE_CXX_STANDARD 23)
@@ -161,14 +175,39 @@ else()
 endif()
 
 if(WIN32)
-    find_library(Vulkan_LIBRARY NAMES vulkan-1 vulkan PATHS "${CMAKE_SOURCE_DIR}/libs/vulkan")
+    set(_photon_vulkan_hints
+        "${VULKAN_SDK}"
+        "$ENV{VULKAN_SDK}"
+        "$ENV{VK_SDK_PATH}"
+        "${CMAKE_SOURCE_DIR}/libs/vulkan"
+    )
+    find_library(Vulkan_LIBRARY
+        NAMES vulkan-1 vulkan
+        HINTS ${_photon_vulkan_hints}
+        PATH_SUFFIXES Lib lib
+    )
 else()
     find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/libs/vulkan" REQUIRED)
     find_package(XCB REQUIRED)
 endif()
 
 if(NOT Vulkan_LIBRARY)
-    message(FATAL_ERROR "Could not find Vulkan.")
+    if(WIN32)
+        message(FATAL_ERROR
+            "Could not find Vulkan.\n"
+            "\n"
+            "Checked these Windows Vulkan SDK locations:\n"
+            "  VULKAN_SDK='${VULKAN_SDK}'\n"
+            "  ENV{VULKAN_SDK}='$ENV{VULKAN_SDK}'\n"
+            "  ENV{VK_SDK_PATH}='$ENV{VK_SDK_PATH}'\n"
+            "  '${CMAKE_SOURCE_DIR}/libs/vulkan'\n"
+            "\n"
+            "Expected to find vulkan-1.lib under a Lib directory, for example:\n"
+            "  C:/VulkanSDK/<version>/Lib/vulkan-1.lib"
+        )
+    else()
+        message(FATAL_ERROR "Could not find Vulkan.")
+    endif()
 endif()
 
 message(STATUS "${Vulkan_LIBRARY}")
@@ -201,5 +240,6 @@ add_custom_target(notracy
 add_subdirectory(assets/kernels)
 add_subdirectory(assets/fonts)
 add_subdirectory(assets/dbc)
+add_subdirectory(assets/environments)
 add_subdirectory(assets/models)
 add_subdirectory(photon)
