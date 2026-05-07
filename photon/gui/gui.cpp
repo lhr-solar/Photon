@@ -13,10 +13,13 @@
 #include "box_frag_spv.hpp"
 #include "bits_frag_spv.hpp"
 #include "custom_shader_vert_spv.hpp"
+#include "config.hpp"
 
 void GUI::init(GPU& gpu){
-    style.setStyle();
     this->gpu = &gpu;
+    GuiSettings::regster(&settings);
+
+    style.setStyle(settings);
     setTabs();
     testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)box_frag_spv, box_frag_spv_size);
 }
@@ -38,9 +41,16 @@ void GUI::destroy(){
 void GUI::setFont(){
     bool incFlag = false;
     bool decFlag = false;
-    float size = ImGui::GetStyle().FontSizeBase;
-    auto incSize = [&]() -> void{ ImGui::GetStyle().FontSizeBase = size + 1.0f; };
-    auto decSize = [&]() -> void{ ImGui::GetStyle().FontSizeBase = size > 1.0f ? size - 1.0f : 1.0f; };
+    settings.fontSize = ImGui::GetStyle().FontSizeBase;
+    auto incSize = [&]() -> void{
+        settings.fontSize += 1.0f; ImGui::GetStyle().FontSizeBase = settings.fontSize;
+        ImGui::MarkIniSettingsDirty();
+    };
+    auto decSize = [&]() -> void{
+        settings.fontSize = settings.fontSize > 1.0f ?  settings.fontSize - 1.0f : 1.0f; 
+        ImGui::GetStyle().FontSizeBase = settings.fontSize;
+        ImGui::MarkIniSettingsDirty();
+    };
     ifKey(ImGuiKey_Equal, incFlag, incSize);
     ifKey(ImGuiKey_Minus, decFlag, decSize);
 };
@@ -159,7 +169,7 @@ void GUI::setTabs(){
 
 void GUI::buildUI(){
     /* Per-Frame state updates */
-    style.setStyle();
+    style.setStyle(settings);
     setFont();
     setTabs();
     ImGui::NewFrame();

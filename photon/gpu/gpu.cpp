@@ -886,7 +886,6 @@ void GPU::imguiBackend(TitleBar* titleBar){
     ImPlot3D::CreateContext();
     ImNodes::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-    io.IniFilename = nullptr;
     io.ConfigFlags  |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags  |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigDpiScaleFonts = true;

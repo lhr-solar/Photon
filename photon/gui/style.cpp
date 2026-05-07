@@ -103,8 +103,9 @@ std::array<float, 3> seedToHsv(ImVec4 seed) {
     return {seedToHueBase(seed), saturation, maxv};
 }
 
-void Style::setStyle(){
+void Style::setStyle(GuiSettings& settings){
     ImGuiStyle &style = ImGui::GetStyle();
+    style.FontSizeBase = settings.fontSize;
     style.Alpha = 1.0f;
     style.DisabledAlpha = 0.55f;
     style.TabRounding = 0.0f;

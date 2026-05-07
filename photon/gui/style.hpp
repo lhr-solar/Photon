@@ -1,6 +1,7 @@
 #pragma once
 #include "imgui.h"
 #include "implot.h"
+#include "config.hpp"
 struct ColorScheme {
     ImVec4 color0{};
     ImVec4 color1{};
@@ -41,7 +42,7 @@ struct Style{
         dark, light, custom
     } selectedColor = dark;
     ImPlotSpec plotLineSpec{};
-    void setStyle();
+    void setStyle(GuiSettings& settings);
     void colorUI();
     ColorScheme genColors(ImVec4 seed);
 };
