@@ -8,6 +8,7 @@ if (WIN32)
     file(GLOB imgui_runtime_src CONFIGURE_DEPENDS "../../.external/imgui/*.cpp" "../../.external/imgui/backends/*.cpp")
 
     add_library(imgui_runtime SHARED ${imgui_runtime_src})
+    set_target_properties(imgui_runtime PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
     target_include_directories(imgui_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     target_link_libraries(imgui_runtime PUBLIC ${PHOTON_SDL_TARGET})
 
