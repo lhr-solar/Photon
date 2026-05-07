@@ -10,15 +10,21 @@
 #include "widget.hpp"
 #include "../gpu/shader.hpp"
 #include <vector>
-
+#include "box_frag_spv.hpp"
+#include "bits_frag_spv.hpp"
+#include "custom_shader_vert_spv.hpp"
 
 void GUI::init(GPU& gpu){
     style.setStyle();
     this->gpu = &gpu;
     setTabs();
+    testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)box_frag_spv, box_frag_spv_size);
 }
 
 void GUI::render(){
+    if (!testShader.initialized.load() && testShader.partInitialized.load())
+        testShader.finishInit(*gpu);
+    if(testShader.showing) testShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
 };
 
 void GUI::destroy(){
@@ -79,11 +85,42 @@ void page1(ImGuiWindowFlags flags){
     } ImGui::End();
 };
 
+VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
+    if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) return fallback;
+    const uint32_t width = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.x)));
+    const uint32_t height = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.y)));
+    return {width, height};
+}
+
 void page2(ImGuiWindowFlags flags){
     if(ImGui::Begin("Page 2", NULL, flags)){
-        ImGui::Text("some stuff on page 2");
     } ImGui::End();
 }
+
+void GUI::shaderTest(){
+    testShader.showing = false;
+    if(ImGui::Begin("shader test")){
+        const bool ready = testShader.initialized.load()
+        && !testShader.frames.empty()
+        && testShader.frameIndex != nullptr;
+        shaderFrame fallbackFrame{};
+        shaderFrame& frame = ready ? testShader.frames[*testShader.frameIndex] : fallbackFrame;
+        if(ready){
+            const VkExtent2D nextExtent = quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+            if(nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+                frame.extent = nextExtent;
+                testShader.dirty = true;
+            }
+            ImVec2 drawSize(frame.extent.width, frame.extent.height);
+            drawSize.x = std::max(drawSize.x, 1.0f);
+            drawSize.y = std::max(drawSize.y, 1.0f);
+            if(ImGui::IsRectVisible(drawSize)){
+                testShader.showing = true;
+                ImGui::Image(frame.texture, drawSize); 
+            } else {ImGui::Dummy(drawSize);};
+        } else ImGui::Text("loading shader");
+    } ImGui::End();
+};
 
 void testFunc(ImGuiWindowFlags flags){
     if(ImGui::Begin("test page", NULL, flags)){
@@ -110,59 +147,6 @@ void testFunc(ImGuiWindowFlags flags){
                 IM_COL32(  0,   0, 255, 255), IM_COL32(255, 255, 255, 255)
         );
         ImGui::NewLine(); ImGui::NewLine();
-        ImGui::Text("bacon egg and cheese cheese cheese");
-        p = ImGui::GetCursorScreenPos();
-        draw->AddLine({p.x + s * 0.5f, p.y}, {p.x + s * 0.5f, p.y + s * 0.8f}, IM_COL32(255, 255, 255, 255));
-        draw->AddLine({p.x , p.y + s * 0.4f}, {p.x + s * 0.5f, p.y + s * 0.8f}, IM_COL32(255, 255, 255, 255));
-        draw->AddLine({p.x + s * 0.5f, p.y + s * 0.8f}, {p.x + s, p.y + s * 0.4f}, IM_COL32(255, 255, 255, 255));
-        draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, IM_COL32(255, 255, 255, 255));
-        ImGui::NewLine(); ImGui::NewLine();
-        ImGui::Text("yo yo yo yo yo yo yo yo cheese cheese cheese cheese");
-        p = ImGui::GetCursorScreenPos();
-        ImVec2 c = ImVec2(p.x + s * 0.5f, p.y + s * 0.5f);
-        float r = s * 0.5f;
-        ImU32 fg = IM_COL32(255, 255, 255, 255);
-        ImU32 bg = ImGui::GetColorU32(ImGuiCol_WindowBg);
-        draw->AddCircleFilled(c, r, fg);
-        draw->AddRectFilled(
-            ImVec2(c.x, c.y - r),
-            ImVec2(c.x + r, c.y + r),
-            bg
-        );
-        draw->AddCircle(c, r, fg);
-        ImGui::NewLine(); ImGui::NewLine();
-        ImGui::Text("cog below!");
-        p = ImGui::GetCursorScreenPos();
-        // here bro...
-        p = ImGui::GetCursorScreenPos();
-        c = ImVec2(p.x + s * 0.5f, p.y + s * 0.5f);
-        float r0 = s * 0.14f;
-        float r1 = s * 0.18f;
-        float toothLen = s * 0.10f;
-        float toothW = s * 0.08f;
-        fg = IM_COL32(255, 255, 255, 255);
-        bg = ImGui::GetColorU32(ImGuiCol_WindowBg);
-
-        for (int i = 0; i < 8; ++i) {
-            float a = i * (IAM_PI * 0.25f);
-            ImVec2 d = ImVec2(cosf(a), sinf(a));
-            ImVec2 t = ImVec2(-d.y, d.x);
-            ImVec2 m = ImVec2(c.x + d.x * (r1 + toothLen * 0.5f), c.y + d.y * (r1 + toothLen * 0.5f));
-            draw->AddQuadFilled(
-              ImVec2(m.x - d.x * toothLen * 0.5f - t.x * toothW * 0.5f, m.y - d.y * toothLen * 0.5f - t.y * toothW * 0.5f),
-              ImVec2(m.x + d.x * toothLen * 0.5f - t.x * toothW * 0.5f, m.y + d.y * toothLen * 0.5f - t.y * toothW * 0.5f),
-              ImVec2(m.x + d.x * toothLen * 0.5f + t.x * toothW * 0.5f, m.y + d.y * toothLen * 0.5f + t.y * toothW * 0.5f),
-              ImVec2(m.x - d.x * toothLen * 0.5f + t.x * toothW * 0.5f, m.y - d.y * toothLen * 0.5f + t.y * toothW * 0.5f),
-              fg
-            );
-        }
-
-        draw->AddCircleFilled(c, r1, fg);
-        draw->AddCircleFilled(c, r0, bg);
-        draw->AddCircle(c, r1, fg);
-        draw->AddCircle(c, r0, fg);
-        ImGui::NewLine(); ImGui::NewLine();
-        ImGui::Text("ewww");
     } ImGui::End();
 };
 
@@ -186,8 +170,10 @@ void GUI::buildUI(){
     titleBar.draw();
     sideBar.draw(*this);
     canvas.draw(titleBar, sideBar, tabs);
+    shaderTest();
 
     /* stateful UI building */
     ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu); 
     ImGui::Render();
+    render();
 };

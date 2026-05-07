@@ -23,6 +23,7 @@
 #include "ui_frag_spv.hpp"
 #include "ui_vert_spv.hpp"
 #include "Inter_28pt_Regular_ttf.hpp"
+#include "MaterialIcons_Regular_ttf.hpp"
 #include "imgui.h"
 #include "implot3d.h"
 #include "imnodes.h"
@@ -891,7 +892,7 @@ void GPU::imguiBackend(TitleBar* titleBar){
     io.ConfigDpiScaleFonts = true;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
-    io.IniFilename = nullptr;
+    io.IniFilename = "config.ini";
     updateImguiDisplayMetrics();
 
     ImFontConfig fontConfig;
@@ -901,6 +902,20 @@ void GPU::imguiBackend(TitleBar* titleBar){
         static_cast<int>(Inter_28pt_Regular_ttf_size),
         static_cast<float>(28.0f),
         &fontConfig);
+    static constexpr ImWchar materialIconRanges[] = {
+        0xE000, 0xF8FF,
+        0,
+    };
+    ImFontConfig symbolFontConfig;
+    symbolFontConfig.FontDataOwnedByAtlas = false;
+    symbolFontConfig.MergeMode = true;
+    symbolFontConfig.PixelSnapH = true;
+    io.Fonts->AddFontFromMemoryTTF(
+        (void*)MaterialIcons_Regular_ttf,
+        static_cast<int>(MaterialIcons_Regular_ttf_size),
+        static_cast<float>(28.0f),
+        &symbolFontConfig,
+        materialIconRanges);
     VkSamplerCreateInfo samplerCreateInfo {};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerCreateInfo.maxAnisotropy = 1.0f;

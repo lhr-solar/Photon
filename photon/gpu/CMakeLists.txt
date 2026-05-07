@@ -5,7 +5,6 @@ target_include_directories(gpu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY
 target_link_libraries(gpu
     PUBLIC
     ${PHOTON_SDL_TARGET}
-    gui
     KernelHeaders
     KernelAssets
     FontHeaders

@@ -7,6 +7,7 @@
 #include "../parse/spmc.hpp"
 #include "../network/network.hpp"
 #include "../gpu/gpu.hpp"
+#include "../gpu/shader.hpp"
 
 struct GUI{
     void init(GPU& gpu);
@@ -19,6 +20,8 @@ struct GUI{
     void updateUI();
     void exportUI();
 
+    void shaderTest();
+
     GPU* gpu;
 
     TitleBar titleBar{};
@@ -27,9 +30,9 @@ struct GUI{
     Canvas canvas{};
     Style style{};
     SPMCQueue<NetworkCommand, 64> networkCommandBuffer{};
+    Shader testShader{};
     struct {
         bool showGPUInfo = false;
-        bool showColorConfig = false;
     } flags;
 };
 

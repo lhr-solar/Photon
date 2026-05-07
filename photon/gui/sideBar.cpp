@@ -51,7 +51,7 @@ void Sidebar::draw(GUI &gui){
     ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
     ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.45});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.97});
     if(ImGui::Begin("sideBar", NULL, windowFlags)){
         ImDrawList* draw = ImGui::GetWindowDrawList();
         ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
@@ -67,6 +67,7 @@ void Sidebar::draw(GUI &gui){
             ImGui::PopStyleColor(1);
             ImGui::PopStyleVar();
         }
+        float buttonW = (width - padding.x*2.0f - ImGui::GetStyle().ItemSpacing.x * 4.0f ) * 0.25f;
         float buttonH = ImGui::GetFrameHeightWithSpacing();
         ImVec2 framePadding = ImGui::GetStyle().FramePadding;
         float spacingY = ImGui::GetStyle().ItemSpacing.y;
@@ -74,13 +75,13 @@ void Sidebar::draw(GUI &gui){
         pos = {framePadding.x, sideBarHeight - rowH};
         ImGui::SetCursorPos(pos);
         ImGui::Separator();
-        if(ImGui::Button("Theme")) ImGui::OpenPopup("Theme");
+        if(ImGui::Button("\uE518##Theme", {buttonW, buttonH})) ImGui::OpenPopup("Theme");
         ImGui::SameLine();
-        if(ImGui::Button("Settings")) ImGui::OpenPopup("Settings");
+        if(ImGui::Button("\uE8B8##Settings", {buttonW, buttonH})) ImGui::OpenPopup("Settings");
         ImGui::SameLine();
-        if(ImGui::Button("Update")) ImGui::OpenPopup("Update");
+        if(ImGui::Button("\uE8D7##Update", {buttonW, buttonH})) ImGui::OpenPopup("Update");
         ImGui::SameLine();
-        if(ImGui::Button("Export")) ImGui::OpenPopup("Export");
+        if(ImGui::Button("\uE89E##Export", {buttonW, buttonH})) ImGui::OpenPopup("Export");
         gui.style.colorUI();
         gui.settingsUI();
         gui.updateUI();

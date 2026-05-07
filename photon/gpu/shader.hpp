@@ -42,6 +42,7 @@ struct Shader{
     PushConstants pc{};
     uint32_t fif{};
     uint32_t* frameIndex{};
+    bool showing = false;
 
     void init(GPU& gpu, uint32_t* vertexShader, size_t vertexShaderSize,
     uint32_t* fragmentShader, size_t fragmentShaderSize);
