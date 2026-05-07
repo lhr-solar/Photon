@@ -51,7 +51,7 @@ void Sidebar::draw(GUI &gui){
     ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
     ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.45});
     if(ImGui::Begin("sideBar", NULL, windowFlags)){
         ImDrawList* draw = ImGui::GetWindowDrawList();
         ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
