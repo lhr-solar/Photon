@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <random>
-#include <vector>
 
 float mixf(float min, float max, float t) {
     return min + (max - min) * t;
@@ -472,15 +471,6 @@ ColorScheme GuiSettings::genColors(ImVec4 seed){
 
 void GuiSettings::colorUI() {
     bool dirty = false;
-    auto color0 = colorScheme.color0;
-    auto color1 = colorScheme.color1;
-    auto color2 = colorScheme.color2;
-    auto color3 = colorScheme.color3;
-    auto color4 = colorScheme.color4;
-    auto color5 = colorScheme.color5;
-    auto color6 = colorScheme.color6;
-    auto color7 = colorScheme.color7;
-    const ImVec4 cv[] = { color0, color1, color2, color3, color4, color5, color6, color7 };
 
     auto io = ImGui::GetIO();
     auto displaySize = io.DisplaySize;
@@ -488,42 +478,47 @@ void GuiSettings::colorUI() {
     ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
     ImGui::SetNextWindowSize(winSize);
     ImGui::SetNextWindowPos(winPos);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
-    if (ImGui::BeginPopupModal("Theme", NULL, flags)) {
-        float hueMax = 0.999f;
-        float valueMin = 0.001f;
-        float gap = 12.0f;
-        float barWidth = 18.0f;
-        float rounding = 6.0f;
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
+    if (ImGui::BeginPopupModal("Theme", nullptr, flags)) {
+        const float hueMax = 0.999f;
+        const float valueMin = 0.001f;
+        const float rounding = 6.0f;
         float hue = 0.0f;
         float saturation = 0.0f;
         float value = 0.0f;
-        ImVec2 framePad = ImGui::GetStyle().FramePadding;
-        ImVec2 winPad = ImGui::GetStyle().WindowPadding;
+        ImGuiStyle& style = ImGui::GetStyle();
+        ImVec2 framePad = style.FramePadding;
+        float contentStartX = ImGui::GetCursorPosX();
+        float contentWidth = ImGui::GetContentRegionAvail().x;
+        float gap = style.ItemSpacing.x;
+        float barWidth = std::clamp(contentWidth * 0.025f, 12.0f, 24.0f);
         float buttonWidth = std::max({
             ImGui::CalcTextSize("Default").x,
             ImGui::CalcTextSize("Light").x,
             ImGui::CalcTextSize("Custom").x
         }) + framePad.x * 2.0f;
-        float contentWidth = winSize.x - (winPad.x * 2.0f + framePad.x * 2.0f);
         float buttonHeight = ImGui::GetFrameHeight();
         ImGui::SeparatorText("UI");
-        if(ImGui::Button("Default", {buttonWidth, buttonHeight})) { selectedColor = dark; dirty = true; } ImGui::SameLine();
-        if(ImGui::Button("Light", {buttonWidth, buttonHeight})) { selectedColor = light; dirty = true; } ImGui::SameLine();
-        if(ImGui::Button("Custom", {buttonWidth, buttonHeight})) { selectedColor = custom; dirty = true; }
-        if(selectedColor == dark) colorScheme = baseColors;
-        if(selectedColor == light) colorScheme = lightMode;
-        if(selectedColor == custom) colorScheme = genColors(colorSeed);
+        if(ImGui::Button("Default", {buttonWidth, buttonHeight})) { selectedColor = dark; colorScheme = baseColors; dirty = true; } ImGui::SameLine();
+        if(ImGui::Button("Light", {buttonWidth, buttonHeight})) { selectedColor = light; colorScheme = lightMode; dirty = true; } ImGui::SameLine();
+        if(ImGui::Button("Custom", {buttonWidth, buttonHeight})) { selectedColor = custom; colorScheme = genColors(colorSeed); dirty = true; }
         ImGui::ColorConvertRGBtoHSV(colorSeed.x, colorSeed.y, colorSeed.z, hue, saturation, value);
         ImDrawList* draw = ImGui::GetWindowDrawList();
+        float closeReserve = style.ItemSpacing.y + buttonHeight;
+        float plotReserve = ImGui::GetTextLineHeightWithSpacing() + buttonHeight + style.ItemSpacing.y;
+        float flexibleHeight = std::max(1.0f, ImGui::GetContentRegionAvail().y - closeReserve - plotReserve);
+        float desiredPickerSize = flexibleHeight * 0.45f;
+        float widthLimitedPickerSize = (contentWidth - 2.0f * barWidth - 4.0f * gap) / 3.0f;
+        float size = std::max(1.0f, std::min(desiredPickerSize, widthLimitedPickerSize));
+        float paletteSize = std::max(1.0f, (size - gap) * 0.5f);
         ImVec2 p = ImGui::GetCursorScreenPos();
-        float size = contentWidth*0.25;
-        float paletteSize = contentWidth * 0.10;
         ImGui::InvisibleButton("##HueValueField", {size, size});
-        if(ImGui::IsItemActive() || ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left)){
+        bool seedEdited = false;
+        if(ImGui::IsItemActive() || (ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left))){
             ImVec2 m = ImGui::GetIO().MousePos;
             hue = std::clamp((m.x - p.x) / size, 0.0f, hueMax);
             value = std::clamp(1.0f - (m.y - p.y) / size, valueMin, 1.0f);
+            seedEdited = true;
             dirty = true;
         }
         const ImU32 hues[] = {
@@ -550,9 +545,10 @@ void GuiSettings::colorUI() {
         ImGui::SameLine(0.0f, gap);
         ImVec2 huePos = ImGui::GetCursorScreenPos();
         ImGui::InvisibleButton("##HueBar", {barWidth, size});
-        if(ImGui::IsItemActive() || ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left)){
+        if(ImGui::IsItemActive() || (ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left))){
             ImVec2 m = ImGui::GetIO().MousePos;
             hue = std::clamp((m.y - huePos.y) / size, 0.0f, hueMax);
+            seedEdited = true;
             dirty = true;
         }
         for(int i = 0; i < 6; ++i){
@@ -572,9 +568,10 @@ void GuiSettings::colorUI() {
         ImGui::SameLine(0.0f, gap);
         ImVec2 valuePos = ImGui::GetCursorScreenPos();
         ImGui::InvisibleButton("##ValueBar", {barWidth, size});
-        if(ImGui::IsItemActive() || ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left)){
+        if(ImGui::IsItemActive() || (ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left))){
             ImVec2 m = ImGui::GetIO().MousePos;
             value = std::clamp(1.0f - (m.y - valuePos.y) / size, valueMin, 1.0f);
+            seedEdited = true;
             dirty = true;
         }
         float vr = 0.0f;
@@ -594,6 +591,14 @@ void GuiSettings::colorUI() {
         );
 
         ImGui::ColorConvertHSVtoRGB(hue, 1.0f, value, colorSeed.x, colorSeed.y, colorSeed.z);
+        if (seedEdited) {
+            selectedColor = custom;
+            colorScheme = genColors(colorSeed);
+        }
+        const ImVec4 cv[] = {
+            colorScheme.color0, colorScheme.color1, colorScheme.color2, colorScheme.color3,
+            colorScheme.color4, colorScheme.color5, colorScheme.color6, colorScheme.color7
+        };
         ImGui::SameLine(0.0f, gap);
         ImVec2 palettePos = ImGui::GetCursorScreenPos();
         for (int i = 0; i < 8; ++i) {
@@ -618,23 +623,27 @@ void GuiSettings::colorUI() {
             plotColormap = ImPlot::GetStyle().Colormap;
             dirty = true;
         }
-        std::vector<double> time = {0, 5};
-        std::vector<double> points = {0, 2};
-        if(ImPlot::BeginPlot("##colorPalletePlot", {contentWidth, winSize.y * 0.25f}, ImPlotFlags_NoInputs)){
+        std::array<double, 2> time = {0.0, 5.0};
+        std::array<double, 2> points = {0.0, 2.0};
+        float plotHeight = std::max(1.0f, ImGui::GetContentRegionAvail().y - closeReserve);
+        if(ImPlot::BeginPlot("##colorPalletePlot", {contentWidth, plotHeight}, ImPlotFlags_NoInputs)){
             for(int i{0}; i < 10; i++){
                 char buf[10];
                 snprintf(buf, sizeof(buf), "##Color %i", i);
-                ImPlot::PlotLine((const char*)buf, time.data(), points.data(), points.size(), plotLineSpec);
+                ImPlot::PlotLine((const char*)buf, time.data(), points.data(), static_cast<int>(points.size()), plotLineSpec);
                 points[1] += 2;
             }
             ImPlot::EndPlot();
         }
-        float closeHeight = ImGui::GetCursorPosY();
         const char* label = "Close";
-        float closeWidth = ImGui::CalcTextSize(label).x;
-        ImGui::SetCursorPos({contentWidth - closeWidth, closeHeight});
+        float closeWidth = ImGui::CalcTextSize(label).x + framePad.x * 2.0f;
+        float closeHeight = std::max(
+            ImGui::GetCursorPosY(),
+            ImGui::GetCursorPosY() + ImGui::GetContentRegionAvail().y - buttonHeight
+        );
+        ImGui::SetCursorPos({contentStartX + contentWidth - closeWidth, closeHeight});
         if (dirty) ImGui::MarkIniSettingsDirty();
-        if(ImGui::Button("Close")) ImGui::CloseCurrentPopup();
+        if(ImGui::Button(label, {closeWidth, buttonHeight})) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 }
