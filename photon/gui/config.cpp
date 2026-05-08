@@ -110,6 +110,10 @@ void GuiSettings::readLineFn(ImGuiContext*, ImGuiSettingsHandler*, void* entry, 
         settings->selectedColor = static_cast<GuiSettings::SelectedColorMode>(i0);
         return;
     }
+    if (sscanf(line, "PlotColormap=%d", &i0) == 1) {
+        settings->plotColormap = static_cast<ImPlotColormap>(i0);
+        return;
+    }
     if (sscanf(line, "PlotFlags=%u", &u0) == 1) {
         settings->plotLineSpec.Flags = static_cast<ImPlotItemFlags>(u0);
         return;
@@ -199,6 +203,7 @@ void GuiSettings::writeAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, I
     out_buf->append("\n");
 
     out_buf->appendf("[Photon][Plot]\n");
+    out_buf->appendf("PlotColormap=%d\n", static_cast<int>(settings->plotColormap));
     out_buf->appendf("LineColor=%.6f,%.6f,%.6f,%.6f\n",
         settings->plotLineSpec.LineColor.x, settings->plotLineSpec.LineColor.y,
         settings->plotLineSpec.LineColor.z, settings->plotLineSpec.LineColor.w);
@@ -347,6 +352,7 @@ void GuiSettings::setStyle(){
     colors[ImPlotCol_AxisBgActive] = color3;
     colors[ImPlotCol_Selection] = color1;
     colors[ImPlotCol_Crosshairs] = color1;
+    plotStyle.Colormap = plotColormap;
 
     ImPlot3DStyle &tplotStyle = ImPlot3D::GetStyle();
     colors = tplotStyle.Colors;
@@ -599,7 +605,10 @@ void GuiSettings::colorUI() {
         ImGui::SameLine();
         if (ImGui::Button("+")) { plotLineSpec.LineWeight += 1.0f; dirty = true; }
         ImGui::SameLine();
-        dirty = ImPlot::ShowCustomColormapSelector("##ImPlotColormap") || dirty;
+        if (ImPlot::ShowCustomColormapSelector("##ImPlotColormap")) {
+            plotColormap = ImPlot::GetStyle().Colormap;
+            dirty = true;
+        }
         std::vector<double> time = {0, 5};
         std::vector<double> points = {0, 2};
         if(ImPlot::BeginPlot("##colorPalletePlot", {}, ImPlotFlags_NoInputs)){

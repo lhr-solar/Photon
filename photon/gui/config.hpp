@@ -44,6 +44,7 @@ struct GuiSettings{
     ColorScheme colorScheme = baseColors;
     SelectedColorMode selectedColor = dark;
     ImPlotSpec plotLineSpec{};
+    ImPlotColormap plotColormap = ImPlotColormap_Deep;
 
     static GuiSettings* get(ImGuiContext* ctx, ImGuiSettingsHandler*);
     static void* readOpenFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name);

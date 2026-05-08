@@ -11,7 +11,9 @@
 #include "../gpu/shader.hpp"
 #include <vector>
 #include "box_frag_spv.hpp"
+#include "nucleus_frag_spv.hpp"
 #include "bits_frag_spv.hpp"
+#include "lens_frag_spv.hpp"
 #include "custom_shader_vert_spv.hpp"
 #include "config.hpp"
 
@@ -20,7 +22,8 @@ void GUI::init(GPU& gpu){
     GuiSettings::regster(&settings);
     settings.setStyle();
     setTabs();
-    testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)box_frag_spv, box_frag_spv_size);
+    testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)nucleus_frag_spv, nucleus_frag_spv_size);
+    //testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)lens_frag_spv, lens_frag_spv_size);
 }
 
 void GUI::render(){
