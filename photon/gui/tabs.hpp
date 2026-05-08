@@ -3,14 +3,17 @@
 #include <string>
 #include "imgui.h"
 
-using TabFunction = void (*)(ImGuiWindowFlags);
+template <typename Owner>
+using TabFunction = void (Owner::*)(ImGuiWindowFlags);
 
+template <typename Owner>
 struct Tab{
-    TabFunction function = nullptr;
+    TabFunction<Owner> function = nullptr;
     std::string name = {};
 };
 
+template <typename Owner>
 struct Tabs{
     int index = 0;
-    std::vector<Tab> list{};
+    std::vector<Tab<Owner>> list{};
 };

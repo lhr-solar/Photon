@@ -229,6 +229,7 @@ void GuiSettings::writeAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, I
 void GuiSettings::regster(GuiSettings* settings){
     ImGuiIO& io = ImGui::GetIO();
     io.UserData = settings;
+    if (ImGui::FindSettingsHandler("Photon")) return;
 
     ImGuiSettingsHandler handler;
     handler.TypeName = "Photon";

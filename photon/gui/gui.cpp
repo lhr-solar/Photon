@@ -29,7 +29,7 @@ void GUI::init(GPU& gpu){
 void GUI::render(){
     if (!testShader.initialized.load() && testShader.partInitialized.load())
         testShader.finishInit(*gpu);
-    if(testShader.showing) testShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
+    if(testShader.showing) {testShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]); testShader.showing = false;}
 };
 
 void GUI::destroy(){
@@ -85,11 +85,11 @@ void GUI::exportUI(){
     }
 };
 
-void page1(ImGuiWindowFlags flags){
+void GUI::plotTest(ImGuiWindowFlags flags){
     std::vector<double> time = {1.0, 2.0, 3.0, 4.0, 5.0};
     std::vector<double> data = {2.0, 4.0, 3.0, 1.0, 2.0};
     ImPlotSpec spec{};
-    spec.LineWeight = 4.0f;
+    spec = this->settings.plotLineSpec;
     if(ImGui::Begin("Page 1", NULL, flags)){
         ImGui::Text("some stuff on page 1");
         if(ImPlot::BeginPlot("some plot")){
@@ -105,14 +105,9 @@ VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
     return {width, height};
 }
 
-void page2(ImGuiWindowFlags flags){
-    if(ImGui::Begin("Page 2", NULL, flags)){
-    } ImGui::End();
-}
-
-void GUI::shaderTest(){
+void GUI::shaderTest(ImGuiWindowFlags flags){
     testShader.showing = false;
-    if(ImGui::Begin("shader test")){
+    if(ImGui::Begin("shader test", nullptr, flags)){
         const bool ready = testShader.initialized.load()
         && !testShader.frames.empty()
         && testShader.frameIndex != nullptr;
@@ -135,7 +130,7 @@ void GUI::shaderTest(){
     } ImGui::End();
 };
 
-void testFunc(ImGuiWindowFlags flags){
+void GUI::testFunc(ImGuiWindowFlags flags){
     if(ImGui::Begin("test page", NULL, flags)){
         ImGui::Text("wasldfkjasdlfkj");
         bool val1 = ImGui::Button("button1");
@@ -165,9 +160,11 @@ void testFunc(ImGuiWindowFlags flags){
 
 void GUI::setTabs(){
     tabs.list.clear();
-    tabs.list.push_back(Tab{.function = page1, .name = "Page 1 Name"});
-    tabs.list.push_back(Tab{.function = page2, .name = "Page 2 Name"});
-    tabs.list.push_back(Tab{.function = testFunc, .name = "test func page"});
+    //tabs.list.push_back(Tab{.function = page1, .name = "Page 1 Name"});
+    //tabs.list.push_back(Tab{.function = page2, .name = "Page 2 Name"});
+    tabs.list.push_back(Tab<GUI>{.function = &GUI::shaderTest, .name = "shader test"});
+    tabs.list.push_back(Tab<GUI>{.function = &GUI::testFunc,   .name = "draw test"});
+    tabs.list.push_back(Tab<GUI>{.function = &GUI::plotTest,   .name = "plot test"});
 };
 
 void GUI::buildUI(){
@@ -182,8 +179,8 @@ void GUI::buildUI(){
     /* Per-Frame UI building */
     titleBar.draw();
     sideBar.draw(*this);
-    canvas.draw(titleBar, sideBar, tabs);
-    shaderTest();
+    canvas.draw(*this, titleBar, sideBar, tabs);
+    //shaderTest();
 
     /* stateful UI building */
     ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu); 

@@ -20,13 +20,15 @@ struct GUI{
     void updateUI();
     void exportUI();
 
-    void shaderTest();
+    void shaderTest(ImGuiWindowFlags flags);
+    void testFunc(ImGuiWindowFlags flags);
+    void plotTest(ImGuiWindowFlags flags);
 
     GPU* gpu;
 
     TitleBar titleBar{};
     Sidebar sideBar{};
-    Tabs tabs{};
+    Tabs<GUI> tabs{};
     Canvas canvas{};
     SPMCQueue<NetworkCommand, 64> networkCommandBuffer{};
     Shader testShader{};
