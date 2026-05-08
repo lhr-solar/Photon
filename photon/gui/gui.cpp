@@ -18,8 +18,7 @@
 void GUI::init(GPU& gpu){
     this->gpu = &gpu;
     GuiSettings::regster(&settings);
-
-    style.setStyle(settings);
+    settings.setStyle();
     setTabs();
     testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size, (uint32_t*)box_frag_spv, box_frag_spv_size);
 }
@@ -36,12 +35,12 @@ void GUI::destroy(){
         sideBar.backgroundTexture->SetStatus(ImTextureStatus_WantDestroy);
         sideBar.backgroundTexture = nullptr;
     }
+    testShader.destroy();
 };
 
 void GUI::setFont(){
     bool incFlag = false;
     bool decFlag = false;
-    settings.fontSize = ImGui::GetStyle().FontSizeBase;
     auto incSize = [&]() -> void{
         settings.fontSize += 1.0f; ImGui::GetStyle().FontSizeBase = settings.fontSize;
         ImGui::MarkIniSettingsDirty();
@@ -169,7 +168,7 @@ void GUI::setTabs(){
 
 void GUI::buildUI(){
     /* Per-Frame state updates */
-    style.setStyle(settings);
+    settings.setStyle();
     setFont();
     setTabs();
     ImGui::NewFrame();

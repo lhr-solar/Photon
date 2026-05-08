@@ -6,7 +6,6 @@
 #include "titlebar.hpp"
 #include "imgui.h"
 #include "tabs.hpp"
-#include "style.hpp"
 #include "background_jpg.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -82,7 +81,7 @@ void Sidebar::draw(GUI &gui){
         if(ImGui::Button("\uE8D7##Update", {buttonW, buttonH})) ImGui::OpenPopup("Update");
         ImGui::SameLine();
         if(ImGui::Button("\uE89E##Export", {buttonW, buttonH})) ImGui::OpenPopup("Export");
-        gui.style.colorUI();
+        gui.settings.colorUI();
         gui.settingsUI();
         gui.updateUI();
         gui.exportUI();

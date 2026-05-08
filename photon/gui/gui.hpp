@@ -3,7 +3,6 @@
 #include "sideBar.hpp"
 #include "canvas.hpp"
 #include "tabs.hpp"
-#include "style.hpp"
 #include "config.hpp"
 #include "../parse/spmc.hpp"
 #include "../network/network.hpp"
@@ -29,7 +28,6 @@ struct GUI{
     Sidebar sideBar{};
     Tabs tabs{};
     Canvas canvas{};
-    Style style{};
     SPMCQueue<NetworkCommand, 64> networkCommandBuffer{};
     Shader testShader{};
     GuiSettings settings{};
