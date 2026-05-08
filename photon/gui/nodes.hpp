@@ -1,4 +1,4 @@
 #pragma once
-struct Nodes{
-    static void demo();
+struct Nodes {
+  static void demo();
 };

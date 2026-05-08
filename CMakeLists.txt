@@ -50,6 +50,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 
+find_program(CLANG_FORMAT_EXE NAMES clang-format REQUIRED)
+
+file(GLOB_RECURSE PHOTON_FORMAT_FILES
+    CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/photon/*.c"
+    "${CMAKE_SOURCE_DIR}/photon/*.cc"
+    "${CMAKE_SOURCE_DIR}/photon/*.cpp"
+    "${CMAKE_SOURCE_DIR}/photon/*.cxx"
+    "${CMAKE_SOURCE_DIR}/photon/*.h"
+    "${CMAKE_SOURCE_DIR}/photon/*.hpp"
+)
+
+add_custom_target(format
+    COMMAND "${CLANG_FORMAT_EXE}" -i ${PHOTON_FORMAT_FILES}
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Formatting Photon source files"
+    VERBATIM
+)
+
+add_custom_target(format-check
+    COMMAND "${CLANG_FORMAT_EXE}" --dry-run --Werror ${PHOTON_FORMAT_FILES}
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Checking Photon source formatting"
+    VERBATIM
+)
+
 include(ProcessorCount)
 ProcessorCount(PHOTON_BUILD_JOBS)
 if(NOT PHOTON_BUILD_JOBS)

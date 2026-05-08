@@ -1,9 +1,9 @@
 #pragma once
 #include <atomic>
 
-template<class T, uint32_t CNT>
+template <class T, uint32_t CNT>
 class SPMCQueue {
-public:
+ public:
   static_assert(CNT && !(CNT & (CNT - 1)), "CNT must be a power of 2");
   struct Reader {
     operator bool() const { return q; }
@@ -32,14 +32,14 @@ public:
     return reader;
   }
 
-  template<typename Writer>
+  template <typename Writer>
   void write(Writer writer) {
     auto& blk = blks[++write_idx % CNT];
     writer(blk.data);
     ((std::atomic<uint32_t>*)&blk.idx)->store(write_idx, std::memory_order_release);
   }
 
-private:
+ private:
   friend struct Reader;
   struct alignas(64) Block {
     uint32_t idx = 0;

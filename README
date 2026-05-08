@@ -65,3 +65,6 @@ cmake --build .artifacts -j20
 
 check for dependencies:
 llvm-readobj.exe --needed-libs .artifacts\bin\Photon.exe
+
+format:
+cmake --build .artifacts --target format

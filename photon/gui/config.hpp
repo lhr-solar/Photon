@@ -4,14 +4,14 @@
 #include "implot.h"
 
 struct ColorScheme {
-    ImVec4 color0{};
-    ImVec4 color1{};
-    ImVec4 color2{};
-    ImVec4 color3{};
-    ImVec4 color4{};
-    ImVec4 color5{};
-    ImVec4 color6{};
-    ImVec4 color7{};
+  ImVec4 color0{};
+  ImVec4 color1{};
+  ImVec4 color2{};
+  ImVec4 color3{};
+  ImVec4 color4{};
+  ImVec4 color5{};
+  ImVec4 color6{};
+  ImVec4 color7{};
 };
 
 inline constexpr ColorScheme baseColors = {
@@ -36,28 +36,29 @@ inline constexpr ColorScheme lightMode = {
     .color7{0.91f, 0.92f, 0.93f, 1.00f},
 };
 
-struct GuiSettings{
-    enum SelectedColorMode { dark, light, custom };
+struct GuiSettings {
+  enum SelectedColorMode { dark, light, custom };
 
-    float fontSize = 28.0f;
-    ImVec4 colorSeed = ImVec4{0.0f, 0.5f, 0.5f, 1.0f};
-    ColorScheme colorScheme = baseColors;
-    SelectedColorMode selectedColor = dark;
-    ImPlotSpec plotLineSpec{};
-    ImPlotColormap plotColormap = ImPlotColormap_Deep;
+  float fontSize = 28.0f;
+  ImVec4 colorSeed = ImVec4{0.0f, 0.5f, 0.5f, 1.0f};
+  ColorScheme colorScheme = baseColors;
+  SelectedColorMode selectedColor = dark;
+  ImPlotSpec plotLineSpec{};
+  ImPlotColormap plotColormap = ImPlotColormap_Deep;
 
-    static GuiSettings* get(ImGuiContext* ctx, ImGuiSettingsHandler*);
-    static void* readOpenFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name);
-    static void readLineFn(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line);
-    static void applyAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler);
-    static void writeAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out_buf);
-    static void regster(GuiSettings* settings);
+  static GuiSettings* get(ImGuiContext* ctx, ImGuiSettingsHandler*);
+  static void* readOpenFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name);
+  static void readLineFn(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line);
+  static void applyAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler);
+  static void writeAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler,
+                         ImGuiTextBuffer* out_buf);
+  static void regster(GuiSettings* settings);
 
-    void setStyle();
-    void colorUI();
-    ColorScheme genColors(ImVec4 seed);
+  void setStyle();
+  void colorUI();
+  ColorScheme genColors(ImVec4 seed);
 };
 
-struct GuiFlags{
-    bool showGPUInfo = false;
+struct GuiFlags {
+  bool showGPUInfo = false;
 };

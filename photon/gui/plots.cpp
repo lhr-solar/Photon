@@ -1,4 +1,4 @@
 #include "plots.hpp"
-void Plots::demo(){
+void Plots::demo() {
 
 };
