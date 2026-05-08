@@ -482,6 +482,10 @@ void GuiSettings::colorUI() {
     auto color7 = colorScheme.color7;
     const ImVec4 cv[] = { color0, color1, color2, color3, color4, color5, color6, color7 };
 
+    ImVec2 size = {};
+    ImVec2 pos = {};
+    ImGui::SetNextWindowSize(size);
+    ImGui::SetNextWindowPos(pos);
     if (ImGui::BeginPopupModal("Theme")) {
         constexpr float hueMax = 0.999f;
         constexpr float valueMin = 0.001f;

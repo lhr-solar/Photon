@@ -58,7 +58,8 @@ void GUI::setFont(){
 };
 
 void GUI::settingsUI(){
-    if(ImGui::BeginPopupModal("Settings")){
+    ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    if(ImGui::BeginPopupModal("Settings", NULL, flags)){
         if(ImGui::Button("Exit")) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }

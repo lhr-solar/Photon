@@ -34,7 +34,7 @@ void Sidebar::draw(GUI &gui){
     float sideBarHeight = winSize.y - (float)titleBar.height;
     ImVec2 pos = {0, (float)titleBar.height};
     ImVec2 dim = {width, sideBarHeight};
-    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNavFocus;
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoDocking;
     ImGui::SetNextWindowPos(pos);
     ImGui::SetNextWindowSize(dim);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.1, 0.1});
