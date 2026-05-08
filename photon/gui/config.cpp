@@ -482,38 +482,43 @@ void GuiSettings::colorUI() {
     auto color7 = colorScheme.color7;
     const ImVec4 cv[] = { color0, color1, color2, color3, color4, color5, color6, color7 };
 
-    ImVec2 size = {};
-    ImVec2 pos = {};
-    ImGui::SetNextWindowSize(size);
-    ImGui::SetNextWindowPos(pos);
-    if (ImGui::BeginPopupModal("Theme")) {
-        constexpr float hueMax = 0.999f;
-        constexpr float valueMin = 0.001f;
-        constexpr float gap = 12.0f;
-        constexpr float barWidth = 18.0f;
-        constexpr float paletteSize = 72.0f;
-        constexpr float rounding = 6.0f;
-        ImGui::SeparatorText("UI");
-        const ImVec2 pad = ImGui::GetStyle().FramePadding;
-        const float buttonWidth = std::max({
+    auto io = ImGui::GetIO();
+    auto displaySize = io.DisplaySize;
+    ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
+    ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
+    ImGui::SetNextWindowSize(winSize);
+    ImGui::SetNextWindowPos(winPos);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
+    if (ImGui::BeginPopupModal("Theme", NULL, flags)) {
+        float hueMax = 0.999f;
+        float valueMin = 0.001f;
+        float gap = 12.0f;
+        float barWidth = 18.0f;
+        float rounding = 6.0f;
+        float hue = 0.0f;
+        float saturation = 0.0f;
+        float value = 0.0f;
+        ImVec2 framePad = ImGui::GetStyle().FramePadding;
+        ImVec2 winPad = ImGui::GetStyle().WindowPadding;
+        float buttonWidth = std::max({
             ImGui::CalcTextSize("Default").x,
             ImGui::CalcTextSize("Light").x,
             ImGui::CalcTextSize("Custom").x
-        }) + pad.x * 2.0f;
-        const float buttonHeight = ImGui::GetFrameHeight();
+        }) + framePad.x * 2.0f;
+        float contentWidth = winSize.x - (winPad.x * 2.0f + framePad.x * 2.0f);
+        float buttonHeight = ImGui::GetFrameHeight();
+        ImGui::SeparatorText("UI");
         if(ImGui::Button("Default", {buttonWidth, buttonHeight})) { selectedColor = dark; dirty = true; } ImGui::SameLine();
         if(ImGui::Button("Light", {buttonWidth, buttonHeight})) { selectedColor = light; dirty = true; } ImGui::SameLine();
         if(ImGui::Button("Custom", {buttonWidth, buttonHeight})) { selectedColor = custom; dirty = true; }
         if(selectedColor == dark) colorScheme = baseColors;
         if(selectedColor == light) colorScheme = lightMode;
         if(selectedColor == custom) colorScheme = genColors(colorSeed);
-        float hue = 0.0f;
-        float saturation = 0.0f;
-        float value = 0.0f;
         ImGui::ColorConvertRGBtoHSV(colorSeed.x, colorSeed.y, colorSeed.z, hue, saturation, value);
         ImDrawList* draw = ImGui::GetWindowDrawList();
         ImVec2 p = ImGui::GetCursorScreenPos();
-        float size = 180.0f;
+        float size = contentWidth*0.25;
+        float paletteSize = contentWidth * 0.10;
         ImGui::InvisibleButton("##HueValueField", {size, size});
         if(ImGui::IsItemActive() || ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left)){
             ImVec2 m = ImGui::GetIO().MousePos;
@@ -615,7 +620,7 @@ void GuiSettings::colorUI() {
         }
         std::vector<double> time = {0, 5};
         std::vector<double> points = {0, 2};
-        if(ImPlot::BeginPlot("##colorPalletePlot", {}, ImPlotFlags_NoInputs)){
+        if(ImPlot::BeginPlot("##colorPalletePlot", {contentWidth, winSize.y * 0.25f}, ImPlotFlags_NoInputs)){
             for(int i{0}; i < 10; i++){
                 char buf[10];
                 snprintf(buf, sizeof(buf), "##Color %i", i);
@@ -624,8 +629,12 @@ void GuiSettings::colorUI() {
             }
             ImPlot::EndPlot();
         }
+        float closeHeight = ImGui::GetCursorPosY();
+        const char* label = "Close";
+        float closeWidth = ImGui::CalcTextSize(label).x;
+        ImGui::SetCursorPos({contentWidth - closeWidth, closeHeight});
         if (dirty) ImGui::MarkIniSettingsDirty();
-        if(ImGui::Button("Exit")) ImGui::CloseCurrentPopup();
+        if(ImGui::Button("Close")) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 }
