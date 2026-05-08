@@ -26,7 +26,7 @@ void Photon::init(){
     logs("Initialized ImGui");
     parse.init();
     logs("Initialized Arena");
-    gui.init(gpu);
+    gui.init(gpu, parse.arena);
     logs("Initialized GUI");
     network.init(&parse, &gui.networkCommandBuffer);
     logs("Initialized Network");

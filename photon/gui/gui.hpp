@@ -8,9 +8,10 @@
 #include "../network/network.hpp"
 #include "../gpu/gpu.hpp"
 #include "../gpu/shader.hpp"
+#include "../parse/arena.hpp"
 
 struct GUI{
-    void init(GPU& gpu);
+    void init(GPU& gpu, Arena& arena);
     void setTabs();
     void destroy();
     void setFont();
@@ -25,10 +26,11 @@ struct GUI{
     void plotTest(ImGuiWindowFlags flags);
 
     GPU* gpu;
+    Arena* arena;
 
     TitleBar titleBar{};
     Sidebar sideBar{};
-    Tabs<GUI> tabs{};
+    Tabs tabs{};
     Canvas canvas{};
     SPMCQueue<NetworkCommand, 64> networkCommandBuffer{};
     Shader testShader{};

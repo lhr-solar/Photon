@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "imgui.h"
 
 constexpr uint32_t PAGE_SIZE = 4096;
 constexpr uint32_t MESSAGE_MAX = 2048;
@@ -86,5 +87,5 @@ struct Arena{
     std::vector<size_t> search(const std::string& query);
 
     void status();
-    void statusUI();
+    void statusUI(ImGuiWindowFlags flags);
 };

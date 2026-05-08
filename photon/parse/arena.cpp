@@ -78,8 +78,8 @@ void Arena::status(){
     }
 };
 
-void Arena::statusUI(){
-    if(ImGui::Begin("Arena Status", nullptr, ImGuiWindowFlags_NoTitleBar)){
+void Arena::statusUI(ImGuiWindowFlags flags){
+    if(ImGui::Begin("Arena Status", nullptr, flags)){
         auto plotCell = [](const std::vector<float>& values, const char* id){
             if(values.empty()) return;
             ImGui::PlotLines(id, values.data(), static_cast<int>(values.size()), 0, nullptr,

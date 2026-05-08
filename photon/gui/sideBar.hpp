@@ -2,7 +2,6 @@
 struct GUI;
 struct TitleBar;
 struct Canvas;
-template <typename Owner>
 struct Tabs;
 struct ImTextureData;
 

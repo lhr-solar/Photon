@@ -17,8 +17,9 @@
 #include "custom_shader_vert_spv.hpp"
 #include "config.hpp"
 
-void GUI::init(GPU& gpu){
+void GUI::init(GPU& gpu, Arena& arena){
     this->gpu = &gpu;
+    this->arena = &arena;
     GuiSettings::regster(&settings);
     settings.setStyle();
     setTabs();
@@ -162,9 +163,10 @@ void GUI::setTabs(){
     tabs.list.clear();
     //tabs.list.push_back(Tab{.function = page1, .name = "Page 1 Name"});
     //tabs.list.push_back(Tab{.function = page2, .name = "Page 2 Name"});
-    tabs.list.push_back(Tab<GUI>{.function = &GUI::shaderTest, .name = "shader test"});
-    tabs.list.push_back(Tab<GUI>{.function = &GUI::testFunc,   .name = "draw test"});
-    tabs.list.push_back(Tab<GUI>{.function = &GUI::plotTest,   .name = "plot test"});
+    tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "shader test"));
+    tabs.list.push_back(Tab::bind<GUI, &GUI::testFunc>(*this, "draw test"));
+    tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "plot test"));
+    if(arena) tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "arena ui"));
 };
 
 void GUI::buildUI(){
@@ -179,7 +181,7 @@ void GUI::buildUI(){
     /* Per-Frame UI building */
     titleBar.draw();
     sideBar.draw(*this);
-    canvas.draw(*this, titleBar, sideBar, tabs);
+    canvas.draw(titleBar, sideBar, tabs);
     //shaderTest();
 
     /* stateful UI building */

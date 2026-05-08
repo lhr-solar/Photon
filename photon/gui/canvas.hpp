@@ -8,8 +8,7 @@
 struct Canvas{
     float width = 0.0f;
 
-    template <typename Owner>
-    void draw(Owner& owner, TitleBar& titleBar, Sidebar& sideBar, Tabs<Owner>& tabs) {
+    void draw(TitleBar& titleBar, Sidebar& sideBar, Tabs& tabs) {
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImVec2 viewportSize = viewport->Size;
         constexpr float splitterWidth = 3.0f;
@@ -20,8 +19,8 @@ struct Canvas{
         ImGui::SetNextWindowPos(canvasPos);
         ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 0));
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDecoration;
-        if(!tabs.list.empty() && tabs.index < tabs.list.size() && tabs.list[tabs.index].function)
-            (owner.*tabs.list[tabs.index].function)(flags);
+        if(!tabs.list.empty() && tabs.index < tabs.list.size())
+            tabs.list[tabs.index].draw(flags);
         ImGui::PopStyleColor();
     }
 };

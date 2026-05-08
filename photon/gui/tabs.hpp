@@ -1,19 +1,37 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <utility>
 #include "imgui.h"
 
-template <typename Owner>
-using TabFunction = void (Owner::*)(ImGuiWindowFlags);
-
-template <typename Owner>
 struct Tab{
-    TabFunction<Owner> function = nullptr;
+    using InvokeFunction = void (*)(void*, ImGuiWindowFlags);
+
+    void* owner = nullptr;
+    InvokeFunction function = nullptr;
     std::string name = {};
+
+    template <typename Owner, void (Owner::*Function)(ImGuiWindowFlags)>
+    static Tab bind(Owner& owner, std::string name) {
+        return Tab{
+            .owner = &owner,
+            .function = &invoke<Owner, Function>,
+            .name = std::move(name)
+        };
+    }
+
+    void draw(ImGuiWindowFlags flags) const {
+        if (owner && function) function(owner, flags);
+    }
+
+private:
+    template <typename Owner, void (Owner::*Function)(ImGuiWindowFlags)>
+    static void invoke(void* owner, ImGuiWindowFlags flags) {
+        (static_cast<Owner*>(owner)->*Function)(flags);
+    }
 };
 
-template <typename Owner>
 struct Tabs{
     int index = 0;
-    std::vector<Tab<Owner>> list{};
+    std::vector<Tab> list{};
 };
