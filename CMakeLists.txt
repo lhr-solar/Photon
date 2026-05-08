@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 
+if(POLICY CMP0091)
+    cmake_policy(SET CMP0091 NEW)
+endif()
+
 if(NOT DEFINED CMAKE_BUILD_TYPE AND NOT DEFINED CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release)
@@ -13,6 +17,10 @@ endif()
 
 if(NOT DEFINED CMAKE_CXX_COMPILER)
     find_program(CMAKE_CXX_COMPILER clang++ REQUIRED)
+endif()
+
+if(WIN32)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:DebugDLL>")
 endif()
 
 project(Photon VERSION 1.0 LANGUAGES C CXX)

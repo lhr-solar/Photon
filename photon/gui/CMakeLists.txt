@@ -7,9 +7,26 @@ if (WIN32)
 
     file(GLOB imgui_runtime_src CONFIGURE_DEPENDS "../../.external/imgui/*.cpp" "../../.external/imgui/backends/*.cpp")
 
-    add_library(imgui_runtime SHARED ${imgui_runtime_src})
-    set_target_properties(imgui_runtime PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    set(_photon_imgui_runtime_kind STATIC)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(_photon_imgui_runtime_kind SHARED)
+    endif()
+
+    add_library(imgui_runtime ${_photon_imgui_runtime_kind} ${imgui_runtime_src})
+    if (_photon_imgui_runtime_kind STREQUAL "SHARED")
+        set_target_properties(imgui_runtime PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    endif()
     target_include_directories(imgui_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
+    if (_photon_imgui_runtime_kind STREQUAL "SHARED")
+        target_compile_definitions(imgui_runtime
+            PRIVATE
+                IMGUI_API=__declspec\(dllexport\)
+                IMPLOT_API=__declspec\(dllexport\)
+            INTERFACE
+                IMGUI_API=__declspec\(dllimport\)
+                IMPLOT_API=__declspec\(dllimport\)
+        )
+    endif()
     target_link_libraries(imgui_runtime PUBLIC ${PHOTON_SDL_TARGET})
 
     add_library(gui ${gui_src})

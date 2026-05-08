@@ -13,12 +13,14 @@ photon_attach_windows_resources(Photon)
 
 if (WIN32)
     target_sources(Photon PRIVATE ../assets/fonts/Photon.rc)
-    if (MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC" OR CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
-        set_target_properties(Photon PROPERTIES
-            LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
-            LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
-            LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-    endif()
+    target_link_options(Photon PRIVATE
+        $<$<CONFIG:Release>:LINKER:/SUBSYSTEM:WINDOWS>
+        $<$<CONFIG:Release>:LINKER:/ENTRY:mainCRTStartup>
+        $<$<CONFIG:RelWithDebInfo>:LINKER:/SUBSYSTEM:WINDOWS>
+        $<$<CONFIG:RelWithDebInfo>:LINKER:/ENTRY:mainCRTStartup>
+        $<$<CONFIG:MinSizeRel>:LINKER:/SUBSYSTEM:WINDOWS>
+        $<$<CONFIG:MinSizeRel>:LINKER:/ENTRY:mainCRTStartup>
+    )
 endif()
 
 target_link_libraries(Photon
