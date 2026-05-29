@@ -5,6 +5,44 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <initializer_list>
+
+namespace {
+bool readFirstParsedSignal(Network* network,
+                           std::initializer_list<const char*> signalNames,
+                           double& outValue) {
+    if (!network) {
+        return false;
+    }
+
+    for (const char* signalName : signalNames) {
+        if (network->readParsedSignal(signalName, outValue)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool updateDashboardSpeed(Network* network, ui::AppState& state) {
+    double velocityMps = 0.0;
+    if (!readFirstParsedSignal(network, {"MC_VehicleVelocity", "VehicleVelocity"}, velocityMps)) {
+        return false;
+    }
+
+    if (!std::isfinite(velocityMps)) {
+        return false;
+    }
+
+    constexpr double maxReasonableVehicleSpeedMps = 200.0;
+    if (std::abs(velocityMps) > maxReasonableVehicleSpeedMps) {
+        return false;
+    }
+
+    state.speed = static_cast<int>(std::lround(std::max(0.0, velocityMps * 3.6)));
+    return true;
+}
+}
 
 void UI::build(){
     ImGui::NewFrame();
@@ -14,28 +52,28 @@ void UI::build(){
     if (networkINTF) {
         double val = 0;
         // Motor controller basics — McQueen DBCs prefix every MC signal with "MC_".
-        if (networkINTF->readParsedSignal("MC_VehicleVelocity", val)) ddashState.speed = (int)(val * 3.6);
+        updateDashboardSpeed(networkINTF, ddashState);
         if (networkINTF->readParsedSignal("Main_Battery_Voltage", val)) ddashState.mainBattery.voltage = (float)val;
         if (networkINTF->readParsedSignal("Main_Battery_Current", val)) ddashState.mainBattery.current = (float)val;
         if (networkINTF->readParsedSignal("Supplemental_Battery_Voltage", val)) ddashState.suppBattery.voltage = (float)val;
-        if (networkINTF->readParsedSignal("MC_HeatsinkTemp", val)) ddashState.motorController.heatsinkTemp = (float)val;
-        if (networkINTF->readParsedSignal("MC_BusVoltage", val)) ddashState.motorController.voltage = (float)val;
-        if (networkINTF->readParsedSignal("MC_BusCurrent", val)) ddashState.motorController.current = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"MC_HeatsinkTemp", "HeatsinkTemp"}, val)) ddashState.motorController.heatsinkTemp = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"MC_BusVoltage", "BusVoltage"}, val)) ddashState.motorController.voltage = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"MC_BusCurrent", "BusCurrent"}, val)) ddashState.motorController.current = (float)val;
 
         // Motor Controller extra telemetry
-        if (networkINTF->readParsedSignal("MC_PhaseCurrentB", val)) ddashState.motorController.phaseCurrentB = (float)val;
-        if (networkINTF->readParsedSignal("MC_PhaseCurrentC", val)) ddashState.motorController.phaseCurrentC = (float)val;
-        if (networkINTF->readParsedSignal("MC_BEMFq", val)) ddashState.motorController.backEmfQ = (float)val;
-        if (networkINTF->readParsedSignal("MC_BEMFd", val)) ddashState.motorController.backEmfD = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"MC_PhaseCurrentB", "PhaseCurrentB"}, val)) ddashState.motorController.phaseCurrentB = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"MC_PhaseCurrentC", "PhaseCurrentC"}, val)) ddashState.motorController.phaseCurrentC = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"MC_BEMFq", "BEMFq"}, val)) ddashState.motorController.backEmfQ = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"MC_BEMFd", "BEMFd"}, val)) ddashState.motorController.backEmfD = (float)val;
 
         // Motor Controller limits — McQueen DBC names them MC_LIMIT_*.
-        if (networkINTF->readParsedSignal("MC_LIMIT_OutputVoltagePWM", val)) ddashState.motorController.limitOutputVoltage = (val != 0);
-        if (networkINTF->readParsedSignal("MC_LIMIT_MotorCurrent", val)) ddashState.motorController.limitMotorCurrent = (val != 0);
-        if (networkINTF->readParsedSignal("MC_LIMIT_Velocity", val)) ddashState.motorController.limitVelocity = (val != 0);
-        if (networkINTF->readParsedSignal("MC_LIMIT_BusCurrent", val)) ddashState.motorController.limitBusCurrent = (val != 0);
-        if (networkINTF->readParsedSignal("MC_LIMIT_BusVoltageUpper", val)) ddashState.motorController.limitBusVoltageUpper = (val != 0);
-        if (networkINTF->readParsedSignal("MC_LIMIT_BusVoltageLower", val)) ddashState.motorController.limitBusVoltageLower = (val != 0);
-        if (networkINTF->readParsedSignal("MC_LIMIT_MotorTemp", val)) ddashState.motorController.limitIpmOrMotorTemp = (val != 0);
+        if (readFirstParsedSignal(networkINTF, {"MC_LIMIT_OutputVoltagePWM", "LimitOutputVoltagePWM"}, val)) ddashState.motorController.limitOutputVoltage = (val != 0);
+        if (readFirstParsedSignal(networkINTF, {"MC_LIMIT_MotorCurrent", "LimitMotorCurrent"}, val)) ddashState.motorController.limitMotorCurrent = (val != 0);
+        if (readFirstParsedSignal(networkINTF, {"MC_LIMIT_Velocity", "LimitVelocity"}, val)) ddashState.motorController.limitVelocity = (val != 0);
+        if (readFirstParsedSignal(networkINTF, {"MC_LIMIT_BusCurrent", "LimitBusCurrent"}, val)) ddashState.motorController.limitBusCurrent = (val != 0);
+        if (readFirstParsedSignal(networkINTF, {"MC_LIMIT_BusVoltageUpper", "LimitBusVoltageUpper"}, val)) ddashState.motorController.limitBusVoltageUpper = (val != 0);
+        if (readFirstParsedSignal(networkINTF, {"MC_LIMIT_BusVoltageLower", "LimitBusVoltageLower"}, val)) ddashState.motorController.limitBusVoltageLower = (val != 0);
+        if (readFirstParsedSignal(networkINTF, {"MC_LIMIT_MotorTemp", "LimitIpmOrMotorTemp"}, val)) ddashState.motorController.limitIpmOrMotorTemp = (val != 0);
         
         // Overall CAN-fault gate. The McQueen VCU_Status no longer has a single
         // VCU_Fault byte — it has individual VCU_*_FAULT_DETECTED bits. OR the

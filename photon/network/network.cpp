@@ -13,7 +13,9 @@
 #include <iostream>
 #include <sstream>
 #include <cctype>
+#include <cmath>
 #include <cstring>
+#include <array>
 
 #define QUEUE_CAPACITY 2048
 #define BUFFER_CAPACITY 1024
@@ -23,6 +25,30 @@ static int hexValue(char c) {
     if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
     if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
     return -1;
+}
+
+template <typename T>
+static bool decodeIntelByteAlignedFloat(const DbcSignal& sig,
+                                        const uint8_t bytes[8],
+                                        int dlc,
+                                        T& out) {
+    constexpr int byteWidth = static_cast<int>(sizeof(T));
+    if (sig.endianness != 1 || sig.length != byteWidth * 8 || (sig.startBit % 8) != 0) {
+        return false;
+    }
+
+    const int startByte = sig.startBit / 8;
+    if (startByte < 0 || (startByte + byteWidth) > dlc) {
+        return false;
+    }
+
+    std::array<uint8_t, sizeof(T)> rawBytes{};
+    for (int i = 0; i < byteWidth; ++i) {
+        rawBytes[static_cast<size_t>(i)] = bytes[startByte + i];
+    }
+
+    std::memcpy(&out, rawBytes.data(), sizeof(T));
+    return std::isfinite(static_cast<double>(out));
 }
 
 Network::Network() : tcpQueue(QUEUE_CAPACITY), uartQueue(QUEUE_CAPACITY) {}
@@ -261,15 +287,19 @@ void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
             }
         }
 
-        double physValue;
+        double physValue = 0.0;
         if (sig.isFloat && sig.length == 32) {
-            uint32_t r = static_cast<uint32_t>(rawSignal);
-            float f;
-            std::memcpy(&f, &r, sizeof(f));
+            float f = 0.0f;
+            if (!decodeIntelByteAlignedFloat(sig, bytes, dlc, f)) {
+                uint32_t r = static_cast<uint32_t>(rawSignal);
+                std::memcpy(&f, &r, sizeof(f));
+            }
             physValue = sig.scale * static_cast<double>(f) + sig.offset;
         } else if (sig.isFloat && sig.length == 64) {
-            double d;
-            std::memcpy(&d, &rawSignal, sizeof(d));
+            double d = 0.0;
+            if (!decodeIntelByteAlignedFloat(sig, bytes, dlc, d)) {
+                std::memcpy(&d, &rawSignal, sizeof(d));
+            }
             physValue = sig.scale * d + sig.offset;
         } else if (sig.isSigned && sig.length > 0 && sig.length < 64) {
             // Sign-extend the rawSignal from sig.length bits to 64.
@@ -281,6 +311,11 @@ void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
             physValue = sig.scale * static_cast<double>(s) + sig.offset;
         } else {
             physValue = sig.scale * static_cast<double>(rawSignal) + sig.offset;
+        }
+
+        if (!std::isfinite(physValue)) {
+            std::cerr << "[DBC] Skipping non-finite value for signal " << sigName << "\n";
+            continue;
         }
 
         // ---- STORE PARSED VALUE ----

@@ -67,7 +67,7 @@ bool DbcManager::loadFromFile(const std::string& path) {
         }
 
         // --- Parse SG_ lines ---
-        else if (line.find("SG_") != std::string::npos && currentId != 0) {
+        else if (line.rfind("SG_", 0) == 0 && currentId != 0) {
             std::istringstream iss(line);
             std::string tag, sigName;
             iss >> tag >> sigName; // SG_ <name>
