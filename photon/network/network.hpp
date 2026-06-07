@@ -58,6 +58,7 @@ public:
     // --- Parsed Signal Storage ---
     std::mutex parsedSignalsMutex;
     std::unordered_map<std::string, double> parsedSignals;
+    std::unordered_map<std::string, std::string> parsedSignalAliases;
     bool readParsedSignal(const std::string& sigName, double& outValue);
     std::string describeParsedSignalValue(const std::string& sigName, double value);
     std::string parsedSignalComment(const std::string& sigName);

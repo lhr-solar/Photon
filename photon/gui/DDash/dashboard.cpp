@@ -62,6 +62,106 @@ static ImVec4 GetSpeedColor(int speed) {
     return Colors::Primary();
 }
 
+struct BpsExtrema {
+    int maxTempIdx = -1;
+    int minVoltIdx = -1;
+    int maxVoltIdx = -1;
+    float maxTemp = 0.0f;
+    float minVolt = 0.0f;
+    float maxVolt = 0.0f;
+};
+
+static BpsExtrema ComputeBpsExtrema(const AppState& state) {
+    BpsExtrema extrema{};
+    float maxTemp = -FLT_MAX;
+    float minVolt = FLT_MAX;
+    float maxVolt = -FLT_MAX;
+
+    for (int i = 0; i < static_cast<int>(state.moduleVoltages.size()); ++i) {
+        const float v = state.moduleVoltages[static_cast<size_t>(i)];
+        if (v < minVolt) {
+            minVolt = v;
+            extrema.minVoltIdx = i;
+            extrema.minVolt = v;
+        }
+        if (v > maxVolt) {
+            maxVolt = v;
+            extrema.maxVoltIdx = i;
+            extrema.maxVolt = v;
+        }
+    }
+
+    for (int i = 0; i < static_cast<int>(state.moduleTemps.size()); ++i) {
+        const float t = state.moduleTemps[static_cast<size_t>(i)];
+        if (t > maxTemp) {
+            maxTemp = t;
+            extrema.maxTempIdx = i;
+            extrema.maxTemp = t;
+        }
+    }
+
+    return extrema;
+}
+
+static bool FormatBpsFaultDetail(const AppState& state, char* buffer, size_t bufferSize) {
+    if (!buffer || bufferSize == 0 || state.bpsFaultCode == 0) {
+        return false;
+    }
+
+    const BpsExtrema extrema = ComputeBpsExtrema(state);
+    switch (state.bpsFaultCode) {
+        case 1:
+            if (extrema.maxVoltIdx >= 0) {
+                snprintf(buffer, bufferSize, "BPS: Mod %d (%.2fV) OVERVOLT", extrema.maxVoltIdx, extrema.maxVolt);
+                return true;
+            }
+            break;
+        case 2:
+            if (extrema.minVoltIdx >= 0) {
+                snprintf(buffer, bufferSize, "BPS: Mod %d (%.2fV) UNDERVOLT", extrema.minVoltIdx, extrema.minVolt);
+                return true;
+            }
+            break;
+        case 4:
+            if (extrema.maxTempIdx >= 0) {
+                snprintf(buffer, bufferSize, "BPS: Mod %d (%.1fC) OVERTEMP", extrema.maxTempIdx, extrema.maxTemp);
+                return true;
+            }
+            break;
+        default:
+            break;
+    }
+
+    return false;
+}
+
+static bool FormatBpsExtremaSummary(const AppState& state, char* buffer, size_t bufferSize) {
+    if (!buffer || bufferSize == 0) {
+        return false;
+    }
+
+    const BpsExtrema extrema = ComputeBpsExtrema(state);
+    const char* lowFmt = extrema.minVoltIdx >= 0 ? "Lo #%d %.2fV" : "Lo --";
+    const char* highFmt = extrema.maxVoltIdx >= 0 ? "Hi #%d %.2fV" : "Hi --";
+    const char* hotFmt = extrema.maxTempIdx >= 0 ? "Hot #%d %.1fC" : "Hot --";
+
+    char lowBuf[32];
+    char highBuf[32];
+    char hotBuf[32];
+
+    if (extrema.minVoltIdx >= 0) snprintf(lowBuf, sizeof(lowBuf), lowFmt, extrema.minVoltIdx, extrema.minVolt);
+    else snprintf(lowBuf, sizeof(lowBuf), "%s", lowFmt);
+
+    if (extrema.maxVoltIdx >= 0) snprintf(highBuf, sizeof(highBuf), highFmt, extrema.maxVoltIdx, extrema.maxVolt);
+    else snprintf(highBuf, sizeof(highBuf), "%s", highFmt);
+
+    if (extrema.maxTempIdx >= 0) snprintf(hotBuf, sizeof(hotBuf), hotFmt, extrema.maxTempIdx, extrema.maxTemp);
+    else snprintf(hotBuf, sizeof(hotBuf), "%s", hotFmt);
+
+    snprintf(buffer, bufferSize, "%s  %s  %s", lowBuf, highBuf, hotBuf);
+    return true;
+}
+
 static const char* BpsFaultName(uint8_t code);
 
 // Forward declarations
@@ -316,35 +416,34 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             widgets::Space(10);
         }
 
+        if (state.mainBatteryAvgTemp > 0.0f) {
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning());
+            ImGui::Text("BPS AVG: %.1fC", state.mainBatteryAvgTemp);
+            ImGui::PopStyleColor();
+            widgets::Space(6);
+        }
+
+        {
+            char extremaTxt[96];
+            if (FormatBpsExtremaSummary(state, extremaTxt, sizeof(extremaTxt))) {
+                ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+                ImGui::TextUnformatted(extremaTxt);
+                ImGui::PopStyleColor();
+                widgets::Space(6);
+            }
+        }
+
         if (state.bpsFaultCode != 0) {
-            int maxTIdx = -1, minVIdx = -1, maxVIdx = -1;
-            float maxT=-999, minV=999, maxV=-999;
-            for(int i=0; i<(int)state.moduleVoltages.size(); ++i) {
-                if (state.moduleVoltages[i] < minV) { minV = state.moduleVoltages[i]; minVIdx = i; }
-                if (state.moduleVoltages[i] > maxV) { maxV = state.moduleVoltages[i]; maxVIdx = i; }
-            }
-            for(int i=0; i<(int)state.moduleTemps.size(); ++i) {
-                if (state.moduleTemps[i] > maxT) { maxT = state.moduleTemps[i]; maxTIdx = i; }
-            }
-
-            const char* strRsn = "";
-            int modIdx = -1;
-            float val = 0;
-            if (state.bpsFaultCode == 1) { strRsn = "OVERVOLT"; modIdx = maxVIdx; val = maxV; }
-            else if (state.bpsFaultCode == 2) { strRsn = "UNDERVOLT"; modIdx = minVIdx; val = minV; }
-            else if (state.bpsFaultCode == 4) { strRsn = "OVERTEMP"; modIdx = maxTIdx; val = maxT; }
-
+            char detailTxt[96];
+            const bool hasDetail = FormatBpsFaultDetail(state, detailTxt, sizeof(detailTxt));
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::Destructive());
             ImGui::SetWindowFontScale(1.1f);
-            if (modIdx != -1) {
-                if (state.bpsFaultCode == 4) ImGui::Text("BPS DETAIL: Mod %d (%.1fC) %s", modIdx, val, strRsn);
-                else ImGui::Text("BPS DETAIL: Mod %d (%.2fV) %s", modIdx, val, strRsn);
+            if (hasDetail) {
+                ImGui::TextUnformatted(detailTxt);
+                widgets::Space(6);
             }
             ImGui::SetWindowFontScale(1.0f);
             ImGui::PopStyleColor();
-            if (modIdx != -1) {
-                widgets::Space(6);
-            }
         }
     }
     ImGui::EndChild();
@@ -994,6 +1093,21 @@ static void RenderDebugScreen(AppState& liveState) {
     ImGui::TextColored(bpsFCol, " Fault: %d (%s)  Regen: %s  Charge: %s",
         state.bpsFaultCode, BpsFaultName(state.bpsFaultCode),
         state.bpsRegenOK ? "OK" : "NO", state.bpsChargeOK ? "OK" : "NO");
+    if (state.mainBatteryAvgTemp > 0.0f) {
+        ImGui::Text(" Avg Temp: %.1fC", state.mainBatteryAvgTemp);
+    }
+    {
+        char extremaTxt[96];
+        if (FormatBpsExtremaSummary(state, extremaTxt, sizeof(extremaTxt))) {
+            ImGui::Text(" Cells: %s", extremaTxt);
+        }
+    }
+    {
+        char detailTxt[96];
+        if (FormatBpsFaultDetail(state, detailTxt, sizeof(detailTxt))) {
+            ImGui::TextColored(Colors::Destructive(), " %s", detailTxt);
+        }
+    }
     
     // Render 32-Module Grid
     widgets::Space(4);

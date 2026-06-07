@@ -8,3 +8,9 @@ perf.data.old
 Photon.exe
 out/
 DashboardOnly.exe
+CMakeCache.txt
+compile_commands.json
+**/CMakeFiles/
+**/Makefile
+**/cmake_install.cmake
+CMakeFiles

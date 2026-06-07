@@ -325,6 +325,9 @@ void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
         {
             std::lock_guard<std::mutex> parsedLock(parsedSignalsMutex);
             parsedSignals[sigName] = physValue;
+            const std::string qualifiedName = msg.name + "." + sigName;
+            parsedSignals[qualifiedName] = physValue;
+            parsedSignalAliases[qualifiedName] = sigName;
         }
 
         // ---- MAKE A STRING FOR THIS SIGNAL ----
@@ -555,9 +558,25 @@ bool Network::readParsedSignal(const std::string& sigName, double& outValue) {
 }
 
 std::string Network::describeParsedSignalValue(const std::string& sigName, double value) {
-    return dbcManager.describeSignalValue(sigName, value);
+    std::string resolvedName = sigName;
+    {
+        std::lock_guard<std::mutex> lock(parsedSignalsMutex);
+        auto it = parsedSignalAliases.find(sigName);
+        if (it != parsedSignalAliases.end()) {
+            resolvedName = it->second;
+        }
+    }
+    return dbcManager.describeSignalValue(resolvedName, value);
 }
 
 std::string Network::parsedSignalComment(const std::string& sigName) {
-    return dbcManager.signalComment(sigName);
+    std::string resolvedName = sigName;
+    {
+        std::lock_guard<std::mutex> lock(parsedSignalsMutex);
+        auto it = parsedSignalAliases.find(sigName);
+        if (it != parsedSignalAliases.end()) {
+            resolvedName = it->second;
+        }
+    }
+    return dbcManager.signalComment(resolvedName);
 }
