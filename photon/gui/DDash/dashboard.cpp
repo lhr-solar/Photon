@@ -694,13 +694,13 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                 snprintf(
                     pressureTxt,
                     sizeof(pressureTxt),
-                    "B1 %u   B2 %u",
-                    static_cast<unsigned>(state.brakePosMain),
-                    static_cast<unsigned>(state.brakePosRedundant));
+                    "B1 %.0f   B2 %.0f",
+                    std::max(0.0f, state.brakePressure1),
+                    std::max(0.0f, state.brakePressure2));
                 ImVec4 pressureCol =
-                    (state.brakeMainFault || state.brakeRedundantFault)
+                    (state.brakePressure1Fault || state.brakePressure2Fault)
                         ? Colors::Warning()
-                        : ((std::max(state.brakePosMain, state.brakePosRedundant) > 5)
+                        : ((std::max(state.brakePressure1, state.brakePressure2) > 25.0f)
                                ? Colors::Destructive()
                                : Colors::MutedForeground());
                 float pressureFs = std::min(42.0f, std::max(27.0f, iconSize * 0.87f));
