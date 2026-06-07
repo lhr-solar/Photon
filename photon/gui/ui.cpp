@@ -245,6 +245,10 @@ void applyFakeCanFaults(ui::AppState& state) {
     state.canFaultMessage = joinFaultMessages(state.faults);
     state.bpsFaultCode = 2;
     state.vcuFaultCode = static_cast<uint8_t>((1u << 0) | (1u << 2));
+    state.brakeEngaged = true;
+    state.brakePressure = 420.0f;
+    state.brakePressure1 = 418.0f;
+    state.brakePressure2 = 422.0f;
 
     if (state.mainBattery.soc == 0.0f) {
         state.mainBattery.soc = 62.0f;
@@ -375,7 +379,11 @@ void UI::build(){
         if (networkINTF->readParsedSignal("AccelPedal_Main_Pos", val)) ddashState.pedalPercent = (float)val;
         // BPSCAN has Main_Battery_Current but user asked for supp battery current, mapped to Supplemental_Battery_Current
         if (networkINTF->readParsedSignal("Supplemental_Battery_Current", val)) ddashState.suppBattery.current = milliampsToAmps(val);
-        if (networkINTF->readParsedSignal("Brake_Pressure", val)) ddashState.brakePressure = (float)val;
+        bool hasBrakePressure = false;
+        if (networkINTF->readParsedSignal("Brake_Pressure", val)) {
+            ddashState.brakePressure = (float)val;
+            hasBrakePressure = true;
+        }
 
         // BPS arrays 
         double tapIdx = 0, tapV = 0, tapT = 0;
@@ -482,8 +490,28 @@ void UI::build(){
         if (networkINTF->readParsedSignal("Brake_Pos_Voltage_Redundant", val)) ddashState.brakeVoltRedundant = (float)val;
 
         // Brake pressure sensors (ID 1616)
-        if (networkINTF->readParsedSignal("Brake_Pressure_1", val)) ddashState.brakePressure1 = (float)val;
-        if (networkINTF->readParsedSignal("Brake_Pressure_2", val)) ddashState.brakePressure2 = (float)val;
+        bool hasBrakePressure1 = false;
+        bool hasBrakePressure2 = false;
+        if (networkINTF->readParsedSignal("Brake_Pressure_1", val)) {
+            ddashState.brakePressure1 = (float)val;
+            hasBrakePressure1 = true;
+        }
+        if (networkINTF->readParsedSignal("Brake_Pressure_2", val)) {
+            ddashState.brakePressure2 = (float)val;
+            hasBrakePressure2 = true;
+        }
+        if (!hasBrakePressure) {
+            if (hasBrakePressure1 && hasBrakePressure2) {
+                ddashState.brakePressure = (ddashState.brakePressure1 + ddashState.brakePressure2) * 0.5f;
+            } else if (hasBrakePressure1) {
+                ddashState.brakePressure = ddashState.brakePressure1;
+            } else if (hasBrakePressure2) {
+                ddashState.brakePressure = ddashState.brakePressure2;
+            }
+        }
+        if (ddashState.brakePressure > 10.0f) {
+            ddashState.brakeEngaged = true;
+        }
         if (networkINTF->readParsedSignal("Brake_Pressure_1_Voltage", val)) ddashState.brakePressure1V = (float)val;
         if (networkINTF->readParsedSignal("Brake_Pressure_2_Voltage", val)) ddashState.brakePressure2V = (float)val;
 

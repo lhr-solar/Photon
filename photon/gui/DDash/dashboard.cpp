@@ -518,7 +518,7 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
         // Vertical budget
         float heartbeatH = 28.0f;
         float fnrH       = 92.0f;
-        float iconsH     = 36.0f;
+        float iconsH     = 58.0f;
         float bottomPad  =  8.0f;
         float arcSpace   = cs.y - heartbeatH - iconsH - fnrH - bottomPad - 10.0f;
         if (arcSpace < 60.0f) arcSpace = 60.0f;
@@ -626,12 +626,21 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             }
         }
 
+        // Brake pressure readout below icons
+        float brakeReadoutBottomY = 0.0f;
+        {
+            float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
+            float iconSize    = std::max(20.0f, maxIconSize);
+            float iconBottomY = center.y + sSz.y * 0.25f + iconSize + 4.0f;
+            brakeReadoutBottomY = iconBottomY;
+        }
+
         // FNR gear display below icons
         {
             float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
             float iconSize    = std::max(20.0f, maxIconSize);
             float iconBottomY = center.y + sSz.y * 0.25f + iconSize + 4.0f;
-            float fnrY = iconBottomY + 8.0f;
+            float fnrY = std::max(iconBottomY + 8.0f, brakeReadoutBottomY + 4.0f);
             float fnrH = 50.0f; // Give it less hardcoded vertical space
             const char* letters[] = {"F", "N", "R"};
             const Gear  vals[]    = {Gear::Forward, Gear::Neutral, Gear::Reverse};
@@ -680,6 +689,32 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                     if (fillW >= pbW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
                     dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH), ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
                 }
+
+                char pressureTxt[48];
+                snprintf(
+                    pressureTxt,
+                    sizeof(pressureTxt),
+                    "B1 %.0f   B2 %.0f",
+                    std::max(0.0f, state.brakePressure1),
+                    std::max(0.0f, state.brakePressure2));
+                ImVec4 pressureCol =
+                    (state.brakePressure1Fault || state.brakePressure2Fault)
+                        ? Colors::Warning()
+                        : ((std::max(state.brakePressure1, state.brakePressure2) > 25.0f)
+                               ? Colors::Destructive()
+                               : Colors::MutedForeground());
+                float pressureFs = std::min(42.0f, std::max(27.0f, iconSize * 0.87f));
+                float pressureY = pbY + pbH + 10.0f;
+                ImVec2 pSz = medFont
+                    ? medFont->CalcTextSizeA(pressureFs, FLT_MAX, 0, pressureTxt)
+                    : ImGui::CalcTextSize(pressureTxt);
+
+                dl->AddText(
+                    medFont,
+                    pressureFs,
+                    ImVec2(cX - pSz.x * 0.5f, pressureY),
+                    ColorToU32(pressureCol),
+                    pressureTxt);
             }
         }
 
