@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <cstdint>
 
 namespace fs = std::filesystem;
 
@@ -23,6 +24,8 @@ struct DbcSignal {
     double max = 0.0;
     std::string unit;
     std::string receiver;
+    std::string comment;
+    std::unordered_map<int64_t, std::string> valueDescriptions;
 };
 
 
@@ -43,6 +46,8 @@ public:
 
     bool hasMessages();
     size_t messageCount();
+    std::string describeSignalValue(const std::string& sigName, double value);
+    std::string signalComment(const std::string& sigName);
 
     // Exposed for direct access if needed
     std::unordered_map<int, DbcMessage> dbcMap;

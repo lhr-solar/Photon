@@ -59,6 +59,8 @@ public:
     std::mutex parsedSignalsMutex;
     std::unordered_map<std::string, double> parsedSignals;
     bool readParsedSignal(const std::string& sigName, double& outValue);
+    std::string describeParsedSignalValue(const std::string& sigName, double value);
+    std::string parsedSignalComment(const std::string& sigName);
 
 private:
     struct sample {

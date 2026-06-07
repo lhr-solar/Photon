@@ -8,6 +8,41 @@
  * Usage:  .\winBuild.ps1 dash
  */
 #include "../../../photon/engine/photon.hpp"
+#include <cstdlib>
+#include <string>
+
+namespace {
+
+bool envFlagEnabled(const char* name) {
+#ifdef _WIN32
+    DWORD requiredLength = GetEnvironmentVariableA(name, nullptr, 0);
+    if (requiredLength == 0) {
+        return false;
+    }
+
+    std::string value(requiredLength, '\0');
+    DWORD copiedLength = GetEnvironmentVariableA(name, value.data(), requiredLength);
+    if (copiedLength == 0) {
+        return false;
+    }
+    value.resize(copiedLength);
+#else
+    const char* rawValue = std::getenv(name);
+    if (!rawValue) {
+        return false;
+    }
+    std::string value = rawValue;
+#endif
+
+    return !value.empty()
+        && value != "0"
+        && value != "false"
+        && value != "FALSE"
+        && value != "off"
+        && value != "OFF";
+}
+
+}
 
 #ifdef WIN
 int APIENTRY WinMain(_In_ HINSTANCE hinstance,
@@ -18,11 +53,13 @@ int APIENTRY WinMain(_In_ HINSTANCE hinstance,
     Photon photon;
     photon.gui.title = "LHR Dashboard";
     photon.gui.ui.dashboardOnly = true;
-    photon.gui.settings.fullscreen = true;
+    photon.gui.settings.fullscreen = !envFlagEnabled("PHOTON_DASH_WINDOWED");
     photon.gpu.initVulkan();
     photon.gui.initWindow(hinstance);
     photon.prepareScene();
-    photon.initThreads();
+    if (!envFlagEnabled("PHOTON_FAKE_CAN_FAULTS")) {
+        photon.initThreads();
+    }
     photon.renderLoop();
     return 0;
 }
@@ -33,10 +70,12 @@ int main() {
     Photon photon;
     photon.gui.title = "LHR Dashboard";
     photon.gui.ui.dashboardOnly = true;
-    photon.gui.settings.fullscreen = true;
+    photon.gui.settings.fullscreen = !envFlagEnabled("PHOTON_DASH_WINDOWED");
     photon.gpu.initVulkan();
     photon.gui.initWindow();
-    photon.initThreads();      // Start CAN/DBC threads early (runs in parallel with prepareScene)
+    if (!envFlagEnabled("PHOTON_FAKE_CAN_FAULTS")) {
+        photon.initThreads();  // Start CAN/DBC threads early (runs in parallel with prepareScene)
+    }
     photon.prepareScene();
     photon.renderLoop();
     return 0;

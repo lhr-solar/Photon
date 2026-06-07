@@ -237,6 +237,9 @@ void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
     }
 
     const DbcMessage& msg = it->second;
+    if (msg.dlc == 0 && msg.name == "VECTOR__INDEPENDENT_SIG_MSG") {
+        return;
+    }
 
     // ---- COLLECT INTO A VECTOR ----
     std::vector<std::string> collected;
@@ -549,4 +552,12 @@ bool Network::readParsedSignal(const std::string& sigName, double& outValue) {
     }
     outValue = it->second;
     return true;
+}
+
+std::string Network::describeParsedSignalValue(const std::string& sigName, double value) {
+    return dbcManager.describeSignalValue(sigName, value);
+}
+
+std::string Network::parsedSignalComment(const std::string& sigName) {
+    return dbcManager.signalComment(sigName);
 }

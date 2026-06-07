@@ -31,10 +31,10 @@ static ImVec4 BlendColor(const ImVec4& a, const ImVec4& b, float t) {
 static ImVec4 FaultAwareCardBg(const AppState& state) {
     ImVec4 bg = Colors::Card();
     if (state.canFault) {
-        return BlendColor(bg, Colors::Destructive(), 0.18f);
+        return BlendColor(bg, Colors::Destructive(), 0.10f);
     }
     if (state.canFaultRecoverable) {
-        return BlendColor(bg, Colors::Accent(), 0.18f);
+        return BlendColor(bg, Colors::Accent(), 0.10f);
     }
     return bg;
 }
@@ -42,10 +42,10 @@ static ImVec4 FaultAwareCardBg(const AppState& state) {
 static ImVec4 FaultAwareScreenBg(const AppState& state) {
     ImVec4 bg = Colors::Background();
     if (state.canFault) {
-        return BlendColor(bg, Colors::Destructive(), 0.18f);
+        return BlendColor(bg, Colors::Destructive(), 0.06f);
     }
     if (state.canFaultRecoverable) {
-        return BlendColor(bg, Colors::Accent(), 0.18f);
+        return BlendColor(bg, Colors::Accent(), 0.06f);
     }
     return bg;
 }
@@ -120,6 +120,25 @@ static void RenderCameraView(const AppState& state, const char* label, void* tex
     ImGui::PopStyleColor();
 }
 
+static ImVec4 FaultColor(FaultSeverity severity) {
+    switch (severity) {
+        case FaultSeverity::Info: return Colors::Primary();
+        case FaultSeverity::Warning: return Colors::Accent();
+        case FaultSeverity::Critical: return Colors::Destructive();
+    }
+    return Colors::Destructive();
+}
+
+static std::string FaultDisplayText(const Fault& fault) {
+    if (fault.name.empty()) {
+        return fault.message.empty() ? "Fault" : fault.message;
+    }
+    if (fault.message.empty()) {
+        return fault.name;
+    }
+    return fault.name + " - " + fault.message;
+}
+
 // Battery 
 
 static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
@@ -157,7 +176,8 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
 
         // Helper lambda to draw a battery row
         auto drawBatteryRow = [&](const char* rowLabel, float soc, float voltage, float currentStr = -999.0f) {
-            ImVec4 batColor = GetBatteryColor(soc);
+            float boundedSoc = std::clamp(soc, 0.0f, 100.0f);
+            ImVec4 batColor = GetBatteryColor(boundedSoc);
             float labelW = 32.0f;
             float voltW = currentStr != -999.0f ? 110.0f : 52.0f;
             float barW = avW - labelW - voltW - 16.0f;
@@ -183,7 +203,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
                     ImVec2(barPos.x + barW, barPos.y + barH),
                     ColorToU32(bgCol), rounding);
                 // Fill
-                float pct = std::clamp(soc / 100.0f, 0.0f, 1.0f);
+                float pct = boundedSoc / 100.0f;
                 float fillW = barW * pct;
                 if (pct > 0.0f && fillW < 2.0f) fillW = 2.0f;
                 if (fillW > 0.0f) {
@@ -194,19 +214,25 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
                         ImVec2(barPos.x + fillW, barPos.y + barH),
                         ColorToU32(batColor), fillR, fillFlags);
                 }
-                // Border
+
                 dl->AddRect(barPos,
                     ImVec2(barPos.x + barW, barPos.y + barH),
-                    ColorToU32(Colors::MutedForeground()), rounding, 0, 1.0f);
-                // % text centered in bar. Dark text on the colored fill so
-                // it stays readable at any SOC.
+                    ColorToU32(ColorWithAlpha(Colors::MutedForeground(), 0.42f)),
+                    rounding, 0, 1.0f);
+
                 char socTxt[8];
-                snprintf(socTxt, sizeof(socTxt), "%.0f%%", soc);
+                snprintf(socTxt, sizeof(socTxt), "%.0f%%", boundedSoc);
                 ImVec2 socSz = ImGui::CalcTextSize(socTxt);
-                dl->AddText(
-                    ImVec2(barPos.x + (barW - socSz.x) * 0.5f,
-                           barPos.y + (barH - socSz.y) * 0.5f),
-                    ColorToU32(Colors::Background()), socTxt);
+                ImVec2 socPos(
+                    barPos.x + (barW - socSz.x) * 0.5f,
+                    barPos.y + (barH - socSz.y) * 0.5f);
+
+                dl->AddText(socPos, ColorToU32(Colors::Foreground()), socTxt);
+                if (fillW > 0.5f) {
+                    dl->PushClipRect(barPos, ImVec2(barPos.x + fillW, barPos.y + barH), true);
+                    dl->AddText(socPos, ColorToU32(Colors::PrimaryForeground()), socTxt);
+                    dl->PopClipRect();
+                }
 
                 ImGui::Dummy(ImVec2(barW, barH));
             }
@@ -230,37 +256,6 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         drawBatteryRow("AU", state.suppBattery.soc,  state.suppBattery.voltage, state.suppBattery.current);
 
         widgets::Space(12);
-
-        if (state.bpsFaultCode != 0) {
-            int maxTIdx = -1, minVIdx = -1, maxVIdx = -1;
-            float maxT=-999, minV=999, maxV=-999;
-            for(int i=0; i<(int)state.moduleVoltages.size(); ++i) {
-                if (state.moduleVoltages[i] < minV) { minV = state.moduleVoltages[i]; minVIdx = i; }
-                if (state.moduleVoltages[i] > maxV) { maxV = state.moduleVoltages[i]; maxVIdx = i; }
-            }
-            for(int i=0; i<(int)state.moduleTemps.size(); ++i) {
-                if (state.moduleTemps[i] > maxT) { maxT = state.moduleTemps[i]; maxTIdx = i; }
-            }
-            
-            const char* strRsn = "";
-            int modIdx = -1;
-            float val = 0;
-            if (state.bpsFaultCode == 1) { strRsn = "OVERVOLT"; modIdx = maxVIdx; val = maxV; }
-            else if (state.bpsFaultCode == 2) { strRsn = "UNDERVOLT"; modIdx = minVIdx; val = minV; }
-            else if (state.bpsFaultCode == 4) { strRsn = "OVERTEMP"; modIdx = maxTIdx; val = maxT; }
-            
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Destructive());
-            ImGui::SetWindowFontScale(1.1f);
-            if (modIdx != -1) {
-                if (state.bpsFaultCode == 4) ImGui::Text("BPS FAULT: Mod %d (%.1fC) %s", modIdx, val, strRsn);
-                else ImGui::Text("BPS FAULT: Mod %d (%.2fV) %s", modIdx, val, strRsn);
-            } else {
-                ImGui::Text("BPS FAULT: %s", BpsFaultName(state.bpsFaultCode));
-            }
-            ImGui::SetWindowFontScale(1.0f);
-            ImGui::PopStyleColor();
-            widgets::Space(6);
-        }
 
         // MoCo : Heatsink temp, Voltage, Current
         {
@@ -290,7 +285,66 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
 
             ImGui::SameLine(colStart + colW * 2.0f);
             ImGui::TextUnformatted(aTxt);
+            ImGui::SetWindowFontScale(1.0f);
             ImGui::PopStyleColor();
+        }
+
+        widgets::Space(12);
+
+        if (!state.faults.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::SetWindowFontScale(0.95f);
+            ImGui::TextUnformatted("FAULTS");
+            ImGui::SetWindowFontScale(1.0f);
+            ImGui::PopStyleColor();
+
+            int visibleRows = std::min<int>(static_cast<int>(state.faults.size()), 4);
+            for (int i = 0; i < visibleRows; ++i) {
+                const Fault& fault = state.faults[static_cast<size_t>(i)];
+                std::string faultText = FaultDisplayText(fault);
+                ImGui::PushStyleColor(ImGuiCol_Text, FaultColor(fault.severity));
+                ImGui::SetWindowFontScale(1.18f);
+                ImGui::TextUnformatted(faultText.c_str());
+                ImGui::SetWindowFontScale(1.0f);
+                ImGui::PopStyleColor();
+            }
+            if (state.faults.size() > static_cast<size_t>(visibleRows)) {
+                ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+                ImGui::Text("+%zu more", state.faults.size() - static_cast<size_t>(visibleRows));
+                ImGui::PopStyleColor();
+            }
+            widgets::Space(10);
+        }
+
+        if (state.bpsFaultCode != 0) {
+            int maxTIdx = -1, minVIdx = -1, maxVIdx = -1;
+            float maxT=-999, minV=999, maxV=-999;
+            for(int i=0; i<(int)state.moduleVoltages.size(); ++i) {
+                if (state.moduleVoltages[i] < minV) { minV = state.moduleVoltages[i]; minVIdx = i; }
+                if (state.moduleVoltages[i] > maxV) { maxV = state.moduleVoltages[i]; maxVIdx = i; }
+            }
+            for(int i=0; i<(int)state.moduleTemps.size(); ++i) {
+                if (state.moduleTemps[i] > maxT) { maxT = state.moduleTemps[i]; maxTIdx = i; }
+            }
+
+            const char* strRsn = "";
+            int modIdx = -1;
+            float val = 0;
+            if (state.bpsFaultCode == 1) { strRsn = "OVERVOLT"; modIdx = maxVIdx; val = maxV; }
+            else if (state.bpsFaultCode == 2) { strRsn = "UNDERVOLT"; modIdx = minVIdx; val = minV; }
+            else if (state.bpsFaultCode == 4) { strRsn = "OVERTEMP"; modIdx = maxTIdx; val = maxT; }
+
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Destructive());
+            ImGui::SetWindowFontScale(1.1f);
+            if (modIdx != -1) {
+                if (state.bpsFaultCode == 4) ImGui::Text("BPS DETAIL: Mod %d (%.1fC) %s", modIdx, val, strRsn);
+                else ImGui::Text("BPS DETAIL: Mod %d (%.2fV) %s", modIdx, val, strRsn);
+            }
+            ImGui::SetWindowFontScale(1.0f);
+            ImGui::PopStyleColor();
+            if (modIdx != -1) {
+                widgets::Space(6);
+            }
         }
     }
     ImGui::EndChild();
@@ -370,8 +424,9 @@ static void RenderButtonGrid(AppState& state, const ImVec2& size) {
             ImVec4 fillCol = active ? Colors::Primary() : Colors::Muted();
             ImVec4 textCol = active ? Colors::PrimaryForeground()
                                     : Colors::MutedForeground();
-            ImVec4 outlineCol = ColorWithAlpha(Colors::MutedForeground(), 0.55f);
-
+            ImVec4 outlineCol = active
+                ? ColorWithAlpha(Colors::PrimaryForeground(), 0.45f)
+                : ColorWithAlpha(Colors::MutedForeground(), 0.34f);
             // Rounded rectangle so longer labels actually fit.
             float pad = 3.0f;
             ImVec2 rectMin(cellPos.x + pad, cellPos.y + pad);
@@ -379,7 +434,7 @@ static void RenderButtonGrid(AppState& state, const ImVec2& size) {
             float rounding = std::min((bw - 2*pad) * 0.15f, (btnH - 2*pad) * 0.35f);
 
             dl->AddRectFilled(rectMin, rectMax, ColorToU32(fillCol), rounding);
-            dl->AddRect(rectMin, rectMax, ColorToU32(outlineCol), rounding, 0, 1.5f);
+            dl->AddRect(rectMin, rectMax, ColorToU32(outlineCol), rounding, 0, 1.0f);
 
             // Auto-shrink font so the full label fits the button width.
             float fs = std::min(btnH * 0.45f, 22.0f);
@@ -628,63 +683,6 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             }
         }
 
-        // CAN Fault display below FNR
-        if (state.canFault || state.canFaultRecoverable) {
-            float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
-            float iconSize    = std::max(20.0f, maxIconSize);
-            float iconBottomY2 = center.y + sSz.y * 0.25f + iconSize + 4.0f;
-            float fnrBottom = iconBottomY2 + 8.0f + 50.0f;
-            float faultY = fnrBottom + 8.0f;
-
-            ImGuiIO& ioF = ImGui::GetIO();
-            ImFont* faultFont = (ioF.Fonts->Fonts.Size > 2)
-                                    ? ioF.Fonts->Fonts[2] : nullptr;
-            float faultFs = 60.0f;
-
-            const bool unrecoverable = state.canFault;
-
-            uint16_t faultId = unrecoverable ? state.canFaultId : state.canFaultRecoverableId;
-            const std::string& faultName = unrecoverable ? state.canFaultName : state.canFaultRecoverableName;
-            const std::string& faultMsg = unrecoverable ? state.canFaultMessage : state.canFaultRecoverableMessage;
-
-            ImVec4 faultCol = unrecoverable ? Colors::Destructive() : Colors::Accent();
-
-            const bool haveMeta = (faultId != 0) || !faultName.empty();
-            const bool haveMsg = !faultMsg.empty();
-
-            std::string faultLine;
-            if (haveMeta) {
-                char idBuf[16] = {0};
-                if (faultId != 0) {
-                    snprintf(idBuf, sizeof(idBuf), "0x%03X", static_cast<unsigned>(faultId));
-                }
-
-                faultLine = "CAN";
-                if (faultId != 0) {
-                    faultLine += " ";
-                    faultLine += idBuf;
-                }
-                if (!faultName.empty()) {
-                    faultLine += " ";
-                    faultLine += faultName;
-                }
-            } else {
-                faultLine = "CAN FAULT";
-            }
-
-            if (haveMsg) {
-                faultLine += ": ";
-                faultLine += faultMsg;
-            }
-            const char* faultTxt = faultLine.c_str();
-
-            ImVec2 fSz = faultFont
-                ? faultFont->CalcTextSizeA(faultFs, FLT_MAX, 0, faultTxt)
-                : ImGui::CalcTextSize(faultTxt);
-            dl->AddText(faultFont, faultFs,
-                        ImVec2(cX - fSz.x * 0.5f, faultY),
-                        ColorToU32(faultCol), faultTxt);
-        }
     }
     ImGui::EndChild();
 
@@ -873,14 +871,15 @@ static void RenderDebugScreen(AppState& liveState) {
         state.ignitionStates.motorEnabled ? "ON" : "off");
     widgets::Space(4);
 
-    // CAN Faults (Aggregated Unrecoverable)
-    ImGui::TextColored(Colors::Destructive(), "CAN FAULTS AGGREGATE");
-    if (state.canFault)
-        ImGui::Text(" Unrecoverable: 0x%03X %s", state.canFaultId, state.canFaultName.c_str());
-    if (state.canFaultRecoverable)
-        ImGui::Text(" Recoverable: 0x%03X %s", state.canFaultRecoverableId, state.canFaultRecoverableName.c_str());
-    if (!state.canFault && !state.canFaultRecoverable)
+    ImGui::TextColored(Colors::Destructive(), "FAULTS");
+    if (state.faults.empty()) {
         ImGui::Text(" None");
+    } else {
+        for (const Fault& fault : state.faults) {
+            std::string faultText = FaultDisplayText(fault);
+            ImGui::Text(" %s", faultText.c_str());
+        }
+    }
     
     ImGui::EndChild();
 
@@ -895,7 +894,7 @@ static void RenderDebugScreen(AppState& liveState) {
 
     // Motor Controller Outputs
     ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "MOTOR CONTROLLER (MoCo)");
-    ImGui::Text(" Vel: %d km/h  Bus: %.1fV %.1fA", state.speed, state.motorController.voltage, state.motorController.current);
+    ImGui::Text(" Vel: %d mph  Bus: %.1fV %.1fA", state.speed, state.motorController.voltage, state.motorController.current);
     ImGui::Text(" Phase: %.1fA (B) %.1fA (C)  BEMF: %.1fV (Q) %.1fV (D)", state.motorController.phaseCurrentB, state.motorController.phaseCurrentC, state.motorController.backEmfQ, state.motorController.backEmfD);
     ImGui::Text(" Temp: Heatsink %.1fC  Precharge Motor: %.1fV", state.motorController.heatsinkTemp, state.prechargeMotorV);
     ImGui::TextColored(Colors::Warning(), " Limits Active: %s%s%s%s%s%s%s%s", 
@@ -945,7 +944,7 @@ static void RenderDebugScreen(AppState& liveState) {
         state.lvSuppBattSelected?"Y":"N", state.lvSuppBattFault?"YES":"no", state.lvSuppBattValid?"Y":"N");
     ImGui::Text(" Enable: SuppBatt:%s PSU:%s",
         state.lvEnSuppBattery?"ON":"off", state.lvEnPowerSupply?"ON":"off");
-    ImGui::Text(" Supp Batt Info: SOC: %.1f%%  %.1fV  %.1fA  Charger: %s  DCDC: %.1fV %.0fmA",
+    ImGui::Text(" Supp Batt Info: SOC: %.1f%%  %.1fV  %.1fA  Charger: %s  DCDC: %.1fV %.1fA",
         state.suppBattery.soc, state.suppBattery.voltage, state.suppBattery.current,
         SuppChargerStatusStr(state.suppChargerStatus), state.suppDcdcVoltage, state.suppDcdcCurrent);
     ImGui::Text(" Cameras: Backup:%s Left:%s Right:%s",
@@ -1070,7 +1069,7 @@ void RenderDashboard(AppState& state) {
     if (state.showDebugScreen) {
         RenderDebugScreen(state);
     } else {
-        float gap       = 4.0f;
+        float gap       = 0.0f;
         // Split the height evenly so top and bottom rows are the same size.
         float rowTop    = (availH - gap) * 0.5f;
         float rowBottom = rowTop;

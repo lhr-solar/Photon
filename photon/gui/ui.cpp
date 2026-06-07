@@ -6,6 +6,8 @@
 #include <cmath>
 #include <algorithm>
 #include <initializer_list>
+#include <cstdlib>
+#include <cstring>
 
 namespace {
 bool readFirstParsedSignal(Network* network,
@@ -39,8 +41,221 @@ bool updateDashboardSpeed(Network* network, ui::AppState& state) {
         return false;
     }
 
-    state.speed = static_cast<int>(std::lround(std::max(0.0, velocityMps * 3.6)));
+    constexpr double metersPerSecondToMilesPerHour = 2.2369362920544;
+    state.speed = static_cast<int>(std::lround(std::max(0.0, velocityMps * metersPerSecondToMilesPerHour)));
     return true;
+}
+
+float normalizePercent(double rawValue) {
+    if (!std::isfinite(rawValue)) {
+        return 0.0f;
+    }
+
+    double pct = rawValue;
+    if (pct >= 0.0 && pct <= 1.0) {
+        pct *= 100.0;
+    }
+    return static_cast<float>(std::clamp(pct, 0.0, 100.0));
+}
+
+float percentFromVoltage(double voltage, double emptyVoltage, double fullVoltage) {
+    if (!std::isfinite(voltage) || voltage <= 0.0 || fullVoltage <= emptyVoltage) {
+        return 0.0f;
+    }
+
+    double pct = (voltage - emptyVoltage) * 100.0 / (fullVoltage - emptyVoltage);
+    return static_cast<float>(std::clamp(pct, 0.0, 100.0));
+}
+
+float milliampsToAmps(double rawValue) {
+    if (!std::isfinite(rawValue)) {
+        return 0.0f;
+    }
+
+    return static_cast<float>(rawValue * 0.001);
+}
+
+bool updateBatterySoc(Network* network, ui::AppState& state) {
+    double soc = 0.0;
+    bool updated = false;
+
+    if (readFirstParsedSignal(network,
+        {"Main_Battery_SOC", "Main_Battery_SoC", "BPS_SOC", "BPS_SoC",
+         "BPS_State_Of_Charge", "Pack_SOC", "Battery_SOC", "State_Of_Charge"},
+        soc)) {
+        state.mainBattery.soc = normalizePercent(soc);
+        updated = true;
+    } else if (state.mainBattery.voltage > 0.0f) {
+        state.mainBattery.soc = percentFromVoltage(state.mainBattery.voltage, 96.0, 134.4);
+        updated = true;
+    }
+
+    if (readFirstParsedSignal(network,
+        {"Supplemental_Battery_SOC", "Supplemental_Battery_SoC", "Supp_Battery_SOC",
+         "Aux_Battery_SOC", "LV_Battery_SOC"},
+        soc)) {
+        state.suppBattery.soc = normalizePercent(soc);
+        updated = true;
+    } else if (state.suppBattery.voltage > 0.0f) {
+        state.suppBattery.soc = percentFromVoltage(state.suppBattery.voltage, 11.8, 13.6);
+        updated = true;
+    }
+
+    return updated;
+}
+
+void addFault(ui::AppState& state,
+              const char* name,
+              ui::FaultSeverity severity = ui::FaultSeverity::Critical,
+              const char* message = "") {
+    state.faults.push_back(ui::Fault{
+        name ? name : "Fault",
+        message ? message : "",
+        severity,
+        0
+    });
+}
+
+std::string joinFaultNames(const std::vector<ui::Fault>& faults) {
+    std::string names;
+    for (const auto& fault : faults) {
+        if (fault.name.empty()) {
+            continue;
+        }
+        if (!names.empty()) {
+            names += ", ";
+        }
+        names += fault.name;
+    }
+    return names;
+}
+
+std::string joinFaultMessages(const std::vector<ui::Fault>& faults) {
+    std::string messages;
+    for (const auto& fault : faults) {
+        if (fault.message.empty()) {
+            continue;
+        }
+        if (!messages.empty()) {
+            messages += "; ";
+        }
+        if (!fault.name.empty()) {
+            messages += fault.name;
+            messages += ": ";
+        }
+        messages += fault.message;
+    }
+    return messages;
+}
+
+std::string signalValueMessage(Network* network,
+                               const char* signalName,
+                               double value,
+                               const char* fallback = "") {
+    if (network && signalName) {
+        std::string description = network->describeParsedSignalValue(signalName, value);
+        if (!description.empty() && description != "No Fault") {
+            return description;
+        }
+
+        std::string comment = network->parsedSignalComment(signalName);
+        if (!comment.empty()) {
+            return comment;
+        }
+    }
+
+    return fallback ? fallback : "";
+}
+
+std::string booleanFaultMessage(Network* network,
+                                const char* signalName,
+                                double value,
+                                const char* fallback) {
+    if (network && signalName) {
+        std::string comment = network->parsedSignalComment(signalName);
+        if (!comment.empty()) {
+            return comment;
+        }
+
+        std::string description = network->describeParsedSignalValue(signalName, value);
+        if (!description.empty()
+            && description != "No Fault"
+            && description != "OK"
+            && description != "Normal") {
+            return description;
+        }
+    }
+
+    return fallback ? fallback : "";
+}
+
+int faultPriority(const ui::Fault& fault) {
+    if (fault.name == "BPS") {
+        return 0;
+    }
+    if (fault.name == "VCU BPS") {
+        return 1;
+    }
+    return 2;
+}
+
+void prioritizeFaults(ui::AppState& state) {
+    std::stable_sort(state.faults.begin(), state.faults.end(),
+        [](const ui::Fault& a, const ui::Fault& b) {
+            return faultPriority(a) < faultPriority(b);
+        });
+}
+
+bool envFlagEnabled(const char* name) {
+    std::string value;
+#ifdef _WIN32
+    char* rawValue = nullptr;
+    size_t rawValueLength = 0;
+    if (_dupenv_s(&rawValue, &rawValueLength, name) != 0 || !rawValue) {
+        return false;
+    }
+    value = rawValue;
+    std::free(rawValue);
+#else
+    const char* rawValue = std::getenv(name);
+    if (!rawValue) {
+        return false;
+    }
+    value = rawValue;
+#endif
+
+    return !value.empty()
+        && value != "0"
+        && value != "false"
+        && value != "FALSE"
+        && value != "off"
+        && value != "OFF";
+}
+
+void applyFakeCanFaults(ui::AppState& state) {
+    state.faults.clear();
+    addFault(state, "BPS", ui::FaultSeverity::Critical, "Undervoltage");
+    addFault(state, "VCU BPS", ui::FaultSeverity::Critical, "BPS fault detected");
+    addFault(state, "VCU Motor", ui::FaultSeverity::Critical, "Motor fault detected");
+    prioritizeFaults(state);
+
+    state.canFault = true;
+    state.canFaultId = 0;
+    state.canFaultName = joinFaultNames(state.faults);
+    state.canFaultMessage = joinFaultMessages(state.faults);
+    state.bpsFaultCode = 2;
+    state.vcuFaultCode = static_cast<uint8_t>((1u << 0) | (1u << 2));
+
+    if (state.mainBattery.soc == 0.0f) {
+        state.mainBattery.soc = 62.0f;
+        state.mainBattery.voltage = 96.0f;
+        state.mainBattery.current = -18.0f;
+    }
+    if (state.suppBattery.soc == 0.0f) {
+        state.suppBattery.soc = 84.0f;
+        state.suppBattery.voltage = 13.6f;
+        state.suppBattery.current = 3.0f;
+    }
 }
 }
 
@@ -49,6 +264,7 @@ void UI::build(){
 
     static ui::AppState ddashState = ui::CreateDefaultState();
     ddashState.heartbeat = static_cast<uint8_t>((ddashState.heartbeat + 1) % 256);
+    ddashState.faults.clear();
     if (networkINTF) {
         double val = 0;
         // Motor controller basics — McQueen DBCs prefix every MC signal with "MC_".
@@ -56,6 +272,7 @@ void UI::build(){
         if (networkINTF->readParsedSignal("Main_Battery_Voltage", val)) ddashState.mainBattery.voltage = (float)val;
         if (networkINTF->readParsedSignal("Main_Battery_Current", val)) ddashState.mainBattery.current = (float)val;
         if (networkINTF->readParsedSignal("Supplemental_Battery_Voltage", val)) ddashState.suppBattery.voltage = (float)val;
+        updateBatterySoc(networkINTF, ddashState);
         if (readFirstParsedSignal(networkINTF, {"MC_HeatsinkTemp", "HeatsinkTemp"}, val)) ddashState.motorController.heatsinkTemp = (float)val;
         if (readFirstParsedSignal(networkINTF, {"MC_BusVoltage", "BusVoltage"}, val)) ddashState.motorController.voltage = (float)val;
         if (readFirstParsedSignal(networkINTF, {"MC_BusCurrent", "BusCurrent"}, val)) ddashState.motorController.current = (float)val;
@@ -80,8 +297,10 @@ void UI::build(){
         // ones that represent an unrecoverable or pipeline fault into a single
         // "VCU faulted" signal.
         double bpsF = 0;
+        double legacyVcuF = 0;
         double vcuFaults[5] = {0};
         bool hasBps = networkINTF->readParsedSignal("BPS_Fault", bpsF);
+        bool hasLegacyVcu = networkINTF->readParsedSignal("VCU_Fault", legacyVcuF);
         bool hasVcu = false;
         hasVcu |= networkINTF->readParsedSignal("VCU_BPS_FAULT_DETECTED",       vcuFaults[0]);
         hasVcu |= networkINTF->readParsedSignal("VCU_CONTROLS_FAULT_DETECTED",  vcuFaults[1]);
@@ -91,17 +310,41 @@ void UI::build(){
         double vcuF = 0;
         for (int i = 0; i < 5; ++i) vcuF += vcuFaults[i];
         if (hasBps && bpsF != 0) {
+            addFault(ddashState, "BPS", ui::FaultSeverity::Critical,
+                     signalValueMessage(networkINTF, "BPS_Fault", bpsF, "BPS fault detected").c_str());
+        }
+        if (hasLegacyVcu && legacyVcuF != 0) {
+            addFault(ddashState, "VCU", ui::FaultSeverity::Critical,
+                     signalValueMessage(networkINTF, "VCU_Fault", legacyVcuF, "VCU fault detected").c_str());
+        }
+        if (hasVcu) {
+            if (vcuFaults[0] != 0) addFault(ddashState, "VCU BPS", ui::FaultSeverity::Critical,
+                                            booleanFaultMessage(networkINTF, "VCU_BPS_FAULT_DETECTED", vcuFaults[0], "BPS fault detected").c_str());
+            if (vcuFaults[1] != 0) addFault(ddashState, "VCU Controls", ui::FaultSeverity::Critical,
+                                            booleanFaultMessage(networkINTF, "VCU_CONTROLS_FAULT_DETECTED", vcuFaults[1], "Controls fault detected").c_str());
+            if (vcuFaults[2] != 0) addFault(ddashState, "VCU Motor", ui::FaultSeverity::Critical,
+                                            booleanFaultMessage(networkINTF, "VCU_MTR_FAULT_DETECTED", vcuFaults[2], "Motor fault detected").c_str());
+            if (vcuFaults[3] != 0) addFault(ddashState, "VCU Pedals", ui::FaultSeverity::Critical,
+                                            booleanFaultMessage(networkINTF, "VCU_PEDALS_FAULT_DETECTED", vcuFaults[3], "Pedals fault detected").c_str());
+            if (vcuFaults[4] != 0) addFault(ddashState, "VCU Steering", ui::FaultSeverity::Critical,
+                                            booleanFaultMessage(networkINTF, "VCU_STEERING_FAULT_DETECTED", vcuFaults[4], "Steering fault detected").c_str());
+        }
+        prioritizeFaults(ddashState);
+        if (hasBps && bpsF != 0) {
             ddashState.canFault = true;
-            ddashState.canFaultId = 1;
-            ddashState.canFaultName = "BPS";
-            ddashState.canFaultMessage = "BPS Fault";
-        } else if (hasVcu && vcuF != 0) {
+            ddashState.canFaultId = 0;
+            ddashState.canFaultName = joinFaultNames(ddashState.faults);
+            ddashState.canFaultMessage = joinFaultMessages(ddashState.faults);
+        } else if ((hasVcu && vcuF != 0) || (hasLegacyVcu && legacyVcuF != 0)) {
             ddashState.canFault = true;
-            ddashState.canFaultId = 24; // VCU_Status message ID in McQueen CarCAN
-            ddashState.canFaultName = "VCU";
-            ddashState.canFaultMessage = "VCU Fault";
+            ddashState.canFaultId = 0;
+            ddashState.canFaultName = joinFaultNames(ddashState.faults);
+            ddashState.canFaultMessage = joinFaultMessages(ddashState.faults);
         } else {
             ddashState.canFault = false;
+            ddashState.canFaultId = 0;
+            ddashState.canFaultName.clear();
+            ddashState.canFaultMessage.clear();
         }
 
         if (networkINTF->readParsedSignal("HV_Plus_Contactor_State", val)) ddashState.contactorStates.hvPositive = (val != 0);
@@ -131,7 +374,7 @@ void UI::build(){
         // New Telemetry — accel position is AccelPedal_Main_Pos in McQueen Pedal_Status.
         if (networkINTF->readParsedSignal("AccelPedal_Main_Pos", val)) ddashState.pedalPercent = (float)val;
         // BPSCAN has Main_Battery_Current but user asked for supp battery current, mapped to Supplemental_Battery_Current
-        if (networkINTF->readParsedSignal("Supplemental_Battery_Current", val)) ddashState.suppBattery.current = (float)val;
+        if (networkINTF->readParsedSignal("Supplemental_Battery_Current", val)) ddashState.suppBattery.current = milliampsToAmps(val);
         if (networkINTF->readParsedSignal("Brake_Pressure", val)) ddashState.brakePressure = (float)val;
 
         // BPS arrays 
@@ -214,9 +457,10 @@ void UI::build(){
 
         // Supp battery charger. McQueen names the charger status / DCDC rails
         // after the Vicor module in Supp_Charging_Status (ID 769).
-        if (networkINTF->readParsedSignal("Supplemental_Charging_Status", val)) ddashState.suppChargerStatus = (uint8_t)val;
-        if (networkINTF->readParsedSignal("Supplemental_Vicor_Voltage", val)) ddashState.suppDcdcVoltage = (float)val;
+        if (readFirstParsedSignal(networkINTF, {"Supplemental_Charging_Status", "SuppCharger_Status"}, val)) ddashState.suppChargerStatus = (uint8_t)val;
+        if (readFirstParsedSignal(networkINTF, {"Supplemental_Vicor_Voltage", "Supplemental_DCDC_Voltage"}, val)) ddashState.suppDcdcVoltage = (float)val;
         if (networkINTF->readParsedSignal("Supplemental_Vicor_Current", val)) ddashState.suppDcdcCurrent = (float)val;
+        else if (networkINTF->readParsedSignal("Supplemental_DCDC_Current", val)) ddashState.suppDcdcCurrent = milliampsToAmps(val);
 
         // Pedal sensor details — McQueen renamed Accel_Pos_* / Brake_Pos_*
         // into the AccelPedal_*_Pos / BrakePedal_*_Pos form in Pedal_Status (ID 80).
@@ -269,6 +513,9 @@ void UI::build(){
         // Lighting / controls faults (ID 25)
         if (networkINTF->readParsedSignal("Controls_Lighting_Fault", val)) ddashState.lightingFaults = (uint8_t)val;
         if (networkINTF->readParsedSignal("Controls_Leader_Fault", val)) ddashState.controlsLeaderFault = (uint8_t)val;
+    }
+    if (envFlagEnabled("PHOTON_FAKE_CAN_FAULTS")) {
+        applyFakeCanFaults(ddashState);
     }
     ddashState.leftCameraTexture = leftCameraTexture;
     ddashState.rightCameraTexture = rightCameraTexture;

@@ -37,7 +37,7 @@ enum class TurnSignal {
  * Individual fault record
  */
 struct Fault {
-    std::string code;
+    std::string name;
     std::string message;
     FaultSeverity severity;
     int64_t timestamp;  // Unix timestamp in milliseconds
@@ -90,7 +90,7 @@ struct MotorController {
  */
 struct CruiseControl {
     bool enabled;
-    int setSpeed;  // Target speed in km/h
+    int setSpeed;  // Target speed in mph
 };
 
 /**
@@ -121,7 +121,7 @@ struct IgnitionStates {
  * All widgets read/write from this struct - no globals.
  */
 struct AppState {
-    int speed;              // Current speed in km/h
+    int speed;              // Current speed in mph
     Gear gear;
     MainBattery mainBattery;
     SuppBattery suppBattery;

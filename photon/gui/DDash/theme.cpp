@@ -1,4 +1,5 @@
 #include "theme.h"
+#include <filesystem>
 
 namespace ui {
 
@@ -24,9 +25,9 @@ void ApplyTheme() {
     style.GrabRounding = Rounding::Frame;
     style.TabRounding = Rounding::Tab;
     
-    // Borders - subtle
+    // Borders
     style.WindowBorderSize = 0.0f;
-    style.ChildBorderSize = 1.0f;
+    style.ChildBorderSize = 0.0f;
     style.FrameBorderSize = 0.0f;
     style.PopupBorderSize = 1.0f;
     style.TabBorderSize = 0.0f;
@@ -118,6 +119,7 @@ bool LoadFonts(const char* fontPath, const char* monoFontPath, const char* iconF
     
     for (const char* path : satoshiPaths) {
         if (path == nullptr) continue;
+        if (!std::filesystem::exists(path)) continue;
         
         ImFont* font = io.Fonts->AddFontFromFileTTF(path, 16.0f, &config);
         if (font != nullptr) {
