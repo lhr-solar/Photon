@@ -788,12 +788,13 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                     if (fillW >= pbW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
                     dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH), ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
                 }
-
+                // break pressure 1: front
+                // break pressure 2: rear
                 char pressureTxt[48];
                 snprintf(
                     pressureTxt,
                     sizeof(pressureTxt),
-                    "B1 %.0f   B2 %.0f",
+                    "FRONT %.0f   REAR %.0f",
                     std::max(0.0f, state.brakePressure1),
                     std::max(0.0f, state.brakePressure2));
                 ImVec4 pressureCol =
