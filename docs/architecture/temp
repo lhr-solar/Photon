@@ -1,1 +1,9 @@
-<architecture docs>
+Photon is a real-time telemetry app with a focus on the custom rendering and data-streaming backend
+The project is built using clang++23 and uses CMake as the build system
+
+Library Dependencies:
+    Vulkan
+    SDL3
+    Dear ImGui
+    glm
+    tinygltf

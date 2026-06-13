@@ -1426,7 +1426,7 @@ void GPU::resizeWindow() {
     return;
   }
   resizePending = false;
-  if ((newWidth == width) && (newHeight == height)) return;
+  // if ((newWidth == width) && (newHeight == height)) return;
 
 #ifdef _WIN32
   if (directCompositionActive) {

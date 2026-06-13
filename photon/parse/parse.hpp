@@ -3,7 +3,7 @@
 
 #include "arena.hpp"
 
-enum class DBCKind : uint32_t {
+enum class DBCType : uint32_t {
   VehicleWithUndisclosedName = 0,
   DaybreakMaster,
   Test,
@@ -13,15 +13,15 @@ enum class DBCKind : uint32_t {
 
 struct Parse {
   Arena arena{};
-  DBCKind activeDBC = DBCKind::VehicleWithUndisclosedName;
+  DBCType activeDBC = DBCType::VehicleWithUndisclosedName;
   std::string activeDBCLabel = "vehicle-with-undisclosed-name";
-  std::string activeDBCPath{};
+  std::string activeDBCPath = {};
   void init();
-  bool loadDBC(DBCKind kind);
+  bool loadDBC(DBCType kind);
   bool loadDBCFile(const std::string& path);
   void destroy();
 
   static constexpr uint32_t dbcCount() { return 5; }
-  static const char* dbcName(DBCKind kind);
+  static const char* dbcName(DBCType kind);
   const char* currentDBCName() const;
 };

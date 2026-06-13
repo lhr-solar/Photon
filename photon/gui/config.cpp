@@ -294,7 +294,7 @@ void GuiSettings::setStyle() {
   style.ScrollbarRounding = 0.0f;
   style.FrameRounding = 0.0f;
   style.FrameBorderSize = 0.0f;
-  style.WindowBorderSize = 0.0f;
+  style.WindowBorderSize = 1.0f;
   style.ChildBorderSize = 1.0f;
   style.PopupBorderSize = 1.0f;
   style.DockingSeparatorSize = 1.0f;
@@ -316,6 +316,7 @@ void GuiSettings::setStyle() {
   auto color6 = colorScheme.color6;
   auto color7 = colorScheme.color7;
 
+  ImVec4 red = {1.0, 0.0, 0.0, 1.0};
   ImVec4* colors = style.Colors;
   colors[ImGuiCol_Text] = color0;
   colors[ImGuiCol_TextDisabled] = color3;
@@ -658,7 +659,20 @@ void GuiSettings::colorUI() {
       draw->AddRect(min, max, IM_COL32(255, 255, 255, 32), rounding);
     }
     ImGui::Dummy({4.0f * paletteSize + 3.0f * gap, 2.0f * paletteSize + gap});
+    ImGui::Text("Font Size");
+    if (ImGui::Button("-##fsizem")) {
+      fontSize = (fontSize - 1 > 0) ? fontSize - 1 : 1;
+      dirty = true;
+    };
+    ImGui::SameLine();
+    ImGui::Text("%.0f", fontSize);
+    ImGui::SameLine();
+    if (ImGui::Button("+##fsizep")) {
+      fontSize = fontSize + 1;
+      dirty = true;
+    };
     ImGui::SeparatorText("Plots");
+    ImGui::Text("Line Width and Style:");
     if (plotLineSpec.LineWeight < 1.0f) plotLineSpec.LineWeight = 1.0f;
     if (ImGui::Button("-")) {
       plotLineSpec.LineWeight = std::max(1.0f, plotLineSpec.LineWeight - 1.0f);

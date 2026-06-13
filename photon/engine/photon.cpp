@@ -19,8 +19,6 @@
 #endif
 #endif
 
-static std::string uiErrorText{};
-
 void Photon::init() {
   gpu.init();
   logs("Initialized GPU");
@@ -28,10 +26,10 @@ void Photon::init() {
   logs("Initialized ImGui");
   parse.init();
   logs("Initialized Arena");
-  gui.init(gpu, parse.arena);
-  logs("Initialized GUI");
-  network.init(&parse, &gui.networkCommandBuffer);
+  network.init();
   logs("Initialized Network");
+  gui.init(gpu, parse.arena, network);
+  logs("Initialized GUI");
 
   updateApp();
 }
@@ -88,6 +86,7 @@ void Photon::handleInput() {
   }
 };
 
+static std::string uiErrorText{};
 bool Photon::reloadUI() {
 #if !defined(NDEBUG) && (defined(__linux__) || defined(_WIN32))
   namespace fs = std::filesystem;

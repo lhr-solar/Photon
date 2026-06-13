@@ -19,9 +19,10 @@
 #include "nucleus_frag_spv.hpp"
 #include "widget.hpp"
 
-void GUI::init(GPU& gpu, Arena& arena) {
+void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   this->gpu = &gpu;
   this->arena = &arena;
+  this->network = &network;
   GuiSettings::regster(&settings);
   settings.setStyle();
   setTabs();
@@ -189,12 +190,85 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 
 void GUI::setTabs() {
   tabs.list.clear();
-  // tabs.list.push_back(Tab{.function = page1, .name = "Page 1 Name"});
-  // tabs.list.push_back(Tab{.function = page2, .name = "Page 2 Name"});
-  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "shader test"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::testFunc>(*this, "draw test"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "plot test"));
-  if (arena) tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "arena ui"));
+  tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "arena ui"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "network page"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "shader test"));
+};
+
+void GUI::networkPage(ImGuiWindowFlags flags) {
+  static int listIndex = 0;
+  if (ImGui::Begin("network page", NULL, flags)) {
+    ImGui::Combo("##NetworkCombo", &listIndex, networkOptions.data(), networkOptions.size());
+    ImGui::Separator();
+    if (listIndex == 0) {
+      static std::string terminalText;
+      static auto txReader = network->guiTxCommandBuffer.getReader();
+      static int count = 0;
+      static TCPConfig config{
+          .port = 6500,
+          .ip = "3.141.38.115",
+      };
+      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      if (ImGui::Button("Connect To Server")) network->guiRxCommandBuffer.write(λ);
+      while (ProtocolReceiveVariant* msg = txReader.read()) {
+        if (auto* error = std::get_if<ProtocolError>(msg))
+          terminalText += "[error] " + error->error + "\n";
+        else if (auto* message = std::get_if<ProtocolMessage>(msg)){
+          terminalText += message->message + "\n";
+          count++;
+          }
+        else if (auto* deviceList = std::get_if<ProtocolDeviceList>(msg)) {
+          terminalText += "[devices]\n";
+          for (const auto& device : deviceList->devices) terminalText += "  " + device + "\n";
+        }
+      }
+      ImGui::Separator();
+      ImGui::TextUnformatted("TCP Output");
+      ImGui::Text("Messages Received %i", count);
+      ImGui::BeginChild("##TcpTerminal", ImVec2(0, 220), ImGuiChildFlags_Borders,
+                        ImGuiWindowFlags_HorizontalScrollbar);
+      ImGui::TextUnformatted(terminalText.c_str());
+      if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) ImGui::SetScrollHereY(1.0f);
+      ImGui::EndChild();
+    } else if (listIndex == 1) {
+      static TCPConfig config{};
+      ImGui::InputText("IP", config.ip, sizeof(config.ip));
+      ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
+      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
+    } else if (listIndex == 2) {
+      static UDPConfig config{};
+      ImGui::InputText("IP", config.ip, sizeof(config.ip));
+      ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
+      ImGui::InputText("Subscription Message", config.subscribeMessage,
+                       sizeof(config.subscribeMessage));
+      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
+    } else if (listIndex == 3) {
+      static UARTConfig config{};
+
+      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
+    } else if (listIndex == 4) {
+      static PCANConfig config{};
+
+      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
+    } else if (listIndex == 5) {
+      static BLEConfig config{};
+
+      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
+    } else if (listIndex == 6) {
+      static WLANConfig config{};
+
+      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
+    }
+  };
+  ImGui::End();
 };
 
 void GUI::buildUI() {

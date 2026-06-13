@@ -50,11 +50,11 @@ if compiled for debug (no "release" flag)
 
 enable tracy:
 
-make tracy
+    make tracy
 
 disable tracy:
 
-make notracy
+    make notracy
 
 to build on windows:
 cmake -S . -B .artifacts -G Ninja -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++

@@ -1,530 +1,71 @@
 #include "network.hpp"
 
-#include <array>
-#include <bit>
 #include <chrono>
-#include <cstdio>
-#include <cstring>
-#include <string>
+#include <iostream>
 #include <thread>
-#include <tracy/Tracy.hpp>
-#include <vector>
+#include <variant>
 
-#include "../engine/include.hpp"
+#include "protocols.hpp"
 
-#ifdef _WIN32
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-#include <Ws2tcpip.h>
-#include <winsock2.h>
-using ForwardSocketHandle = SOCKET;
-#else
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <unistd.h>
+void Network::init() {
+  backendThread = std::jthread([this](std::stop_token stoken) { backend(stoken); });
+};
 
-#include <cerrno>
-using ForwardSocketHandle = int;
-#define INVALID_SOCKET (-1)
-#define SOCKET_ERROR (-1)
-#endif
-
-namespace {
-constexpr size_t kMetricHistoryLimit = 120;
-constexpr uint16_t kStreamForwardPort = 6100;
-constexpr char kStreamForwardIp[] = "3.141.38.115";
-
-NetworkResponseType statusTypeFromMessage(const char* message) {
-  if (!message) return NetworkResponseType::Info;
-  if (std::strstr(message, "Online") != nullptr || std::strstr(message, "Connected") != nullptr ||
-      std::strstr(message, "Success") != nullptr) {
-    return NetworkResponseType::Success;
-  }
-  return NetworkResponseType::Info;
-}
-
-int hexValue(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
-  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
-  return -1;
-}
-
-bool decodeFrame(const std::string& frame, uint16_t& canId, std::array<uint8_t, 8>& value) {
-  if (frame.empty() || frame.front() != 't') return false;
-  if (frame.back() != '\r') return false;
-  if (frame.size() < 5) return false;
-
-  const std::size_t payloadLength = frame.size() - 1;
-  int dataLength = hexValue(frame[4]);
-  if (dataLength < 0 || dataLength > 8) return false;
-
-  const std::size_t expectedLength = 5 + static_cast<std::size_t>(dataLength) * 2;
-  if (payloadLength != expectedLength) return false;
-
-  canId = 0;
-  for (std::size_t i = 1; i <= 3; ++i) {
-    int nibble = hexValue(frame[i]);
-    if (nibble < 0) return false;
-    canId = static_cast<uint16_t>((canId << 4) | static_cast<uint16_t>(nibble));
-  }
-
-  value = {};
-  for (int i = 0; i < dataLength; ++i) {
-    int h = hexValue(frame[5 + i * 2]);
-    int l = hexValue(frame[6 + i * 2]);
-    if (h < 0 || l < 0) return false;
-    value[i] = static_cast<uint8_t>((h << 4) + l);
-  }
-  return true;
-}
-
-uint64_t extractLe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitLength) {
-  if (bitLength <= 0 || dlc < 0 || startBit < 0) return 0;
-  if (dlc > 8) dlc = 8;
-  if (startBit + bitLength > dlc * 8) return 0;
-
-  uint64_t v = 0;
-  for (int i = 0; i < dlc; ++i) v = (v << 8) | uint64_t(bytes[i]);
-  if (bitLength == 64) return v >> startBit;
-
-  uint64_t mask = (1ULL << bitLength) - 1ULL;
-  return (v >> startBit) & mask;
-}
-
-uint64_t extractBe(const std::array<uint8_t, 8>& bytes, int dlc, int startBit, int bitLength) {
-  if (bitLength <= 0 || dlc < 0 || startBit < 0) return 0;
-  if (dlc > 8) dlc = 8;
-  if (bitLength > 64) return 0;
-
-  const int totalBits = dlc * 8;
-  if (startBit >= totalBits) return 0;
-
-  const int byteIdx = startBit / 8;
-  const int bitIdx = startBit % 8;
-  if (byteIdx >= dlc) return 0;
-
-  uint64_t v = 0;
-  for (int i = 0; i < dlc; ++i) v = (v << 8) | uint64_t(bytes[i]);
-
-  const int p0 = (totalBits - 1) - (byteIdx * 8 + (7 - bitIdx));
-  const int low = p0 - bitLength + 1;
-  if (low < 0) return 0;
-  if (bitLength == 64) return v >> low;
-
-  const uint64_t mask = (1ULL << bitLength) - 1ULL;
-  return (v >> low) & mask;
-}
-
-int64_t signExtend(uint64_t raw, uint8_t bits) {
-  if (bits == 0 || bits >= 64) return static_cast<int64_t>(raw);
-  const uint64_t signBit = 1ULL << (bits - 1);
-  const uint64_t mask = (1ULL << bits) - 1ULL;
-  uint64_t v = raw & mask;
-  if (v & signBit) v |= ~mask;
-  return static_cast<int64_t>(v);
-}
-
-double decodeSignalValue(const Message& msg, const Signal& sig,
-                         const std::array<uint8_t, 8>& value) {
-  const uint64_t raw = (sig.endianness == 0)
-                           ? extractBe(value, static_cast<int>(msg.dlc), sig.startBit, sig.length)
-                           : extractLe(value, static_cast<int>(msg.dlc), sig.startBit, sig.length);
-
-  if (sig.type == vINT) {
-    double parsedValue =
-        sig.isSigned ? static_cast<double>(signExtend(raw, static_cast<uint8_t>(sig.length)))
-                     : static_cast<double>(raw);
-    return (parsedValue + sig.offset) * sig.scale;
-  }
-
-  if (sig.type == vFLOAT) {
-    uint32_t bits = static_cast<uint32_t>(raw);
-    float parsedValue = std::bit_cast<float>(bits);
-    parsedValue = static_cast<float>((parsedValue + sig.offset) * sig.scale);
-    return static_cast<double>(parsedValue);
-  }
-
-  if (sig.type == vDOUBLE) {
-    uint64_t bits = static_cast<uint64_t>(raw);
-    double parsedValue = std::bit_cast<double>(bits);
-    return (parsedValue + sig.offset) * sig.scale;
-  }
-
-  return 0.0;
-}
-
-bool handleFrame(Arena* arena, const std::string& frame, double timeValue) {
-  if (!arena) return false;
-
-  uint16_t canId = 0;
-  std::array<uint8_t, 8> value{};
-  if (!decodeFrame(frame, canId, value)) return false;
-  if (canId >= arena->messages.size()) return false;
-
-  Message* msg = arena->messages[canId];
-  if (!msg || msg->signalCount == 0) return false;
-
-  std::vector<double> decodedValues;
-  decodedValues.reserve(msg->signalCount);
-  for (uint32_t i = 0; i < msg->signalCount; ++i) {
-    Signal* sig = msg->signals[i];
-    if (!sig) return false;
-    decodedValues.push_back(decodeSignalValue(*msg, *sig, value));
-  }
-
-  const auto now = std::chrono::system_clock::now();
-  for (uint32_t i = 0; i < msg->signalCount; ++i) {
-    Signal* sig = msg->signals[i];
-    sig->timeSinceMutation =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - sig->lastTimeMutated);
-    sig->lastTimeMutated = now;
-  }
-  msg->timeSinceUpdate =
-      std::chrono::duration_cast<std::chrono::milliseconds>(now - msg->lastTimeUpdated);
-  msg->lastTimeUpdated = now;
-
-  const double dt = std::chrono::duration<double>(msg->timeSinceUpdate).count();
-  const double transfer = 5.0 + (static_cast<double>(msg->dlc) * 2.0);
-  msg->dataRate = dt > 0.0 ? (msg->dataRate + (transfer / dt)) / 2.0 : msg->dataRate;
-  msg->dataTransfer += transfer;
-  arena->totalDataTransfer += transfer;
-  msg->bandwidthPercentage =
-      arena->totalDataTransfer > 0.0 ? (msg->dataTransfer / arena->totalDataTransfer) : 0.0;
-  msg->dataRateHistory.push_back(static_cast<float>(msg->dataRate));
-  msg->dataTransferHistory.push_back(static_cast<float>(msg->dataTransfer));
-  if (msg->dataRateHistory.size() > kMetricHistoryLimit)
-    msg->dataRateHistory.erase(msg->dataRateHistory.begin());
-  if (msg->dataTransferHistory.size() > kMetricHistoryLimit)
-    msg->dataTransferHistory.erase(msg->dataTransferHistory.begin());
-
-  return arena->appendFrame(canId, timeValue, decodedValues.data(),
-                            static_cast<uint32_t>(decodedValues.size()));
-}
-
-bool setForwardSocketNonBlocking(ForwardSocketHandle sock) {
-#ifdef _WIN32
-  u_long mode = 1;
-  return ioctlsocket(sock, FIONBIO, &mode) == 0;
-#else
-  const int flags = fcntl(sock, F_GETFL, 0);
-  if (flags < 0) return false;
-  return fcntl(sock, F_SETFL, flags | O_NONBLOCK) == 0;
-#endif
-}
-
-void closeForwardSocket(ForwardSocketHandle sock) {
-#ifdef _WIN32
-  closesocket(sock);
-#else
-  close(sock);
-#endif
-}
-}  // namespace
-
-void Network::publishResponse(NetworkResponseType type, ProtocolKind protocol,
-                              const char* message) {
-  guiResponses.write([&](NetworkResponse& response) {
-    response = {};
-    response.type = type;
-    response.protocol = protocol;
-    response.networkStreamRunning = networkStreamRunning.load(std::memory_order_acquire);
-    response.streamForwardRunning = streamForwardRunning.load(std::memory_order_acquire);
-    if (message) std::strncpy(response.message, message, sizeof(response.message) - 1);
+void Network::startTCP(TCPConfig config) {
+  stopWriter();
+  writerThread = std::jthread([this, config](std::stop_token stoken) {
+    Protocols::TCP(stoken, guiTxCommandBuffer, config);
   });
 }
 
-void Network::startParser() {
-  stopParser();
-  parserThread = std::jthread([this](std::stop_token stopToken) {
-    tracy::SetThreadName("Network Parser");
-    parser(stopToken);
-  });
+void Network::stopWriter() {
+  if (!writerThread.joinable()) return;
+  writerThread.request_stop();
+  writerThread.join();
 }
 
-void Network::stopParser() {
-  if (parserThread.joinable()) {
-    parserThread.request_stop();
-    parserThread.join();
-  }
-}
-
-void Network::startNetworkStream(const ProtocolConfig& config) {
-  stopNetworkStream();
-  activeConfig = config;
-  networkStreamRunning.store(true, std::memory_order_release);
-  publishResponse(NetworkResponseType::Info, activeConfig.kind, "Starting Network Stream");
-  networkStreamThread = std::jthread([this, config](std::stop_token stopToken) {
-    tracy::SetThreadName("Network Stream");
-    Protocols::run(stopToken, &networkStreamStatus, &networkStream, &networkStream, config);
-  });
-}
-
-void Network::stopNetworkStream() {
-  const ProtocolKind previous = activeConfig.kind;
-  networkStreamRunning.store(false, std::memory_order_release);
-  if (networkStreamThread.joinable()) {
-    networkStreamThread.request_stop();
-    networkStreamThread.join();
-  }
-  activeConfig = {};
-  if (previous != ProtocolKind::None)
-    publishResponse(NetworkResponseType::Info, previous, "Network Stream Stopped");
-}
-
-void Network::startStreamForward() {
-  stopStreamForward();
-  streamForwardRunning.store(true, std::memory_order_release);
-  publishResponse(NetworkResponseType::Info, activeConfig.kind, "Starting Data Stream Forward");
-  streamForwardThread = std::jthread([this](std::stop_token stopToken) {
-    tracy::SetThreadName("Stream Forward");
-    forwardStream(stopToken);
-  });
-}
-
-void Network::stopStreamForward() {
-  const bool wasRunning = streamForwardRunning.exchange(false, std::memory_order_acq_rel);
-  if (streamForwardThread.joinable()) {
-    streamForwardThread.request_stop();
-    streamForwardThread.join();
-  }
-  if (wasRunning)
-    publishResponse(NetworkResponseType::Info, activeConfig.kind, "Data Stream Forward Stopped");
-}
-
-void Network::forwardStream(std::stop_token stopToken) {
-#ifdef _WIN32
-  static bool wsaStarted = false;
-  if (!wsaStarted) {
-    WSADATA wsa{};
-    const int err = WSAStartup(MAKEWORD(2, 2), &wsa);
-    if (err != 0) {
-      char message[192]{};
-      std::snprintf(message, sizeof(message), "Stream forward WSAStartup failed: %d", err);
-      streamForwardRunning.store(false, std::memory_order_release);
-      publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
-      return;
-    }
-    wsaStarted = true;
-  }
-#endif
-
-  ForwardSocketHandle sock = socket(AF_INET, SOCK_STREAM, 0);
-  if (sock == INVALID_SOCKET) {
-    char message[192]{};
-#ifdef _WIN32
-    std::snprintf(message, sizeof(message), "Stream forward TCP socket creation failed: %d",
-                  WSAGetLastError());
-#else
-    std::snprintf(message, sizeof(message), "Stream forward TCP socket creation failed: %s",
-                  std::strerror(errno));
-#endif
-    streamForwardRunning.store(false, std::memory_order_release);
-    publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
-    return;
-  }
-
-  if (!setForwardSocketNonBlocking(sock)) {
-    char message[192]{};
-#ifdef _WIN32
-    std::snprintf(message, sizeof(message), "Stream forward TCP non-blocking setup failed: %d",
-                  WSAGetLastError());
-#else
-    std::snprintf(message, sizeof(message), "Stream forward TCP non-blocking setup failed: %s",
-                  std::strerror(errno));
-#endif
-    closeForwardSocket(sock);
-    streamForwardRunning.store(false, std::memory_order_release);
-    publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
-    return;
-  }
-
-  sockaddr_in server{};
-  server.sin_family = AF_INET;
-  server.sin_port = htons(kStreamForwardPort);
-  if (inet_pton(AF_INET, kStreamForwardIp, &server.sin_addr) != 1) {
-    closeForwardSocket(sock);
-    streamForwardRunning.store(false, std::memory_order_release);
-    publishResponse(NetworkResponseType::Error, activeConfig.kind,
-                    "Stream forward IP parse failed");
-    return;
-  }
-
-  if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == SOCKET_ERROR) {
-    char message[192]{};
-#ifdef _WIN32
-    const int err = WSAGetLastError();
-    if (err != WSAEWOULDBLOCK && err != WSAEINPROGRESS && err != WSAEALREADY && err != WSAEISCONN) {
-      std::snprintf(message, sizeof(message), "Stream forward TCP connect failed: %d", err);
-      closeForwardSocket(sock);
-      streamForwardRunning.store(false, std::memory_order_release);
-      publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
-      return;
-    }
-#else
-    if (errno != EINPROGRESS && errno != EWOULDBLOCK && errno != EALREADY && errno != EISCONN) {
-      std::snprintf(message, sizeof(message), "Stream forward TCP connect failed: %s",
-                    std::strerror(errno));
-      closeForwardSocket(sock);
-      streamForwardRunning.store(false, std::memory_order_release);
-      publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
-      return;
-    }
-#endif
-  }
-
-  publishResponse(NetworkResponseType::Success, activeConfig.kind, "SLCAN Stream Forward Online");
-  auto streamReader = networkStream.getReader();
-  bool sendFailed = false;
-  while (!stopToken.stop_requested()) {
-    while (uint8_t* byte = streamReader.read()) {
-      const char payload = static_cast<char>(*byte);
-      if (send(sock, &payload, 1, 0) == SOCKET_ERROR) {
-#ifdef _WIN32
-        const int err = WSAGetLastError();
-        if (err == WSAEWOULDBLOCK) continue;
-        char message[192]{};
-        std::snprintf(message, sizeof(message), "Data Stream Forward send failed: %d", err);
-#else
-        if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
-        char message[192]{};
-        std::snprintf(message, sizeof(message), "Data Stream Forward send failed: %s",
-                      std::strerror(errno));
-#endif
-        publishResponse(NetworkResponseType::Error, activeConfig.kind, message);
-        sendFailed = true;
-        break;
+/* Takes commands from Main Thread */
+/* Dispatches appropriate Writer() thread */
+void Network::backend(std::stop_token stoken) {
+  auto reader = guiRxCommandBuffer.getReader();
+  while (!stoken.stop_requested()) {
+    auto cmd = reader.readLast();
+    if (cmd != NULL) {
+      if (auto* tcp = std::get_if<TCPConfig>(cmd)) {
+        std::cout << "got tcp config:"
+                  << " ip=" << tcp->ip << " port=" << tcp->port << std::endl;
+        startTCP(*tcp);
+      } else if (auto* udp = std::get_if<UDPConfig>(cmd)) {
+        std::cout << "got udp config:"
+                  << " ip=" << udp->ip << " port=" << udp->port
+                  << " subscribeMessage=" << udp->subscribeMessage << std::endl;
+      } else if (auto* uart = std::get_if<UARTConfig>(cmd)) {
+        std::cout << "got uart config:"
+                  << " device=" << uart->device << " baudRate=" << uart->baudRate << std::endl;
+      } else if (auto* pcan = std::get_if<PCANConfig>(cmd)) {
+        std::cout << "got pcan config:"
+                  << " channel=" << pcan->channel << " bitrateKbps=" << pcan->bitrateKbps
+                  << " samplePointPercent=" << pcan->samplePointPercent
+                  << " prescaler=" << pcan->prescaler << " btr0=" << pcan->btr0
+                  << " btr1=" << pcan->btr1 << " useBtr=" << pcan->useBtr
+                  << " listenOnly=" << pcan->listenOnly << " busoffReset=" << pcan->busoffReset
+                  << std::endl;
+      } else if (std::get_if<BLEConfig>(cmd)) {
+        std::cout << "got ble config: no fields" << std::endl;
+      } else if (std::get_if<WLANConfig>(cmd)) {
+        std::cout << "got wlan config: no fields" << std::endl;
       }
-    }
-    if (sendFailed) break;
-  }
-
-  closeForwardSocket(sock);
-  streamForwardRunning.store(false, std::memory_order_release);
-}
-
-void Network::handler(std::stop_token stopToken) {
-  auto statusReader = networkStreamStatus.getReader();
-  publishResponse(NetworkResponseType::Info, ProtocolKind::None, "Network Handler Online");
-  while (!stopToken.stop_requested()) {
-    bool didWork = false;
-
-    if (NetworkCommand* command = guiCommandReader.readLast()) {
-      didWork = true;
-      switch (command->type) {
-        case NetworkCommandType::StartProtocol:
-          startNetworkStream(command->config);
-          break;
-        case NetworkCommandType::SetDBC:
-          stopParser();
-          if (parse && ((command->dbc == DBCKind::File && command->dbcPath[0] != '\0')
-                            ? parse->loadDBCFile(command->dbcPath)
-                            : parse->loadDBC(command->dbc))) {
-            arena = &parse->arena;
-            char message[192]{};
-            std::snprintf(message, sizeof(message), "DBC Set: %s", parse->currentDBCName());
-            publishResponse(NetworkResponseType::Success, activeConfig.kind, message);
-          } else {
-            publishResponse(NetworkResponseType::Error, activeConfig.kind, "Failed to Set DBC");
-          }
-          startParser();
-          break;
-        case NetworkCommandType::StartStreamForward:
-          startStreamForward();
-          break;
-        case NetworkCommandType::StopStreamForward:
-          stopStreamForward();
-          break;
-        case NetworkCommandType::StopProtocol:
-          stopNetworkStream();
-          break;
-        case NetworkCommandType::Shutdown:
-          stopStreamForward();
-          stopNetworkStream();
-          publishResponse(NetworkResponseType::Info, ProtocolKind::None,
-                          "Network Shutdown Requested");
-          break;
-        case NetworkCommandType::None:
-        default:
-          break;
-      }
-    }
-
-    while (ProtocolError* status = statusReader.read()) {
-      didWork = true;
-      publishResponse(
-          status->fatal ? NetworkResponseType::Error : statusTypeFromMessage(status->message),
-          activeConfig.kind, status->message);
-    }
-    if (!didWork) std::this_thread::sleep_for(kIdleSleep);
-  }
-  stopStreamForward();
-  stopNetworkStream();
-  stopParser();
-}
-
-void Network::parser(std::stop_token stopToken) {
-  auto streamReader = networkStream.getReader();
-  std::string frame;
-  frame.reserve(32);
-  bool collecting = false;
-  const auto start = std::chrono::steady_clock::now();
-
-  while (!stopToken.stop_requested()) {
-    bool didWork = false;
-    while (uint8_t* byte = streamReader.read()) {
-      didWork = true;
-      const char ch = static_cast<char>(*byte);
-
-      if (ch == 't') {
-        frame.clear();
-        frame.push_back(ch);
-        collecting = true;
-        continue;
-      }
-      if (!collecting) continue;
-
-      if (ch == '\r') {
-        frame.push_back(ch);
-        const double timeValue =
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-        handleFrame(arena, frame, timeValue);
-        frame.clear();
-        collecting = false;
-        continue;
-      }
-
-      if (ch == '\n') continue;
-      frame.push_back(ch);
-    }
-    if (!didWork) std::this_thread::sleep_for(kIdleSleep);
-  }
-}
-
-void Network::init(Parse* parse, SPMCQueue<NetworkCommand, 64>* guiCommands) {
-  this->parse = parse;
-  this->arena = parse ? &parse->arena : nullptr;
-  this->guiCommands = guiCommands;
-  if (this->guiCommands) guiCommandReader = this->guiCommands->getReader();
-  startParser();
-  handlerThread = std::jthread([this](std::stop_token stopToken) {
-    tracy::SetThreadName("Network Handler");
-    handler(stopToken);
-  });
-}
-
-SPMCQueue<NetworkResponse, 64>::Reader Network::getResponseReader() {
-  return guiResponses.getReader();
-}
+    } else {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    };
+  };
+  stopWriter();
+};
 
 void Network::destroy() {
-  if (handlerThread.joinable()) handlerThread.request_stop();
-  if (streamForwardThread.joinable()) streamForwardThread.request_stop();
-  if (networkStreamThread.joinable()) networkStreamThread.request_stop();
-  if (handlerThread.joinable()) handlerThread.join();
-  stopParser();
-  if (streamForwardThread.joinable()) streamForwardThread.join();
-  if (networkStreamThread.joinable()) networkStreamThread.join();
-  networkStreamRunning.store(false, std::memory_order_release);
-  streamForwardRunning.store(false, std::memory_order_release);
-}
+  if (backendThread.joinable()) {
+    backendThread.request_stop();
+    backendThread.join();
+  }
+  stopWriter();
+};

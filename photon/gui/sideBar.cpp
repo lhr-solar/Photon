@@ -79,6 +79,9 @@ void Sidebar::draw(GUI& gui) {
       ImGui::PopStyleColor(1);
       ImGui::PopStyleVar();
     }
+    static bool show_demo = false;
+    if (ImGui::Button("show demo")) show_demo = !show_demo;
+    if (show_demo) ImGui::ShowDemoWindow();
     float buttonW = (width - padding.x * 2.0f - ImGui::GetStyle().ItemSpacing.x * 4.0f) * 0.25f;
     float buttonH = ImGui::GetFrameHeightWithSpacing();
     ImVec2 framePadding = ImGui::GetStyle().FramePadding;

@@ -13,24 +13,23 @@
 #include "test_dbc.hpp"
 #include "vehicle_with_undisclosed_name_dbc.hpp"
 
-namespace {
 struct DBCAsset {
-  DBCKind kind;
+  DBCType kind;
   const char* name;
   const unsigned char* data;
   std::size_t size;
 };
 
 const std::array<DBCAsset, Parse::dbcCount()> kDBCAssets{{
-    {DBCKind::VehicleWithUndisclosedName, "vehicle-with-undisclosed-name",
+    {DBCType::VehicleWithUndisclosedName, "vehicle-with-undisclosed-name",
      vehicle_with_undisclosed_name_dbc, vehicle_with_undisclosed_name_dbc_size},
-    {DBCKind::DaybreakMaster, "daybreak-master", daybreak_master_dbc, daybreak_master_dbc_size},
-    {DBCKind::Test, "test", test_dbc, test_dbc_size},
-    {DBCKind::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size},
-    {DBCKind::File, "selected-file", nullptr, 0},
+    {DBCType::DaybreakMaster, "daybreak-master", daybreak_master_dbc, daybreak_master_dbc_size},
+    {DBCType::Test, "test", test_dbc, test_dbc_size},
+    {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size},
+    {DBCType::File, "selected-file", nullptr, 0},
 }};
 
-const DBCAsset* dbcAsset(DBCKind kind) {
+const DBCAsset* dbcAsset(DBCType kind) {
   for (const DBCAsset& asset : kDBCAssets)
     if (asset.kind == kind) return &asset;
   return nullptr;
@@ -178,11 +177,10 @@ void populateArena(Arena& arena, std::istream& stream) {
     }
   }
 }
-}  // namespace
 
 void Parse::init() { loadDBC(activeDBC); }
 
-bool Parse::loadDBC(DBCKind kind) {
+bool Parse::loadDBC(DBCType kind) {
   const DBCAsset* asset = dbcAsset(kind);
   if (!asset || !asset->data || asset->size == 0) return false;
 
@@ -216,7 +214,7 @@ bool Parse::loadDBCFile(const std::string& path) {
   arena.init(config);
   std::istringstream populateStream(dbcText);
   populateArena(arena, populateStream);
-  activeDBC = DBCKind::File;
+  activeDBC = DBCType::File;
   activeDBCPath = path;
   const size_t slash = path.find_last_of("/\\");
   activeDBCLabel = slash == std::string::npos ? path : path.substr(slash + 1);
@@ -225,7 +223,7 @@ bool Parse::loadDBCFile(const std::string& path) {
 
 void Parse::destroy() { arena.destroy(); }
 
-const char* Parse::dbcName(DBCKind kind) {
+const char* Parse::dbcName(DBCType kind) {
   const DBCAsset* asset = dbcAsset(kind);
   return asset ? asset->name : "unknown";
 }

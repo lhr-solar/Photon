@@ -11,7 +11,7 @@
 #include "titlebar.hpp"
 
 struct GUI {
-  void init(GPU& gpu, Arena& arena);
+  void init(GPU& gpu, Arena& arena, Network& network);
   void setTabs();
   void destroy();
   void setFont();
@@ -24,18 +24,21 @@ struct GUI {
   void shaderTest(ImGuiWindowFlags flags);
   void testFunc(ImGuiWindowFlags flags);
   void plotTest(ImGuiWindowFlags flags);
+  void networkPage(ImGuiWindowFlags flags);
 
   GPU* gpu;
   Arena* arena;
+  Network* network;
 
   TitleBar titleBar{};
   Sidebar sideBar{};
   Tabs tabs{};
   Canvas canvas{};
-  SPMCQueue<NetworkCommand, 64> networkCommandBuffer{};
   Shader testShader{};
   GuiSettings settings{};
   GuiFlags flags{};
+  std::vector<const char*> networkOptions = {"DAQ Server", "TCP", "UDP", "UART",
+                                             "PCAN",       "BLE", "WLAN"};
 };
 
 /* forward function handles */
