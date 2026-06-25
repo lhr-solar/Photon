@@ -68,8 +68,14 @@ void GUI::setFont() {
 };
 
 void GUI::settingsUI() {
-  ImGuiWindowFlags flags =
-      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+  auto io = ImGui::GetIO();
+  auto displaySize = io.DisplaySize;
+  ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
+  ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
+  ImGui::SetNextWindowSize(winSize);
+  ImGui::SetNextWindowPos(winPos);
+  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
+
   if (ImGui::BeginPopupModal("Settings", NULL, flags)) {
     if (ImGui::Button("Exit")) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
@@ -77,7 +83,14 @@ void GUI::settingsUI() {
 };
 
 void GUI::updateUI() {
-  if (ImGui::BeginPopupModal("Update", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+  auto io = ImGui::GetIO();
+  auto displaySize = io.DisplaySize;
+  ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
+  ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
+  ImGui::SetNextWindowSize(winSize);
+  ImGui::SetNextWindowPos(winPos);
+  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
+  if (ImGui::BeginPopupModal("Update", nullptr, flags)) {
     ImGui::Text("Are you sure?");
     if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
     ImGui::SameLine();
@@ -87,7 +100,14 @@ void GUI::updateUI() {
 };
 
 void GUI::exportUI() {
-  if (ImGui::BeginPopupModal("Export", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+  auto io = ImGui::GetIO();
+  auto displaySize = io.DisplaySize;
+  ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
+  ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
+  ImGui::SetNextWindowSize(winSize);
+  ImGui::SetNextWindowPos(winPos);
+  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
+  if (ImGui::BeginPopupModal("Export", nullptr, flags)) {
     ImGui::Text("Are you sure?");
     if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
     ImGui::SameLine();
@@ -190,7 +210,6 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 
 void GUI::setTabs() {
   tabs.list.clear();
-  tabs.list.push_back(Tab::bind<GUI, &GUI::testFunc>(*this, "draw test"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "plot test"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "arena ui"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "network page"));
@@ -205,7 +224,6 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
     if (listIndex == 0) {
       static std::string terminalText;
       static auto txReader = network->guiTxCommandBuffer.getReader();
-      static int count = 0;
       static TCPConfig config{
           .port = 6500,
           .ip = "3.141.38.115",
@@ -215,18 +233,15 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
       while (ProtocolReceiveVariant* msg = txReader.read()) {
         if (auto* error = std::get_if<ProtocolError>(msg))
           terminalText += "[error] " + error->error + "\n";
-        else if (auto* message = std::get_if<ProtocolMessage>(msg)){
+        else if (auto* message = std::get_if<ProtocolMessage>(msg)) {
           terminalText += message->message + "\n";
-          count++;
-          }
-        else if (auto* deviceList = std::get_if<ProtocolDeviceList>(msg)) {
+        } else if (auto* deviceList = std::get_if<ProtocolDeviceList>(msg)) {
           terminalText += "[devices]\n";
           for (const auto& device : deviceList->devices) terminalText += "  " + device + "\n";
         }
       }
       ImGui::Separator();
-      ImGui::TextUnformatted("TCP Output");
-      ImGui::Text("Messages Received %i", count);
+      ImGui::TextUnformatted("Output");
       ImGui::BeginChild("##TcpTerminal", ImVec2(0, 220), ImGuiChildFlags_Borders,
                         ImGuiWindowFlags_HorizontalScrollbar);
       ImGui::TextUnformatted(terminalText.c_str());

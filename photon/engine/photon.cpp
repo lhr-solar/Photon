@@ -26,6 +26,7 @@ void Photon::init() {
   logs("Initialized ImGui");
   parse.init();
   logs("Initialized Arena");
+  network.parse = &parse;
   network.init();
   logs("Initialized Network");
   gui.init(gpu, parse.arena, network);
@@ -104,7 +105,8 @@ bool Photon::reloadUI() {
     ModuleHandle handle{};
     BuildUI build{};
     fs::file_time_type loadedAt{};
-    fs::file_time_type failedAt{};
+    fs::file_time_type failedBinaryAt{};
+    fs::file_time_type failedSourceAt{};
     fs::path loadedPath{};
   };
   static State state{};
@@ -152,21 +154,21 @@ bool Photon::reloadUI() {
     }
     return latest;
   };
-  const auto unloadUI = [&] {
-    if (state.handle) {
+  const auto unloadUI = [](State& loaded) {
+    if (loaded.handle) {
 #if defined(_WIN32)
-      FreeLibrary(state.handle);
+      FreeLibrary(loaded.handle);
 #else
-      dlclose(state.handle);
+      dlclose(loaded.handle);
 #endif
     }
-    if (!state.loadedPath.empty()) {
+    if (!loaded.loadedPath.empty()) {
       std::error_code ec;
-      fs::remove(state.loadedPath, ec);
+      fs::remove(loaded.loadedPath, ec);
     }
-    state = {};
+    loaded = {};
   };
-  const auto loadUI = [&](fs::file_time_type soAt) {
+  const auto loadUI = [&](fs::file_time_type soAt, State& candidate) {
     const fs::path loadPath =
         soPath.parent_path() /
         (soPath.stem().string() + "." + std::to_string(soAt.time_since_epoch().count()) +
@@ -180,48 +182,60 @@ bool Photon::reloadUI() {
     }
     logs("Loading UI: " << loadPath.string());
 #if defined(_WIN32)
-    state.handle = LoadLibraryA(loadPath.string().c_str());
-    state.build = state.handle
-                      ? reinterpret_cast<BuildUI>(GetProcAddress(state.handle, "photonBuildUI"))
-                      : nullptr;
+    candidate.handle = LoadLibraryA(loadPath.string().c_str());
+    candidate.build =
+        candidate.handle
+            ? reinterpret_cast<BuildUI>(GetProcAddress(candidate.handle, "photonBuildUI"))
+            : nullptr;
 #else
-    state.handle = dlopen(loadPath.c_str(), RTLD_NOW | RTLD_LOCAL);
-    state.build =
-        state.handle ? reinterpret_cast<BuildUI>(dlsym(state.handle, "photonBuildUI")) : nullptr;
+    dlerror();
+    candidate.handle = dlopen(loadPath.c_str(), RTLD_NOW | RTLD_LOCAL);
+    const char* loadError = dlerror();
+    if (candidate.handle) {
+      dlerror();
+      candidate.build = reinterpret_cast<BuildUI>(dlsym(candidate.handle, "photonBuildUI"));
+      if (const char* symbolError = dlerror()) loadError = symbolError;
+    }
 #endif
-    if (!state.build) {
+    if (!candidate.build) {
 #if defined(_WIN32)
       uiErrorText = "UI load failed:\n" + winErrorText();
 #else
-      uiErrorText = dlerror() ? std::string("UI load failed:\n") + dlerror() : "UI load failed";
+      uiErrorText = loadError ? std::string("UI load failed:\n") + loadError : "UI load failed";
 #endif
-      unloadUI();
+      candidate.loadedPath = loadPath;
+      unloadUI(candidate);
       return false;
     }
-    state.loadedAt = soAt;
-    state.loadedPath = loadPath;
-    state.failedAt = fs::file_time_type::min();
+    candidate.loadedAt = soAt;
+    candidate.loadedPath = loadPath;
     uiErrorText.clear();
     return true;
   };
 
   const auto sourceAt = readSourceTreeTime(uiDirPath);
   auto soAt = readTime(soPath);
-  if ((soAt == fs::file_time_type::min() || sourceAt > soAt) && sourceAt != state.failedAt) {
+  if ((soAt == fs::file_time_type::min() || sourceAt > soAt) && sourceAt != state.failedSourceAt) {
     logs("Rebuilding UI: " << kBuildCommand);
     if (std::system(kBuildCommand.c_str()) != 0) {
-      state.failedAt = sourceAt;
+      state.failedSourceAt = sourceAt;
       uiErrorText = readText(buildLogPath);
       if (uiErrorText.empty()) uiErrorText = "UI rebuild failed";
       logs("UI rebuild failed");
-      return false;
+      return state.build ? state.build(&gui) : false;
     }
     soAt = readTime(soPath);
   }
 
-  if (!state.build || soAt != state.loadedAt) {
-    unloadUI();
-    if (!loadUI(soAt)) return false;
+  if ((!state.build || soAt != state.loadedAt) && soAt != state.failedBinaryAt) {
+    State candidate{};
+    if (!loadUI(soAt, candidate)) {
+      state.failedBinaryAt = soAt;
+      return state.build ? state.build(&gui) : false;
+    }
+    State previous = std::move(state);
+    state = std::move(candidate);
+    unloadUI(previous);
   }
 
   return state.build(&gui);

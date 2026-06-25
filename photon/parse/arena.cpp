@@ -42,6 +42,92 @@ inline std::string fmtbs(double bps) {
   return s.str();
 }
 
+inline void plotCell(const std::vector<float>& values, const char* id) {
+  if (values.empty()) return;
+  ImGui::PlotLines(id, values.data(), static_cast<int>(values.size()), 0, nullptr, FLT_MAX, FLT_MAX,
+                   ImVec2(-FLT_MIN, 28.0f));
+}
+
+inline void progressCell(float fraction, const char* overlay = nullptr) {
+  const float clamped = std::clamp(fraction, 0.0f, 1.0f);
+  ImGui::ProgressBar(clamped, ImVec2(-FLT_MIN, 0.0f), overlay);
+}
+
+inline void tableRow(const char* key, const std::string& value, float visual = -1.0f,
+                     const char* overlay = nullptr) {
+  ImGui::TableNextRow();
+  ImGui::TableSetColumnIndex(0);
+  ImGui::TextUnformatted(key);
+  ImGui::TableSetColumnIndex(1);
+  ImGui::TextUnformatted(value.c_str());
+  ImGui::TableSetColumnIndex(2);
+  if (visual >= 0.0f) progressCell(visual, overlay);
+}
+
+inline size_t validIdFingerprint(const std::vector<uint32_t>& validIds) {
+  size_t fingerprint = validIds.size();
+  for (const auto& id : validIds) fingerprint = (fingerprint * 131u) ^ id;
+  return fingerprint;
+}
+
+inline std::string normalizeSearchText(std::string text) {
+  std::string out;
+  out.reserve(text.size());
+  for (unsigned char c : text)
+    if (std::isalnum(c)) out.push_back(static_cast<char>(std::tolower(c)));
+  return out;
+}
+
+inline int levenshteinDistance(const std::string& x, const std::string& y) {
+  std::vector<int> prev(y.size() + 1);
+  std::vector<int> cur(y.size() + 1);
+  for (size_t j = 0; j <= y.size(); j++) prev[j] = static_cast<int>(j);
+  for (size_t i = 1; i <= x.size(); i++) {
+    cur[0] = static_cast<int>(i);
+    for (size_t j = 1; j <= y.size(); j++) {
+      const int cost = (x[i - 1] == y[j - 1]) ? 0 : 1;
+      cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost});
+    }
+    prev.swap(cur);
+  }
+  return prev[y.size()];
+}
+
+inline int searchDistance(std::string a, std::string b) {
+  a = normalizeSearchText(std::move(a));
+  b = normalizeSearchText(std::move(b));
+  if (a.empty()) return 0;
+  if (b.empty()) return std::numeric_limits<int>::max() / 4;
+  if (b.find(a) != std::string::npos) return 0;
+
+  const int n = static_cast<int>(a.size());
+  const int m = static_cast<int>(b.size());
+  if (n >= m) return levenshteinDistance(a, b);
+
+  int best = std::numeric_limits<int>::max();
+  for (size_t i = 0; i + a.size() <= b.size(); i++)
+    best = std::min(best, levenshteinDistance(a, b.substr(i, a.size())));
+  return best;
+}
+
+inline bool isSearchSpace(unsigned char c) { return std::isspace(c); }
+inline bool isSearchDigit(unsigned char c) { return std::isdigit(c); }
+inline bool isSearchHexDigit(unsigned char c) { return std::isxdigit(c); }
+
+struct SearchMatch {
+  size_t idx;
+  int score;
+};
+
+struct SearchMatchLess {
+  const std::vector<uint32_t>* validIds{};
+
+  bool operator()(const SearchMatch& a, const SearchMatch& b) const {
+    if (a.score != b.score) return a.score < b.score;
+    return (*validIds)[a.idx] < (*validIds)[b.idx];
+  }
+};
+
 void Arena::status() {
   logs("arena size        : " << fmtb(arenaSize));
   logs("total signals     : " << totalSignals);
@@ -87,15 +173,6 @@ void Arena::status() {
 
 void Arena::statusUI(ImGuiWindowFlags flags) {
   if (ImGui::Begin("Arena Status", nullptr, flags)) {
-    auto plotCell = [](const std::vector<float>& values, const char* id) {
-      if (values.empty()) return;
-      ImGui::PlotLines(id, values.data(), static_cast<int>(values.size()), 0, nullptr, FLT_MAX,
-                       FLT_MAX, ImVec2(-FLT_MIN, 28.0f));
-    };
-    auto progressCell = [](float fraction, const char* overlay = nullptr) {
-      const float clamped = std::clamp(fraction, 0.0f, 1.0f);
-      ImGui::ProgressBar(clamped, ImVec2(-FLT_MIN, 0.0f), overlay);
-    };
     ImGuiTableFlags summaryFlags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
                                    ImGuiTableFlags_SizingStretchProp |
                                    ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_PadOuterX;
@@ -104,41 +181,60 @@ void Arena::statusUI(ImGuiWindowFlags flags) {
       ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
       ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
       ImGui::TableHeadersRow();
-      auto row = [&](const char* key, const std::string& value, float visual = -1.0f,
-                     const char* overlay = nullptr) {
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted(key);
-        ImGui::TableSetColumnIndex(1);
-        ImGui::TextUnformatted(value.c_str());
-        ImGui::TableSetColumnIndex(2);
-        if (visual >= 0.0f) progressCell(visual, overlay);
-      };
-      const size_t usedBytes = bytesPerBuffer * totalBuffers;
-      const float usedFraction =
-          arenaSize > 0 ? static_cast<float>(usedBytes) / static_cast<float>(arenaSize) : 0.0f;
-      row("arena size", fmtb(arenaSize));
-      row("buffer usage", fmtb(usedBytes), usedFraction, nullptr);
-      row("fragmentation", fmtb(arenaSize - usedBytes), 1.0f - usedFraction, nullptr);
-      row("total pages", std::to_string(totalPages));
-      row("bytes per signal", fmtb(bytesPerBuffer));
-      row("total buffers", std::to_string(totalBuffers));
-      row("time buffers", std::to_string(totalTimeBuffers));
-      row("total signals", std::to_string(totalSignals));
-      row("points per signal", std::to_string(bytesPerBuffer / sizeof(double)));
+      size_t heldBytes = 0;
+      double netDataRate = 0.0;
+      for (const uint32_t id : validIds) {
+        if (id >= messages.size() || !messages[id]) continue;
+        Message* msg = messages[id];
+        const uint32_t signalBytes = msg->signalSize.load(std::memory_order_acquire);
+        heldBytes += static_cast<size_t>(signalBytes) * (static_cast<size_t>(msg->signalCount) + 1);
+        netDataRate += msg->dataRate;
+      }
+      static std::array<float, 120> netDataRateHistory{};
+      static int netDataRateHistoryCount = 0;
+      static int netDataRateHistoryOffset = 0;
+      netDataRateHistory[netDataRateHistoryOffset] = static_cast<float>(netDataRate);
+      netDataRateHistoryOffset =
+          (netDataRateHistoryOffset + 1) % static_cast<int>(netDataRateHistory.size());
+      if (netDataRateHistoryCount < static_cast<int>(netDataRateHistory.size()))
+        netDataRateHistoryCount++;
+
+      const size_t capacityBytes = bytesPerBuffer * totalBuffers;
+      const float capacityFraction =
+          arenaSize > 0 ? static_cast<float>(capacityBytes) / static_cast<float>(arenaSize) : 0.0f;
+      const float heldFraction =
+          capacityBytes > 0 ? static_cast<float>(heldBytes) / static_cast<float>(capacityBytes)
+                            : 0.0f;
+      ImGui::TableNextRow();
+      ImGui::TableSetColumnIndex(0);
+      ImGui::TextUnformatted("net bandwidth");
+      ImGui::TableSetColumnIndex(1);
+      ImGui::TextUnformatted(fmtbs(netDataRate).c_str());
+      ImGui::TableSetColumnIndex(2);
+      ImGui::PlotLines("##arena_net_bandwidth_plot", netDataRateHistory.data(),
+                       netDataRateHistoryCount,
+                       netDataRateHistoryCount == static_cast<int>(netDataRateHistory.size())
+                           ? netDataRateHistoryOffset
+                           : 0,
+                       nullptr, FLT_MAX, FLT_MAX, ImVec2(-FLT_MIN, 28.0f));
+      tableRow("arena size", fmtb(arenaSize));
+      tableRow("buffer capacity", fmtb(capacityBytes), capacityFraction, nullptr);
+      tableRow("buffer usage", fmtb(heldBytes), heldFraction, nullptr);
+      tableRow("fragmentation", fmtb(arenaSize - capacityBytes), 1.0f - capacityFraction, nullptr);
+      tableRow("total pages", std::to_string(totalPages));
+      tableRow("bytes per signal", fmtb(bytesPerBuffer));
+      tableRow("total buffers", std::to_string(totalBuffers));
+      tableRow("time buffers", std::to_string(totalTimeBuffers));
+      tableRow("total signals", std::to_string(totalSignals));
+      tableRow("points per signal", std::to_string(bytesPerBuffer / sizeof(double)));
       ImGui::EndTable();
     }
     ImGui::SeparatorText("Messages");
-    auto arenaFingerprint = [&] {
-      size_t fingerprint = validIds.size();
-      for (const auto& id : validIds) fingerprint = (fingerprint * 131u) ^ id;
-      return fingerprint;
-    };
     static char query[128]{};
     static std::string cachedQuery{};
     static size_t cachedGeneration = 0;
     static std::vector<size_t> cachedMatches = search("");
-    const size_t generation = arenaFingerprint();
+    const size_t generation = validIdFingerprint(validIds);
     if (cachedGeneration != generation) {
       cachedGeneration = generation;
       cachedQuery = query;
@@ -166,28 +262,18 @@ void Arena::statusUI(ImGuiWindowFlags flags) {
           ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 160.0f);
           ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
           ImGui::TableHeadersRow();
-          auto row = [&](const char* key, const std::string& value, float visual = -1.0f,
-                         const char* overlay = nullptr) {
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(key);
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(value.c_str());
-            ImGui::TableSetColumnIndex(2);
-            if (visual >= 0.0f) progressCell(visual, overlay);
-          };
-          row("id", std::to_string(msg->id));
-          row("name", msg->name);
-          row("dlc", std::to_string(msg->dlc));
-          row("signal count", std::to_string(msg->signalCount));
+          tableRow("id", std::to_string(msg->id));
+          tableRow("name", msg->name);
+          tableRow("dlc", std::to_string(msg->dlc));
+          tableRow("signal count", std::to_string(msg->signalCount));
           const uint32_t signalBytes = msg->signalSize.load(std::memory_order_acquire);
           const uint32_t sampleCount = signalBytes / sizeof(double);
           const float fillFraction = bytesPerBuffer > 0 ? static_cast<float>(signalBytes) /
                                                               static_cast<float>(bytesPerBuffer)
                                                         : 0.0f;
-          row("samples", std::to_string(sampleCount), fillFraction, nullptr);
-          row("capacity used", fmtb(signalBytes), fillFraction, nullptr);
-          row("transmitter", msg->transmitter);
+          tableRow("samples", std::to_string(sampleCount), fillFraction, nullptr);
+          tableRow("capacity used", fmtb(signalBytes), fillFraction, nullptr);
+          tableRow("transmitter", msg->transmitter);
           ImGui::TableNextRow();
           ImGui::TableSetColumnIndex(0);
           ImGui::TextUnformatted("data rate");
@@ -203,8 +289,8 @@ void Arena::statusUI(ImGuiWindowFlags flags) {
           ImGui::TableSetColumnIndex(2);
           plotCell(msg->dataTransferHistory,
                    ("##transfer_plot_" + std::to_string(msg->id)).c_str());
-          row("bandwidth %", std::to_string(msg->bandwidthPercentage),
-              static_cast<float>(msg->bandwidthPercentage), nullptr);
+          tableRow("bandwidth %", std::to_string(msg->bandwidthPercentage),
+                   static_cast<float>(msg->bandwidthPercentage), nullptr);
           ImGui::EndTable();
         }
         ImGuiTableFlags signalFlags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
@@ -446,43 +532,6 @@ void Arena::destroy() {
 }
 
 std::vector<size_t> Arena::search(const std::string& query) {
-  auto normalize = [](std::string text) {
-    std::string out;
-    out.reserve(text.size());
-    for (unsigned char c : text)
-      if (std::isalnum(c)) out.push_back(static_cast<char>(std::tolower(c)));
-    return out;
-  };
-  auto distance = [&](std::string a, std::string b) {
-    a = normalize(std::move(a));
-    b = normalize(std::move(b));
-    if (a.empty()) return 0;
-    if (b.empty()) return std::numeric_limits<int>::max() / 4;
-    if (b.find(a) != std::string::npos) return 0;
-
-    const int n = static_cast<int>(a.size());
-    const int m = static_cast<int>(b.size());
-    auto levenshtein = [&](const std::string& x, const std::string& y) {
-      std::vector<int> prev(y.size() + 1), cur(y.size() + 1);
-      for (size_t j = 0; j <= y.size(); j++) prev[j] = static_cast<int>(j);
-      for (size_t i = 1; i <= x.size(); i++) {
-        cur[0] = static_cast<int>(i);
-        for (size_t j = 1; j <= y.size(); j++) {
-          const int cost = (x[i - 1] == y[j - 1]) ? 0 : 1;
-          cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost});
-        }
-        prev.swap(cur);
-      }
-      return prev[y.size()];
-    };
-
-    if (n >= m) return levenshtein(a, b);
-    int best = std::numeric_limits<int>::max();
-    for (size_t i = 0; i + a.size() <= b.size(); i++)
-      best = std::min(best, levenshtein(a, b.substr(i, a.size())));
-    return best;
-  };
-
   std::vector<size_t> out;
   if (query.empty()) {
     out.resize(validIds.size());
@@ -491,32 +540,24 @@ std::vector<size_t> Arena::search(const std::string& query) {
   }
 
   std::string trimmed = query;
-  trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(),
-                               [](unsigned char c) { return std::isspace(c); }),
-                trimmed.end());
+  trimmed.erase(std::remove_if(trimmed.begin(), trimmed.end(), isSearchSpace), trimmed.end());
   uint32_t parsedId{};
   bool hasParsedId = false;
   try {
     if (trimmed.size() > 2 && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X')) {
       parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 16));
       hasParsedId = true;
-    } else if (!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(),
-                                               [](unsigned char c) { return std::isdigit(c); })) {
+    } else if (!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(), isSearchDigit)) {
       parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 10));
       hasParsedId = true;
-    } else if (!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(),
-                                               [](unsigned char c) { return std::isxdigit(c); })) {
+    } else if (!trimmed.empty() && std::all_of(trimmed.begin(), trimmed.end(), isSearchHexDigit)) {
       parsedId = static_cast<uint32_t>(std::stoul(trimmed, nullptr, 16));
       hasParsedId = true;
     }
   } catch (...) {
   }
 
-  struct Match {
-    size_t idx;
-    int score;
-  };
-  std::vector<Match> matches;
+  std::vector<SearchMatch> matches;
   matches.reserve(validIds.size());
   for (size_t i{0uz}; i < validIds.size(); i++) {
     Message* msg = messages[validIds[i]];
@@ -524,18 +565,17 @@ std::vector<size_t> Arena::search(const std::string& query) {
 
     std::ostringstream hex;
     hex << std::uppercase << std::hex << msg->id;
-    int score = std::min({distance(query, msg->name), distance(query, msg->transmitter) + 2,
-                          distance(query, std::to_string(msg->id)) + 1,
-                          distance(query, hex.str()) + 1, distance(query, "0x" + hex.str()) + 1});
+    int score = std::min(
+        {searchDistance(query, msg->name), searchDistance(query, msg->transmitter) + 2,
+         searchDistance(query, std::to_string(msg->id)) + 1, searchDistance(query, hex.str()) + 1,
+         searchDistance(query, "0x" + hex.str()) + 1});
     if (hasParsedId && parsedId == msg->id) score = -100;
     for (size_t s{0uz}; s < msg->signalCount; s++)
-      if (msg->signals[s]) score = std::min(score, distance(query, msg->signals[s]->name) + 1);
+      if (msg->signals[s])
+        score = std::min(score, searchDistance(query, msg->signals[s]->name) + 1);
     matches.push_back({i, score});
   }
-  std::sort(matches.begin(), matches.end(), [&](const Match& a, const Match& b) {
-    if (a.score != b.score) return a.score < b.score;
-    return validIds[a.idx] < validIds[b.idx];
-  });
+  std::sort(matches.begin(), matches.end(), SearchMatchLess{.validIds = &validIds});
   out.reserve(matches.size());
   for (const auto& match : matches) out.push_back(match.idx);
   return out;

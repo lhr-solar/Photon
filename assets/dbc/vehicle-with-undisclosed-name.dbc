@@ -205,6 +205,15 @@ BO_ 24 VCU_Status: 3 VCU
 
 BO_ 1872 Telemetry_Status: 8 Telemetry
 
+BO_ 2047 Max_Message: 8 Vector__XXX
+ SG_ sg0 : 0|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg1 : 8|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg2 : 16|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg3 : 24|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg4 : 32|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg5 : 40|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg6 : 48|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg7 : 56|8@1+ (1,0) [0|1] "unit" Vector__XXX
 
 BO_ 545 MPPT_C_Status: 5 MPPT_C
  SG_ MPPT_Enabled : 16|8@1- (1,0) [0|0] "" Vector__XXX

@@ -19,31 +19,31 @@ inline constexpr ColorScheme baseColors = {
     .color1{0.90f, 0.88f, 0.82f, 1.00f},
     .color2{0.83f, 0.84f, 0.86f, 1.00f},
     .color3{0.57f, 0.59f, 0.62f, 1.00f},
-    .color4{0.18f, 0.18f, 0.19f, 1.00f},
-    .color5{0.13f, 0.12f, 0.11f, 1.00f},
-    .color6{0.12f, 0.11f, 0.09f, 0.98f},
-    .color7{0.09f, 0.08f, 0.07f, 1.00f},
+    .color4{0.25f, 0.25f, 0.25f, 1.00f},
+    .color5{0.15f, 0.15f, 0.15f, 1.00f},
+    .color6{0.10f, 0.10f, 0.10f, 1.00f},
+    .color7{0.05f, 0.05f, 0.05f, 1.00f},
 };
 
 inline constexpr ColorScheme lightMode = {
-    .color0{0.04f, 0.05f, 0.09f, 1.00f},
-    .color1{0.10f, 0.12f, 0.18f, 0.98f},
-    .color2{0.17f, 0.16f, 0.14f, 1.00f},
-    .color3{0.43f, 0.41f, 0.38f, 1.00f},
-    .color4{0.82f, 0.82f, 0.81f, 1.00f},
-    .color5{0.87f, 0.88f, 0.89f, 1.00f},
-    .color6{0.88f, 0.89f, 0.91f, 1.00f},
-    .color7{0.91f, 0.92f, 0.93f, 1.00f},
+    .color0{0.00f, 0.00f, 0.00f, 1.00f},
+    .color1{0.40f, 0.40f, 0.40f, 1.00f},
+    .color2{0.79f, 0.79f, 0.77f, 1.00f},
+    .color3{0.89f, 0.88f, 0.86f, 1.00f},
+    .color4{0.93f, 0.92f, 0.90f, 1.00f},
+    .color5{0.95f, 0.95f, 0.94f, 1.00f},
+    .color6{0.97f, 0.96f, 0.95f, 1.00f},
+    .color7{1.00f, 1.00f, 1.00f, 1.00f},
 };
 
 struct GuiSettings {
   enum SelectedColorMode { dark, light, custom };
 
-  float fontSize = 28.0f;
+  float fontSize = 14.0f;
   ImVec4 colorSeed = ImVec4{0.0f, 0.5f, 0.5f, 1.0f};
   ColorScheme colorScheme = baseColors;
   SelectedColorMode selectedColor = dark;
-  ImPlotSpec plotLineSpec{};
+  ImPlotSpec plotLineSpec{ImPlotProp_LineWeight, 4.0f};
   ImPlotColormap plotColormap = ImPlotColormap_Deep;
 
   static GuiSettings* get(ImGuiContext* ctx, ImGuiSettingsHandler*);

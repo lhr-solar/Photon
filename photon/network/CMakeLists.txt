@@ -1,4 +1,4 @@
-file(GLOB src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+file(GLOB src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 add_library(network ${src})
 
 target_include_directories(network PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

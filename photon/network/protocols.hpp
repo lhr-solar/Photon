@@ -5,6 +5,7 @@
 #include <variant>
 #include <vector>
 
+#include "../parse/arena.hpp"
 #include "../parse/spmc.hpp"
 
 #ifdef LINUX
@@ -104,6 +105,5 @@ using ProtocolReceiveVariant = std::variant<ProtocolError, ProtocolMessage, Prot
 
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                  TCPConfig config);
-
+                  TCPConfig config, Arena& arena);
 };

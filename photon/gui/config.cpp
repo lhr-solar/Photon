@@ -290,15 +290,15 @@ void GuiSettings::setStyle() {
   style.WindowRounding = 0.0f;
   style.ChildRounding = 0.0f;
   style.PopupRounding = 0.0f;
-  style.GrabRounding = 0.0f;
+  style.GrabRounding = 8.0f;
   style.ScrollbarRounding = 0.0f;
   style.FrameRounding = 0.0f;
   style.FrameBorderSize = 0.0f;
-  style.WindowBorderSize = 1.0f;
+  style.WindowBorderSize = 0.0f;
   style.ChildBorderSize = 1.0f;
   style.PopupBorderSize = 1.0f;
   style.DockingSeparatorSize = 1.0f;
-  style.WindowPadding = ImVec2{18.0f, 16.0f};
+  style.WindowPadding = ImVec2{8.0f, 5.0f};
   style.FramePadding = ImVec2{12.0f, 9.0f};
   style.CellPadding = ImVec2{14.0f, 8.0f};
   style.ItemSpacing = ImVec2{10.0f, 8.0f};
@@ -320,10 +320,10 @@ void GuiSettings::setStyle() {
   ImVec4* colors = style.Colors;
   colors[ImGuiCol_Text] = color0;
   colors[ImGuiCol_TextDisabled] = color3;
-  colors[ImGuiCol_WindowBg] = {color7.x, color7.y, color7.z, 1.0f};
+  colors[ImGuiCol_WindowBg] = color7;
   colors[ImGuiCol_ChildBg] = color7;
   colors[ImGuiCol_PopupBg] = color7;
-  colors[ImGuiCol_Border] = color5;
+  colors[ImGuiCol_Border] = color4;
   colors[ImGuiCol_BorderShadow] = color7;
   colors[ImGuiCol_FrameBg] = color4;
   colors[ImGuiCol_FrameBgHovered] = color3;
@@ -373,7 +373,7 @@ void GuiSettings::setStyle() {
   colors[ImGuiCol_NavHighlight] = color1;
   colors[ImGuiCol_NavWindowingHighlight] = color1;
   colors[ImGuiCol_NavWindowingDimBg] = {color1.x, color1.y, color1.z, 0.2f};
-  colors[ImGuiCol_ModalWindowDimBg] = {color0.x, color0.y, color0.z, 0.0f};
+  colors[ImGuiCol_ModalWindowDimBg] = {color0.x, color0.y, color0.z, 0.4f};
 
   ImPlotStyle& plotStyle = ImPlot::GetStyle();
   colors = plotStyle.Colors;

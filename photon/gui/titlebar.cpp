@@ -40,12 +40,14 @@ void TitleBar::draw() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  const ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(windowBg.x, windowBg.y, windowBg.z, 0.60f));
   ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                            ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBringToFrontOnFocus;
   if (ImGui::Begin("##PhotonTitleBar", nullptr, flags)) {
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    const ImU32 color = IM_COL32(255, 255, 255, 255);
+    const ImU32 textColor = ImGui::GetColorU32(ImGuiCol_Text);
     const ImU32 buttonColor = ImGui::GetColorU32(ImGuiCol_Button);
     const float buttonWidth = barHeight;
 
@@ -56,11 +58,11 @@ void TitleBar::draw() {
     ImVec2 max = ImGui::GetItemRectMax();
     float s = max.x * 0.2f;
     ImVec2 p = ImVec2((min.x + max.x - s) * 0.5f, (min.y + max.y - s) * 0.5f);
-    draw->AddLine({p.x, p.y}, {p.x + s, p.y}, IM_COL32(255, 255, 255, 255), 1.0f);
-    draw->AddLine({p.x, p.y + (s * 0.4f)}, {p.x + s, p.y + (s * 0.4f)},
-                  IM_COL32(255, 255, 255, 255), 1.0f);
-    draw->AddLine({p.x, p.y + (s * 0.8f)}, {p.x + s, p.y + (s * 0.8f)},
-                  IM_COL32(255, 255, 255, 255), 1.0f);
+    draw->AddLine({p.x, p.y}, {p.x + s, p.y}, textColor, 1.0f);
+    draw->AddLine({p.x, p.y + (s * 0.4f)}, {p.x + s, p.y + (s * 0.4f)}, textColor,
+                  1.0f);
+    draw->AddLine({p.x, p.y + (s * 0.8f)}, {p.x + s, p.y + (s * 0.8f)}, textColor,
+                  1.0f);
 
     ImGui::SetCursorPos(
         ImVec2(ImGui::GetWindowWidth() - buttonWidth * static_cast<float>(3), 0.0f));
@@ -72,7 +74,7 @@ void TitleBar::draw() {
     max = ImGui::GetItemRectMax();
     s = s;
     p = ImVec2((min.x + max.x - s) * 0.5f, (min.y + max.y - s) * 0.5f);
-    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, color, 2.0f);
+    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, textColor, 2.0f);
     addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
     s = s / 2.0f;
@@ -82,9 +84,9 @@ void TitleBar::draw() {
     min = ImGui::GetItemRectMin();
     max = ImGui::GetItemRectMax();
     p = ImVec2((min.x + max.x - 3.0f * s) * 0.5f, (min.y + max.y - 3.0f * s) * 0.5f);
-    draw->AddRect({p.x + s, p.y}, {p.x + 3.0f * s, p.y + 2.0f * s}, color);
+    draw->AddRect({p.x + s, p.y}, {p.x + 3.0f * s, p.y + 2.0f * s}, textColor);
     draw->AddRectFilled({p.x, p.y + s}, {p.x + 2.0f * s, p.y + 3.0f * s}, buttonColor);
-    draw->AddRect({p.x, p.y + s}, {p.x + 2.0f * s, p.y + 3.0f * s}, color);
+    draw->AddRect({p.x, p.y + s}, {p.x + 2.0f * s, p.y + 3.0f * s}, textColor);
     addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
     s = s * 2.0f;
@@ -94,13 +96,14 @@ void TitleBar::draw() {
     min = ImGui::GetItemRectMin();
     max = ImGui::GetItemRectMax();
     p = ImVec2((min.x + max.x - s) * 0.5f, (min.y + max.y - s) * 0.5f);
-    draw->AddLine(p, {p.x + s, p.y + s}, color, 2.0f);
-    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y}, color, 2.0f);
+    draw->AddLine(p, {p.x + s, p.y + s}, textColor, 2.0f);
+    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y}, textColor, 2.0f);
     addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
     ImGui::PopStyleVar();
   }
   ImGui::End();
+  ImGui::PopStyleColor();
   ImGui::PopStyleVar(3);
 
   switch (pendingAction) {

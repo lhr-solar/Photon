@@ -9,6 +9,8 @@
 #include <string>
 #include <thread>
 
+#include "../parse/arena.hpp"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Ws2tcpip.h>
@@ -179,83 +181,51 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
 }
 }  // namespace
 
-typedef struct
-{
-    uint32_t can_id;
-    uint8_t dlc;
-    uint8_t data[8];
-} __attribute__((packed)) can_packet_t;
+std::string timeNow() {
+  auto now = std::chrono::system_clock::now();
+  auto seconds = std::chrono::floor<std::chrono::seconds>(now);
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - seconds);
+  return "[" + std::format("{:%H:%M:%S}.{:03}", seconds, ms.count()) + "]  ";
+};
+
+#include "canp.h"
+void handleNetwork(canpBatch_t& batch, Arena& arena) {
+  for (int i = 0; i < batch.count; i++) {
+    const auto& p = batch.packets[i];
+    uint32_t id = canpGetId(&p);
+    auto& msg = arena.messages[id];
+    uint32_t signalCount = msg->signalCount;
+    for(int j = 0; j < signalCount; j++){
+    };
+  };
+};
 
 void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                    TCPConfig config) {
+                    TCPConfig config, Arena& arena) {
   SocketHandle sock = INVALID_SOCKET;
-  std::string error;
+  std::string error{};
   if (!connectTcp(sock, config, stoken, error)) {
     if (!stoken.stop_requested()) publishError(txBuffer, error);
     return;
   }
-  auto now = std::chrono::system_clock::now();
-  std::string t = std::format("{:%H:%M:%S} : ", now);
-  publishMessage(txBuffer,
-                 t + "TCP connected");
+  publishMessage(txBuffer, timeNow() + "TCP connected");
 
   std::array<char, 8192> buffer{};
+  canpBatch_t batch{};
   while (!stoken.stop_requested()) {
-    const int bytesRead = recv(sock, buffer.data(), static_cast<int>(buffer.size()), 0);
+    int bytesRead = canpReadBatch(sock, &batch);
     if (bytesRead > 0) {
-      //publishMessage(txBuffer, std::string(buffer.data(), static_cast<std::size_t>(bytesRead)));
-   static std::vector<std::byte> pending;
-
-    constexpr size_t packetSize = 13;
-
-    auto* first = reinterpret_cast<const std::byte*>(buffer.data());
-    pending.insert(pending.end(), first, first + bytesRead);
-
-    size_t offset = 0;
-
-    while (pending.size() - offset >= packetSize) {
-      uint32_t canId{};
-      uint64_t data{};
-
-      std::memcpy(&canId, pending.data() + offset, sizeof(canId));
-      std::memcpy(&data, pending.data() + offset + 5, sizeof(data));
-
-      if constexpr (std::endian::native == std::endian::big) {
-        canId = std::byteswap(canId);
-        data = std::byteswap(data);
-      }
-
-      uint8_t dlc = std::to_integer<uint8_t>(pending[offset + 4]);
-      dlc = std::min<uint8_t>(dlc, 8);
-
-      canId &= 0x1FFFFFFF;
-
-      publishMessage(
-          txBuffer,
-          std::format("CAN id=0x{:03X} dlc={} data=0x{:016X}", canId, dlc, data));
-
-      offset += packetSize;
-    }
-
-    pending.erase(pending.begin(), pending.begin() + static_cast<std::ptrdiff_t>(offset));
-
+      handleNetwork(batch, arena);
       continue;
     }
-
     if (bytesRead == 0) {
-      publishMessage(txBuffer, "TCP peer closed connection");
+      publishMessage(txBuffer, timeNow() + "TCP peer closed connection");
       break;
     }
-
-    if (wouldBlock()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
-      continue;
-    }
-
+    if (wouldBlock()) continue;
     publishError(txBuffer, socketError("TCP recv"));
     break;
   }
-
   closeSocket(sock);
-  publishMessage(txBuffer, "TCP stopped");
+  publishMessage(txBuffer, timeNow() + "TCP stopped");
 }

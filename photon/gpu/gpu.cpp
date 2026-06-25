@@ -722,11 +722,6 @@ void GPU::createSwapchainResources() {
   presentModes.resize(count);
   vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, presentModes.data());
   presentationMode = VK_PRESENT_MODE_FIFO_KHR;
-  for (const auto& p : presentModes)
-    if (p == VK_PRESENT_MODE_MAILBOX_KHR) {
-      presentationMode = p;
-      break;
-    }
 
   uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
   if ((surfaceCapabilities.maxImageCount > 0) && (imageCount > surfaceCapabilities.maxImageCount))

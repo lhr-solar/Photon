@@ -46,6 +46,7 @@ void buildConfig(std::istream& stream, arenaConfig& config) {
     line.erase(0, line.find_first_not_of(" \t\r\n"));
     if (line.empty()) continue;
     if (line.rfind("BO_", 0) == 0) {
+      haveMsg = false;
       uint32_t canId = 0;
       uint32_t dlc = 0;
       std::string sender{};
@@ -54,7 +55,7 @@ void buildConfig(std::istream& stream, arenaConfig& config) {
       std::string dlcStr{};
       std::istringstream iss(line);
       iss >> tag >> canId >> tmp >> dlcStr >> sender;
-      if (canId > MESSAGE_MAX) continue;
+      if (canId >= MESSAGE_MAX) continue;
       if (tmp.find(':') == std::string::npos) continue;
       try {
         dlc = static_cast<uint8_t>(std::stoi(dlcStr));
@@ -87,6 +88,7 @@ void populateArena(Arena& arena, std::istream& stream) {
     line.erase(0, line.find_first_not_of(" \t\r\n"));
     if (line.empty()) continue;
     if (line.rfind("BO_", 0) == 0) {
+      haveCurrentMessage = false;
       uint32_t canId = 0;
       uint32_t dlc = 0;
       std::string sender{};

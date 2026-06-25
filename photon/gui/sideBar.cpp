@@ -36,11 +36,12 @@ void Sidebar::draw(GUI& gui) {
   }
   width = storedWidth;
   float sideBarHeight = winSize.y - (float)titleBar.height;
-  ImVec2 pos = {0, (float)titleBar.height};
+  ImVec2 pos = {0, titleBar.height};
   ImVec2 dim = {width, sideBarHeight};
   ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNavFocus |
                                  ImGuiWindowFlags_NoDocking;
+  /*
   ImGui::SetNextWindowPos(pos);
   ImGui::SetNextWindowSize(dim);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.1, 0.1});
@@ -54,12 +55,13 @@ void Sidebar::draw(GUI& gui) {
   };
   ImGui::End();
   ImGui::PopStyleVar(1);
+  */
   ImGui::SetNextWindowPos(pos);
   ImGui::SetNextWindowSize(dim);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
   ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
-                        {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.97});
+                        {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
   if (ImGui::Begin("sideBar", NULL, windowFlags)) {
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
@@ -68,16 +70,13 @@ void Sidebar::draw(GUI& gui) {
     ImVec4 tabButtonColor = ImGui::GetStyleColorVec4(ImGuiCol_Button);
     ImGui::Separator();
     for (int i{0uz}; i < tabs.list.size(); ++i) {
-      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
-      if (tabs.index == i) {
+      if (tabs.index == i)
         ImGui::PushStyleColor(ImGuiCol_Button, tabButtonColor);
-      } else {
+      else
         ImGui::PushStyleColor(ImGuiCol_Button, tabSelectedColor);
-      }
       if (ImGui::Button(tabs.list[i].name.c_str(), ImVec2{width - padding.x * 2.0f, 0}))
         tabs.index = i;
       ImGui::PopStyleColor(1);
-      ImGui::PopStyleVar();
     }
     static bool show_demo = false;
     if (ImGui::Button("show demo")) show_demo = !show_demo;
