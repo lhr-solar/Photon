@@ -1,8 +1,10 @@
 #include "protocols.hpp"
 
 #include <array>
+#include <bit>
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <format>
@@ -10,6 +12,7 @@
 #include <thread>
 
 #include "../parse/arena.hpp"
+#include "canp.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -27,7 +30,6 @@ using SocketHandle = int;
 #define SOCKET_ERROR (-1)
 #endif
 
-namespace {
 void publishMessage(SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer, std::string message) {
   txBuffer.write([&](ProtocolReceiveVariant& out) { out = ProtocolMessage{.message = message}; });
 }
@@ -179,25 +181,101 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
   sock = INVALID_SOCKET;
   return false;
 }
-}  // namespace
+
+bool extractSignalRaw(const uint8_t data[8], uint8_t dlc, const Signal& sig, uint64_t& raw) {
+  raw = 0;
+  if (sig.startBit < 0 || sig.length <= 0 || sig.length > 64 || dlc > 8) return false;
+
+  const int availableBits = static_cast<int>(dlc) * 8;
+  if (sig.endianness == 1) {
+    if (sig.startBit + sig.length > availableBits) return false;
+    for (int i = 0; i < sig.length; i++) {
+      const int bit = sig.startBit + i;
+      raw |= static_cast<uint64_t>((data[bit / 8] >> (bit % 8)) & 0x1u) << i;
+    }
+    return true;
+  }
+
+  int bit = sig.startBit;
+  for (int i = 0; i < sig.length; i++) {
+    if (bit < 0 || bit >= availableBits) return false;
+    raw = (raw << 1) | static_cast<uint64_t>((data[bit / 8] >> (bit % 8)) & 0x1u);
+    bit = (bit % 8 == 0) ? bit + 15 : bit - 1;
+  }
+  return true;
+}
+
+int64_t signExtend(uint64_t raw, int bits) {
+  if (bits <= 0 || bits >= 64) return static_cast<int64_t>(raw);
+
+  const uint64_t signBit = uint64_t{1} << (bits - 1);
+  const uint64_t mask = (uint64_t{1} << bits) - 1;
+  raw &= mask;
+  if ((raw & signBit) != 0) raw |= ~mask;
+  return static_cast<int64_t>(raw);
+}
+
+bool decodeSignalValue(const canpPacket_t& packet, const Signal& sig, double& value) {
+  uint64_t raw = 0;
+  if (!extractSignalRaw(packet.data, packet.dlc, sig, raw)) return false;
+
+  switch (sig.type) {
+    case vFLOAT: {
+      if (sig.length != 32) return false;
+      const auto bits = static_cast<uint32_t>(raw);
+      value = static_cast<double>(std::bit_cast<float>(bits)) * sig.scale + sig.offset;
+      return true;
+    }
+    case vDOUBLE: {
+      if (sig.length != 64) return false;
+      value = std::bit_cast<double>(raw) * sig.scale + sig.offset;
+      return true;
+    }
+    case vINT:
+    default: {
+      const double parsed = sig.isSigned ? static_cast<double>(signExtend(raw, sig.length))
+                                         : static_cast<double>(raw);
+      value = parsed * sig.scale + sig.offset;
+      return true;
+    }
+  }
+}
+
+void handleNetwork(const canpBatch_t& batch, Arena& arena, double timeValue) {
+  const uint16_t count = batch.count > CANP_MAX_BATCH ? CANP_MAX_BATCH : batch.count;
+  for (uint16_t i = 0; i < count; i++) {
+    const canpPacket_t& packet = batch.packets[i];
+    if (packet.dlc > 8) continue;
+
+    const uint32_t id = canpGetId(&packet);
+    if (id >= arena.messages.size()) continue;
+
+    Message* msg = arena.messages[id];
+    if (!msg || msg->signalCount == 0 || msg->signalCount > SIGNAL_MAX) continue;
+
+    std::array<double, SIGNAL_MAX> values{};
+    bool decoded = true;
+    for (uint32_t signalIndex = 0; signalIndex < msg->signalCount; signalIndex++) {
+      Signal* sig = msg->signals[signalIndex];
+      if (!sig || !decodeSignalValue(packet, *sig, values[signalIndex])) {
+        decoded = false;
+        break;
+      }
+    }
+    if (!decoded) continue;
+
+    if (!arena.appendFrame(id, timeValue, values.data(), msg->signalCount)) {
+      arena.clear(id);
+      arena.appendFrame(id, timeValue, values.data(), msg->signalCount);
+    }
+  }
+}
 
 std::string timeNow() {
   auto now = std::chrono::system_clock::now();
   auto seconds = std::chrono::floor<std::chrono::seconds>(now);
   auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - seconds);
   return "[" + std::format("{:%H:%M:%S}.{:03}", seconds, ms.count()) + "]  ";
-};
-
-#include "canp.h"
-void handleNetwork(canpBatch_t& batch, Arena& arena) {
-  for (int i = 0; i < batch.count; i++) {
-    const auto& p = batch.packets[i];
-    uint32_t id = canpGetId(&p);
-    auto& msg = arena.messages[id];
-    uint32_t signalCount = msg->signalCount;
-    for(int j = 0; j < signalCount; j++){
-    };
-  };
 };
 
 void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
@@ -210,12 +288,14 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
   }
   publishMessage(txBuffer, timeNow() + "TCP connected");
 
-  std::array<char, 8192> buffer{};
   canpBatch_t batch{};
+  const auto start = std::chrono::steady_clock::now();
   while (!stoken.stop_requested()) {
     int bytesRead = canpReadBatch(sock, &batch);
     if (bytesRead > 0) {
-      handleNetwork(batch, arena);
+      const double timeValue =
+          std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+      handleNetwork(batch, arena, timeValue);
       continue;
     }
     if (bytesRead == 0) {

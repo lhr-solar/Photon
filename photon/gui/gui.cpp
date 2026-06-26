@@ -3,9 +3,11 @@
 #include <vector>
 
 #include "../gpu/shader.hpp"
+#include "arena.hpp"
 #include "bits_frag_spv.hpp"
 #include "box_frag_spv.hpp"
 #include "config.hpp"
+#include "crude_json.h"
 #include "custom_shader_vert_spv.hpp"
 #include "gpuGui.hpp"
 #include "im_anim.h"
@@ -121,10 +123,17 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
   std::vector<double> data = {2.0, 4.0, 3.0, 1.0, 2.0};
   ImPlotSpec spec{};
   spec = this->settings.plotLineSpec;
+  void* d;
+  uint32_t s;
+  arena->read(0x7ff, 0, &d, &s);
+  void* t;
+  arena->readTime(0x7ff, &t, &s);
   if (ImGui::Begin("Page 1", NULL, flags)) {
     ImGui::Text("some stuff on page 1");
     if (ImPlot::BeginPlot("some plot")) {
-      ImPlot::PlotLine("some data", time.data(), data.data(), data.size(), spec);
+      if(d != nullptr){
+        ImPlot::PlotLine("some data", (double*)t, (double*)d, s, spec);
+      }
     }
     ImPlot::EndPlot();
   }
