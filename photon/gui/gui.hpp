@@ -6,6 +6,7 @@
 #include "../parse/spmc.hpp"
 #include "canvas.hpp"
 #include "config.hpp"
+#include "plots.hpp"
 #include "sideBar.hpp"
 #include "tabs.hpp"
 #include "titlebar.hpp"
@@ -21,6 +22,7 @@ struct GUI {
   void updateUI();
   void exportUI();
 
+  void genericPlot(uint32_t id, uint32_t signal, ImVec2 size);
   void shaderTest(ImGuiWindowFlags flags);
   void testFunc(ImGuiWindowFlags flags);
   void plotTest(ImGuiWindowFlags flags);
@@ -39,6 +41,7 @@ struct GUI {
   GuiFlags flags{};
   std::vector<const char*> networkOptions = {"DAQ Server", "TCP", "UDP", "UART",
                                              "PCAN",       "BLE", "WLAN"};
+  std::vector<Plots> plots;
 };
 
 /* forward function handles */

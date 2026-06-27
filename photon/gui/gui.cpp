@@ -1,5 +1,10 @@
 #include "gui.hpp"
 
+#include <algorithm>
+#include <csignal>
+#include <cstddef>
+#include <locale>
+#include <string>
 #include <vector>
 
 #include "../gpu/shader.hpp"
@@ -118,24 +123,43 @@ void GUI::exportUI() {
   }
 };
 
-void GUI::plotTest(ImGuiWindowFlags flags) {
-  std::vector<double> time = {1.0, 2.0, 3.0, 4.0, 5.0};
-  std::vector<double> data = {2.0, 4.0, 3.0, 1.0, 2.0};
-  ImPlotSpec spec{};
-  spec = this->settings.plotLineSpec;
-  void* d;
-  uint32_t s;
-  arena->read(0x7ff, 0, &d, &s);
-  void* t;
-  arena->readTime(0x7ff, &t, &s);
-  if (ImGui::Begin("Page 1", NULL, flags)) {
-    ImGui::Text("some stuff on page 1");
-    if (ImPlot::BeginPlot("some plot")) {
-      if(d != nullptr){
-        ImPlot::PlotLine("some data", (double*)t, (double*)d, s, spec);
-      }
+// some things:
+// vertical & horizontal scaling
+// auto follow + ability to scan
+// better "time" label
+void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size){
+    ImPlotSpec spec = this->settings.plotLineSpec;
+    void* data = nullptr;
+    void* time = nullptr;
+    uint32_t timeBytes = 0;
+    uint32_t dataBytes = 0;
+    arena->read(id, signal, &data, &dataBytes);
+    arena->readTime(id, &time, &timeBytes);
+    if(!dataBytes || !timeBytes) return;
+    std::string name = "##" + std::to_string(id) + std::to_string(signal);
+    std::string sg_name = arena->messages[id]->signals[signal]->name;
+    constexpr uint32_t maxPlotSamples = 50;
+    const uint32_t sampleCount = std::min(dataBytes, timeBytes) / sizeof(double);
+    const uint32_t visibleCount = std::min(sampleCount, maxPlotSamples);
+    if (visibleCount < 0) return;
+    const uint32_t firstSample = sampleCount - visibleCount;
+    const auto* timeValues = static_cast<const double*>(time) + firstSample;
+    const auto* dataValues = static_cast<const double*>(data) + firstSample;
+    ImPlot::SetNextAxesToFit();
+    if (ImPlot::BeginPlot(name.data(), size, ImPlotAxisFlags_AutoFit)) {
+        ImPlot::SetupAxes("time", "value");
+        ImPlot::PlotLine(sg_name.data(), timeValues, dataValues, static_cast<int>(visibleCount), spec);
+       ImPlot::EndPlot();
     }
-    ImPlot::EndPlot();
+};
+
+void GUI::plotTest(ImGuiWindowFlags flags) {
+  if (ImGui::Begin("Page 1", NULL, flags)) {
+    genericPlot(0x7ff, 0, {});
+    genericPlot(0x7fe, 0, {});
+    genericPlot(0x7fe, 1, {});
+    genericPlot(0x7fe, 2, {});
+    genericPlot(0x7ee, 2, {});
   }
   ImGui::End();
 };

@@ -205,6 +205,10 @@ BO_ 24 VCU_Status: 3 VCU
 
 BO_ 1872 Telemetry_Status: 8 Telemetry
 
+BO_ 2046 Sig_Wave: 8 Vector_XXX
+ SG_ Sine : 0|32@1+ (1,0) [-1|1] "" Vector__XXX
+ SG_ Cosine : 32|32@1+ (1,0) [-1|1] "" Vector__XXX
+
 BO_ 2047 Max_Message: 8 Vector__XXX
  SG_ sg0 : 0|8@1+ (1,0) [0|1] "unit" Vector__XXX
  SG_ sg1 : 8|8@1+ (1,0) [0|1] "unit" Vector__XXX
@@ -1019,3 +1023,5 @@ SIG_VALTYPE_ 1068 MC_DspBoardTemp : 1;
 SIG_VALTYPE_ 1070 MC_TripOdometer : 1;
 SIG_VALTYPE_ 1070 MC_DCBusAh : 1;
 SIG_VALTYPE_ 1079 MC_SlipSpeed : 1;
+SIG_VALTYPE_ 2046 Sine : 1;
+SIG_VALTYPE_ 2046 Cosine : 1;
