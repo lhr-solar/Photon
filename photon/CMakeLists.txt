@@ -5,7 +5,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "
     set(PHOTON_UI_HOT_RELOAD ON)
 endif()
 
-file(GLOB imgui_runtime_src CONFIGURE_DEPENDS
+file(GLOB imgui_runtime_src
     "../.external/imgui/*.cpp"
     "../.external/imgui/backends/*.cpp"
 )

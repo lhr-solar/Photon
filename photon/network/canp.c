@@ -1,14 +1,18 @@
 #include "canp.h"
 
-#include <arpa/inet.h>
-#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#endif
 
 static uint64_t canpHton64(uint64_t value) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -42,11 +46,19 @@ canpPacket_t canpMakePacket(uint32_t canId, uint8_t dlc, const uint8_t data[8],
 
 uint32_t canpGetId(const canpPacket_t* p) { return ntohl(p->can_id); }
 
-int canpWrite(int fd, struct iovec* iov, int iovcnt) {
+int canpWrite(canpSocket_t fd, struct iovec* iov, int iovcnt) {
   while (iovcnt > 0) {
+#ifdef _WIN32
+    int n = send(fd, (const char*)iov[0].iov_base, (int)iov[0].iov_len, 0);
+#else
     ssize_t n = writev(fd, iov, iovcnt);
+#endif
     if (n < 0) {
+#ifdef _WIN32
+      if (WSAGetLastError() == WSAEINTR) continue;
+#else
       if (errno == EINTR) continue;
+#endif
       return -1;
     }
     if (n == 0) return -1;
@@ -63,7 +75,7 @@ int canpWrite(int fd, struct iovec* iov, int iovcnt) {
   return 1;
 }
 
-int canpWriteBatch(int fd, canpBatch_t* batch) {
+int canpWriteBatch(canpSocket_t fd, canpBatch_t* batch) {
   if (batch->count == 0 || batch->count > CANP_MAX_BATCH) return -1;
   canpHeader_t hdr = {.magic = htonl(CANP_MAGIC),
                       .version = htons(CANP_VERSION),
@@ -76,14 +88,22 @@ int canpWriteBatch(int fd, canpBatch_t* batch) {
   return canpWrite(fd, iov, 2);
 }
 
-int canpRead(int fd, void* buf, size_t len) {
+int canpRead(canpSocket_t fd, void* buf, size_t len) {
   char* p = (char*)buf;
   size_t accum = 0;
   while (accum < len) {
+#ifdef _WIN32
+    int n = recv(fd, p + accum, (int)(len - accum), 0);
+#else
     ssize_t n = read(fd, p + accum, len - accum);
+#endif
     if (n == 0) return 0;
     if (n < 0) {
+#ifdef _WIN32
+      if (WSAGetLastError() == WSAEINTR) continue;
+#else
       if (errno == EINTR) continue;
+#endif
       return -1;
     }
     accum += n;
@@ -91,7 +111,7 @@ int canpRead(int fd, void* buf, size_t len) {
   return 1;
 }
 
-int canpReadBatch(int fd, canpBatch_t* batch) {
+int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
   canpHeader_t hdr;
   int r = canpRead(fd, &hdr, sizeof hdr);
   if (r <= 0) return r;
@@ -107,7 +127,7 @@ int canpReadBatch(int fd, canpBatch_t* batch) {
   return 1;
 }
 
-int canpRelayBatch(int in_fd, int out_fd) {
+int canpRelayBatch(canpSocket_t in_fd, canpSocket_t out_fd) {
   canpBatch_t batch;
   int r = canpReadBatch(in_fd, &batch);
   if (r <= 0) return r;

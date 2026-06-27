@@ -1,9 +1,23 @@
 #ifndef CAN_PROTO_H
 #define CAN_PROTO_H
 
-#include <bits/types/struct_iovec.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+typedef SOCKET canpSocket_t;
+struct iovec {
+  void* iov_base;
+  size_t iov_len;
+};
+#else
+#include <sys/uio.h>
+typedef int canpSocket_t;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,13 +51,13 @@ typedef struct {
   canpPacket_t packets[CANP_MAX_BATCH];
 } canpBatch_t;
 
-int canpWrite(int fd, struct iovec* iov, int iovcnt);
-int canpRead(int fd, void* buf, size_t n);
+int canpWrite(canpSocket_t fd, struct iovec* iov, int iovcnt);
+int canpRead(canpSocket_t fd, void* buf, size_t n);
 
-int canpWriteBatch(int fd, canpBatch_t* batch);
-int canpReadBatch(int fd, canpBatch_t* batch);
+int canpWriteBatch(canpSocket_t fd, canpBatch_t* batch);
+int canpReadBatch(canpSocket_t fd, canpBatch_t* batch);
 
-int canpRelayBatch(int in_fd, int out_fd);
+int canpRelayBatch(canpSocket_t in_fd, canpSocket_t out_fd);
 void canpPrintBatch(canpBatch_t* batch);
 
 uint32_t canpGetId(const canpPacket_t* p);
