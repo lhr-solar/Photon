@@ -126,7 +126,6 @@ void GUI::exportUI() {
 // some things:
 // vertical & horizontal scaling
 // auto follow + ability to scan
-// better "time" label
 void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
   ImPlotSpec spec = this->settings.plotLineSpec;
   void* data = nullptr;
@@ -250,8 +249,8 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 void GUI::setTabs() {
   tabs.list.clear();
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "plot test"));
-  tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "arena ui"));
-  tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "network page"));
+  tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "shader test"));
 };
 
