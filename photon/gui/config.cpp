@@ -376,6 +376,7 @@ void GuiSettings::setStyle() {
   colors[ImGuiCol_ModalWindowDimBg] = {color0.x, color0.y, color0.z, 0.4f};
 
   ImPlotStyle& plotStyle = ImPlot::GetStyle();
+  plotStyle.UseLocalTime = true;
   colors = plotStyle.Colors;
   colors[ImPlotCol_FrameBg] = color5;
   colors[ImPlotCol_PlotBg] = color4;

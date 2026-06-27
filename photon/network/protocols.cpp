@@ -241,7 +241,10 @@ bool decodeSignalValue(const canpPacket_t& packet, const Signal& sig, double& va
   }
 }
 
-void handleNetwork(const canpBatch_t& batch, Arena& arena, double timeValue) {
+double batchTimeSeconds(uint64_t timestampMs) { return static_cast<double>(timestampMs) / 1000.0; }
+
+void handleNetwork(const canpBatch_t& batch, Arena& arena) {
+  double timeValue = batchTimeSeconds(batch.timestamp);
   const uint16_t count = batch.count > CANP_MAX_BATCH ? CANP_MAX_BATCH : batch.count;
   for (uint16_t i = 0; i < count; i++) {
     const canpPacket_t& packet = batch.packets[i];
@@ -289,13 +292,10 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
   publishMessage(txBuffer, timeNow() + "TCP connected");
 
   canpBatch_t batch{};
-  const auto start = std::chrono::steady_clock::now();
   while (!stoken.stop_requested()) {
     int bytesRead = canpReadBatch(sock, &batch);
     if (bytesRead > 0) {
-      const double timeValue =
-          std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-      handleNetwork(batch, arena, timeValue);
+      handleNetwork(batch, arena);
       continue;
     }
     if (bytesRead == 0) {
