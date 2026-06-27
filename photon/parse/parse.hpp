@@ -4,7 +4,7 @@
 #include "arena.hpp"
 
 enum class DBCType : uint32_t {
-  VehicleWithUndisclosedName = 0,
+  Lonestar = 0,
   DaybreakMaster,
   Test,
   AssettoCorsa,
@@ -13,8 +13,8 @@ enum class DBCType : uint32_t {
 
 struct Parse {
   Arena arena{};
-  DBCType activeDBC = DBCType::VehicleWithUndisclosedName;
-  std::string activeDBCLabel = "vehicle-with-undisclosed-name";
+  DBCType activeDBC = DBCType::Lonestar;
+  std::string activeDBCLabel = "Lonestar";
   std::string activeDBCPath = {};
   void init();
   bool loadDBC(DBCType kind);

@@ -873,7 +873,7 @@ BA_DEF_DEF_  "GenMsgSendType" "Cyclic";
 BA_DEF_DEF_  "GenMsgCycleTime" 0;
 BA_DEF_DEF_  "Timeout" 1000;
 
-BA_ "DBName" "vehicle-with-undisclosed-name";
+BA_ "DBName" "Lonestar";
 BA_ "BusType" "CAN";
 BA_ "VFrameFormat" BO_ 1654 0;
 BA_ "VFrameFormat" BO_ 1653 0;

@@ -11,7 +11,7 @@
 #include "assettoCorsa_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
 #include "test_dbc.hpp"
-#include "vehicle_with_undisclosed_name_dbc.hpp"
+#include "lonestar_dbc.hpp"
 
 struct DBCAsset {
   DBCType kind;
@@ -21,8 +21,8 @@ struct DBCAsset {
 };
 
 const std::array<DBCAsset, Parse::dbcCount()> kDBCAssets{{
-    {DBCType::VehicleWithUndisclosedName, "vehicle-with-undisclosed-name",
-     vehicle_with_undisclosed_name_dbc, vehicle_with_undisclosed_name_dbc_size},
+    {DBCType::Lonestar, "Lonestar",
+     lonestar_dbc, lonestar_dbc_size},
     {DBCType::DaybreakMaster, "daybreak-master", daybreak_master_dbc, daybreak_master_dbc_size},
     {DBCType::Test, "test", test_dbc, test_dbc_size},
     {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size},
