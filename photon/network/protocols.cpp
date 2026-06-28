@@ -107,12 +107,31 @@ bool setNonBlocking(SocketHandle sock) {
 #endif
 }
 
+bool setBlocking(SocketHandle sock) {
+#ifdef _WIN32
+  u_long mode = 0;
+  return ioctlsocket(sock, FIONBIO, &mode) == 0;
+#else
+  const int flags = fcntl(sock, F_GETFL, 0);
+  return flags >= 0 && fcntl(sock, F_SETFL, flags & ~O_NONBLOCK) == 0;
+#endif
+}
+
 void closeSocket(SocketHandle sock) {
   if (sock == INVALID_SOCKET) return;
 #ifdef _WIN32
   closesocket(sock);
 #else
   close(sock);
+#endif
+}
+
+int selectSocketCount(SocketHandle sock) {
+#ifdef _WIN32
+  (void)sock;
+  return 0;
+#else
+  return static_cast<int>(sock + 1);
 #endif
 }
 
@@ -125,7 +144,7 @@ bool waitForConnect(SocketHandle sock, std::stop_token stoken, std::string& erro
     timeval timeout{};
     timeout.tv_usec = 100000;
 
-    const int ready = select(static_cast<int>(sock + 1), nullptr, &writeSet, nullptr, &timeout);
+    const int ready = select(selectSocketCount(sock), nullptr, &writeSet, nullptr, &timeout);
     if (ready == 0) continue;
     if (ready == SOCKET_ERROR) {
       error = socketError("TCP connect select");
@@ -148,6 +167,38 @@ bool waitForConnect(SocketHandle sock, std::stop_token stoken, std::string& erro
   }
 
   error = "TCP connect stopped";
+  return false;
+}
+
+enum class SocketWaitResult { Ready, Stopped, Error };
+
+SocketWaitResult waitForReadable(SocketHandle sock, std::stop_token stoken, std::string& error) {
+  while (!stoken.stop_requested()) {
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(sock, &readSet);
+
+    timeval timeout{};
+    timeout.tv_usec = 100000;
+
+    const int ready = select(selectSocketCount(sock), &readSet, nullptr, nullptr, &timeout);
+    if (ready == 0) continue;
+    if (ready == SOCKET_ERROR) {
+      error = socketError("TCP recv select");
+      return SocketWaitResult::Error;
+    }
+    if (FD_ISSET(sock, &readSet)) return SocketWaitResult::Ready;
+  }
+
+  return SocketWaitResult::Stopped;
+}
+
+bool finishTcpConnect(SocketHandle& sock, std::string& error) {
+  if (setBlocking(sock)) return true;
+
+  error = socketError("TCP blocking setup");
+  closeSocket(sock);
+  sock = INVALID_SOCKET;
   return false;
 }
 
@@ -180,7 +231,8 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     return false;
   }
 
-  if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0) return true;
+  if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0)
+    return finishTcpConnect(sock, error);
   if (!wouldBlock()) {
     error = socketError("TCP connect");
     closeSocket(sock);
@@ -188,7 +240,7 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     return false;
   }
 
-  if (waitForConnect(sock, stoken, error)) return true;
+  if (waitForConnect(sock, stoken, error)) return finishTcpConnect(sock, error);
 
   closeSocket(sock);
   sock = INVALID_SOCKET;
@@ -306,6 +358,14 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
 
   canpBatch_t batch{};
   while (!stoken.stop_requested()) {
+    std::string waitError{};
+    const SocketWaitResult waitResult = waitForReadable(sock, stoken, waitError);
+    if (waitResult == SocketWaitResult::Stopped) break;
+    if (waitResult == SocketWaitResult::Error) {
+      publishError(txBuffer, waitError);
+      break;
+    }
+
     int readStatus = canpReadBatch(sock, &batch);
     if (readStatus == CANP_READ_OK) {
       handleNetwork(batch, arena);
@@ -316,7 +376,6 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
       break;
     }
     if (readStatus == CANP_READ_SOCKET_ERROR) {
-      if (wouldBlock()) continue;
       publishError(txBuffer, socketError("TCP recv"));
       break;
     }
