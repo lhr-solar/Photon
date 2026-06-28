@@ -75,6 +75,19 @@ std::string socketError(const char* operation, int errorCode) {
   return buffer;
 }
 
+std::string canpReadError(int status) {
+  switch (status) {
+    case CANP_READ_BAD_MAGIC:
+      return "CANP read failed: bad magic";
+    case CANP_READ_BAD_VERSION:
+      return "CANP read failed: unsupported version";
+    case CANP_READ_BAD_COUNT:
+      return "CANP read failed: invalid batch count";
+    default:
+      return "CANP read failed: " + std::to_string(status);
+  }
+}
+
 bool wouldBlock() {
 #ifdef _WIN32
   const int error = WSAGetLastError();
@@ -293,17 +306,21 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
 
   canpBatch_t batch{};
   while (!stoken.stop_requested()) {
-    int bytesRead = canpReadBatch(sock, &batch);
-    if (bytesRead > 0) {
+    int readStatus = canpReadBatch(sock, &batch);
+    if (readStatus == CANP_READ_OK) {
       handleNetwork(batch, arena);
       continue;
     }
-    if (bytesRead == 0) {
+    if (readStatus == CANP_READ_CLOSED) {
       publishMessage(txBuffer, timeNow() + "TCP peer closed connection");
       break;
     }
-    if (wouldBlock()) continue;
-    publishError(txBuffer, socketError("TCP recv"));
+    if (readStatus == CANP_READ_SOCKET_ERROR) {
+      if (wouldBlock()) continue;
+      publishError(txBuffer, socketError("TCP recv"));
+      break;
+    }
+    publishError(txBuffer, timeNow() + canpReadError(readStatus));
     break;
   }
   closeSocket(sock);
