@@ -63,6 +63,9 @@ struct TCPConfig {
   char ip[256] = "127.0.0.1";
 };
 
+struct Quit{
+};
+
 struct UDPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
