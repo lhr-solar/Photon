@@ -9,7 +9,7 @@
 #include "imgui.h"
 
 constexpr uint32_t PAGE_SIZE = 4096;
-constexpr uint32_t MESSAGE_MAX = 2048;
+constexpr uint32_t MESSAGE_MAX = 0x2000;
 constexpr uint32_t SIGNAL_MAX = 32;
 constexpr uint32_t MINIMUM_ARENA_SIZE = PAGE_SIZE * MESSAGE_MAX * SIGNAL_MAX;
 

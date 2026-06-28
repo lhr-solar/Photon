@@ -154,10 +154,11 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
   if (ImGui::Begin("Page 1", NULL, flags)) {
     auto dim = ImGui::GetContentRegionAvail();
     dim.y = 0;
-    for(int i = 0; i < MESSAGE_MAX; i++){
-        for(int j = 0; j < SIGNAL_MAX; j++)
-            genericPlot(i, j, dim);
-    };
+    for (const uint32_t id : arena->validIds) {
+      if (id >= arena->messages.size() || !arena->messages[id]) continue;
+      for (uint32_t signal = 0; signal < arena->messages[id]->signalCount; signal++)
+        genericPlot(id, signal, dim);
+    }
   }
   ImGui::End();
 };
