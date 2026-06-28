@@ -142,13 +142,8 @@ void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
   const uint32_t firstSample = sampleCount - visibleCount;
   const auto* timeValues = static_cast<const double*>(time) + firstSample;
   const auto* dataValues = static_cast<const double*>(data) + firstSample;
-
   if (ImPlot::BeginPlot(name.data(), size)) {
-    if(ImPlot::IsPlotSelected()){
-
-    } else {
-        ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-    }
+    ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
     ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
     ImPlot::PlotLine(sg_name.data(), timeValues, dataValues, static_cast<int>(visibleCount), spec);
     ImPlot::EndPlot();
@@ -159,11 +154,10 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
   if (ImGui::Begin("Page 1", NULL, flags)) {
     auto dim = ImGui::GetContentRegionAvail();
     dim.y = 0;
-    genericPlot(0x7ff, 0, dim);
-    genericPlot(0x7fe, 0, dim);
-    genericPlot(0x7fe, 1, dim);
-    genericPlot(0x7fe, 2, dim);
-    genericPlot(0x7ee, 2, dim);
+    for(int i = 0; i < MESSAGE_MAX; i++){
+        for(int j = 0; j < SIGNAL_MAX; j++)
+            genericPlot(i, j, dim);
+    };
   }
   ImGui::End();
 };
