@@ -356,38 +356,51 @@ void Arena::statusUI(ImGuiWindowFlags flags) {
 
 void Arena::init(const arenaConfig& config) {
   if (config.validIds.empty()) return;
-  validIds = config.validIds;
-  std::sort(validIds.begin(), validIds.end());
+
+  std::vector<uint32_t> nextValidIds = config.validIds;
+  std::sort(nextValidIds.begin(), nextValidIds.end());
+
+  uint32_t nextTotalSignals = 0;
+  uint32_t nextTotalTimeBuffers = 0;
+  for (const auto& idx : nextValidIds) {
+    uint32_t count = config.signalCounts[idx];
+    if (count > 32) count = 32;
+    nextTotalSignals += count;
+    nextTotalTimeBuffers += 1;
+  }
+  const uint32_t nextTotalBuffers = nextTotalSignals + nextTotalTimeBuffers;
+  if (nextTotalBuffers == 0) return;
+
+  const size_t nextArenaSize = std::max(config.arenaSize, static_cast<size_t>(MINIMUM_ARENA_SIZE));
+  const size_t nextTotalPages = nextArenaSize / PAGE_SIZE;
+  const size_t nextPagesPerBuffer = nextTotalPages / nextTotalBuffers;
+  if (nextPagesPerBuffer == 0) return;
+
   for (const auto& m : messages)
     if (m) clear(m->id);
-  arenaSize = MINIMUM_ARENA_SIZE;
-  if (config.arenaSize > MINIMUM_ARENA_SIZE) arenaSize = config.arenaSize;
 #ifdef _WIN32
-  pool = VirtualAlloc(nullptr, arenaSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+  pool = VirtualAlloc(nullptr, nextArenaSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else
-  pool = mmap(nullptr, arenaSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  pool = mmap(nullptr, nextArenaSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
   if (pool == nullptr
 #ifndef _WIN32
       || pool == MAP_FAILED
 #endif
-  )
+  ) {
+    pool = nullptr;
     return;
-  totalSignals = 0;
-  totalTimeBuffers = 0;
-  totalBuffers = 0;
-  for (const auto& idx : validIds) {
-    uint32_t count = config.signalCounts[idx];
-    if (count > 32) count = 32;
-    totalSignals += count;
-    totalTimeBuffers += 1;
-  };
-  totalBuffers = totalSignals + totalTimeBuffers;
-  if (totalBuffers == 0) return;
+  }
+
+  validIds = std::move(nextValidIds);
+  arenaSize = nextArenaSize;
+  totalSignals = nextTotalSignals;
+  totalTimeBuffers = nextTotalTimeBuffers;
+  totalBuffers = nextTotalBuffers;
   cursor = static_cast<uint8_t*>(pool);
   remaining = arenaSize;
-  totalPages = arenaSize / PAGE_SIZE;
-  pagesPerBuffer = totalPages / totalBuffers;
+  totalPages = nextTotalPages;
+  pagesPerBuffer = nextPagesPerBuffer;
   bytesPerBuffer = PAGE_SIZE * pagesPerBuffer;
 
   for (const auto& idx : validIds) {
@@ -522,13 +535,17 @@ void Arena::destroy() {
   totalPages = 0;
   pagesPerBuffer = 0;
   bytesPerBuffer = 0;
-  if (pool == nullptr) return;
+  if (pool == nullptr) {
+    arenaSize = 0;
+    return;
+  }
 #ifdef _WIN32
   VirtualFree(pool, 0, MEM_RELEASE);
 #else
   munmap(pool, arenaSize);
 #endif
   pool = nullptr;
+  arenaSize = 0;
 }
 
 std::vector<size_t> Arena::search(const std::string& query) {

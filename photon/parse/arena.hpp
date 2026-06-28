@@ -64,7 +64,7 @@ struct Arena {
   size_t totalPages{};
   size_t pagesPerBuffer{};
   size_t bytesPerBuffer{};
-  uint32_t arenaSize = {};
+  size_t arenaSize = {};
   uint32_t totalSignals = {};
   uint32_t totalTimeBuffers = {};
   uint32_t totalBuffers = {};
