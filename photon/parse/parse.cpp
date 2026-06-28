@@ -191,6 +191,7 @@ bool Parse::loadDBC(DBCType kind) {
   std::istringstream configStream(dbcText);
   arenaConfig config{};
   buildConfig(configStream, config);
+  if (config.validIds.empty()) return false;
 
   arena.destroy();
   arena.init(config);
@@ -212,6 +213,7 @@ bool Parse::loadDBCFile(const std::string& path) {
   std::istringstream configStream(dbcText);
   arenaConfig config{};
   buildConfig(configStream, config);
+  if (config.validIds.empty()) return false;
 
   arena.destroy();
   arena.init(config);

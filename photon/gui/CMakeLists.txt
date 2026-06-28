@@ -14,6 +14,7 @@ target_link_libraries(gui
     EnvironmentAssets
     imgui_runtime
     gpu
+    network
     parse
 )
 
@@ -33,6 +34,7 @@ if (PHOTON_UI_HOT_RELOAD)
         EnvironmentAssets
         imgui_runtime
         gpu
+        network
         parse
     )
 

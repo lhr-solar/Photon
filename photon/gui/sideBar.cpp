@@ -1,6 +1,12 @@
 #include "sideBar.hpp"
 
+#include <SDL3/SDL_dialog.h>
+#include <SDL3/SDL_error.h>
+
 #include <algorithm>
+#include <cfloat>
+#include <iterator>
+#include <utility>
 
 #include "background_jpg.hpp"
 #include "gui.hpp"
@@ -10,6 +16,30 @@
 #include "titlebar.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+namespace {
+constexpr SDL_DialogFileFilter kDBCFileFilters[] = {
+    {"DBC files", "dbc"},
+    {"All files", "*"},
+};
+
+void SDLCALL dbcFileDialogCallback(void* userdata, const char* const* filelist, int filter) {
+  (void)filter;
+  auto* sidebar = static_cast<Sidebar*>(userdata);
+  if (!sidebar) return;
+
+  std::lock_guard lock(sidebar->dbcDialogMutex);
+  sidebar->dbcDialogActive = false;
+  if (!filelist) {
+    sidebar->dbcStatus = std::string("DBC file dialog failed: ") + SDL_GetError();
+    return;
+  }
+  if (!filelist[0]) return;
+
+  sidebar->pendingDBCPath = filelist[0];
+  sidebar->hasPendingDBCPath = true;
+}
+}  // namespace
 
 ImTextureData* loadImguiTexture(const unsigned char* data, std::size_t size) {
   int w = 0, h = 0, comp = 0;
@@ -23,6 +53,77 @@ ImTextureData* loadImguiTexture(const unsigned char* data, std::size_t size) {
   ImGui::RegisterUserTexture(tex);
   stbi_image_free(pixels);
   return tex;
+}
+
+void Sidebar::drawDBCSelector(GUI& gui) {
+  std::string selectedPath{};
+  {
+    std::lock_guard lock(dbcDialogMutex);
+    if (hasPendingDBCPath) {
+      selectedPath = std::move(pendingDBCPath);
+      pendingDBCPath.clear();
+      hasPendingDBCPath = false;
+    }
+  }
+
+  if (!selectedPath.empty()) {
+    const bool loaded = gui.network && gui.network->switchDBCFile(selectedPath);
+    std::lock_guard lock(dbcDialogMutex);
+    dbcStatus = loaded ? "Loaded " + selectedPath : "Failed to load " + selectedPath;
+  }
+
+  const float fullWidth = ImGui::GetContentRegionAvail().x;
+  if (ImGui::Button("Select DBC", ImVec2{fullWidth, 0.0f})) ImGui::OpenPopup("Select DBC");
+
+  ImGui::SetNextWindowSizeConstraints(ImVec2{260.0f, 0.0f}, ImVec2{FLT_MAX, FLT_MAX});
+  if (ImGui::BeginPopup("Select DBC")) {
+    Parse* parse = gui.network ? gui.network->parse : nullptr;
+    ImGui::Text("Current: %s", parse ? parse->currentDBCName() : "None");
+    ImGui::Separator();
+
+    for (uint32_t i = 0; i < Parse::dbcCount(); i++) {
+      const DBCType kind = static_cast<DBCType>(i);
+      if (kind == DBCType::File) continue;
+      const bool selected = parse && parse->activeDBC == kind;
+      if (ImGui::Selectable(Parse::dbcName(kind), selected)) {
+        const bool loaded = gui.network && gui.network->switchDBC(kind);
+        std::lock_guard lock(dbcDialogMutex);
+        dbcStatus = loaded ? std::string("Loaded ") + Parse::dbcName(kind)
+                           : std::string("Failed to load ") + Parse::dbcName(kind);
+        if (loaded) ImGui::CloseCurrentPopup();
+      }
+    }
+
+    ImGui::Separator();
+    bool dialogActive = false;
+    {
+      std::lock_guard lock(dbcDialogMutex);
+      dialogActive = dbcDialogActive;
+    }
+    if (ImGui::Button(dialogActive ? "Opening..." : "Upload File", ImVec2{-FLT_MIN, 0.0f}) &&
+        !dialogActive) {
+      {
+        std::lock_guard lock(dbcDialogMutex);
+        dbcDialogActive = true;
+        dbcStatus.clear();
+      }
+      SDL_ShowOpenFileDialog(dbcFileDialogCallback, this, gui.gpu ? gui.gpu->window : nullptr,
+                             kDBCFileFilters, static_cast<int>(std::size(kDBCFileFilters)), nullptr,
+                             false);
+    }
+
+    std::string status{};
+    {
+      std::lock_guard lock(dbcDialogMutex);
+      status = dbcStatus;
+    }
+    if (!status.empty()) {
+      ImGui::Separator();
+      ImGui::TextWrapped("%s", status.c_str());
+    }
+
+    ImGui::EndPopup();
+  }
 }
 
 void Sidebar::draw(GUI& gui) {
@@ -82,9 +183,12 @@ void Sidebar::draw(GUI& gui) {
     float buttonH = ImGui::GetFrameHeightWithSpacing();
     ImVec2 framePadding = ImGui::GetStyle().FramePadding;
     float spacingY = ImGui::GetStyle().ItemSpacing.y;
-    float rowH = buttonH + spacingY + framePadding.y;
-    pos = {framePadding.x, sideBarHeight - rowH};
+    float selectorH = buttonH + spacingY;
+    float rowH = selectorH + buttonH + spacingY + framePadding.y;
+    pos = {padding.x, sideBarHeight - rowH};
     ImGui::SetCursorPos(pos);
+    ImGui::Separator();
+    drawDBCSelector(gui);
     ImGui::Separator();
     if (ImGui::Button("\uE518##Theme", {buttonW, buttonH})) ImGui::OpenPopup("Theme");
     ImGui::SameLine();
