@@ -1,6 +1,7 @@
 #include "gui.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <csignal>
 #include <cstddef>
 #include <locale>
@@ -123,9 +124,6 @@ void GUI::exportUI() {
   }
 };
 
-// some things:
-// vertical & horizontal scaling
-// auto follow + ability to scan
 void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
   ImPlotSpec spec = this->settings.plotLineSpec;
   void* data = nullptr;
@@ -137,20 +135,21 @@ void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
   if (!dataBytes || !timeBytes) return;
   std::string name = "##" + std::to_string(id) + std::to_string(signal);
   std::string sg_name = arena->messages[id]->signals[signal]->name;
-  constexpr uint32_t maxPlotSamples = 50;
+  constexpr uint32_t maxPlotSamples = 100;
   const uint32_t sampleCount = std::min(dataBytes, timeBytes) / sizeof(double);
   const uint32_t visibleCount = std::min(sampleCount, maxPlotSamples);
   if (visibleCount == 0) return;
   const uint32_t firstSample = sampleCount - visibleCount;
   const auto* timeValues = static_cast<const double*>(time) + firstSample;
   const auto* dataValues = static_cast<const double*>(data) + firstSample;
+
   if (ImPlot::BeginPlot(name.data(), size)) {
-    double xMin = timeValues[0];
-    double xMax = timeValues[visibleCount - 1];
-    if (xMax <= xMin) xMax = xMin + 1.0;
-    ImPlot::SetupAxes("time", "value", 0, ImPlotAxisFlags_AutoFit);
+    if(ImPlot::IsPlotSelected()){
+
+    } else {
+        ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+    }
     ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
-    ImPlot::SetupAxisLimits(ImAxis_X1, xMin, xMax, ImPlotCond_Always);
     ImPlot::PlotLine(sg_name.data(), timeValues, dataValues, static_cast<int>(visibleCount), spec);
     ImPlot::EndPlot();
   }
@@ -267,7 +266,10 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
           .ip = "3.141.38.115",
       };
       auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
+      auto q = [](ProtocolTransmitVariant& cmd) { cmd = Quit{}; };
       if (ImGui::Button("Connect To Server")) network->guiRxCommandBuffer.write(λ);
+      ImGui::SameLine();
+      if (ImGui::Button("Disconnect")) network->guiRxCommandBuffer.write(q);
       while (ProtocolReceiveVariant* msg = txReader.read()) {
         if (auto* error = std::get_if<ProtocolError>(msg))
           terminalText += "[error] " + error->error + "\n";

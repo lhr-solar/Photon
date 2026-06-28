@@ -36,7 +36,7 @@ void Network::backend(std::stop_token stoken) {
       } else if (auto* pcan = std::get_if<PCANConfig>(cmd)) {
       } else if (std::get_if<BLEConfig>(cmd)) {
       } else if (std::get_if<WLANConfig>(cmd)) {
-      }
+      } else if(std::get_if<Quit>(cmd)) stopWriter();
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     };
