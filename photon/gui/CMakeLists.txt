@@ -1,10 +1,13 @@
 file(GLOB gui_src "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.cpp")
+file(GLOB ddash_src "${CMAKE_CURRENT_SOURCE_DIR}/DDash/*.cpp")
+list(APPEND gui_src ${ddash_src})
 
 add_library(gui ${gui_src})
 set_target_properties(gui PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(gui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/DDash
     ${CMAKE_BINARY_DIR}/generated
 )
 target_link_libraries(gui

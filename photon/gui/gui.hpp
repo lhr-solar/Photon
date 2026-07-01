@@ -4,6 +4,7 @@
 #include "../network/network.hpp"
 #include "../parse/arena.hpp"
 #include "../parse/spmc.hpp"
+#include "DDash/state.h"
 #include "canvas.hpp"
 #include "config.hpp"
 #include "plots.hpp"
@@ -27,6 +28,10 @@ struct GUI {
   void testFunc(ImGuiWindowFlags flags);
   void plotTest(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
+  void dashboardPage(ImGuiWindowFlags flags);
+
+  ui::AppState dashboardState = ui::CreateDefaultState();
+  bool kioskMode = false;
 
   GPU* gpu;
   Arena* arena;

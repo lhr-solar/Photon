@@ -3,11 +3,15 @@
 #include <algorithm>
 #include <csignal>
 #include <cstddef>
+#include <cstdlib>
 #include <locale>
 #include <string>
 #include <vector>
 
 #include "../gpu/shader.hpp"
+#include "DDash/arena_bridge.hpp"
+#include "DDash/dashboard.h"
+#include "DDash/theme.h"
 #include "arena.hpp"
 #include "bits_frag_spv.hpp"
 #include "box_frag_spv.hpp"
@@ -37,6 +41,18 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
                           (uint32_t*)nucleus_frag_spv, nucleus_frag_spv_size);
   // testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size,
   // (uint32_t*)lens_frag_spv, lens_frag_spv_size);
+
+  if (std::getenv("PHOTON_DASHBOARD")) {
+    for (size_t i = 0; i < tabs.list.size(); ++i) {
+      if (tabs.list[i].name == "Dashboard") {
+        tabs.index = static_cast<int>(i);
+        break;
+      }
+    }
+    titleBar.showSidebar = false;
+    titleBar.enabled = false;
+    kioskMode = true;
+  }
 }
 
 void GUI::render() {
@@ -252,6 +268,7 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "shader test"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::dashboardPage>(*this, "Dashboard"));
 };
 
 void GUI::networkPage(ImGuiWindowFlags flags) {
@@ -324,6 +341,11 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
   ImGui::End();
 };
 
+void GUI::dashboardPage(ImGuiWindowFlags) {
+  ui::UpdateDashboardState(*arena, dashboardState);
+  ui::RenderDashboard(dashboardState);
+}
+
 void GUI::buildUI() {
   /* Per-Frame state updates */
   settings.setStyle();
@@ -340,7 +362,7 @@ void GUI::buildUI() {
   // shaderTest();
 
   /* stateful UI building */
-  ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
+  if (!kioskMode) ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
   ImGui::Render();
   render();
 };
