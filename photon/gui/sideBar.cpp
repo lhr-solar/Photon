@@ -176,7 +176,8 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   const ImVec2 bgMax(max.x - inset, max.y - 2.0f + press);
   const ImVec4 fill = mixColor(withAlpha(palette.raised, 0.0f), palette.active, focus);
   constexpr float rounding = 8.0f;
-  if (focus > 0.01f) ImGui::RenderFrame(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), false, rounding);
+  if (focus > 0.01f)
+    ImGui::RenderFrame(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), false, rounding);
   if (selected)
     renderLeftAccentFrame(bgMin, bgMax, colorU32(withAlpha(palette.accent, 0.78f + focus * 0.22f)),
                           rounding, 5.0f);
@@ -550,35 +551,20 @@ void Sidebar::draw(GUI& gui) {
   ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNavFocus |
                                  ImGuiWindowFlags_NoDocking;
-  /*
-  ImGui::SetNextWindowPos(pos);
-  ImGui::SetNextWindowSize(dim);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.1, 0.1});
-  if (ImGui::Begin("##pictureWindow", nullptr, windowFlags)) {
-    if (!backgroundTexture)
-      backgroundTexture = loadImguiTexture(background_jpg, background_jpg_size);
-    if (backgroundTexture && backgroundTexture->Status == ImTextureStatus_OK) {
-      ImVec2 avail = ImGui::GetContentRegionAvail();
-      ImGui::Image(backgroundTexture->GetTexRef(), winSize);
-    }
-  };
-  ImGui::End();
-  ImGui::PopStyleVar(1);
-  */
   ImGui::SetNextWindowPos(pos);
   ImGui::SetNextWindowSize(dim);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 12.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
   ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+  constexpr float sidebarBgAlpha = 0.95f;
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
-                        {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
+                        {windowBgColor.x, windowBgColor.y, windowBgColor.z, sidebarBgAlpha});
   if (ImGui::Begin("sideBar", NULL, windowFlags)) {
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const SidebarPalette palette = sidebarPalette();
     const ImVec2 windowMin = ImGui::GetWindowPos();
     const ImVec2 windowMax = {windowMin.x + width, windowMin.y + sideBarHeight};
-    draw->AddRectFilled(windowMin, windowMax, colorU32(withAlpha(palette.bg, 0.96f)));
     draw->AddLine({windowMax.x - 1.0f, windowMin.y}, {windowMax.x - 1.0f, windowMax.y},
                   colorU32(withAlpha(palette.border, 0.55f)));
     ImVec2 padding = ImGui::GetStyle().WindowPadding;

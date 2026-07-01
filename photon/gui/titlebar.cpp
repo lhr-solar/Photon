@@ -81,18 +81,19 @@ void drawSidebarToggleIcon(ImDrawList* draw, const TitleButtonResult& button, bo
   const float pressY = button.press;
   const float w = button.max.x - button.min.x;
   const float h = button.max.y - button.min.y;
-  const float boxW = 20.0f;
-  const float boxH = 15.0f;
+  const float boxW = 17.0f;
+  const float boxH = 13.0f;
   const ImVec2 boxMin(button.min.x + (w - boxW) * 0.5f, button.min.y + (h - boxH) * 0.5f + pressY);
   const ImVec2 boxMax(boxMin.x + boxW, boxMin.y + boxH);
-  draw->AddRect(boxMin, boxMax, colorU32(withAlpha(icon, 0.78f)), 3.0f, 0, 1.6f);
-  const float paneW = 5.0f + openT * 2.0f;
-  draw->AddRectFilled({boxMin.x + 2.5f, boxMin.y + 2.5f},
-                      {boxMin.x + 2.5f + paneW, boxMax.y - 2.5f},
+  draw->AddRect(boxMin, boxMax, colorU32(withAlpha(icon, 0.78f)), 3.0f, 0, 1.35f);
+  const float paneInset = 2.25f;
+  const float paneW = 4.2f + openT * 1.6f;
+  draw->AddRectFilled({boxMin.x + paneInset, boxMin.y + paneInset},
+                      {boxMin.x + paneInset + paneW, boxMax.y - paneInset},
                       colorU32(withAlpha(accent, 0.42f + openT * 0.22f)), 2.0f);
-  const float lineX = boxMin.x + 11.0f - openT * 1.6f;
-  draw->AddLine({lineX, boxMin.y + 5.0f}, {boxMax.x - 3.5f, boxMin.y + 5.0f}, iconColor, 1.5f);
-  draw->AddLine({lineX, boxMin.y + 9.0f}, {boxMax.x - 5.0f, boxMin.y + 9.0f}, iconColor, 1.5f);
+  const float lineX = boxMin.x + 9.5f - openT * 1.3f;
+  draw->AddLine({lineX, boxMin.y + 4.4f}, {boxMax.x - 3.2f, boxMin.y + 4.4f}, iconColor, 1.25f);
+  draw->AddLine({lineX, boxMin.y + 8.0f}, {boxMax.x - 4.4f, boxMin.y + 8.0f}, iconColor, 1.25f);
 }
 
 void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAction action,
@@ -100,16 +101,16 @@ void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAct
   const ImU32 iconColor = colorU32(withAlpha(textColor, 0.78f + button.focus * 0.22f));
   const float w = button.max.x - button.min.x;
   const float h = button.max.y - button.min.y;
-  const float s = 12.0f;
+  const float s = 10.0f;
   const ImVec2 p(button.min.x + (w - s) * 0.5f, button.min.y + (h - s) * 0.5f + button.press);
   if (action == WindowAction::Minimize) {
-    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, iconColor, 2.0f);
+    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, iconColor, 1.65f);
   } else if (action == WindowAction::ToggleMaximize) {
     draw->AddRect({p.x + 1.0f, p.y + 1.0f}, {p.x + s - 1.0f, p.y + s - 1.0f}, iconColor, 0.0f, 0,
-                  1.7f);
+                  1.45f);
   } else if (action == WindowAction::Close) {
-    draw->AddLine({p.x + 1.0f, p.y + 1.0f}, {p.x + s - 1.0f, p.y + s - 1.0f}, iconColor, 2.0f);
-    draw->AddLine({p.x + 1.0f, p.y + s - 1.0f}, {p.x + s - 1.0f, p.y + 1.0f}, iconColor, 2.0f);
+    draw->AddLine({p.x + 1.0f, p.y + 1.0f}, {p.x + s - 1.0f, p.y + s - 1.0f}, iconColor, 1.65f);
+    draw->AddLine({p.x + 1.0f, p.y + s - 1.0f}, {p.x + s - 1.0f, p.y + 1.0f}, iconColor, 1.65f);
   }
 }
 }  // namespace
@@ -152,7 +153,7 @@ void TitleBar::draw() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   const ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(windowBg.x, windowBg.y, windowBg.z, 0.60f));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(windowBg.x, windowBg.y, windowBg.z, 0.95f));
   ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                            ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBringToFrontOnFocus;
