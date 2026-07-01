@@ -38,6 +38,13 @@ ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
 
 ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
 
+void renderLeftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->PushClipRect(min, {min.x + width, max.y}, true);
+  ImGui::RenderFrame(min, max, color, false, rounding);
+  draw->PopClipRect();
+}
+
 int hexValue(char c) {
   if (c >= '0' && c <= '9') return c - '0';
   if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -79,10 +86,10 @@ void drawTooltip(std::string_view text) {
 }
 
 const char* tabIcon(std::string_view name) {
-  if (name.find("plot") != std::string_view::npos) return "\uE6E1";
+  if (name.find("Plot") != std::string_view::npos) return "\uE6E1";
   if (name.find("Arena") != std::string_view::npos) return "\uE875";
   if (name.find("Network") != std::string_view::npos) return "\uE640";
-  if (name.find("shader") != std::string_view::npos) return "\uE3B7";
+  if (name.find("Shader") != std::string_view::npos) return "\uE3B7";
   return "\uE5C3";
 }
 
@@ -168,20 +175,15 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   const ImVec2 bgMin(min.x + inset, min.y + 2.0f + press);
   const ImVec2 bgMax(max.x - inset, max.y - 2.0f + press);
   const ImVec4 fill = mixColor(withAlpha(palette.raised, 0.0f), palette.active, focus);
-  if (focus > 0.01f) draw->AddRectFilled(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), 8.0f);
-  if (selected) {
-    const float railH = (bgMax.y - bgMin.y - 10.0f) * focus;
-    const float railY = bgMin.y + (bgMax.y - bgMin.y - railH) * 0.5f;
-    draw->AddRectFilled({bgMin.x, railY}, {bgMin.x + 3.0f, railY + railH}, colorU32(palette.accent),
-                        3.0f);
-  }
+  constexpr float rounding = 8.0f;
+  if (focus > 0.01f) ImGui::RenderFrame(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), false, rounding);
+  if (selected)
+    renderLeftAccentFrame(bgMin, bgMax, colorU32(withAlpha(palette.accent, 0.78f + focus * 0.22f)),
+                          rounding, 5.0f);
 
   const float iconBox = 28.0f;
   const ImVec2 iconMin(bgMin.x + 10.0f, bgMin.y + (bgMax.y - bgMin.y - iconBox) * 0.5f);
   const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
-  const ImVec4 iconBg =
-      selected ? withAlpha(palette.accent, 0.22f) : withAlpha(palette.hover, 0.10f + focus * 0.14f);
-  draw->AddRectFilled(iconMin, iconMax, colorU32(iconBg), 7.0f);
 
   const char* icon = tabIcon(tab.name);
   const ImVec2 iconSize = ImGui::CalcTextSize(icon);

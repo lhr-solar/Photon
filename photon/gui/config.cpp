@@ -426,6 +426,12 @@ void GuiSettings::setStyle() {
   style.IndentSpacing = 18.0f;
   style.ScrollbarSize = 12.0f;
   style.GrabMinSize = 10.0f;
+  style.AntiAliasedLines = true;
+  style.AntiAliasedLinesUseTex = true;
+  style.AntiAliasedFill = true;
+  style.CurveTessellationTol = 0.10f;
+  style.CircleTessellationMaxError = 0.05f;
+  ImGui::GetIO().Fonts->Flags &= ~ImFontAtlasFlags_NoBakedLines;
 
   auto color0 = colorScheme.color0;
   auto color1 = colorScheme.color1;

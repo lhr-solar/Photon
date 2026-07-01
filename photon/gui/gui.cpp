@@ -244,10 +244,10 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 
 void GUI::setTabs() {
   tabs.list.clear();
-  tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "plot test"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "Plots"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
-  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "shader test"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "Shader"));
 };
 
 void GUI::networkPage(ImGuiWindowFlags flags) {

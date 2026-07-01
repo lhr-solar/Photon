@@ -170,17 +170,6 @@ void TitleBar::draw() {
 
     const float controlsWidth = buttonWidth * 3.0f;
     const float controlsX = ImGui::GetWindowWidth() - controlsWidth - 6.0f;
-    const ImVec2 windowPos = ImGui::GetWindowPos();
-    draw->AddRectFilled(
-        {windowPos.x + controlsX + 3.0f, windowPos.y + 5.0f},
-        {windowPos.x + controlsX + controlsWidth - 3.0f, windowPos.y + barHeight - 5.0f},
-        colorU32(withAlpha(mixColor(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg),
-                                    ImGui::GetStyleColorVec4(ImGuiCol_Button), 0.34f),
-                           0.72f)),
-        8.0f);
-    draw->AddRect({windowPos.x + controlsX + 3.0f, windowPos.y + 5.0f},
-                  {windowPos.x + controlsX + controlsWidth - 3.0f, windowPos.y + barHeight - 5.0f},
-                  colorU32(withAlpha(accentColor, 0.16f)), 8.0f);
 
     ImGui::SetCursorPos(ImVec2(controlsX, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, style.ItemSpacing.y));

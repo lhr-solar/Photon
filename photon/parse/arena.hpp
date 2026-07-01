@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "imgui.h"
-
 constexpr uint32_t PAGE_SIZE = 4096;
 constexpr uint32_t MESSAGE_MAX = 0x2000;
 constexpr uint32_t SIGNAL_MAX = 32;
@@ -80,5 +78,5 @@ struct Arena {
   void destroy();
 
   void status();
-  void statusUI(ImGuiWindowFlags flags);
+  void statusUI(int flags);
 };
