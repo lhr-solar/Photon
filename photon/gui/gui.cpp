@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <csignal>
 #include <cstddef>
 #include <locale>
@@ -133,8 +134,9 @@ void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
   arena->read(id, signal, &data, &dataBytes);
   arena->readTime(id, &time, &timeBytes);
   if (!dataBytes || !timeBytes) return;
-  std::string name = "##" + std::to_string(id) + std::to_string(signal);
-  std::string sg_name = arena->messages[id]->signals[signal]->name;
+  char name[64];
+  std::snprintf(name, sizeof(name), "##%u_%u", id, signal);
+  const char* signalName = arena->messages[id]->signals[signal]->name.c_str();
   constexpr uint32_t maxPlotSamples = 100;
   const uint32_t sampleCount = std::min(dataBytes, timeBytes) / sizeof(double);
   const uint32_t visibleCount = std::min(sampleCount, maxPlotSamples);
@@ -142,10 +144,10 @@ void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
   const uint32_t firstSample = sampleCount - visibleCount;
   const auto* timeValues = static_cast<const double*>(time) + firstSample;
   const auto* dataValues = static_cast<const double*>(data) + firstSample;
-  if (ImPlot::BeginPlot(name.data(), size)) {
+  if (ImPlot::BeginPlot(name, size)) {
     ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
     ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
-    ImPlot::PlotLine(sg_name.data(), timeValues, dataValues, static_cast<int>(visibleCount), spec);
+    ImPlot::PlotLine(signalName, timeValues, dataValues, static_cast<int>(visibleCount), spec);
     ImPlot::EndPlot();
   }
 };

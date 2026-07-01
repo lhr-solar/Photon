@@ -1,7 +1,6 @@
 #include "titlebar.hpp"
 
 #include <algorithm>
-#include <string_view>
 
 #include "SDL3/SDL.h"
 #include "im_anim.h"
@@ -21,13 +20,6 @@ ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
 }
 
 ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
-
-void drawTooltip(std::string_view text) {
-  if (!ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) return;
-  ImGui::BeginTooltip();
-  ImGui::TextUnformatted(text.data(), text.data() + text.size());
-  ImGui::EndTooltip();
-}
 
 struct TitleButtonResult {
   bool clicked = false;
@@ -64,9 +56,11 @@ TitleButtonResult titleButton(const char* id, ImVec2 size, bool selected, ImVec4
   const ImVec4 fill = mixColor(withAlpha(button, 0.0f), accent, result.focus);
   const float inset = 5.0f + result.press * 1.5f;
   ImDrawList* draw = ImGui::GetWindowDrawList();
-  draw->AddRectFilled({result.min.x + inset, result.min.y + 5.0f + result.press},
-                      {result.max.x - inset, result.max.y - 5.0f + result.press},
-                      colorU32(withAlpha(mixColor(bg, fill, 0.68f), 0.88f)), 8.0f);
+  if (selected || result.focus > 0.03f) {
+    draw->AddRectFilled({result.min.x + inset, result.min.y + 5.0f + result.press},
+                        {result.max.x - inset, result.max.y - 5.0f + result.press},
+                        colorU32(withAlpha(mixColor(bg, fill, 0.68f), 0.88f)), 8.0f);
+  }
   if (result.focus > 0.04f) {
     draw->AddRect({result.min.x + inset, result.min.y + 5.0f + result.press},
                   {result.max.x - inset, result.max.y - 5.0f + result.press},
@@ -173,10 +167,22 @@ void TitleBar::draw() {
     if (sidebarButton.clicked) showSidebar = !showSidebar;
     addInteract(sidebarButton.min, sidebarButton.max);
     drawSidebarToggleIcon(draw, sidebarButton, showSidebar, textColor, accentColor);
-    drawTooltip(showSidebar ? "Hide sidebar" : "Show sidebar");
 
-    ImGui::SetCursorPos(
-        ImVec2(ImGui::GetWindowWidth() - buttonWidth * static_cast<float>(3), 0.0f));
+    const float controlsWidth = buttonWidth * 3.0f;
+    const float controlsX = ImGui::GetWindowWidth() - controlsWidth - 6.0f;
+    const ImVec2 windowPos = ImGui::GetWindowPos();
+    draw->AddRectFilled(
+        {windowPos.x + controlsX + 3.0f, windowPos.y + 5.0f},
+        {windowPos.x + controlsX + controlsWidth - 3.0f, windowPos.y + barHeight - 5.0f},
+        colorU32(withAlpha(mixColor(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg),
+                                    ImGui::GetStyleColorVec4(ImGuiCol_Button), 0.34f),
+                           0.72f)),
+        8.0f);
+    draw->AddRect({windowPos.x + controlsX + 3.0f, windowPos.y + 5.0f},
+                  {windowPos.x + controlsX + controlsWidth - 3.0f, windowPos.y + barHeight - 5.0f},
+                  colorU32(withAlpha(accentColor, 0.16f)), 8.0f);
+
+    ImGui::SetCursorPos(ImVec2(controlsX, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, style.ItemSpacing.y));
 
     TitleButtonResult minimizeButton =
@@ -184,7 +190,6 @@ void TitleBar::draw() {
     if (minimizeButton.clicked) pendingAction = WindowAction::Minimize;
     drawWindowIcon(draw, minimizeButton, WindowAction::Minimize, textColor);
     addInteract(minimizeButton.min, minimizeButton.max);
-    drawTooltip("Minimize");
 
     ImGui::SameLine();
     TitleButtonResult maximizeButton =
@@ -192,7 +197,6 @@ void TitleBar::draw() {
     if (maximizeButton.clicked) pendingAction = WindowAction::ToggleMaximize;
     drawWindowIcon(draw, maximizeButton, WindowAction::ToggleMaximize, textColor);
     addInteract(maximizeButton.min, maximizeButton.max);
-    drawTooltip("Maximize");
 
     ImGui::SameLine();
     TitleButtonResult closeButton =
@@ -200,7 +204,6 @@ void TitleBar::draw() {
     if (closeButton.clicked) pendingAction = WindowAction::Close;
     drawWindowIcon(draw, closeButton, WindowAction::Close, textColor);
     addInteract(closeButton.min, closeButton.max);
-    drawTooltip("Close");
 
     ImGui::PopStyleVar();
   }

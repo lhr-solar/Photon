@@ -692,4 +692,19 @@ VAL_ 1664 Camera_Status_Left 0 "NOT OK" 1 "OK" ;
 VAL_ 1664 Camera_Status_Right 0 "NOT OK" 1 "OK" ;
 
 
+BO_ 2046 Sig_Wave: 8 Vector_XXX
+ SG_ Sine : 0|32@1+ (1,0) [-1|1] "" Vector__XXX
+ SG_ Cosine : 32|32@1+ (1,0) [-1|1] "" Vector__XXX
 
+BO_ 2047 Max_Message: 8 Vector__XXX
+ SG_ sg0 : 0|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg1 : 8|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg2 : 16|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg3 : 24|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg4 : 32|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg5 : 40|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg6 : 48|8@1+ (1,0) [0|1] "unit" Vector__XXX
+ SG_ sg7 : 56|8@1+ (1,0) [0|1] "unit" Vector__XXX
+
+SIG_VALTYPE_ 2046 Sine : 1;
+SIG_VALTYPE_ 2046 Cosine : 1;

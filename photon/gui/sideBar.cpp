@@ -251,7 +251,7 @@ bool drawDBCButton(std::string_view current, std::string_view status, float widt
   draw->AddRectFilled(min, max, colorU32(mixColor(palette.panel, palette.raised, focus)), 8.0f);
   draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.48f + focus * 0.22f)), 8.0f);
   draw->AddCircleFilled({min.x + 18.0f, min.y + 18.0f}, 4.0f, colorU32(palette.accent));
-  draw->AddText({min.x + 30.0f, min.y + 9.0f}, colorU32(palette.text), "DBC source");
+  draw->AddText({min.x + 30.0f, min.y + 9.0f}, colorU32(palette.text), "DBC");
   draw->PushClipRect({min.x + 30.0f, min.y + 28.0f}, {max.x - 34.0f, max.y - 4.0f}, true);
   draw->AddText({min.x + 30.0f, min.y + 30.0f}, colorU32(palette.muted), current.data(),
                 current.data() + current.size());
@@ -487,8 +487,8 @@ void Sidebar::drawDBCSelector(GUI& gui) {
   ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(palette.bg, 0.98f));
   ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(palette.bg, 0.98f));
   ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.72f));
-  const ImGuiWindowFlags modalFlags =
-      ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
+  const ImGuiWindowFlags modalFlags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove |
+                                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
   if (ImGui::BeginPopupModal("Select DBC", nullptr, modalFlags)) {
     const float popupWidth = ImGui::GetContentRegionAvail().x;
 
