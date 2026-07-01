@@ -1,41 +1,30 @@
 #pragma once
 
-#include <string>
-#include <vector>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace ui {
 
-/**
- * Fault severity levels
- */
 enum class FaultSeverity {
     Info,
     Warning,
     Critical
 };
 
-/**
- * Gear positions: Forward / Neutral / Reverse
- */
 enum class Gear {
     Forward,
     Neutral,
     Reverse
 };
 
-/**
- * Turn signal states
- */
 enum class TurnSignal {
     None,
     Left,
     Right
 };
 
-/**
- * Individual fault record
- */
 struct Fault {
     std::string name;
     std::string message;
@@ -44,233 +33,61 @@ struct Fault {
 };
 
 /**
- * Main battery state
- */
-struct MainBattery {
-    float soc;      // State of charge (0-100)
-    float voltage;  // Voltage in V
-    float current;  // Current in A (negative = discharging)
-};
-
-/**
- * Supplementary (auxiliary) battery state
- */
-struct SuppBattery {
-    float soc;      // State of charge (0-100)
-    float voltage;  // Voltage in V
-    float current;  // Current in A
-};
-
-/**
- * Motor controller (inverter) telemetry
- */
-struct MotorController {
-    float heatsinkTemp;  // Heatsink temperature in C
-    float voltage;       // Bus voltage in V
-    float current;       // Bus current in A
-
-    // Extra telemetry
-    float phaseCurrentB;
-    float phaseCurrentC;
-    float backEmfQ;
-    float backEmfD;
-
-    // Status limits
-    bool limitOutputVoltage;
-    bool limitMotorCurrent;
-    bool limitVelocity;
-    bool limitBusCurrent;
-    bool limitBusVoltageUpper;
-    bool limitBusVoltageLower;
-    bool limitIpmOrMotorTemp;
-};
-
-/**
- * Cruise control state
- */
-struct CruiseControl {
-    bool enabled;
-    int setSpeed;  // Target speed in mph
-};
-
-/**
- * Contactor states for high voltage system
- * 6 contactors: HV+, HV-, Array Precharge, Array, Motor Precharge, Motor
- */
-struct ContactorStates {
-    bool hvPositive;        // HP - HV+ contactor
-    bool hvNegative;        // HN - HV- contactor
-    bool arrayPrecharge;    // AP - Array precharge contactor
-    bool arrayContactor;    // AN - Array contactor
-    bool motorPrecharge;    // MP - Motor precharge contactor
-    bool motorContactor;    // MM - Motor contactor
-};
-
-/**
- * Ignition / enable states
- * 3 enable switches: Low Voltage, Array, Motor
- */
-struct IgnitionStates {
-    bool lvEnabled;         // LV - Low Voltage enable
-    bool arrayEnabled;      // A  - Array enable
-    bool motorEnabled;      // M  - Motor enable
-};
-
-/**
- * Complete application state
- * All widgets read/write from this struct - no globals.
+ * Dashboard state. Raw CAN telemetry is read directly from `signals` by DBC
+ * signal name (see get()/getBool()) rather than being copied into named
+ * fields — only values that can't be a single raw signal (unit conversions,
+ * multi-signal derivations, UI-only state) get dedicated fields below.
  */
 struct AppState {
-    int speed;              // Current speed in mph
-    Gear gear;
-    MainBattery mainBattery;
-    SuppBattery suppBattery;
-    MotorController motorController;
-    CruiseControl cruise;
-    bool brakeEngaged;
-    bool regenEnabled;
-    ContactorStates contactorStates;
-    IgnitionStates ignitionStates;
-    uint8_t heartbeat;      // 0-255 cycling heartbeat counter
-    std::vector<Fault> faults;
-    TurnSignal turnSignal;
+    std::unordered_map<std::string, double> signals;
 
-    // Unrecoverable CAN fault
+    double get(const std::string& name, double fallback = 0.0) const {
+        auto it = signals.find(name);
+        return it != signals.end() ? it->second : fallback;
+    }
+
+    bool getBool(const std::string& name, bool fallback = false) const {
+        auto it = signals.find(name);
+        return it != signals.end() ? it->second != 0.0 : fallback;
+    }
+
+    // Derived from MC_VehicleVelocity (m/s), converted to mph.
+    int speed = 0;
+
+    // Derived from Gear_Forward/Gear_Reverse/Gear_Neutral (mutually exclusive bits).
+    Gear gear = Gear::Neutral;
+
+    // Derived from Blinker_Left/Blinker_Right, with left taking precedence.
+    TurnSignal turnSignal = TurnSignal::None;
+
+    // Derived from BrakePedal_Main_Pos and Brake_Pressure_{1,2} thresholds.
+    bool brakeEngaged = false;
+
+    // BPS_Voltage_Tap_Data / BPS_Temperature_Tap_Data unpacked by BPS_Tap_idx.
+    std::vector<float> moduleVoltages;
+    std::vector<float> moduleTemps;
+
+    // Built from BPS_Fault / VCU_Fault.
+    std::vector<Fault> faults;
     bool canFault = false;
     uint16_t canFaultId = 0;
     std::string canFaultName;
     std::string canFaultMessage;
-
-    // Recoverable CAN fault
     bool canFaultRecoverable = false;
     uint16_t canFaultRecoverableId = 0;
     std::string canFaultRecoverableName;
     std::string canFaultRecoverableMessage;
 
-    // Camera texture IDs (nullptr = show placeholder)
-    void* leftCameraTexture  = nullptr;
-    void* rightCameraTexture = nullptr;
-    void* rearCameraTexture  = nullptr;
-    
-    // Additional telemetry
-    float pedalPercent = 0.0f;
-    float brakePressure = 0.0f;
-    
-    // BPS status signals (from BPSCAN)
-    float mainBatteryAvgTemp = 0.0f;    // Average pack temperature
-    bool bpsRegenOK = false;            // Regen allowed
-    bool bpsChargeOK = false;           // Charging allowed
-    float prechargeBatteryV = 0.0f;     // Precharge circuit battery voltage
-    float prechargeArrayV = 0.0f;       // Precharge circuit array voltage
-    float mainBatteryCurrentRawV = 0.0f;// Raw current sensor voltage
-    uint8_t bpsFaultCode = 0;           // BPS fault value (0=no fault, see table)
-    
-    // VCU status (CarCAN ID 24)
-    uint8_t vcuFsmState = 0;            // VCU finite state machine state
-    uint8_t vcuFaultCode = 0;           // VCU fault code
-    bool motorReadyToDrive = false;
-    bool vcuPedalsOK = false;
-    bool vcuDriverInputOK = false;
-    bool vcuRegenActive = false;
-    bool vcuRegenOK = false;
-    float prechargeMotorV = 0.0f;       // Motor precharge voltage (ID 33)
-    
-    // MPPT solar array (3 channels A/B/C)
-    struct MPPTChannel {
-        float vin = 0, iin = 0, vout = 0, iout = 0;
-        float heatsinkTemp = 0, ambientTemp = 0;
-        uint8_t fault = 0, mode = 0;
-        bool enabled = false;
-    };
-    MPPTChannel mppt[3]; // A=0, B=1, C=2
-    
-    // Cooling system
-    float coolantTemp1 = 0.0f, coolantTemp2 = 0.0f;
-    float flowRate1 = 0.0f, flowRate2 = 0.0f;
-    uint8_t pumpDuty = 0;
-    bool pumpFault = false;
-    
-    // Steering wheel sensor
-    float steeringAngle = 0.0f;         // degrees
-    bool steeringSensorOK = false;
-    
-    // Supp battery charger
-    uint8_t suppChargerStatus = 0;      // 0=disabled, 1=done, 2=charging, 3=fault
-    float suppDcdcVoltage = 0.0f;
-    float suppDcdcCurrent = 0.0f;
-    
-    // Pedal sensor details (ID 80/81)
-    uint8_t accelPosMain = 0, accelPosRedundant = 0;
-    uint8_t brakePosMain = 0, brakePosRedundant = 0;
-    bool accelMainFault = false, accelRedundantFault = false;
-    bool brakeMainFault = false, brakeRedundantFault = false;
-    bool brakePressure1Fault = false, brakePressure2Fault = false;
-    float accelVoltMain = 0, accelVoltRedundant = 0;
-    float brakeVoltMain = 0, brakeVoltRedundant = 0;
-    
-    // Brake pressure dual sensors (ID 1616)
-    float brakePressure1 = 0.0f, brakePressure2 = 0.0f;
-    float brakePressure1V = 0.0f, brakePressure2V = 0.0f;
-    
-    // Driver input buttons (ID 96)
-    bool hornPressed = false;
-    bool hazardPressed = false;
-    bool pttPressed = false;
-    bool cruiseSet = false;
-    bool regenActivate = false;
-    
-    // LV carrier status (ID 1536)
-    bool lvHvDcdcSelected = false, lvHvDcdcFault = false, lvHvDcdcValid = false;
-    bool lvSuppBattSelected = false, lvSuppBattFault = false, lvSuppBattValid = false;
-    bool lvEnSuppBattery = false, lvEnPowerSupply = false;
-    
-    // Camera status (ID 1792)
-    bool cameraBackup = false, cameraLeft = false, cameraRight = false;
-    uint8_t displayFps = 0;
-    
-    // Lighting faults
-    uint8_t lightingFaults = 0;
-    uint8_t controlsLeaderFault = 0;
-    
-    // BPS Module summaries
-    std::vector<float> moduleVoltages;
-    std::vector<float> moduleTemps;
-    
-    // UI state
+    // UI-only state, not CAN data.
+    uint8_t heartbeat = 0;
     bool showDebugScreen = false;
+    void* leftCameraTexture = nullptr;
+    void* rightCameraTexture = nullptr;
+    void* rearCameraTexture = nullptr;
 };
 
-/**
- * Initialize AppState with default values
- */
-inline AppState CreateDefaultState() {
-    AppState state{};
-    state.speed = 0;
-    state.gear = Gear::Neutral;
-    state.mainBattery = { 0.0f, 0.0f, 0.0f };
-    state.suppBattery = { 0.0f, 0.0f, 0.0f };
-    state.motorController = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, false, false, false, false, false, false, false };
-    state.cruise = { false, 0 };
-    state.brakeEngaged = false;
-    state.regenEnabled = false;
-    state.contactorStates = { false, false, false, false, false, false };
-    state.ignitionStates = { false, false, false };
-    state.heartbeat = 0;
-    state.turnSignal = TurnSignal::None;
-    state.canFault = false;
-    state.canFaultId = 0;
-    state.canFaultName.clear();
-    state.canFaultMessage.clear();
-    state.canFaultRecoverable = false;
-    state.canFaultRecoverableId = 0;
-    state.canFaultRecoverableName.clear();
-    state.canFaultRecoverableMessage.clear();
-    return state;
-}
+inline AppState CreateDefaultState() { return AppState{}; }
 
-/**
- * Helper to convert Gear enum to display string (short)
- */
 inline const char* GearToString(Gear gear) {
     switch (gear) {
         case Gear::Forward: return "F";
@@ -280,9 +97,6 @@ inline const char* GearToString(Gear gear) {
     }
 }
 
-/**
- * Helper to convert Gear enum to long display string
- */
 inline const char* GearToLongString(Gear gear) {
     switch (gear) {
         case Gear::Forward: return "F - Forward";
@@ -292,9 +106,6 @@ inline const char* GearToLongString(Gear gear) {
     }
 }
 
-/**
- * Helper to get Gear from index (for iteration)
- */
 inline Gear GearFromIndex(int index) {
     switch (index) {
         case 0: return Gear::Forward;

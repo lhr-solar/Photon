@@ -437,6 +437,26 @@ void Arena::read(uint32_t id, uint32_t signal, void** data, uint32_t* size) {
   if (size) *size = published;
 };
 
+// exact-match lookup by signal name; returns the most recent value
+bool Arena::readByName(const std::string& signalName, double& outValue) {
+  for (uint32_t id : validIds) {
+    Message* msg = messages[id];
+    if (!msg) continue;
+    for (uint32_t s = 0; s < msg->signalCount; s++) {
+      Signal* sig = msg->signals[s];
+      if (!sig || sig->name != signalName) continue;
+      void* data = nullptr;
+      uint32_t dataBytes = 0;
+      read(id, s, &data, &dataBytes);
+      const uint32_t count = dataBytes / sizeof(double);
+      if (count == 0) return false;
+      outValue = static_cast<const double*>(data)[count - 1];
+      return true;
+    }
+  }
+  return false;
+}
+
 // thread safe write
 // appends the data to the signal buffer
 bool Arena::write(uint32_t id, uint32_t signal, void* data, uint32_t size) {

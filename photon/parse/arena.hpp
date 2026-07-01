@@ -82,6 +82,7 @@ struct Arena {
   void clear(uint32_t signal);
   void destroy();
   std::vector<size_t> search(const std::string& query);
+  bool readByName(const std::string& signalName, double& outValue);
 
   void status();
   void statusUI(ImGuiWindowFlags flags);
