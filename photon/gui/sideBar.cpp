@@ -6,10 +6,12 @@
 #include <algorithm>
 #include <cfloat>
 #include <iterator>
+#include <string_view>
 #include <utility>
 
 #include "background_jpg.hpp"
 #include "gui.hpp"
+#include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "tabs.hpp"
@@ -23,6 +25,385 @@ constexpr SDL_DialogFileFilter kDBCFileFilters[] = {
     {"All files", "*"},
 };
 
+ImVec4 withAlpha(ImVec4 color, float alpha) {
+  color.w = alpha;
+  return color;
+}
+
+ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
+  t = std::clamp(t, 0.0f, 1.0f);
+  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
+                a.w + (b.w - a.w) * t);
+}
+
+ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
+
+int hexValue(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+std::string normalizeDialogPath(const char* rawPath) {
+  if (!rawPath) return {};
+  std::string path(rawPath);
+  constexpr std::string_view fileScheme = "file://";
+  if (path.rfind(fileScheme, 0) != 0) return path;
+
+  path.erase(0, fileScheme.size());
+  if (!path.empty() && path[0] != '/') path.insert(path.begin(), '/');
+
+  std::string decoded{};
+  decoded.reserve(path.size());
+  for (size_t i = 0; i < path.size(); ++i) {
+    if (path[i] == '%' && i + 2 < path.size()) {
+      const int hi = hexValue(path[i + 1]);
+      const int lo = hexValue(path[i + 2]);
+      if (hi >= 0 && lo >= 0) {
+        decoded.push_back(static_cast<char>((hi << 4) | lo));
+        i += 2;
+        continue;
+      }
+    }
+    decoded.push_back(path[i]);
+  }
+  return decoded;
+}
+
+void drawTooltip(std::string_view text) {
+  if (!ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) return;
+  ImGui::BeginTooltip();
+  ImGui::TextUnformatted(text.data(), text.data() + text.size());
+  ImGui::EndTooltip();
+}
+
+const char* tabIcon(std::string_view name) {
+  if (name.find("plot") != std::string_view::npos) return "\uE6E1";
+  if (name.find("Arena") != std::string_view::npos) return "\uE875";
+  if (name.find("Network") != std::string_view::npos) return "\uE640";
+  if (name.find("shader") != std::string_view::npos) return "\uE3B7";
+  return "\uE5C3";
+}
+
+struct SidebarPalette {
+  ImVec4 text;
+  ImVec4 muted;
+  ImVec4 bg;
+  ImVec4 panel;
+  ImVec4 raised;
+  ImVec4 hover;
+  ImVec4 active;
+  ImVec4 accent;
+  ImVec4 border;
+};
+
+SidebarPalette sidebarPalette() {
+  const ImGuiStyle& style = ImGui::GetStyle();
+  const ImVec4 text = style.Colors[ImGuiCol_Text];
+  const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
+  const ImVec4 button = style.Colors[ImGuiCol_Button];
+  const ImVec4 hover = style.Colors[ImGuiCol_ButtonHovered];
+  const ImVec4 accent = style.Colors[ImGuiCol_NavHighlight];
+  return SidebarPalette{
+      .text = text,
+      .muted = mixColor(text, bg, 0.48f),
+      .bg = bg,
+      .panel = mixColor(bg, button, 0.28f),
+      .raised = mixColor(bg, button, 0.62f),
+      .hover = mixColor(button, hover, 0.68f),
+      .active = mixColor(button, accent, 0.38f),
+      .accent = accent,
+      .border = mixColor(button, text, 0.20f),
+  };
+}
+
+void drawSidebarHeader(float width, const SidebarPalette& palette, std::string_view activePage) {
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+  const float height = 64.0f;
+  const float logo = 34.0f;
+  const ImVec2 logoMin(pos.x, pos.y + 8.0f);
+  const ImVec2 logoMax(logoMin.x + logo, logoMin.y + logo);
+  draw->AddRectFilled(logoMin, logoMax, colorU32(withAlpha(palette.active, 0.86f)), 8.0f);
+  draw->AddRect(logoMin, logoMax, colorU32(withAlpha(palette.accent, 0.65f)), 8.0f);
+  const char* mark = tabIcon(activePage);
+  const ImVec2 markSize = ImGui::CalcTextSize(mark);
+  draw->AddText({logoMin.x + (logo - markSize.x) * 0.5f, logoMin.y + (logo - markSize.y) * 0.5f},
+                colorU32(palette.text), mark);
+
+  const float textX = logoMax.x + 12.0f;
+  draw->PushClipRect({textX, pos.y}, {pos.x + width, pos.y + height - 1.0f}, true);
+  draw->AddText({textX, pos.y + 7.0f}, colorU32(palette.text), "Workspace");
+  draw->AddText({textX, pos.y + 29.0f}, colorU32(palette.muted), activePage.data(),
+                activePage.data() + activePage.size());
+  draw->PopClipRect();
+  draw->AddLine({pos.x, pos.y + height - 1.0f}, {pos.x + width, pos.y + height - 1.0f},
+                colorU32(withAlpha(palette.border, 0.55f)));
+  ImGui::Dummy({width, height});
+}
+
+bool drawNavItem(const Tab& tab, int index, bool selected, float width,
+                 const SidebarPalette& palette) {
+  const ImGuiStyle& style = ImGui::GetStyle();
+  const float dt = ImGui::GetIO().DeltaTime;
+  const float height = 42.0f;
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+  ImGui::PushID(index);
+  ImGui::InvisibleButton("nav", {width, height});
+  const bool clicked = ImGui::IsItemClicked();
+  const bool hovered = ImGui::IsItemHovered();
+  const bool active = ImGui::IsItemActive();
+  const ImGuiID id = ImGui::GetItemID();
+  const float target = selected ? 1.0f : hovered ? 0.42f : 0.0f;
+  const float focus =
+      iam_tween_float(id, ImHashStr("focus"), target, 0.18f, iam_ease_preset(iam_ease_out_quad),
+                      iam_policy_crossfade, dt, selected ? 1.0f : 0.0f);
+  const float press = iam_tween_float(id, ImHashStr("press"), active ? 1.0f : 0.0f, 0.10f,
+                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const float inset = 2.0f + press * 1.5f;
+  const ImVec2 bgMin(min.x + inset, min.y + 2.0f + press);
+  const ImVec2 bgMax(max.x - inset, max.y - 2.0f + press);
+  const ImVec4 fill = mixColor(withAlpha(palette.raised, 0.0f), palette.active, focus);
+  if (focus > 0.01f) draw->AddRectFilled(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), 8.0f);
+  if (selected) {
+    const float railH = (bgMax.y - bgMin.y - 10.0f) * focus;
+    const float railY = bgMin.y + (bgMax.y - bgMin.y - railH) * 0.5f;
+    draw->AddRectFilled({bgMin.x, railY}, {bgMin.x + 3.0f, railY + railH}, colorU32(palette.accent),
+                        3.0f);
+  }
+
+  const float iconBox = 28.0f;
+  const ImVec2 iconMin(bgMin.x + 10.0f, bgMin.y + (bgMax.y - bgMin.y - iconBox) * 0.5f);
+  const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
+  const ImVec4 iconBg =
+      selected ? withAlpha(palette.accent, 0.22f) : withAlpha(palette.hover, 0.10f + focus * 0.14f);
+  draw->AddRectFilled(iconMin, iconMax, colorU32(iconBg), 7.0f);
+
+  const char* icon = tabIcon(tab.name);
+  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
+  draw->AddText(
+      {iconMin.x + (iconBox - iconSize.x) * 0.5f, iconMin.y + (iconBox - iconSize.y) * 0.5f},
+      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), icon);
+
+  const ImVec4 labelColor = selected ? palette.text : mixColor(palette.muted, palette.text, focus);
+  draw->PushClipRect({iconMax.x + 12.0f, bgMin.y}, {bgMax.x - 26.0f, bgMax.y}, true);
+  draw->AddText(
+      {iconMax.x + 12.0f, bgMin.y + (bgMax.y - bgMin.y - ImGui::GetTextLineHeight()) * 0.5f},
+      colorU32(labelColor), tab.name.c_str());
+  draw->PopClipRect();
+
+  if (hovered || selected) {
+    const ImVec2 chevronSize = ImGui::CalcTextSize("\uE5CC");
+    draw->AddText(
+        {bgMax.x - chevronSize.x - 10.0f, bgMin.y + (bgMax.y - bgMin.y - chevronSize.y) * 0.5f},
+        colorU32(withAlpha(palette.text, selected ? 0.70f : 0.34f)), "\uE5CC");
+  }
+
+  drawTooltip(tab.name);
+  ImGui::PopID();
+  ImGui::SetCursorScreenPos({pos.x, pos.y + height + style.ItemSpacing.y * 0.35f});
+  return clicked;
+}
+
+bool drawActionIcon(const char* id, const char* icon, std::string_view tooltip, ImVec2 size,
+                    const SidebarPalette& palette) {
+  const float dt = ImGui::GetIO().DeltaTime;
+  ImGui::PushID(id);
+  ImGui::InvisibleButton("action", size);
+  const bool clicked = ImGui::IsItemClicked();
+  const bool hovered = ImGui::IsItemHovered();
+  const bool active = ImGui::IsItemActive();
+  const ImGuiID itemId = ImGui::GetItemID();
+  const float target = active ? 1.0f : hovered ? 0.62f : 0.0f;
+  const float focus = iam_tween_float(itemId, ImHashStr("focus"), target, 0.14f,
+                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const ImVec4 fill = mixColor(palette.raised, palette.active, focus);
+  draw->AddRectFilled(min, max, colorU32(withAlpha(fill, 0.88f)), 8.0f);
+  draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.42f + focus * 0.24f)), 8.0f);
+  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
+  draw->AddText({min.x + (size.x - iconSize.x) * 0.5f, min.y + (size.y - iconSize.y) * 0.5f},
+                colorU32(mixColor(palette.muted, palette.text, 0.35f + focus * 0.65f)), icon);
+  drawTooltip(tooltip);
+  ImGui::PopID();
+  return clicked;
+}
+
+bool drawDBCButton(std::string_view current, std::string_view status, float width,
+                   const SidebarPalette& palette) {
+  const float height = 54.0f;
+  const float dt = ImGui::GetIO().DeltaTime;
+  ImGui::InvisibleButton("dbc_selector", {width, height});
+  const bool clicked = ImGui::IsItemClicked();
+  const bool hovered = ImGui::IsItemHovered();
+  const ImGuiID id = ImGui::GetItemID();
+  const float focus = iam_tween_float(id, ImHashStr("focus"), hovered ? 1.0f : 0.0f, 0.16f,
+                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->AddRectFilled(min, max, colorU32(mixColor(palette.panel, palette.raised, focus)), 8.0f);
+  draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.48f + focus * 0.22f)), 8.0f);
+  draw->AddCircleFilled({min.x + 18.0f, min.y + 18.0f}, 4.0f, colorU32(palette.accent));
+  draw->AddText({min.x + 30.0f, min.y + 9.0f}, colorU32(palette.text), "DBC source");
+  draw->PushClipRect({min.x + 30.0f, min.y + 28.0f}, {max.x - 34.0f, max.y - 4.0f}, true);
+  draw->AddText({min.x + 30.0f, min.y + 30.0f}, colorU32(palette.muted), current.data(),
+                current.data() + current.size());
+  draw->PopClipRect();
+  const char* icon = "\uE313";
+  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
+  draw->AddText({max.x - iconSize.x - 12.0f, min.y + (height - iconSize.y) * 0.5f},
+                colorU32(palette.muted), icon);
+  if (!status.empty()) drawTooltip(status);
+  return clicked;
+}
+
+bool drawDBCOption(const char* label, bool selected, float width, const SidebarPalette& palette) {
+  const float dt = ImGui::GetIO().DeltaTime;
+  const float height = 36.0f;
+  ImGui::PushID(label);
+  ImGui::InvisibleButton("dbc_option", {width, height});
+  const bool clicked = ImGui::IsItemClicked();
+  const bool hovered = ImGui::IsItemHovered();
+  const bool active = ImGui::IsItemActive();
+  const ImGuiID id = ImGui::GetItemID();
+  const float target = selected ? 1.0f : hovered ? 0.45f : 0.0f;
+  const float focus =
+      iam_tween_float(id, ImHashStr("focus"), target, 0.15f, iam_ease_preset(iam_ease_out_quad),
+                      iam_policy_crossfade, dt, selected ? 1.0f : 0.0f);
+  const float press = iam_tween_float(id, ImHashStr("press"), active ? 1.0f : 0.0f, 0.08f,
+                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const ImVec2 bgMin(min.x + 1.0f + press, min.y + 2.0f + press);
+  const ImVec2 bgMax(max.x - 1.0f - press, max.y - 2.0f + press);
+  if (focus > 0.01f)
+    draw->AddRectFilled(bgMin, bgMax,
+                        colorU32(withAlpha(mixColor(palette.raised, palette.active, focus), 0.88f)),
+                        7.0f);
+  const char* icon = selected ? "\uE5CA" : "\uE061";
+  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
+  draw->AddText({bgMin.x + 10.0f, bgMin.y + (bgMax.y - bgMin.y - iconSize.y) * 0.5f},
+                colorU32(selected ? palette.accent : mixColor(palette.muted, palette.text, focus)),
+                icon);
+  draw->PushClipRect({bgMin.x + 38.0f, bgMin.y}, {bgMax.x - 8.0f, bgMax.y}, true);
+  draw->AddText(
+      {bgMin.x + 38.0f, bgMin.y + (bgMax.y - bgMin.y - ImGui::GetTextLineHeight()) * 0.5f},
+      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), label);
+  draw->PopClipRect();
+  drawTooltip(label);
+  ImGui::PopID();
+  return clicked;
+}
+
+void drawUploadIcon(ImDrawList* draw, ImVec2 min, float height, ImU32 color) {
+  const float x = min.x + 21.0f;
+  const float y = min.y + height * 0.5f;
+  draw->AddLine({x, y + 5.0f}, {x, y - 6.0f}, color, 2.0f);
+  draw->AddLine({x, y - 6.0f}, {x - 4.5f, y - 1.5f}, color, 2.0f);
+  draw->AddLine({x, y - 6.0f}, {x + 4.5f, y - 1.5f}, color, 2.0f);
+  draw->AddLine({x - 8.0f, y + 7.0f}, {x + 8.0f, y + 7.0f}, color, 2.0f);
+}
+
+bool drawPopupAction(const char* id, const char* icon, std::string_view label, bool disabled,
+                     float width, const SidebarPalette& palette, bool uploadIcon = false) {
+  const float dt = ImGui::GetIO().DeltaTime;
+  const float height = 38.0f;
+  ImGui::PushID(id);
+  if (disabled) ImGui::BeginDisabled();
+  ImGui::InvisibleButton("popup_action", {width, height});
+  const bool clicked = ImGui::IsItemClicked() && !disabled;
+  const bool hovered = ImGui::IsItemHovered() && !disabled;
+  const bool active = ImGui::IsItemActive() && !disabled;
+  if (disabled) ImGui::EndDisabled();
+  const ImGuiID itemId = ImGui::GetItemID();
+  const float target = active ? 1.0f : hovered ? 0.62f : 0.0f;
+  const float focus = iam_tween_float(itemId, ImHashStr("focus"), target, 0.14f,
+                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const ImVec4 fill = disabled ? withAlpha(palette.panel, 0.55f)
+                               : withAlpha(mixColor(palette.raised, palette.active, focus), 0.88f);
+  const ImVec4 text = disabled ? withAlpha(palette.muted, 0.65f)
+                               : mixColor(palette.muted, palette.text, 0.48f + focus * 0.52f);
+  draw->AddRectFilled(min, max, colorU32(fill), 8.0f);
+  draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.40f + focus * 0.24f)), 8.0f);
+  if (uploadIcon) {
+    drawUploadIcon(draw, min, height, colorU32(text));
+  } else {
+    const ImVec2 iconSize = ImGui::CalcTextSize(icon);
+    draw->AddText({min.x + 12.0f, min.y + (height - iconSize.y) * 0.5f}, colorU32(text), icon);
+  }
+  draw->PushClipRect({min.x + 38.0f, min.y}, {max.x - 10.0f, max.y}, true);
+  draw->AddText({min.x + 38.0f, min.y + (height - ImGui::GetTextLineHeight()) * 0.5f},
+                colorU32(text), label.data(), label.data() + label.size());
+  draw->PopClipRect();
+  drawTooltip(label);
+  ImGui::PopID();
+  return clicked;
+}
+
+void drawDBCError(std::string_view error, float width, const SidebarPalette& palette) {
+  if (error.empty()) return;
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+  const float height = std::max(
+      34.0f,
+      ImGui::CalcTextSize(error.data(), error.data() + error.size(), false, width - 22.0f).y +
+          16.0f);
+  const ImVec2 max(pos.x + width, pos.y + height);
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->AddRectFilled(pos, max, colorU32(withAlpha(palette.active, 0.34f)), 8.0f);
+  draw->AddRect(pos, max, colorU32(withAlpha(palette.accent, 0.32f)), 8.0f);
+  ImGui::SetCursorScreenPos({pos.x + 10.0f, pos.y + 8.0f});
+  ImGui::PushTextWrapPos(pos.x + width - 10.0f);
+  ImGui::TextUnformatted(error.data(), error.data() + error.size());
+  ImGui::PopTextWrapPos();
+  ImGui::SetCursorScreenPos(pos);
+  ImGui::Dummy({width, height});
+}
+
+bool drawResizeHandle(float sidebarWidth, float height, const SidebarPalette& palette) {
+  const float hitWidth = 18.0f;
+  const float railWidth = 3.0f;
+  ImGui::SetCursorPos({sidebarWidth - hitWidth * 0.5f, 0.0f});
+  ImGui::InvisibleButton("##resizeSidebar", {hitWidth, height});
+  const bool hovered = ImGui::IsItemHovered();
+  const bool active = ImGui::IsItemActive();
+  const float dt = ImGui::GetIO().DeltaTime;
+  const ImGuiID id = ImGui::GetItemID();
+  const float focus =
+      iam_tween_float(id, ImHashStr("resizeFocus"),
+                      active    ? 1.0f
+                      : hovered ? 0.62f
+                                : 0.0f,
+                      0.14f, iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  const float x = min.x + hitWidth * 0.5f;
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->AddRectFilled(
+      {x - railWidth * 0.5f, min.y + 10.0f}, {x + railWidth * 0.5f, max.y - 10.0f},
+      colorU32(withAlpha(mixColor(palette.border, palette.accent, focus), 0.34f + focus * 0.46f)),
+      3.0f);
+  if (focus > 0.05f) {
+    const float gripH = 24.0f;
+    const float gripY = min.y + (height - gripH) * 0.5f;
+    const ImU32 gripColor = colorU32(withAlpha(palette.text, 0.22f + focus * 0.42f));
+    draw->AddLine({x - 4.0f, gripY}, {x - 4.0f, gripY + gripH}, gripColor, 1.6f);
+    draw->AddLine({x + 4.0f, gripY}, {x + 4.0f, gripY + gripH}, gripColor, 1.6f);
+  }
+  if (hovered || active) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+  return active;
+}
+
 void SDLCALL dbcFileDialogCallback(void* userdata, const char* const* filelist, int filter) {
   (void)filter;
   auto* sidebar = static_cast<Sidebar*>(userdata);
@@ -32,11 +413,13 @@ void SDLCALL dbcFileDialogCallback(void* userdata, const char* const* filelist, 
   sidebar->dbcDialogActive = false;
   if (!filelist) {
     sidebar->dbcStatus = std::string("DBC file dialog failed: ") + SDL_GetError();
+    sidebar->hasPendingDBCPath = false;
     return;
   }
   if (!filelist[0]) return;
 
-  sidebar->pendingDBCPath = filelist[0];
+  sidebar->pendingDBCPath = normalizeDialogPath(filelist[0]);
+  sidebar->dbcStatus.clear();
   sidebar->hasPendingDBCPath = true;
 }
 }  // namespace
@@ -66,76 +449,99 @@ void Sidebar::drawDBCSelector(GUI& gui) {
     }
   }
 
+  bool closeDBCModal = false;
   if (!selectedPath.empty()) {
     const bool loaded = gui.network && gui.network->switchDBCFile(selectedPath);
     std::lock_guard lock(dbcDialogMutex);
-    dbcStatus = loaded ? "Loaded " + selectedPath : "Failed to load " + selectedPath;
+    dbcStatus = loaded ? "" : "Failed to load " + selectedPath;
+    closeDBCModal = loaded;
   }
 
+  const SidebarPalette palette = sidebarPalette();
   const float fullWidth = ImGui::GetContentRegionAvail().x;
-  if (ImGui::Button("Select DBC", ImVec2{fullWidth, 0.0f})) ImGui::OpenPopup("Select DBC");
+  Parse* parse = gui.network ? gui.network->parse : nullptr;
+  std::string status{};
+  bool dialogActive = false;
+  {
+    std::lock_guard lock(dbcDialogMutex);
+    status = dbcStatus;
+    dialogActive = dbcDialogActive;
+  }
+  const char* current = parse ? parse->currentDBCName() : "None";
+  if (drawDBCButton(current, status, fullWidth, palette)) ImGui::OpenPopup("Select DBC");
 
-  ImGui::SetNextWindowSizeConstraints(ImVec2{260.0f, 0.0f}, ImVec2{FLT_MAX, FLT_MAX});
-  if (ImGui::BeginPopup("Select DBC")) {
-    Parse* parse = gui.network ? gui.network->parse : nullptr;
-    ImGui::Text("Current: %s", parse ? parse->currentDBCName() : "None");
-    ImGui::Separator();
+  const ImGuiViewport* viewport = ImGui::GetMainViewport();
+  const ImVec2 modalCenter = {viewport->Pos.x + viewport->Size.x * 0.5f,
+                              viewport->Pos.y + viewport->Size.y * 0.5f};
+  const float maxModalWidth = std::max(280.0f, viewport->Size.x - 48.0f);
+  const float modalWidth = std::min(440.0f, maxModalWidth);
+  ImGui::SetNextWindowPos(modalCenter, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSizeConstraints(ImVec2{modalWidth, 0.0f},
+                                      ImVec2{modalWidth, viewport->Size.y * 0.82f});
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 10.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
+  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(palette.bg, 0.98f));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(palette.bg, 0.98f));
+  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.72f));
+  const ImGuiWindowFlags modalFlags =
+      ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
+  if (ImGui::BeginPopupModal("Select DBC", nullptr, modalFlags)) {
+    const float popupWidth = ImGui::GetContentRegionAvail().x;
 
     for (uint32_t i = 0; i < Parse::dbcCount(); i++) {
       const DBCType kind = static_cast<DBCType>(i);
       if (kind == DBCType::File) continue;
       const bool selected = parse && parse->activeDBC == kind;
-      if (ImGui::Selectable(Parse::dbcName(kind), selected)) {
+      if (drawDBCOption(Parse::dbcName(kind), selected, popupWidth, palette)) {
         const bool loaded = gui.network && gui.network->switchDBC(kind);
         std::lock_guard lock(dbcDialogMutex);
-        dbcStatus = loaded ? std::string("Loaded ") + Parse::dbcName(kind)
-                           : std::string("Failed to load ") + Parse::dbcName(kind);
+        dbcStatus = loaded ? "" : std::string("Failed to load ") + Parse::dbcName(kind);
         if (loaded) ImGui::CloseCurrentPopup();
       }
     }
 
-    ImGui::Separator();
-    bool dialogActive = false;
-    {
-      std::lock_guard lock(dbcDialogMutex);
-      dialogActive = dbcDialogActive;
-    }
-    if (ImGui::Button(dialogActive ? "Opening..." : "Upload File", ImVec2{-FLT_MIN, 0.0f}) &&
-        !dialogActive) {
+    if (drawPopupAction("UploadFile", "", dialogActive ? "Opening file picker" : "Upload file",
+                        dialogActive, popupWidth, palette, true)) {
       {
         std::lock_guard lock(dbcDialogMutex);
-        dbcDialogActive = true;
+        pendingDBCPath.clear();
+        hasPendingDBCPath = false;
         dbcStatus.clear();
+        dbcDialogActive = true;
       }
       SDL_ShowOpenFileDialog(dbcFileDialogCallback, this, gui.gpu ? gui.gpu->window : nullptr,
                              kDBCFileFilters, static_cast<int>(std::size(kDBCFileFilters)), nullptr,
                              false);
     }
 
-    std::string status{};
-    {
-      std::lock_guard lock(dbcDialogMutex);
-      status = dbcStatus;
-    }
-    if (!status.empty()) {
-      ImGui::Separator();
-      ImGui::TextWrapped("%s", status.c_str());
-    }
+    drawDBCError(status, popupWidth, palette);
+
+    if (drawPopupAction("Close", "\uE5CD", "Close", false, popupWidth, palette))
+      ImGui::CloseCurrentPopup();
+    if (closeDBCModal) ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
   }
+  ImGui::PopStyleColor(3);
+  ImGui::PopStyleVar(6);
 }
 
 void Sidebar::draw(GUI& gui) {
   auto& titleBar = gui.titleBar;
   auto& tabs = gui.tabs;
   ImVec2 winSize = ImGui::GetMainViewport()->Size;
-  storedWidth = std::clamp(storedWidth, winSize.x * 0.05f, winSize.x * 0.5f);
-  if (!titleBar.showSidebar) {
-    width = 0.0f;
-    return;
-  }
-  width = storedWidth;
+  const float minSidebarWidth = std::min(240.0f, winSize.x * 0.60f);
+  const float maxSidebarWidth = std::max(minSidebarWidth, winSize.x * 0.5f);
+  storedWidth = std::clamp(storedWidth, minSidebarWidth, maxSidebarWidth);
+  const float targetWidth = titleBar.showSidebar ? storedWidth : 0.0f;
+  width = iam_tween_float(ImHashStr("SidebarPanel"), ImHashStr("width"), targetWidth, 0.22f,
+                          iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
+                          ImGui::GetIO().DeltaTime, targetWidth);
+  if (width < 2.0f) return;
   float sideBarHeight = winSize.y - (float)titleBar.height;
   ImVec2 pos = {0, titleBar.height};
   ImVec2 dim = {width, sideBarHeight};
@@ -160,64 +566,64 @@ void Sidebar::draw(GUI& gui) {
   ImGui::SetNextWindowPos(pos);
   ImGui::SetNextWindowSize(dim);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 12.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
   ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
                         {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.95});
   if (ImGui::Begin("sideBar", NULL, windowFlags)) {
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    const SidebarPalette palette = sidebarPalette();
+    const ImVec2 windowMin = ImGui::GetWindowPos();
+    const ImVec2 windowMax = {windowMin.x + width, windowMin.y + sideBarHeight};
+    draw->AddRectFilled(windowMin, windowMax, colorU32(withAlpha(palette.bg, 0.96f)));
+    draw->AddLine({windowMax.x - 1.0f, windowMin.y}, {windowMax.x - 1.0f, windowMax.y},
+                  colorU32(withAlpha(palette.border, 0.55f)));
     ImVec2 padding = ImGui::GetStyle().WindowPadding;
-    ImVec4 tabSelectedColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
-    ImVec4 tabButtonColor = ImGui::GetStyleColorVec4(ImGuiCol_Button);
-    ImGui::Separator();
-    for (int i{0uz}; i < tabs.list.size(); ++i) {
-      if (tabs.index == i)
-        ImGui::PushStyleColor(ImGuiCol_Button, tabButtonColor);
-      else
-        ImGui::PushStyleColor(ImGuiCol_Button, tabSelectedColor);
-      if (ImGui::Button(tabs.list[i].name.c_str(), ImVec2{width - padding.x * 2.0f, 0}))
-        tabs.index = i;
-      ImGui::PopStyleColor(1);
+    const float contentWidth = std::max(0.0f, width - padding.x * 2.0f);
+    if (width > 180.0f) {
+      std::string_view activePage = "Navigation";
+      if (!tabs.list.empty() && tabs.index < tabs.list.size())
+        activePage = tabs.list[tabs.index].name;
+      drawSidebarHeader(contentWidth, palette, activePage);
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.0f);
+      for (int i{0uz}; i < tabs.list.size(); ++i) {
+        if (drawNavItem(tabs.list[i], i, tabs.index == i, contentWidth, palette)) tabs.index = i;
+      }
+      float buttonW = (contentWidth - ImGui::GetStyle().ItemSpacing.x * 3.0f) * 0.25f;
+      float buttonH = 38.0f;
+      ImVec2 framePadding = ImGui::GetStyle().FramePadding;
+      float spacingY = ImGui::GetStyle().ItemSpacing.y;
+      float selectorH = 54.0f + spacingY;
+      float rowH = selectorH + buttonH + spacingY + framePadding.y * 2.0f;
+      pos = {padding.x, sideBarHeight - rowH};
+      ImGui::SetCursorPos(pos);
+      drawDBCSelector(gui);
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + spacingY * 0.25f);
+      if (drawActionIcon("Theme", "\uE518", "Theme", {buttonW, buttonH}, palette))
+        ImGui::OpenPopup("Theme");
+      ImGui::SameLine();
+      if (drawActionIcon("Settings", "\uE8B8", "Settings", {buttonW, buttonH}, palette))
+        ImGui::OpenPopup("Settings");
+      ImGui::SameLine();
+      if (drawActionIcon("Update", "\uE8D7", "Update", {buttonW, buttonH}, palette))
+        ImGui::OpenPopup("Update");
+      ImGui::SameLine();
+      if (drawActionIcon("Export", "\uE89E", "Export", {buttonW, buttonH}, palette))
+        ImGui::OpenPopup("Export");
+      gui.settings.colorUI();
+      gui.settingsUI();
+      gui.updateUI();
+      gui.exportUI();
     }
-    float buttonW = (width - padding.x * 2.0f - ImGui::GetStyle().ItemSpacing.x * 4.0f) * 0.25f;
-    float buttonH = ImGui::GetFrameHeightWithSpacing();
-    ImVec2 framePadding = ImGui::GetStyle().FramePadding;
-    float spacingY = ImGui::GetStyle().ItemSpacing.y;
-    float selectorH = buttonH + spacingY;
-    float rowH = selectorH + buttonH + spacingY + framePadding.y;
-    pos = {padding.x, sideBarHeight - rowH};
-    ImGui::SetCursorPos(pos);
-    ImGui::Separator();
-    drawDBCSelector(gui);
-    ImGui::Separator();
-    if (ImGui::Button("\uE518##Theme", {buttonW, buttonH})) ImGui::OpenPopup("Theme");
-    ImGui::SameLine();
-    if (ImGui::Button("\uE8B8##Settings", {buttonW, buttonH})) ImGui::OpenPopup("Settings");
-    ImGui::SameLine();
-    if (ImGui::Button("\uE8D7##Update", {buttonW, buttonH})) ImGui::OpenPopup("Update");
-    ImGui::SameLine();
-    if (ImGui::Button("\uE89E##Export", {buttonW, buttonH})) ImGui::OpenPopup("Export");
-    gui.settings.colorUI();
-    gui.settingsUI();
-    gui.updateUI();
-    gui.exportUI();
 
-    float resizeButtonWidth = 6.0f;
-    ImGui::SetCursorPos({width - resizeButtonWidth, 0.0});
-    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(90, 90, 90, 0));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(130, 130, 130, 255));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(170, 170, 170, 255));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 16.0f);
-    ImGui::Button("##resizeBarHandle", {resizeButtonWidth, dim.y});
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(3);
-    if (ImGui::IsItemHovered() || ImGui::IsItemActive())
-      ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-    if (ImGui::IsItemActive())
-      width = storedWidth =
-          std::clamp(width + ImGui::GetIO().MouseDelta.x, winSize.x * 0.05f, winSize.x * 0.5f);
+    if (titleBar.showSidebar && drawResizeHandle(width, dim.y, palette)) {
+      storedWidth =
+          std::clamp(storedWidth + ImGui::GetIO().MouseDelta.x, minSidebarWidth, maxSidebarWidth);
+      width = storedWidth;
+    }
   }
   ImGui::End();
-  ImGui::PopStyleVar(1);
+  ImGui::PopStyleVar(3);
   ImGui::PopStyleColor(1);
 };
