@@ -229,7 +229,7 @@ void ProgressBar(float value, const ImVec2& size, const ImVec4& color, const cha
 
 void Sparkline(const float* values, int count, float minVal, float maxVal,
                const ImVec2& size, const ImVec4& color) {
-    if (count < 2) return;
+    if (!values || count < 2) return;
     
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -252,7 +252,7 @@ void Sparkline(const float* values, int count, float minVal, float maxVal,
 
 void LineChart(const char* label, const float* values, int count,
                float minVal, float maxVal, const ImVec2& size, const ImVec4& color) {
-    if (count < 2) return;
+    if (!values || count < 2) return;
     
     ImGui::Text("%s", label);
     
@@ -288,7 +288,7 @@ void LineChart(const char* label, const float* values, int count,
 
 void BarChart(const char* label, const float* values, int count,
               const char** labels, const ImVec2& size, const ImVec4& color) {
-    if (count < 1) return;
+    if (!values || count < 1) return;
     
     ImGui::Text("%s", label);
     

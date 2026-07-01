@@ -1195,26 +1195,33 @@ void RenderDashboard(AppState& state) {
     const uint8_t vcuFaultCode = (uint8_t)state.get("VCU_Fault");
 
     if (!state.showDebugScreen) { // Only record edge-triggered snapshot when not actively browsing snapshots
+        constexpr size_t kMaxFaultSnapshots = 100;
+        auto pushSnapshot = [](const std::string& reason, const AppState& s) {
+            if (g_faultSnapshots.size() >= kMaxFaultSnapshots) {
+                g_faultSnapshots.erase(g_faultSnapshots.begin());
+            }
+            g_faultSnapshots.push_back({reason, s});
+        };
         if (bpsFaultCode != 0 && lastBpsFaultCode == 0) {
             char timeBuf[64];
             time_t now = time(nullptr);
             strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
             std::string reason = std::string(timeBuf) + " BPS Fault: " + BpsFaultName(bpsFaultCode);
-            g_faultSnapshots.push_back({reason, state});
+            pushSnapshot(reason, state);
         }
         if (vcuFaultCode != 0 && lastVcuFaultCode == 0) {
             char timeBuf[64];
             time_t now = time(nullptr);
             strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
             std::string reason = std::string(timeBuf) + " VCU Fault: " + VcuFaultName(vcuFaultCode);
-            g_faultSnapshots.push_back({reason, state});
+            pushSnapshot(reason, state);
         }
         if (state.canFault && state.canFaultId != lastCanFaultId) {
             char timeBuf[64];
             time_t now = time(nullptr);
             strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
             std::string reason = std::string(timeBuf) + " CAN Fault: " + state.canFaultName;
-            g_faultSnapshots.push_back({reason, state});
+            pushSnapshot(reason, state);
         }
     }
 

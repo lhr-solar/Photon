@@ -48,8 +48,11 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
     for (uint32_t s = 0; s < msg->signalCount; s++) {
       Signal* sig = msg->signals[s];
       if (!sig) continue;
-      double value = 0.0;
-      if (arena.readByName(sig->name, value)) state.signals[sig->name] = value;
+      void* data = nullptr;
+      uint32_t dataBytes = 0;
+      arena.read(id, s, &data, &dataBytes);
+      const uint32_t count = dataBytes / sizeof(double);
+      if (count > 0) state.signals[sig->name] = static_cast<const double*>(data)[count - 1];
     }
   }
 
@@ -59,7 +62,7 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
   double velocityMps = state.get("MC_VehicleVelocity");
   if (std::isfinite(velocityMps) && std::abs(velocityMps) <= 200.0) {
     constexpr double mpsToMph = 2.2369362920544;
-    state.speed = static_cast<int>(std::lround(std::max(0.0, velocityMps * mpsToMph)));
+    state.speed = static_cast<int>(std::lround(std::abs(velocityMps) * mpsToMph));
   }
 
   if (state.getBool("Gear_Forward")) state.gear = Gear::Forward;
@@ -76,10 +79,12 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
 
   if (state.signals.count("BPS_Tap_idx")) {
     int idx = (int)state.get("BPS_Tap_idx");
-    if ((int)state.moduleVoltages.size() <= idx) state.moduleVoltages.resize(idx + 1, 0.0f);
-    if ((int)state.moduleTemps.size() <= idx) state.moduleTemps.resize(idx + 1, 0.0f);
-    state.moduleVoltages[idx] = (float)state.get("BPS_Voltage_Tap_Data");
-    state.moduleTemps[idx] = (float)state.get("BPS_Temperature_Tap_Data");
+    if (idx >= 0 && idx < 256) {
+      if ((int)state.moduleVoltages.size() <= idx) state.moduleVoltages.resize(idx + 1, 0.0f);
+      if ((int)state.moduleTemps.size() <= idx) state.moduleTemps.resize(idx + 1, 0.0f);
+      state.moduleVoltages[idx] = (float)state.get("BPS_Voltage_Tap_Data");
+      state.moduleTemps[idx] = (float)state.get("BPS_Temperature_Tap_Data");
+    }
   }
 
   bool hasBps = state.signals.count("BPS_Fault") != 0;
