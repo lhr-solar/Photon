@@ -1,7 +1,6 @@
 #pragma once
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -34,10 +33,15 @@ struct Signal {
   std::string name = "NULL";
   std::string unit = "NULL";
   std::string receiver = "NULL";
-  std::chrono::system_clock::time_point lastTimeMutated = std::chrono::system_clock::now();
-  std::chrono::milliseconds timeSinceMutation{};
   void* data{};
 };
+
+struct alignas(64) PublishedSize {
+  std::atomic<uint32_t> value{};
+};
+
+static_assert(sizeof(PublishedSize) == 64);
+static_assert(alignof(PublishedSize) == 64);
 
 struct Message {
   uint32_t id{};
@@ -45,14 +49,7 @@ struct Message {
   uint32_t signalCount{};
   std::string name{};
   std::string transmitter{};
-  std::chrono::system_clock::time_point lastTimeUpdated = std::chrono::system_clock::now();
-  std::chrono::milliseconds timeSinceUpdate{};
-  double dataRate{};
-  double dataTransfer{};
-  double bandwidthPercentage{};
-  std::vector<float> dataRateHistory{};
-  std::vector<float> dataTransferHistory{};
-  alignas(64) std::atomic<uint32_t> signalSize{};
+  PublishedSize signalSize{};
   void* timeData{};
   std::array<Signal*, SIGNAL_MAX> signals{};
 };
@@ -68,7 +65,7 @@ struct Arena {
   uint32_t totalSignals = {};
   uint32_t totalTimeBuffers = {};
   uint32_t totalBuffers = {};
-  double totalDataTransfer = 1.0;
+  uint64_t generation = {};
   std::vector<uint32_t> validIds{};
   std::array<Message*, MESSAGE_MAX> messages{};
 
@@ -81,7 +78,6 @@ struct Arena {
   bool appendFrame(uint32_t id, double timeValue, const double* signalValues, uint32_t signalCount);
   void clear(uint32_t signal);
   void destroy();
-  std::vector<size_t> search(const std::string& query);
 
   void status();
   void statusUI(ImGuiWindowFlags flags);
