@@ -26,6 +26,7 @@
 #include "lens_frag_spv.hpp"
 #include "nodes.hpp"
 #include "nucleus_frag_spv.hpp"
+#include "uiComponents.hpp"
 #include "widget.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
@@ -77,52 +78,42 @@ void GUI::setFont() {
 };
 
 void GUI::settingsUI() {
-  auto io = ImGui::GetIO();
-  auto displaySize = io.DisplaySize;
-  ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
-  ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
-  ImGui::SetNextWindowSize(winSize);
-  ImGui::SetNextWindowPos(winPos);
-  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
-
-  if (ImGui::BeginPopupModal("Settings", NULL, flags)) {
-    if (ImGui::Button("Exit")) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
+  const bool open = PhotonUi::beginModal("Settings", {440.0f, 230.0f});
+  if (open) {
+    const PhotonUi::Palette palette = PhotonUi::palette();
+    PhotonUi::label("Settings", palette);
+    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
+    if (PhotonUi::button("CloseSettings", "Close", {96.0f, 34.0f}, palette))
+      ImGui::CloseCurrentPopup();
   }
+  PhotonUi::endModal(open);
 };
 
 void GUI::updateUI() {
-  auto io = ImGui::GetIO();
-  auto displaySize = io.DisplaySize;
-  ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
-  ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
-  ImGui::SetNextWindowSize(winSize);
-  ImGui::SetNextWindowPos(winPos);
-  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
-  if (ImGui::BeginPopupModal("Update", nullptr, flags)) {
-    ImGui::Text("Are you sure?");
-    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-    ImGui::SameLine();
-    if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
+  const bool open = PhotonUi::beginModal("Update", {420.0f, 220.0f});
+  if (open) {
+    const PhotonUi::Palette palette = PhotonUi::palette();
+    PhotonUi::label("Update", palette);
+    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
+    if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette))
+      ImGui::CloseCurrentPopup();
   }
+  PhotonUi::endModal(open);
 };
 
 void GUI::exportUI() {
-  auto io = ImGui::GetIO();
-  auto displaySize = io.DisplaySize;
-  ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
-  ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
-  ImGui::SetNextWindowSize(winSize);
-  ImGui::SetNextWindowPos(winPos);
-  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
-  if (ImGui::BeginPopupModal("Export", nullptr, flags)) {
-    ImGui::Text("Are you sure?");
-    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-    ImGui::SameLine();
-    if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
+  const bool open = PhotonUi::beginModal("Export", {420.0f, 220.0f});
+  if (open) {
+    const PhotonUi::Palette palette = PhotonUi::palette();
+    PhotonUi::label("Export", palette);
+    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
+    if (PhotonUi::button("CloseExport", "Close", {96.0f, 34.0f}, palette))
+      ImGui::CloseCurrentPopup();
   }
+  PhotonUi::endModal(open);
 };
 
 void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
@@ -248,79 +239,6 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "Shader"));
-};
-
-void GUI::networkPage(ImGuiWindowFlags flags) {
-  static int listIndex = 0;
-  if (ImGui::Begin("network page", NULL, flags)) {
-    ImGui::Combo("##NetworkCombo", &listIndex, networkOptions.data(), networkOptions.size());
-    ImGui::Separator();
-    if (listIndex == 0) {
-      static std::string terminalText;
-      static auto txReader = network->guiTxCommandBuffer.getReader();
-      static TCPConfig config{
-          .port = 6500,
-          .ip = "3.141.38.115",
-      };
-      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
-      auto q = [](ProtocolTransmitVariant& cmd) { cmd = Quit{}; };
-      if (ImGui::Button("Connect To Server")) network->guiRxCommandBuffer.write(λ);
-      ImGui::SameLine();
-      if (ImGui::Button("Disconnect")) network->guiRxCommandBuffer.write(q);
-      while (ProtocolReceiveVariant* msg = txReader.read()) {
-        if (auto* error = std::get_if<ProtocolError>(msg))
-          terminalText += "[error] " + error->error + "\n";
-        else if (auto* message = std::get_if<ProtocolMessage>(msg)) {
-          terminalText += message->message + "\n";
-        } else if (auto* deviceList = std::get_if<ProtocolDeviceList>(msg)) {
-          terminalText += "[devices]\n";
-          for (const auto& device : deviceList->devices) terminalText += "  " + device + "\n";
-        }
-      }
-      ImGui::Separator();
-      ImGui::TextUnformatted("Output");
-      ImGui::BeginChild("##TcpTerminal", ImVec2(0, 220), ImGuiChildFlags_Borders,
-                        ImGuiWindowFlags_HorizontalScrollbar);
-      ImGui::TextUnformatted(terminalText.c_str());
-      if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) ImGui::SetScrollHereY(1.0f);
-      ImGui::EndChild();
-    } else if (listIndex == 1) {
-      static TCPConfig config{};
-      ImGui::InputText("IP", config.ip, sizeof(config.ip));
-      ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
-      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
-      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
-    } else if (listIndex == 2) {
-      static UDPConfig config{};
-      ImGui::InputText("IP", config.ip, sizeof(config.ip));
-      ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
-      ImGui::InputText("Subscription Message", config.subscribeMessage,
-                       sizeof(config.subscribeMessage));
-      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
-      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
-    } else if (listIndex == 3) {
-      static UARTConfig config{};
-
-      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
-      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
-    } else if (listIndex == 4) {
-      static PCANConfig config{};
-
-      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
-      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
-    } else if (listIndex == 5) {
-      static BLEConfig config{};
-
-      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
-      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
-    } else if (listIndex == 6) {
-      static WLANConfig config{};
-
-      auto λ = [](ProtocolTransmitVariant& cmd) { cmd = config; };
-      if (ImGui::Button("Submit Config")) network->guiRxCommandBuffer.write(λ);
-    }
-  };
-  ImGui::End();
 };
 
 void GUI::buildUI() {

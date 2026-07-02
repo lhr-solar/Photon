@@ -39,8 +39,6 @@ struct GUI {
   Shader testShader{};
   GuiSettings settings{};
   GuiFlags flags{};
-  std::vector<const char*> networkOptions = {"DAQ Server", "TCP", "UDP", "UART",
-                                             "PCAN",       "BLE", "WLAN"};
   std::vector<Plots> plots;
 };
 

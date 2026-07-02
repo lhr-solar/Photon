@@ -109,8 +109,13 @@ void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAct
     draw->AddRect({p.x + 1.0f, p.y + 1.0f}, {p.x + s - 1.0f, p.y + s - 1.0f}, iconColor, 0.0f, 0,
                   1.45f);
   } else if (action == WindowAction::Close) {
-    draw->AddLine({p.x + 1.0f, p.y + 1.0f}, {p.x + s - 1.0f, p.y + s - 1.0f}, iconColor, 1.65f);
-    draw->AddLine({p.x + 1.0f, p.y + s - 1.0f}, {p.x + s - 1.0f, p.y + 1.0f}, iconColor, 1.65f);
+    const float inset = 1.0f;
+    const float center = s * 0.5f;
+    const ImVec2 c(p.x + center, p.y + center);
+    draw->AddLine({p.x + inset, p.y + inset}, c, iconColor, 1.65f);
+    draw->AddLine(c, {p.x + s - inset, p.y + s - inset}, iconColor, 1.65f);
+    draw->AddLine({p.x + inset, p.y + s - inset}, c, iconColor, 1.65f);
+    draw->AddLine(c, {p.x + s - inset, p.y + inset}, iconColor, 1.65f);
   }
 }
 }  // namespace
@@ -153,7 +158,7 @@ void TitleBar::draw() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   const ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(windowBg.x, windowBg.y, windowBg.z, 0.90f));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(windowBg.x, windowBg.y, windowBg.z, 0.85f));
   ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                            ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBringToFrontOnFocus;

@@ -1,0 +1,33 @@
+#pragma once
+
+#include <string_view>
+
+#include "imgui.h"
+
+namespace PhotonUi {
+
+struct Palette {
+  ImVec4 text;
+  ImVec4 muted;
+  ImVec4 bg;
+  ImVec4 panel;
+  ImVec4 raised;
+  ImVec4 active;
+  ImVec4 accent;
+  ImVec4 border;
+};
+
+Palette palette();
+ImVec4 withAlpha(ImVec4 color, float alpha);
+ImVec4 mixColor(ImVec4 a, ImVec4 b, float t);
+ImU32 colorU32(ImVec4 color);
+
+bool beginModal(const char* title, ImVec2 size);
+void endModal(bool open);
+void label(std::string_view text, const Palette& palette);
+bool button(const char* id, std::string_view text, ImVec2 size, const Palette& palette,
+            bool selected = false);
+void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
+               const Palette& palette);
+
+}  // namespace PhotonUi

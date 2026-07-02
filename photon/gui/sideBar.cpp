@@ -558,7 +558,7 @@ void Sidebar::draw(GUI& gui) {
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
   ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
-                        {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.90});
+                        {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.85});
   if (ImGui::Begin("sideBar", NULL, windowFlags)) {
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const SidebarPalette palette = sidebarPalette();
