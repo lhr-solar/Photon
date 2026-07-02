@@ -3,6 +3,7 @@
 #include <cinttypes>
 #include <cstdio>
 #include <iomanip>
+#include <sstream>
 
 #include "gui.hpp"
 #include "imgui.h"
