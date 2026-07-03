@@ -58,10 +58,10 @@ void drawNotificationField(ImDrawList* draw, ImVec2 min, ImVec2 max, float focus
   const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
   const ImVec2 half(size.x * 0.5f, size.y * 0.5f);
   const float radius = 8.0f;
-  const float extent = 22.0f + press * 5.0f;
-  const float step = 3.0f;
+  const float extent = 31.0f + press * 8.0f;
+  const float step = 2.5f;
   const float time = static_cast<float>(ImGui::GetTime());
-  const float gain = 0.72f + focus * 0.24f + press * 0.34f;
+  const float gain = 1.10f + focus * 0.38f + press * 0.58f;
 
   for (float y = min.y - extent; y < max.y + extent; y += step) {
     for (float x = min.x - extent; x < max.x + extent; x += step) {
@@ -72,14 +72,14 @@ void drawNotificationField(ImDrawList* draw, ImVec2 min, ImVec2 max, float focus
 
       const float d = outside / std::max(size.y, 1.0f);
       const float px = (sample.x - center.x) / std::max(size.y, 1.0f);
-      const float ripple = std::cos(d * 8.0f - px * 1.25f - time * 2.2f - press * 1.5f);
-      const float rippleGate = 0.055f / std::exp(std::abs(ripple) / 0.22f);
-      const float denom = std::max(d * d + 0.0012f, d + rippleGate);
-      const float energy = 0.006f / denom;
+      const float ripple = std::cos(d * 8.5f - px * 1.45f - time * 2.4f - press * 2.0f);
+      const float rippleGate = 0.075f / std::exp(std::abs(ripple) / 0.18f);
+      const float denom = std::max(d * d + 0.0008f, d + rippleGate);
+      const float energy = 0.011f / denom;
       const float compressed = std::sqrt(std::tanh(energy));
       const float fade = 1.0f - smoothstep(extent * 0.25f, extent, outside);
-      const float alpha = std::clamp(compressed * fade * gain * 0.25f, 0.0f, 0.34f);
-      if (alpha < 0.012f) continue;
+      const float alpha = std::clamp(compressed * fade * gain * 0.38f, 0.0f, 0.58f);
+      if (alpha < 0.010f) continue;
 
       const float phase = px / (std::abs(d) + 0.38f) + time * 1.65f + press * 1.2f;
       const ImVec4 color(0.50f + 0.50f * std::cos(phase + 6.0f),
