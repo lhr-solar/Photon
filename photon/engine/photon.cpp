@@ -31,8 +31,6 @@ void Photon::init() {
   logs("Initialized Network");
   gui.init(gpu, parse.arena, network);
   logs("Initialized GUI");
-
-  updateApp();
 }
 
 void Photon::renderLoop() {
@@ -260,8 +258,4 @@ void Photon::appLogic() {
 #else
   gui.buildUI();
 #endif
-};
-
-void Photon::updateApp() {
-
 };

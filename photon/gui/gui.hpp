@@ -10,6 +10,7 @@
 #include "sideBar.hpp"
 #include "tabs.hpp"
 #include "titlebar.hpp"
+#include "updater.hpp"
 
 struct GUI {
   void init(GPU& gpu, Arena& arena, Network& network);
@@ -41,8 +42,9 @@ struct GUI {
   Shader buttonShader{};
   GuiSettings settings{};
   GuiFlags flags{};
-  bool updateAvailable = true;
+  bool updateAvailable = false;
   std::vector<Plots> plots;
+  Updater updater;
 };
 
 /* forward function handles */

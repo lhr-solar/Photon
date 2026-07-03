@@ -19,6 +19,5 @@ struct Photon {
   void appLogic();
   void renderLoop();
   void destroy();
-  void updateApp();
   bool reloadUI();
 };
