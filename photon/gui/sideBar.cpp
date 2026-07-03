@@ -653,7 +653,7 @@ void Sidebar::draw(GUI& gui) {
         ImGui::OpenPopup("Settings");
       ImGui::SameLine();
       if (drawActionIcon("Update", "\uE8D7", "Update", {buttonW, buttonH}, palette,
-                         gui.updateAvailable))
+                         false))
         ImGui::OpenPopup("Update");
       ImGui::SameLine();
       if (drawActionIcon("Export", "\uE89E", "Export", {buttonW, buttonH}, palette))

@@ -206,7 +206,11 @@ void GUI::shaderTest(ImGuiWindowFlags flags) {
 };
 
 void GUI::testWindow(){
-    if(ImGui::Begin("test window", NULL, 0)){
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoBackground | 
+                             ImGuiWindowFlags_NoTitleBar
+                             ;
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, {});
+    if(ImGui::Begin("test window", NULL, flags)){
         const bool ready = buttonShader.initialized.load() && !buttonShader.frames.empty() &&
                        buttonShader.frameIndex != nullptr;
         shaderFrame fallbackFrame{};
@@ -228,6 +232,7 @@ void GUI::testWindow(){
             } else { ImGui::Dummy(drawSize); };
         } else ImGui::Text("loading shader");
     }; ImGui::End();
+    ImGui::PopStyleColor();
 };
 
 void GUI::testFunc(ImGuiWindowFlags flags) {
