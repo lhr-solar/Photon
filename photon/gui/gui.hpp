@@ -27,7 +27,7 @@ struct GUI {
   void testFunc(ImGuiWindowFlags flags);
   void plotTest(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
-  void testWindow();
+  void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
 
   GPU* gpu;
   Arena* arena;

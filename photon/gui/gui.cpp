@@ -28,7 +28,6 @@
 #include "nucleus_frag_spv.hpp"
 #include "uiComponents.hpp"
 #include "widget.hpp"
-#include "lens_frag_spv.hpp"
 #include "glowButton_frag_spv.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
@@ -40,11 +39,8 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   setTabs();
   testShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                           (uint32_t*)nucleus_frag_spv, nucleus_frag_spv_size);
-  //buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size, 
-                          //(uint32_t*)lens_frag_spv, lens_frag_spv_size);
-  buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size, 
-                          (uint32_t*)glowButton_frag_spv, glowButton_frag_spv_size);
-
+  buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
+                            (uint32_t*)glowButton_frag_spv, glowButton_frag_spv_size);
 }
 
 void GUI::render() {
@@ -55,11 +51,11 @@ void GUI::render() {
     testShader.showing = false;
   }
 
-  if(!buttonShader.initialized.load() && buttonShader.partInitialized.load())
-      buttonShader.finishInit(*gpu);
-  if(buttonShader.showing){
-      buttonShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
-      buttonShader.showing = false;
+  if (!buttonShader.initialized.load() && buttonShader.partInitialized.load())
+    buttonShader.finishInit(*gpu);
+  if (buttonShader.showing) {
+    buttonShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
+    buttonShader.showing = false;
   }
 };
 
@@ -205,35 +201,30 @@ void GUI::shaderTest(ImGuiWindowFlags flags) {
   ImGui::End();
 };
 
-void GUI::testWindow(){
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoBackground | 
-                             ImGuiWindowFlags_NoTitleBar
-                             ;
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, {});
-    if(ImGui::Begin("test window", NULL, flags)){
-        const bool ready = buttonShader.initialized.load() && !buttonShader.frames.empty() &&
-                       buttonShader.frameIndex != nullptr;
-        shaderFrame fallbackFrame{};
-        shaderFrame& frame = ready 
-            ? buttonShader.frames[*buttonShader.frameIndex] : fallbackFrame;
-        if(ready){
-            const VkExtent2D nextExtent =
-                quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
-            if(nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height){
-                frame.extent = nextExtent;
-                buttonShader.dirty = true;
-            }
-            ImVec2 drawSize(frame.extent.width, frame.extent.height);
-            drawSize.x = std::max(drawSize.x, 1.0f);
-            drawSize.y = std::max(drawSize.y, 1.0f);
-            if (ImGui::IsRectVisible(drawSize)) {
-                buttonShader.showing = true;
-                ImGui::Image(frame.texture, drawSize);
-            } else { ImGui::Dummy(drawSize); };
-        } else ImGui::Text("loading shader");
-    }; ImGui::End();
-    ImGui::PopStyleColor();
-};
+void GUI::drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax) {
+  if (!updateAvailable) return;
+  const bool ready = buttonShader.initialized.load() && !buttonShader.frames.empty() &&
+                     buttonShader.frameIndex != nullptr;
+  if (!ready) return;
+
+  shaderFrame& frame = buttonShader.frames[*buttonShader.frameIndex];
+  constexpr float expandX = 28.0f;
+  constexpr float expandY = 22.0f;
+  const ImVec2 overlayMin(buttonMin.x - expandX, buttonMin.y - expandY);
+  const ImVec2 overlayMax(buttonMax.x + expandX, buttonMax.y + expandY);
+  const ImVec2 overlaySize(overlayMax.x - overlayMin.x, overlayMax.y - overlayMin.y);
+
+  const VkExtent2D nextExtent = quantizeContentExtent(overlaySize, frame.extent);
+  if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+    frame.extent = nextExtent;
+    buttonShader.dirty = true;
+  }
+
+  if (ImGui::IsRectVisible(overlayMin, overlayMax)) {
+    buttonShader.showing = true;
+    ImGui::GetWindowDrawList()->AddImage(frame.texture, overlayMin, overlayMax);
+  }
+}
 
 void GUI::testFunc(ImGuiWindowFlags flags) {
   if (ImGui::Begin("test page", NULL, flags)) {
@@ -297,7 +288,6 @@ void GUI::buildUI() {
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
-  testWindow();
 
   /* stateful UI building */
   ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
