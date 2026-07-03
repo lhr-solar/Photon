@@ -39,6 +39,7 @@ struct GUI {
   Shader testShader{};
   GuiSettings settings{};
   GuiFlags flags{};
+  bool updateAvailable = true;
   std::vector<Plots> plots;
 };
 

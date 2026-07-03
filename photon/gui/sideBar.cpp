@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <iterator>
 #include <string_view>
 #include <utility>
@@ -213,7 +214,7 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
 }
 
 bool drawActionIcon(const char* id, const char* icon, std::string_view tooltip, ImVec2 size,
-                    const SidebarPalette& palette) {
+                    const SidebarPalette& palette, bool notification = false) {
   const float dt = ImGui::GetIO().DeltaTime;
   ImGui::PushID(id);
   ImGui::InvisibleButton("action", size);
@@ -227,12 +228,32 @@ bool drawActionIcon(const char* id, const char* icon, std::string_view tooltip, 
   const ImVec2 min = ImGui::GetItemRectMin();
   const ImVec2 max = ImGui::GetItemRectMax();
   ImDrawList* draw = ImGui::GetWindowDrawList();
+  if (notification) {
+    const float pulse = 0.5f + 0.5f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.1f);
+    const ImVec4 blue(0.22f, 0.60f, 1.0f, 1.0f);
+    const ImVec4 pink(1.0f, 0.22f, 0.72f, 1.0f);
+    const ImVec4 purple(0.58f, 0.24f, 1.0f, 1.0f);
+    const ImVec4 glowA = mixColor(purple, pink, pulse);
+    const ImVec4 glowB = mixColor(blue, purple, 0.35f + pulse * 0.35f);
+    draw->AddRectFilled({min.x - 8.0f, min.y - 7.0f}, {max.x + 8.0f, max.y + 7.0f},
+                        colorU32(withAlpha(glowB, 0.10f + pulse * 0.06f)), 12.0f);
+    draw->AddRectFilled({min.x - 5.0f, min.y - 4.0f}, {max.x + 5.0f, max.y + 4.0f},
+                        colorU32(withAlpha(glowA, 0.13f + pulse * 0.08f)), 10.0f);
+    draw->AddRect({min.x - 2.0f, min.y - 2.0f}, {max.x + 2.0f, max.y + 2.0f},
+                  colorU32(withAlpha(glowA, 0.28f + pulse * 0.26f)), 9.0f, 0, 1.15f);
+  }
   const ImVec4 fill = mixColor(palette.raised, palette.active, focus);
   draw->AddRectFilled(min, max, colorU32(withAlpha(fill, 0.88f)), 8.0f);
-  draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.42f + focus * 0.24f)), 8.0f);
+  const ImVec4 border = notification ? mixColor(palette.border, ImVec4(0.84f, 0.32f, 1.0f, 1.0f),
+                                                0.35f + focus * 0.35f)
+                                     : palette.border;
+  draw->AddRect(min, max, colorU32(withAlpha(border, 0.42f + focus * 0.24f)), 8.0f);
   const ImVec2 iconSize = ImGui::CalcTextSize(icon);
+  const ImVec4 iconColor =
+      notification ? mixColor(palette.text, ImVec4(0.92f, 0.50f, 1.0f, 1.0f), 0.34f + focus * 0.32f)
+                   : mixColor(palette.muted, palette.text, 0.35f + focus * 0.65f);
   draw->AddText({min.x + (size.x - iconSize.x) * 0.5f, min.y + (size.y - iconSize.y) * 0.5f},
-                colorU32(mixColor(palette.muted, palette.text, 0.35f + focus * 0.65f)), icon);
+                colorU32(iconColor), icon);
   drawTooltip(tooltip);
   ImGui::PopID();
   return clicked;
@@ -593,7 +614,8 @@ void Sidebar::draw(GUI& gui) {
       if (drawActionIcon("Settings", "\uE8B8", "Settings", {buttonW, buttonH}, palette))
         ImGui::OpenPopup("Settings");
       ImGui::SameLine();
-      if (drawActionIcon("Update", "\uE8D7", "Update", {buttonW, buttonH}, palette))
+      if (drawActionIcon("Update", "\uE8D7", "Update", {buttonW, buttonH}, palette,
+                         gui.updateAvailable))
         ImGui::OpenPopup("Update");
       ImGui::SameLine();
       if (drawActionIcon("Export", "\uE89E", "Export", {buttonW, buttonH}, palette))
