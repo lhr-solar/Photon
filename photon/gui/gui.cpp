@@ -277,6 +277,7 @@ void GUI::setTabs() {
 
 void GUI::buildUI() {
   /* Per-Frame state updates */
+  updateAvailable = true;
   settings.setStyle();
   setFont();
   setTabs();

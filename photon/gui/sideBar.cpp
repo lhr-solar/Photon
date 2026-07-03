@@ -652,11 +652,10 @@ void Sidebar::draw(GUI& gui) {
       if (drawActionIcon("Settings", "\uE8B8", "Settings", {buttonW, buttonH}, palette))
         ImGui::OpenPopup("Settings");
       ImGui::SameLine();
-      {
-        const ImVec2 buttonMin = ImGui::GetCursorScreenPos();
-        const ImVec2 buttonMax(buttonMin.x + buttonW, buttonMin.y + buttonH);
-        gui.drawButtonShaderOverlay(buttonMin, buttonMax);
-      }
+
+      const ImVec2 buttonMin = ImGui::GetCursorScreenPos();
+      const ImVec2 buttonMax(buttonMin.x + buttonW, buttonMin.y + buttonH);
+      gui.drawButtonShaderOverlay(buttonMin, buttonMax);
       if (drawActionIcon("Update", "\uE8D7", "Update", {buttonW, buttonH}, palette, false))
         ImGui::OpenPopup("Update");
       ImGui::SameLine();
