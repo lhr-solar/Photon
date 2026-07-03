@@ -28,6 +28,8 @@
 #include "nucleus_frag_spv.hpp"
 #include "uiComponents.hpp"
 #include "widget.hpp"
+#include "lens_frag_spv.hpp"
+#include "glowButton_frag_spv.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   this->gpu = &gpu;
@@ -38,8 +40,11 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   setTabs();
   testShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                           (uint32_t*)nucleus_frag_spv, nucleus_frag_spv_size);
-  // testShader.dispatchInit(gpu, (uint32_t *)custom_shader_vert_spv, custom_shader_vert_spv_size,
-  // (uint32_t*)lens_frag_spv, lens_frag_spv_size);
+  //buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size, 
+                          //(uint32_t*)lens_frag_spv, lens_frag_spv_size);
+  buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size, 
+                          (uint32_t*)glowButton_frag_spv, glowButton_frag_spv_size);
+
 }
 
 void GUI::render() {
@@ -48,6 +53,13 @@ void GUI::render() {
   if (testShader.showing) {
     testShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
     testShader.showing = false;
+  }
+
+  if(!buttonShader.initialized.load() && buttonShader.partInitialized.load())
+      buttonShader.finishInit(*gpu);
+  if(buttonShader.showing){
+      buttonShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
+      buttonShader.showing = false;
   }
 };
 
@@ -58,6 +70,7 @@ void GUI::destroy() {
     sideBar.backgroundTexture = nullptr;
   }
   testShader.destroy();
+  buttonShader.destroy();
 };
 
 void GUI::setFont() {
@@ -192,6 +205,31 @@ void GUI::shaderTest(ImGuiWindowFlags flags) {
   ImGui::End();
 };
 
+void GUI::testWindow(){
+    if(ImGui::Begin("test window", NULL, 0)){
+        const bool ready = buttonShader.initialized.load() && !buttonShader.frames.empty() &&
+                       buttonShader.frameIndex != nullptr;
+        shaderFrame fallbackFrame{};
+        shaderFrame& frame = ready 
+            ? buttonShader.frames[*buttonShader.frameIndex] : fallbackFrame;
+        if(ready){
+            const VkExtent2D nextExtent =
+                quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+            if(nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height){
+                frame.extent = nextExtent;
+                buttonShader.dirty = true;
+            }
+            ImVec2 drawSize(frame.extent.width, frame.extent.height);
+            drawSize.x = std::max(drawSize.x, 1.0f);
+            drawSize.y = std::max(drawSize.y, 1.0f);
+            if (ImGui::IsRectVisible(drawSize)) {
+                buttonShader.showing = true;
+                ImGui::Image(frame.texture, drawSize);
+            } else { ImGui::Dummy(drawSize); };
+        } else ImGui::Text("loading shader");
+    }; ImGui::End();
+};
+
 void GUI::testFunc(ImGuiWindowFlags flags) {
   if (ImGui::Begin("test page", NULL, flags)) {
     ImGui::Text("wasldfkjasdlfkj");
@@ -254,7 +292,7 @@ void GUI::buildUI() {
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
-  // shaderTest();
+  testWindow();
 
   /* stateful UI building */
   ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);

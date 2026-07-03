@@ -27,6 +27,7 @@ struct GUI {
   void testFunc(ImGuiWindowFlags flags);
   void plotTest(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
+  void testWindow();
 
   GPU* gpu;
   Arena* arena;
@@ -37,6 +38,7 @@ struct GUI {
   Tabs tabs{};
   Canvas canvas{};
   Shader testShader{};
+  Shader buttonShader{};
   GuiSettings settings{};
   GuiFlags flags{};
   bool updateAvailable = true;
