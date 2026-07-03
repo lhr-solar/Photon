@@ -39,6 +39,57 @@ ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
 
 ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
 
+float smoothstep(float edge0, float edge1, float x) {
+  const float t = std::clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+  return t * t * (3.0f - 2.0f * t);
+}
+
+float roundedRectDistance(ImVec2 p, ImVec2 center, ImVec2 halfSize, float radius) {
+  const ImVec2 q(std::abs(p.x - center.x) - (halfSize.x - radius),
+                 std::abs(p.y - center.y) - (halfSize.y - radius));
+  const float outsideX = std::max(q.x, 0.0f);
+  const float outsideY = std::max(q.y, 0.0f);
+  return std::sqrt(outsideX * outsideX + outsideY * outsideY) + std::min(std::max(q.x, q.y), 0.0f) -
+         radius;
+}
+
+void drawNotificationField(ImDrawList* draw, ImVec2 min, ImVec2 max, float focus, float press) {
+  const ImVec2 size(max.x - min.x, max.y - min.y);
+  const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+  const ImVec2 half(size.x * 0.5f, size.y * 0.5f);
+  const float radius = 8.0f;
+  const float extent = 22.0f + press * 5.0f;
+  const float step = 3.0f;
+  const float time = static_cast<float>(ImGui::GetTime());
+  const float gain = 0.72f + focus * 0.24f + press * 0.34f;
+
+  for (float y = min.y - extent; y < max.y + extent; y += step) {
+    for (float x = min.x - extent; x < max.x + extent; x += step) {
+      const ImVec2 sample(x + step * 0.5f, y + step * 0.5f);
+      const float dist = roundedRectDistance(sample, center, half, radius);
+      const float outside = std::max(dist, 0.0f);
+      if (outside > extent) continue;
+
+      const float d = outside / std::max(size.y, 1.0f);
+      const float px = (sample.x - center.x) / std::max(size.y, 1.0f);
+      const float ripple = std::cos(d * 8.0f - px * 1.25f - time * 2.2f - press * 1.5f);
+      const float rippleGate = 0.055f / std::exp(std::abs(ripple) / 0.22f);
+      const float denom = std::max(d * d + 0.0012f, d + rippleGate);
+      const float energy = 0.006f / denom;
+      const float compressed = std::sqrt(std::tanh(energy));
+      const float fade = 1.0f - smoothstep(extent * 0.25f, extent, outside);
+      const float alpha = std::clamp(compressed * fade * gain * 0.25f, 0.0f, 0.34f);
+      if (alpha < 0.012f) continue;
+
+      const float phase = px / (std::abs(d) + 0.38f) + time * 1.65f + press * 1.2f;
+      const ImVec4 color(0.50f + 0.50f * std::cos(phase + 6.0f),
+                         0.42f + 0.48f * std::cos(phase + 1.0f),
+                         0.56f + 0.44f * std::cos(phase + 2.0f), alpha);
+      draw->AddRectFilled({x, y}, {x + step + 0.6f, y + step + 0.6f}, colorU32(color), 1.5f);
+    }
+  }
+}
+
 void renderLeftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {
   ImDrawList* draw = ImGui::GetWindowDrawList();
   draw->PushClipRect(min, {min.x + width, max.y}, true);
@@ -228,29 +279,16 @@ bool drawActionIcon(const char* id, const char* icon, std::string_view tooltip, 
   const ImVec2 min = ImGui::GetItemRectMin();
   const ImVec2 max = ImGui::GetItemRectMax();
   ImDrawList* draw = ImGui::GetWindowDrawList();
-  if (notification) {
-    const float pulse = 0.5f + 0.5f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.1f);
-    const ImVec4 blue(0.22f, 0.60f, 1.0f, 1.0f);
-    const ImVec4 pink(1.0f, 0.22f, 0.72f, 1.0f);
-    const ImVec4 purple(0.58f, 0.24f, 1.0f, 1.0f);
-    const ImVec4 glowA = mixColor(purple, pink, pulse);
-    const ImVec4 glowB = mixColor(blue, purple, 0.35f + pulse * 0.35f);
-    draw->AddRectFilled({min.x - 8.0f, min.y - 7.0f}, {max.x + 8.0f, max.y + 7.0f},
-                        colorU32(withAlpha(glowB, 0.10f + pulse * 0.06f)), 12.0f);
-    draw->AddRectFilled({min.x - 5.0f, min.y - 4.0f}, {max.x + 5.0f, max.y + 4.0f},
-                        colorU32(withAlpha(glowA, 0.13f + pulse * 0.08f)), 10.0f);
-    draw->AddRect({min.x - 2.0f, min.y - 2.0f}, {max.x + 2.0f, max.y + 2.0f},
-                  colorU32(withAlpha(glowA, 0.28f + pulse * 0.26f)), 9.0f, 0, 1.15f);
-  }
+  if (notification) drawNotificationField(draw, min, max, focus, active ? 1.0f : 0.0f);
   const ImVec4 fill = mixColor(palette.raised, palette.active, focus);
   draw->AddRectFilled(min, max, colorU32(withAlpha(fill, 0.88f)), 8.0f);
-  const ImVec4 border = notification ? mixColor(palette.border, ImVec4(0.84f, 0.32f, 1.0f, 1.0f),
-                                                0.35f + focus * 0.35f)
+  const ImVec4 border = notification ? mixColor(palette.border, ImVec4(0.58f, 0.40f, 0.95f, 1.0f),
+                                                0.22f + focus * 0.28f)
                                      : palette.border;
   draw->AddRect(min, max, colorU32(withAlpha(border, 0.42f + focus * 0.24f)), 8.0f);
   const ImVec2 iconSize = ImGui::CalcTextSize(icon);
   const ImVec4 iconColor =
-      notification ? mixColor(palette.text, ImVec4(0.92f, 0.50f, 1.0f, 1.0f), 0.34f + focus * 0.32f)
+      notification ? mixColor(palette.text, ImVec4(0.70f, 0.68f, 1.0f, 1.0f), 0.24f + focus * 0.22f)
                    : mixColor(palette.muted, palette.text, 0.35f + focus * 0.65f);
   draw->AddText({min.x + (size.x - iconSize.x) * 0.5f, min.y + (size.y - iconSize.y) * 0.5f},
                 colorU32(iconColor), icon);
