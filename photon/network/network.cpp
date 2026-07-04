@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <string>
 #include <thread>
 #include <variant>
 
@@ -12,16 +13,50 @@ void Network::init() {
 };
 
 void Network::startTCP(TCPConfig config) {
-  stopWriter();
+  std::lock_guard lock(writerMutex);
+  stopWriterUnlocked();
+  activeTCPConfig = config;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
     Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
   });
 }
 
 void Network::stopWriter() {
+  std::lock_guard lock(writerMutex);
+  stopWriterUnlocked();
+  activeTCPConfig.reset();
+}
+
+void Network::stopWriterUnlocked() {
   if (!writerThread.joinable()) return;
   writerThread.request_stop();
   writerThread.join();
+}
+
+void Network::restartWriterUnlocked() {
+  if (!activeTCPConfig || !parse) return;
+  const TCPConfig config = *activeTCPConfig;
+  writerThread = std::jthread([this, config](std::stop_token stoken) {
+    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+  });
+}
+
+bool Network::switchDBC(DBCType kind) {
+  std::lock_guard lock(writerMutex);
+  const bool shouldRestart = writerThread.joinable() && activeTCPConfig.has_value();
+  stopWriterUnlocked();
+  const bool loaded = parse && parse->loadDBC(kind);
+  if (shouldRestart) restartWriterUnlocked();
+  return loaded;
+}
+
+bool Network::switchDBCFile(const std::string& path) {
+  std::lock_guard lock(writerMutex);
+  const bool shouldRestart = writerThread.joinable() && activeTCPConfig.has_value();
+  stopWriterUnlocked();
+  const bool loaded = parse && parse->loadDBCFile(path);
+  if (shouldRestart) restartWriterUnlocked();
+  return loaded;
 }
 
 void Network::backend(std::stop_token stoken) {
@@ -36,7 +71,8 @@ void Network::backend(std::stop_token stoken) {
       } else if (auto* pcan = std::get_if<PCANConfig>(cmd)) {
       } else if (std::get_if<BLEConfig>(cmd)) {
       } else if (std::get_if<WLANConfig>(cmd)) {
-      }
+      } else if (std::get_if<Quit>(cmd))
+        stopWriter();
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     };

@@ -27,9 +27,32 @@ extern "C" {
 #define CANP_VERSION 3u
 #define CANP_MAX_BATCH 64u
 
+#ifdef _MSC_VER
+#define CANP_PACKED_BEGIN __pragma(pack(push, 1))
+#define CANP_PACKED_END __pragma(pack(pop))
+#define CANP_PACKED
+#else
+#define CANP_PACKED_BEGIN
+#define CANP_PACKED_END
+#define CANP_PACKED __attribute__((packed))
+#endif
+
+#define CANP_HEADER_SIZE 20u
+#define CANP_PACKET_SIZE 29u
+
+typedef enum {
+  CANP_READ_OK = 1,
+  CANP_READ_CLOSED = 0,
+  CANP_READ_SOCKET_ERROR = -1,
+  CANP_READ_BAD_MAGIC = -2,
+  CANP_READ_BAD_VERSION = -3,
+  CANP_READ_BAD_COUNT = -4
+} canpReadStatus_t;
+
 /* we assume single threaded            */
 /* these functions are not thread safe  */
-typedef struct __attribute__((packed)) {
+CANP_PACKED_BEGIN
+typedef struct CANP_PACKED {
   uint32_t magic;
   uint16_t version;
   uint16_t count;
@@ -37,12 +60,21 @@ typedef struct __attribute__((packed)) {
   uint64_t timestamp;
 } canpHeader_t;
 
-typedef struct __attribute__((packed)) {
+typedef struct CANP_PACKED {
   uint32_t can_id;
   uint8_t dlc;
   uint8_t data[8];
   uint16_t δt[8];
 } canpPacket_t;
+CANP_PACKED_END
+
+#ifdef __cplusplus
+static_assert(sizeof(canpHeader_t) == CANP_HEADER_SIZE);
+static_assert(sizeof(canpPacket_t) == CANP_PACKET_SIZE);
+#else
+_Static_assert(sizeof(canpHeader_t) == CANP_HEADER_SIZE, "unexpected CANP header size");
+_Static_assert(sizeof(canpPacket_t) == CANP_PACKET_SIZE, "unexpected CANP packet size");
+#endif
 
 typedef struct {
   uint32_t seq;

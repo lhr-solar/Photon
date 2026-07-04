@@ -1,4 +1,4 @@
-file(GLOB gui_src "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+file(GLOB gui_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.cpp")
 file(GLOB ddash_src "${CMAKE_CURRENT_SOURCE_DIR}/DDash/*.cpp")
 list(APPEND gui_src ${ddash_src})
@@ -17,6 +17,7 @@ target_link_libraries(gui
     EnvironmentAssets
     imgui_runtime
     gpu
+    network
     parse
 )
 
@@ -36,6 +37,7 @@ if (PHOTON_UI_HOT_RELOAD)
         EnvironmentAssets
         imgui_runtime
         gpu
+        network
         parse
     )
 

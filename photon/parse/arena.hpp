@@ -6,10 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "imgui.h"
-
 constexpr uint32_t PAGE_SIZE = 4096;
-constexpr uint32_t MESSAGE_MAX = 2048;
+constexpr uint32_t MESSAGE_MAX = 0x2000;
 constexpr uint32_t SIGNAL_MAX = 32;
 constexpr uint32_t MINIMUM_ARENA_SIZE = PAGE_SIZE * MESSAGE_MAX * SIGNAL_MAX;
 
@@ -34,10 +32,15 @@ struct Signal {
   std::string name = "NULL";
   std::string unit = "NULL";
   std::string receiver = "NULL";
-  std::chrono::system_clock::time_point lastTimeMutated = std::chrono::system_clock::now();
-  std::chrono::milliseconds timeSinceMutation{};
   void* data{};
 };
+
+struct alignas(64) PublishedSize {
+  std::atomic<uint32_t> value{};
+};
+
+static_assert(sizeof(PublishedSize) == 64);
+static_assert(alignof(PublishedSize) == 64);
 
 struct Message {
   uint32_t id{};
@@ -45,16 +48,14 @@ struct Message {
   uint32_t signalCount{};
   std::string name{};
   std::string transmitter{};
-  std::chrono::system_clock::time_point lastTimeUpdated = std::chrono::system_clock::now();
-  std::chrono::milliseconds timeSinceUpdate{};
-  double dataRate{};
-  double dataTransfer{};
-  double bandwidthPercentage{};
-  std::vector<float> dataRateHistory{};
-  std::vector<float> dataTransferHistory{};
-  alignas(64) std::atomic<uint32_t> signalSize{};
+  PublishedSize signalSize{};
   void* timeData{};
   std::array<Signal*, SIGNAL_MAX> signals{};
+
+  // Wall-clock time of the last appendFrame() for this message. UI-only
+  // (dashboard staleness display), not read on any hot path, so it isn't
+  // worth cache-line isolation the way signalSize is.
+  std::chrono::steady_clock::time_point lastUpdated{};
 };
 
 struct Arena {
@@ -64,11 +65,11 @@ struct Arena {
   size_t totalPages{};
   size_t pagesPerBuffer{};
   size_t bytesPerBuffer{};
-  uint32_t arenaSize = {};
+  size_t arenaSize = {};
   uint32_t totalSignals = {};
   uint32_t totalTimeBuffers = {};
   uint32_t totalBuffers = {};
-  double totalDataTransfer = 1.0;
+  uint64_t generation = {};
   std::vector<uint32_t> validIds{};
   std::array<Message*, MESSAGE_MAX> messages{};
 
@@ -85,5 +86,5 @@ struct Arena {
   bool readByName(const std::string& signalName, double& outValue);
 
   void status();
-  void statusUI(ImGuiWindowFlags flags);
+  void statusUI(int flags);
 };

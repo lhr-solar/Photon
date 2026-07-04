@@ -2,6 +2,7 @@
 #include <SDL3/SDL_dialog.h>
 
 #include <array>
+#include <string>
 
 #include "imgui.h"
 
@@ -17,6 +18,7 @@ struct TitleBar {
   float height = 40;
   bool enabled = true;
   bool showSidebar = true;
+  std::string activePage = "Navigation";
   int interactiveRectCount = 0;
   WindowAction pendingAction = WindowAction::None;
   static constexpr int buttonCount = 4;

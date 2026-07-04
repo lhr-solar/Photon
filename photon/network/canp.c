@@ -97,34 +97,34 @@ int canpRead(canpSocket_t fd, void* buf, size_t len) {
 #else
     ssize_t n = read(fd, p + accum, len - accum);
 #endif
-    if (n == 0) return 0;
+    if (n == 0) return CANP_READ_CLOSED;
     if (n < 0) {
 #ifdef _WIN32
       if (WSAGetLastError() == WSAEINTR) continue;
 #else
       if (errno == EINTR) continue;
 #endif
-      return -1;
+      return CANP_READ_SOCKET_ERROR;
     }
     accum += n;
   }
-  return 1;
+  return CANP_READ_OK;
 }
 
 int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
   canpHeader_t hdr;
   int r = canpRead(fd, &hdr, sizeof hdr);
   if (r <= 0) return r;
-  if (ntohl(hdr.magic) != CANP_MAGIC) return -1;
-  if (ntohs(hdr.version) != CANP_VERSION) return -1;
+  if (ntohl(hdr.magic) != CANP_MAGIC) return CANP_READ_BAD_MAGIC;
+  if (ntohs(hdr.version) != CANP_VERSION) return CANP_READ_BAD_VERSION;
   uint16_t n = ntohs(hdr.count);
-  if (n == 0 || n > CANP_MAX_BATCH) return -1;
+  if (n == 0 || n > CANP_MAX_BATCH) return CANP_READ_BAD_COUNT;
   r = canpRead(fd, batch->packets, n * sizeof batch->packets[0]);
   if (r <= 0) return r;
   batch->seq = ntohl(hdr.seq);
   batch->timestamp = canpNtoh64(hdr.timestamp);
   batch->count = n;
-  return 1;
+  return CANP_READ_OK;
 }
 
 int canpRelayBatch(canpSocket_t in_fd, canpSocket_t out_fd) {

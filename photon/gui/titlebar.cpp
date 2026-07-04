@@ -1,7 +1,120 @@
 #include "titlebar.hpp"
 
+#include <algorithm>
+#include <cfloat>
+#include <string_view>
+
 #include "SDL3/SDL.h"
+#include "im_anim.h"
 #include "imgui.h"
+#include "imgui_internal.h"
+#include "uiComponents.hpp"
+
+namespace {
+using PhotonUi::colorU32;
+using PhotonUi::mixColor;
+using PhotonUi::withAlpha;
+
+struct TitleButtonResult {
+  bool clicked = false;
+  ImVec2 min{};
+  ImVec2 max{};
+  float focus = 0.0f;
+  float press = 0.0f;
+};
+
+TitleButtonResult titleButton(const char* id, ImVec2 size, bool selected, ImVec4 accent) {
+  ImGui::PushID(id);
+  ImGui::InvisibleButton("button", size);
+  TitleButtonResult result{};
+  result.clicked = ImGui::IsItemClicked();
+  result.min = ImGui::GetItemRectMin();
+  result.max = ImGui::GetItemRectMax();
+  const bool hovered = ImGui::IsItemHovered();
+  const bool active = ImGui::IsItemActive();
+  const float dt = ImGui::GetIO().DeltaTime;
+  const ImGuiID itemId = ImGui::GetItemID();
+  result.focus = iam_tween_float(itemId, ImHashStr("focus"),
+                                 selected  ? 1.0f
+                                 : active  ? 0.86f
+                                 : hovered ? 0.58f
+                                           : 0.0f,
+                                 0.16f, iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
+                                 dt, selected ? 1.0f : 0.0f);
+  result.press = iam_tween_float(itemId, ImHashStr("press"), active ? 1.0f : 0.0f, 0.08f,
+                                 iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+
+  const ImGuiStyle& style = ImGui::GetStyle();
+  const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
+  const ImVec4 button = style.Colors[ImGuiCol_Button];
+  const ImVec4 fill = mixColor(withAlpha(button, 0.0f), accent, result.focus);
+  const float inset = 5.0f + result.press * 1.5f;
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  if (selected || result.focus > 0.03f) {
+    draw->AddRectFilled({result.min.x + inset, result.min.y + 5.0f + result.press},
+                        {result.max.x - inset, result.max.y - 5.0f + result.press},
+                        colorU32(withAlpha(mixColor(bg, fill, 0.68f), 0.88f)), 8.0f);
+  }
+  if (result.focus > 0.04f) {
+    draw->AddRect({result.min.x + inset, result.min.y + 5.0f + result.press},
+                  {result.max.x - inset, result.max.y - 5.0f + result.press},
+                  colorU32(withAlpha(accent, 0.34f + result.focus * 0.28f)), 8.0f);
+  }
+  ImGui::PopID();
+  return result;
+}
+
+void drawSidebarToggleIcon(ImDrawList* draw, const TitleButtonResult& button, bool open,
+                           ImVec4 textColor, ImVec4 accent) {
+  const ImVec4 icon = mixColor(textColor, accent, 0.25f + button.focus * 0.45f);
+  PhotonUi::drawIconCentered(draw, open ? "\ueada" : "\ufd47", button.min, button.max, 17.0f,
+                             colorU32(icon), button.press + 1.0f);
+}
+
+void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAction action,
+                    ImVec4 textColor, bool windowMaximized = false) {
+  const ImU32 iconColor = colorU32(withAlpha(textColor, 0.78f + button.focus * 0.22f));
+  const char* icon = "\ueaf2";
+  float iconSize = 15.0f;
+  if (action == WindowAction::Minimize) {
+    icon = "\ueaf2";
+  } else if (action == WindowAction::ToggleMaximize) {
+    icon = windowMaximized ? "\uf15f" : "\ueaea";
+    iconSize = 14.0f;
+  } else if (action == WindowAction::Close) {
+    icon = "\ueb55";
+    iconSize = 15.0f;
+  }
+  PhotonUi::drawIconCentered(draw, icon, button.min, button.max, iconSize, iconColor,
+                             button.press + 1.0f);
+}
+
+void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::string_view page,
+                                float alpha) {
+  if (alpha <= 0.01f || max.x <= min.x) return;
+  const PhotonUi::Palette palette = PhotonUi::palette();
+  const ImVec4 headerText = withAlpha(palette.muted, palette.muted.w * alpha);
+  constexpr float iconBox = 28.0f;
+  constexpr float iconFontSize = 17.0f;
+  constexpr float labelFontSize = 14.0f;
+  ImFont* font = ImGui::GetFont();
+  const char* icon = PhotonUi::tabIcon(page);
+  const ImVec2 iconMin(min.x, min.y + (max.y - min.y - iconBox) * 0.5f);
+  const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
+  PhotonUi::drawIconCentered(draw, icon, iconMin, iconMax, iconFontSize, colorU32(headerText),
+                             1.0f);
+
+  const float textX = iconMax.x + 4.0f;
+  if (textX >= max.x) return;
+
+  draw->PushClipRect({textX, min.y}, max, true);
+  const ImVec2 pageSize =
+      font->CalcTextSizeA(labelFontSize, FLT_MAX, 0.0f, page.data(), page.data() + page.size());
+  draw->AddText(font, labelFontSize, {textX, min.y + (max.y - min.y - pageSize.y) * 0.5f},
+                colorU32(headerText), page.data(), page.data() + page.size());
+  draw->PopClipRect();
+}
+}  // namespace
 
 void TitleBar::clearInteract() {
   interactiveRectCount = 0;
@@ -41,64 +154,55 @@ void TitleBar::draw() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   const ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(windowBg.x, windowBg.y, windowBg.z, 0.60f));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(windowBg.x, windowBg.y, windowBg.z, 0.85f));
   ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                            ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBringToFrontOnFocus;
   if (ImGui::Begin("##PhotonTitleBar", nullptr, flags)) {
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    const ImU32 textColor = ImGui::GetColorU32(ImGuiCol_Text);
-    const ImU32 buttonColor = ImGui::GetColorU32(ImGuiCol_Button);
+    const ImVec4 textColor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+    const ImVec4 accentColor = ImGui::GetStyleColorVec4(ImGuiCol_NavHighlight);
     const float buttonWidth = barHeight;
 
-    if (ImGui::Button("##toggleSidebar", ImVec2(buttonWidth, barHeight)))
-      showSidebar = !showSidebar;
-    addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    ImVec2 min = ImGui::GetItemRectMin();
-    ImVec2 max = ImGui::GetItemRectMax();
-    float s = max.x * 0.2f;
-    ImVec2 p = ImVec2((min.x + max.x - s) * 0.5f, (min.y + max.y - s) * 0.5f);
-    draw->AddLine({p.x, p.y}, {p.x + s, p.y}, textColor, 1.0f);
-    draw->AddLine({p.x, p.y + (s * 0.4f)}, {p.x + s, p.y + (s * 0.4f)}, textColor,
-                  1.0f);
-    draw->AddLine({p.x, p.y + (s * 0.8f)}, {p.x + s, p.y + (s * 0.8f)}, textColor,
-                  1.0f);
+    TitleButtonResult sidebarButton =
+        titleButton("toggleSidebar", ImVec2(buttonWidth, barHeight), showSidebar, accentColor);
+    if (sidebarButton.clicked) showSidebar = !showSidebar;
+    addInteract(sidebarButton.min, sidebarButton.max);
+    drawSidebarToggleIcon(draw, sidebarButton, showSidebar, textColor, accentColor);
 
-    ImGui::SetCursorPos(
-        ImVec2(ImGui::GetWindowWidth() - buttonWidth * static_cast<float>(3), 0.0f));
+    const float controlsWidth = buttonWidth * 3.0f;
+    const float controlsX = ImGui::GetWindowWidth() - controlsWidth - 6.0f;
+    const float collapsedHeaderAlpha =
+        iam_tween_float(ImHashStr("TitleCollapsedSidebarHeader"), ImHashStr("alpha"),
+                        showSidebar ? 0.0f : 1.0f, 0.18f, iam_ease_preset(iam_ease_out_quad),
+                        iam_policy_crossfade, ImGui::GetIO().DeltaTime, showSidebar ? 0.0f : 1.0f);
+    drawCollapsedSidebarHeader(draw, {sidebarButton.max.x + 4.0f, 0.0f},
+                               {controlsX - 10.0f, barHeight}, activePage,
+                               collapsedHeaderAlpha);
+
+    ImGui::SetCursorPos(ImVec2(controlsX, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, style.ItemSpacing.y));
 
-    if (ImGui::Button("##minimize", ImVec2(buttonWidth, barHeight)))
-      pendingAction = WindowAction::Minimize;
-    min = ImGui::GetItemRectMin();
-    max = ImGui::GetItemRectMax();
-    s = s;
-    p = ImVec2((min.x + max.x - s) * 0.5f, (min.y + max.y - s) * 0.5f);
-    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, textColor, 2.0f);
-    addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+    TitleButtonResult minimizeButton =
+        titleButton("minimize", ImVec2(buttonWidth, barHeight), false, accentColor);
+    if (minimizeButton.clicked) pendingAction = WindowAction::Minimize;
+    drawWindowIcon(draw, minimizeButton, WindowAction::Minimize, textColor);
+    addInteract(minimizeButton.min, minimizeButton.max);
 
-    s = s / 2.0f;
     ImGui::SameLine();
-    if (ImGui::Button("##maximize", ImVec2(buttonWidth, barHeight)))
-      pendingAction = WindowAction::ToggleMaximize;
-    min = ImGui::GetItemRectMin();
-    max = ImGui::GetItemRectMax();
-    p = ImVec2((min.x + max.x - 3.0f * s) * 0.5f, (min.y + max.y - 3.0f * s) * 0.5f);
-    draw->AddRect({p.x + s, p.y}, {p.x + 3.0f * s, p.y + 2.0f * s}, textColor);
-    draw->AddRectFilled({p.x, p.y + s}, {p.x + 2.0f * s, p.y + 3.0f * s}, buttonColor);
-    draw->AddRect({p.x, p.y + s}, {p.x + 2.0f * s, p.y + 3.0f * s}, textColor);
-    addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+    TitleButtonResult maximizeButton =
+        titleButton("maximize", ImVec2(buttonWidth, barHeight), false, accentColor);
+    if (maximizeButton.clicked) pendingAction = WindowAction::ToggleMaximize;
+    drawWindowIcon(draw, maximizeButton, WindowAction::ToggleMaximize, textColor,
+                   (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0);
+    addInteract(maximizeButton.min, maximizeButton.max);
 
-    s = s * 2.0f;
     ImGui::SameLine();
-    if (ImGui::Button("##exit", ImVec2(buttonWidth, barHeight)))
-      pendingAction = WindowAction::Close;
-    min = ImGui::GetItemRectMin();
-    max = ImGui::GetItemRectMax();
-    p = ImVec2((min.x + max.x - s) * 0.5f, (min.y + max.y - s) * 0.5f);
-    draw->AddLine(p, {p.x + s, p.y + s}, textColor, 2.0f);
-    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y}, textColor, 2.0f);
-    addInteract(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+    TitleButtonResult closeButton =
+        titleButton("exit", ImVec2(buttonWidth, barHeight), false, accentColor);
+    if (closeButton.clicked) pendingAction = WindowAction::Close;
+    drawWindowIcon(draw, closeButton, WindowAction::Close, textColor);
+    addInteract(closeButton.min, closeButton.max);
 
     ImGui::PopStyleVar();
   }

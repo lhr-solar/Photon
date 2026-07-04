@@ -26,14 +26,14 @@ inline constexpr ColorScheme baseColors = {
 };
 
 inline constexpr ColorScheme lightMode = {
-    .color0{0.00f, 0.00f, 0.00f, 1.00f},
-    .color1{0.40f, 0.40f, 0.40f, 1.00f},
-    .color2{0.79f, 0.79f, 0.77f, 1.00f},
-    .color3{0.89f, 0.88f, 0.86f, 1.00f},
-    .color4{0.93f, 0.92f, 0.90f, 1.00f},
-    .color5{0.95f, 0.95f, 0.94f, 1.00f},
-    .color6{0.97f, 0.96f, 0.95f, 1.00f},
-    .color7{1.00f, 1.00f, 1.00f, 1.00f},
+    .color0{0.13f, 0.12f, 0.11f, 1.00f},
+    .color1{0.32f, 0.43f, 0.40f, 1.00f},
+    .color2{0.74f, 0.73f, 0.71f, 1.00f},
+    .color3{0.86f, 0.85f, 0.83f, 1.00f},
+    .color4{0.91f, 0.90f, 0.88f, 1.00f},
+    .color5{0.95f, 0.94f, 0.92f, 1.00f},
+    .color6{0.97f, 0.96f, 0.94f, 1.00f},
+    .color7{0.99f, 0.98f, 0.96f, 1.00f},
 };
 
 struct GuiSettings {

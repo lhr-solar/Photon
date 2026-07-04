@@ -297,7 +297,7 @@ void Shader::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
   VkPipelineStageFlags srcStage =
       frame.initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
   VkClearValue clearValue{};
-  clearValue.color = {{0.00f, 0.00f, 0.00f, 1.0f}};
+  clearValue.color = {{0.00f, 0.00f, 0.00f, 0.0f}};
   VkRenderPassBeginInfo beginInfo{};
   beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   beginInfo.renderPass = renderPass;

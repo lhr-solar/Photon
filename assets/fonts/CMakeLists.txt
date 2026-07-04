@@ -13,7 +13,7 @@ set(FONT_FILES
     ${FONT_DIR}/HostGrotesk-Regular.ttf
     ${FONT_DIR}/Inter_28pt-Regular.ttf
     ${FONT_DIR}/Datatype-Regular.ttf
-    ${FONT_DIR}/MaterialIcons-Regular.ttf
+    ${FONT_DIR}/TablerIcons.ttf
 )
 
 photon_embed_assets(

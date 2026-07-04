@@ -11,6 +11,7 @@
 #include "sideBar.hpp"
 #include "tabs.hpp"
 #include "titlebar.hpp"
+#include "updater.hpp"
 
 struct GUI {
   void init(GPU& gpu, Arena& arena, Network& network);
@@ -29,6 +30,7 @@ struct GUI {
   void plotTest(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
   void dashboardPage(ImGuiWindowFlags flags);
+  void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
 
   ui::AppState dashboardState = ui::CreateDefaultState();
   bool kioskMode = false;
@@ -42,11 +44,12 @@ struct GUI {
   Tabs tabs{};
   Canvas canvas{};
   Shader testShader{};
+  Shader buttonShader{};
   GuiSettings settings{};
   GuiFlags flags{};
-  std::vector<const char*> networkOptions = {"DAQ Server", "TCP", "UDP", "UART",
-                                             "PCAN",       "BLE", "WLAN"};
+  bool updateAvailable = false;
   std::vector<Plots> plots;
+  Updater updater;
 };
 
 /* forward function handles */

@@ -22,7 +22,7 @@ double MessageAgeSecondsForSignal(Arena& arena, const char* signalName) {
     for (uint32_t s = 0; s < msg->signalCount; s++) {
       Signal* sig = msg->signals[s];
       if (sig && sig->name == signalName) {
-        auto age = std::chrono::system_clock::now() - msg->lastTimeUpdated;
+        auto age = std::chrono::steady_clock::now() - msg->lastUpdated;
         return std::chrono::duration<double>(age).count();
       }
     }

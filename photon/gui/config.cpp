@@ -6,12 +6,63 @@
 #include <cstdint>
 #include <cstdio>
 #include <random>
+#include <string_view>
 
+#include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imnodes.h"
 #include "implot.h"
 #include "implot3d.h"
+#include "uiComponents.hpp"
+
+namespace {
+using ThemePalette = PhotonUi::Palette;
+using PhotonUi::colorU32;
+using PhotonUi::mixColor;
+using PhotonUi::withAlpha;
+
+ThemePalette themePalette() { return PhotonUi::palette(); }
+
+void drawThemeLabel(std::string_view label, const ThemePalette& palette) {
+  PhotonUi::label(label, palette);
+}
+
+bool drawThemeButton(const char* id, std::string_view label, ImVec2 size,
+                     const ThemePalette& palette, bool selected = false,
+                     std::string_view tooltip = {}) {
+  return PhotonUi::button(id, label, size, palette, selected, tooltip.empty() ? label : tooltip);
+}
+
+bool drawThemeStepper(const char* id, float& value, float step, float minValue,
+                      const ThemePalette& palette) {
+  bool changed = false;
+  ImGui::PushID(id);
+  if (drawThemeButton("minus", "-", {34.0f, 32.0f}, palette, false, "Decrease")) {
+    value = std::max(minValue, value - step);
+    changed = true;
+  }
+  ImGui::SameLine(0.0f, 6.0f);
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+  ImGui::InvisibleButton("value", {54.0f, 32.0f});
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->AddRectFilled(pos, {pos.x + 54.0f, pos.y + 32.0f},
+                      colorU32(withAlpha(palette.panel, 0.82f)), 8.0f);
+  char buf[16];
+  snprintf(buf, sizeof(buf), "%.0f", value);
+  const ImVec2 textSize = ImGui::CalcTextSize(buf);
+  draw->AddText({pos.x + (54.0f - textSize.x) * 0.5f, pos.y + (32.0f - textSize.y) * 0.5f},
+                colorU32(palette.text), buf);
+  ImGui::SameLine(0.0f, 6.0f);
+  if (drawThemeButton("plus", "+", {34.0f, 32.0f}, palette, false, "Increase")) {
+    value += step;
+    changed = true;
+  }
+  ImGui::PopID();
+  return changed;
+}
+
+}  // namespace
 
 float mixf(float min, float max, float t) { return min + (max - min) * t; }
 
@@ -198,6 +249,8 @@ void GuiSettings::readLineFn(ImGuiContext*, ImGuiSettingsHandler*, void* entry, 
 
 void GuiSettings::applyAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler) {
   GuiSettings* settings = get(ctx, handler);
+  if (settings->selectedColor == dark) settings->colorScheme = baseColors;
+  if (settings->selectedColor == light) settings->colorScheme = lightMode;
   settings->setStyle();
   ctx->Style._NextFrameFontSizeBase = settings->fontSize;
 }
@@ -306,6 +359,12 @@ void GuiSettings::setStyle() {
   style.IndentSpacing = 18.0f;
   style.ScrollbarSize = 12.0f;
   style.GrabMinSize = 10.0f;
+  style.AntiAliasedLines = true;
+  style.AntiAliasedLinesUseTex = true;
+  style.AntiAliasedFill = true;
+  style.CurveTessellationTol = 0.10f;
+  style.CircleTessellationMaxError = 0.05f;
+  ImGui::GetIO().Fonts->Flags &= ~ImFontAtlasFlags_NoBakedLines;
 
   auto color0 = colorScheme.color0;
   auto color1 = colorScheme.color1;
@@ -515,59 +574,82 @@ ColorScheme GuiSettings::genColors(ImVec4 seed) {
 
 void GuiSettings::colorUI() {
   bool dirty = false;
-
-  auto io = ImGui::GetIO();
-  auto displaySize = io.DisplaySize;
-  ImVec2 winSize = {displaySize.x * 0.50f, displaySize.y * 0.80f};
-  ImVec2 winPos = {displaySize.x * 0.25f, displaySize.y * 0.10f};
-  ImGui::SetNextWindowSize(winSize);
-  ImGui::SetNextWindowPos(winPos);
-  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
+  ImGuiIO& io = ImGui::GetIO();
+  const ImVec2 displaySize = io.DisplaySize;
+  const ImVec2 winSize{std::min(780.0f, std::max(360.0f, displaySize.x - 64.0f)),
+                       std::min(600.0f, std::max(420.0f, displaySize.y - 64.0f))};
+  const ImVec2 winPos{(displaySize.x - winSize.x) * 0.5f, (displaySize.y - winSize.y) * 0.5f};
+  ImGui::SetNextWindowSize(winSize, ImGuiCond_Appearing);
+  ImGui::SetNextWindowPos(winPos, ImGuiCond_Appearing);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 14.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 10.0f));
+  const ThemePalette palette = themePalette();
+  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(palette.bg, 0.98f));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(palette.bg, 0.98f));
+  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.70f));
+  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings |
+                                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
   if (ImGui::BeginPopupModal("Theme", nullptr, flags)) {
     const float hueMax = 0.999f;
     const float valueMin = 0.001f;
-    const float rounding = 6.0f;
+    const float rounding = 8.0f;
     float hue = 0.0f;
     float saturation = 0.0f;
     float value = 0.0f;
-    ImGuiStyle& style = ImGui::GetStyle();
-    ImVec2 framePad = style.FramePadding;
-    float contentStartX = ImGui::GetCursorPosX();
-    float contentWidth = ImGui::GetContentRegionAvail().x;
-    float gap = style.ItemSpacing.x;
-    float barWidth = std::clamp(contentWidth * 0.025f, 12.0f, 24.0f);
-    float buttonWidth = std::max({ImGui::CalcTextSize("Default").x, ImGui::CalcTextSize("Light").x,
-                                  ImGui::CalcTextSize("Custom").x}) +
-                        framePad.x * 2.0f;
-    float buttonHeight = ImGui::GetFrameHeight();
-    ImGui::SeparatorText("UI");
-    if (ImGui::Button("Default", {buttonWidth, buttonHeight})) {
+    const float contentWidth = ImGui::GetContentRegionAvail().x;
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+
+    drawThemeLabel("Theme", palette);
+
+    const float segmentGap = 8.0f;
+    const float segmentW = (contentWidth - segmentGap * 2.0f) / 3.0f;
+    const float segmentH = 38.0f;
+    if (drawThemeButton("ThemeDefault", "Default", {segmentW, segmentH}, palette,
+                        selectedColor == dark)) {
       selectedColor = dark;
       colorScheme = baseColors;
       dirty = true;
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Light", {buttonWidth, buttonHeight})) {
+    ImGui::SameLine(0.0f, segmentGap);
+    if (drawThemeButton("ThemeLight", "Light", {segmentW, segmentH}, palette,
+                        selectedColor == light)) {
       selectedColor = light;
       colorScheme = lightMode;
       dirty = true;
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Custom", {buttonWidth, buttonHeight})) {
+    ImGui::SameLine(0.0f, segmentGap);
+    if (drawThemeButton("ThemeCustom", "Custom", {segmentW, segmentH}, palette,
+                        selectedColor == custom)) {
       selectedColor = custom;
       colorScheme = genColors(colorSeed);
       dirty = true;
     }
+
     ImGui::ColorConvertRGBtoHSV(colorSeed.x, colorSeed.y, colorSeed.z, hue, saturation, value);
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    float closeReserve = style.ItemSpacing.y + buttonHeight;
-    float plotReserve = ImGui::GetTextLineHeightWithSpacing() + buttonHeight + style.ItemSpacing.y;
-    float flexibleHeight =
-        std::max(1.0f, ImGui::GetContentRegionAvail().y - closeReserve - plotReserve);
-    float desiredPickerSize = flexibleHeight * 0.45f;
-    float widthLimitedPickerSize = (contentWidth - 2.0f * barWidth - 4.0f * gap) / 3.0f;
-    float size = std::max(1.0f, std::min(desiredPickerSize, widthLimitedPickerSize));
-    float paletteSize = std::max(1.0f, (size - gap) * 0.5f);
+
+    const float footerHeight = 40.0f;
+    const float bodyHeight = std::max(260.0f, ImGui::GetContentRegionAvail().y - footerHeight);
+    const float columnGap = 10.0f;
+    const float leftWidth = std::min(320.0f, contentWidth * 0.44f);
+    const float rightWidth = contentWidth - leftWidth - columnGap;
+
+    constexpr ImGuiWindowFlags childFlags =
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar;
+
+    PhotonUi::beginPanel("##ThemeColorPanel", {leftWidth, bodyHeight}, palette,
+                         ImGuiChildFlags_Borders, childFlags);
+    drawThemeLabel("Font size", palette);
+    if (drawThemeStepper("FontSize", fontSize, 1.0f, 1.0f, palette)) dirty = true;
+    ImGui::Spacing();
+    const float gap = 8.0f;
+    const float barWidth = 16.0f;
+    const float maxPickerWidth =
+        leftWidth - 2.0f * ImGui::GetStyle().WindowPadding.x - 2.0f * (barWidth + gap);
+    const float size = std::clamp(bodyHeight * 0.34f, 96.0f, std::min(160.0f, maxPickerWidth));
+    ImGui::BeginGroup();
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("##HueValueField", {size, size});
     bool seedEdited = false;
@@ -591,7 +673,8 @@ void GuiSettings::colorUI() {
     }
     draw->AddRectFilledMultiColor(p, {p.x + size, p.y + size}, 0, 0, IM_COL32(0, 0, 0, 255),
                                   IM_COL32(0, 0, 0, 255));
-    draw->AddRect(p, {p.x + size, p.y + size}, IM_COL32(255, 255, 255, 64));
+    draw->AddRect(p, {p.x + size, p.y + size}, colorU32(withAlpha(palette.border, 0.72f)),
+                  rounding);
     draw->AddCircle({p.x + hue * size, p.y + (1.0f - value) * size}, 5.0f,
                     IM_COL32(255, 255, 255, 255), 0, 2.0f);
 
@@ -611,7 +694,8 @@ void GuiSettings::colorUI() {
       draw->AddRectFilledMultiColor({huePos.x, y0}, {huePos.x + barWidth, y1}, hues[i], hues[i],
                                     hues[i + 1], hues[i + 1]);
     }
-    draw->AddRect(huePos, {huePos.x + barWidth, huePos.y + size}, IM_COL32(255, 255, 255, 64));
+    draw->AddRect(huePos, {huePos.x + barWidth, huePos.y + size},
+                  colorU32(withAlpha(palette.border, 0.72f)), 8.0f);
     draw->AddLine({huePos.x, huePos.y + hue * size}, {huePos.x + barWidth, huePos.y + hue * size},
                   IM_COL32(255, 255, 255, 255), 2.0f);
 
@@ -637,12 +721,13 @@ void GuiSettings::colorUI() {
                  static_cast<int>(vb * 255.0f), 255),
         IM_COL32(0, 0, 0, 255), IM_COL32(0, 0, 0, 255));
     draw->AddRect(valuePos, {valuePos.x + barWidth, valuePos.y + size},
-                  IM_COL32(255, 255, 255, 64));
+                  colorU32(withAlpha(palette.border, 0.72f)), 8.0f);
     draw->AddLine({valuePos.x, valuePos.y + (1.0f - value) * size},
                   {valuePos.x + barWidth, valuePos.y + (1.0f - value) * size},
                   IM_COL32(255, 255, 255, 255), 2.0f);
 
     ImGui::ColorConvertHSVtoRGB(hue, 1.0f, value, colorSeed.x, colorSeed.y, colorSeed.z);
+    ImGui::EndGroup();
     if (seedEdited) {
       selectedColor = custom;
       colorScheme = genColors(colorSeed);
@@ -650,51 +735,51 @@ void GuiSettings::colorUI() {
     const ImVec4 cv[] = {colorScheme.color0, colorScheme.color1, colorScheme.color2,
                          colorScheme.color3, colorScheme.color4, colorScheme.color5,
                          colorScheme.color6, colorScheme.color7};
-    ImGui::SameLine(0.0f, gap);
+
+    ImGui::Spacing();
     ImVec2 palettePos = ImGui::GetCursorScreenPos();
+    const float paletteWidth = leftWidth - 2.0f * ImGui::GetStyle().WindowPadding.x;
+    const float paletteFit = (paletteWidth - 3.0f * gap) / 4.0f;
+    const float paletteHeightFit = std::max(24.0f, (bodyHeight - size - 142.0f) * 0.5f);
+    const float paletteSize = std::clamp(std::min(paletteFit, paletteHeightFit), 24.0f, 58.0f);
     for (int i = 0; i < 8; ++i) {
       ImVec2 min = {palettePos.x + (i % 4) * (paletteSize + gap),
                     palettePos.y + (i / 4) * (paletteSize + gap)};
       ImVec2 max = {min.x + paletteSize, min.y + paletteSize};
       draw->AddRectFilled(min, max, ImGui::ColorConvertFloat4ToU32(cv[i]), rounding);
-      draw->AddRect(min, max, IM_COL32(255, 255, 255, 32), rounding);
+      draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.55f)), rounding);
     }
-    ImGui::Dummy({4.0f * paletteSize + 3.0f * gap, 2.0f * paletteSize + gap});
-    ImGui::Text("Font Size");
-    if (ImGui::Button("-##fsizem")) {
-      fontSize = (fontSize - 1 > 0) ? fontSize - 1 : 1;
-      dirty = true;
-    };
-    ImGui::SameLine();
-    ImGui::Text("%.0f", fontSize);
-    ImGui::SameLine();
-    if (ImGui::Button("+##fsizep")) {
-      fontSize = fontSize + 1;
-      dirty = true;
-    };
-    ImGui::SeparatorText("Plots");
-    ImGui::Text("Line Width and Style:");
+    ImGui::Dummy({paletteWidth, 2.0f * paletteSize + gap});
+    PhotonUi::endPanel();
+
+    ImGui::SameLine(0.0f, columnGap);
+    PhotonUi::beginPanel("##ThemePlotPanel", {rightWidth, bodyHeight}, palette,
+                         ImGuiChildFlags_Borders, childFlags);
+    drawThemeLabel("Line Thickness", palette);
     if (plotLineSpec.LineWeight < 1.0f) plotLineSpec.LineWeight = 1.0f;
-    if (ImGui::Button("-")) {
-      plotLineSpec.LineWeight = std::max(1.0f, plotLineSpec.LineWeight - 1.0f);
-      dirty = true;
-    }
-    ImGui::SameLine();
-    ImGui::Text("%.0f", plotLineSpec.LineWeight);
-    ImGui::SameLine();
-    if (ImGui::Button("+")) {
-      plotLineSpec.LineWeight += 1.0f;
-      dirty = true;
-    }
-    ImGui::SameLine();
+    if (drawThemeStepper("LineWeight", plotLineSpec.LineWeight, 1.0f, 1.0f, palette)) dirty = true;
+    ImGui::Spacing();
+    drawThemeLabel("Colormap", palette);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 7.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.raised, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, withAlpha(palette.active, 0.72f));
+    ImGui::PushStyleColor(ImGuiCol_Button, withAlpha(palette.raised, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, withAlpha(palette.active, 0.72f));
     if (ImPlot::ShowCustomColormapSelector("##ImPlotColormap")) {
       plotColormap = ImPlot::GetStyle().Colormap;
       dirty = true;
     }
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar(2);
+
+    ImGui::Spacing();
+    drawThemeLabel("Preview", palette);
     std::array<double, 2> time = {0.0, 5.0};
     std::array<double, 2> points = {0.0, 2.0};
-    float plotHeight = std::max(1.0f, ImGui::GetContentRegionAvail().y - closeReserve);
-    if (ImPlot::BeginPlot("##colorPalletePlot", {contentWidth, plotHeight}, ImPlotFlags_NoInputs)) {
+    const float plotHeight = std::max(140.0f, ImGui::GetContentRegionAvail().y);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.bg, 0.40f));
+    if (ImPlot::BeginPlot("##colorPalettePlot", {-FLT_MIN, plotHeight}, ImPlotFlags_NoInputs)) {
       for (int i{0}; i < 10; i++) {
         char buf[10];
         snprintf(buf, sizeof(buf), "##Color %i", i);
@@ -704,14 +789,14 @@ void GuiSettings::colorUI() {
       }
       ImPlot::EndPlot();
     }
-    const char* label = "Close";
-    float closeWidth = ImGui::CalcTextSize(label).x + framePad.x * 2.0f;
-    float closeHeight =
-        std::max(ImGui::GetCursorPosY(),
-                 ImGui::GetCursorPosY() + ImGui::GetContentRegionAvail().y - buttonHeight);
-    ImGui::SetCursorPos({contentStartX + contentWidth - closeWidth, closeHeight});
+    ImGui::PopStyleColor();
+    PhotonUi::endPanel();
+
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - 96.0f);
     if (dirty) ImGui::MarkIniSettingsDirty();
-    if (ImGui::Button(label, {closeWidth, buttonHeight})) ImGui::CloseCurrentPopup();
+    if (drawThemeButton("CloseTheme", "Close", {96.0f, 34.0f}, palette)) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
   }
+  ImGui::PopStyleColor(3);
+  ImGui::PopStyleVar(4);
 }

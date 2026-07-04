@@ -9,3 +9,4 @@ build
 assets/video/
 Photon.exe
 *.ini
+build-release/

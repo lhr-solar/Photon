@@ -1,6 +1,5 @@
 #include "parse.hpp"
 
-#include <array>
 #include <fstream>
 #include <istream>
 #include <sstream>
@@ -10,8 +9,8 @@
 #include "arena.hpp"
 #include "assettoCorsa_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
-#include "test_dbc.hpp"
 #include "lonestar_dbc.hpp"
+#include "test_dbc.hpp"
 
 struct DBCAsset {
   DBCType kind;
@@ -20,19 +19,21 @@ struct DBCAsset {
   std::size_t size;
 };
 
-const std::array<DBCAsset, Parse::dbcCount()> kDBCAssets{{
-    {DBCType::Lonestar, "Lonestar",
-     lonestar_dbc, lonestar_dbc_size},
-    {DBCType::DaybreakMaster, "daybreak-master", daybreak_master_dbc, daybreak_master_dbc_size},
-    {DBCType::Test, "test", test_dbc, test_dbc_size},
-    {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size},
-    {DBCType::File, "selected-file", nullptr, 0},
-}};
-
-const DBCAsset* dbcAsset(DBCType kind) {
-  for (const DBCAsset& asset : kDBCAssets)
-    if (asset.kind == kind) return &asset;
-  return nullptr;
+DBCAsset dbcAsset(DBCType kind) {
+  switch (kind) {
+    case DBCType::Lonestar:
+      return {DBCType::Lonestar, "Lonestar", lonestar_dbc, lonestar_dbc_size};
+    case DBCType::DaybreakMaster:
+      return {DBCType::DaybreakMaster, "daybreak-master", daybreak_master_dbc,
+              daybreak_master_dbc_size};
+    case DBCType::Test:
+      return {DBCType::Test, "test", test_dbc, test_dbc_size};
+    case DBCType::AssettoCorsa:
+      return {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size};
+    case DBCType::File:
+      return {DBCType::File, "selected-file", nullptr, 0};
+  }
+  return {DBCType::File, "unknown", nullptr, 0};
 }
 
 void buildConfig(std::istream& stream, arenaConfig& config) {
@@ -72,7 +73,7 @@ void buildConfig(std::istream& stream, arenaConfig& config) {
   }
 
   config = {
-      .arenaSize = MINIMUM_ARENA_SIZE * 8,
+      .arenaSize = MINIMUM_ARENA_SIZE,
       .signalCounts = signalCounts,
       .validIds = validIds,
   };
@@ -183,20 +184,21 @@ void populateArena(Arena& arena, std::istream& stream) {
 void Parse::init() { loadDBC(activeDBC); }
 
 bool Parse::loadDBC(DBCType kind) {
-  const DBCAsset* asset = dbcAsset(kind);
-  if (!asset || !asset->data || asset->size == 0) return false;
+  const DBCAsset asset = dbcAsset(kind);
+  if (!asset.data || asset.size == 0) return false;
 
-  std::string dbcText(reinterpret_cast<const char*>(asset->data), asset->size);
+  std::string dbcText(reinterpret_cast<const char*>(asset.data), asset.size);
   std::istringstream configStream(dbcText);
   arenaConfig config{};
   buildConfig(configStream, config);
+  if (config.validIds.empty()) return false;
 
   arena.destroy();
   arena.init(config);
   std::istringstream populateStream(dbcText);
   populateArena(arena, populateStream);
   activeDBC = kind;
-  activeDBCLabel = asset->name;
+  activeDBCLabel = asset.name;
   activeDBCPath.clear();
   return true;
 }
@@ -211,6 +213,7 @@ bool Parse::loadDBCFile(const std::string& path) {
   std::istringstream configStream(dbcText);
   arenaConfig config{};
   buildConfig(configStream, config);
+  if (config.validIds.empty()) return false;
 
   arena.destroy();
   arena.init(config);
@@ -226,8 +229,8 @@ bool Parse::loadDBCFile(const std::string& path) {
 void Parse::destroy() { arena.destroy(); }
 
 const char* Parse::dbcName(DBCType kind) {
-  const DBCAsset* asset = dbcAsset(kind);
-  return asset ? asset->name : "unknown";
+  const DBCAsset asset = dbcAsset(kind);
+  return asset.name;
 }
 
 const char* Parse::currentDBCName() const { return activeDBCLabel.c_str(); }

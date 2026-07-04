@@ -96,6 +96,11 @@ if(NOT WIN32)
     add_link_options(-rdynamic)
 endif()
 
+if(WIN32)
+    add_link_options(-lurlmon)
+    add_link_options(-lOle32)
+endif()
+
 include_directories(
     .external
     .external/glm
