@@ -417,10 +417,10 @@ bool drawMessageRow(const Message& msg, const MessageUiStats& stats, bool expand
     draw->AddText({right - 72.0f, min.y + 36.0f}, colorU32(palette.muted), "age");
   }
 
-  const char* chevron = expanded ? "\uE5CF" : "\uE5CC";
-  const ImVec2 chevronSize = ImGui::CalcTextSize(chevron);
-  draw->AddText({max.x - chevronSize.x - 12.0f, min.y + (height - chevronSize.y) * 0.5f},
-                colorU32(mixColor(palette.muted, palette.text, focus)), chevron);
+  const char* chevron = expanded ? "\uea5f" : "\uea61";
+  PhotonUi::drawIconCentered(draw, chevron, {max.x - 30.0f, min.y}, {max.x - 10.0f, max.y},
+                             16.0f, colorU32(mixColor(palette.muted, palette.text, focus)),
+                             1.0f);
   ImGui::PopID();
   return clicked;
 }

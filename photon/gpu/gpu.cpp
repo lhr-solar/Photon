@@ -24,7 +24,7 @@
 
 #include "../gui/titlebar.hpp"
 #include "Inter_28pt_Regular_ttf.hpp"
-#include "MaterialIcons_Regular_ttf.hpp"
+#include "TablerIcons_ttf.hpp"
 #include "gpu.hpp"
 #include "im_anim.h"
 #include "imgui.h"
@@ -943,18 +943,16 @@ void GPU::imguiBackend(TitleBar* titleBar) {
   io.Fonts->AddFontFromMemoryTTF((void*)Inter_28pt_Regular_ttf,
                                  static_cast<int>(Inter_28pt_Regular_ttf_size),
                                  static_cast<float>(28.0f), &fontConfig);
-  static constexpr ImWchar materialIconRanges[] = {
-      0xE000,
-      0xF8FF,
+  static constexpr ImWchar tablerIconRanges[] = {
+      0xEA00,
+      0xFBFF,
       0,
   };
-  ImFontConfig symbolFontConfig;
-  symbolFontConfig.FontDataOwnedByAtlas = false;
-  symbolFontConfig.MergeMode = true;
-  symbolFontConfig.PixelSnapH = true;
-  io.Fonts->AddFontFromMemoryTTF((void*)MaterialIcons_Regular_ttf,
-                                 static_cast<int>(MaterialIcons_Regular_ttf_size),
-                                 static_cast<float>(28.0f), &symbolFontConfig, materialIconRanges);
+  ImFontConfig tablerFontConfig;
+  tablerFontConfig.FontDataOwnedByAtlas = false;
+  tablerFontConfig.PixelSnapH = true;
+  io.Fonts->AddFontFromMemoryTTF((void*)TablerIcons_ttf, static_cast<int>(TablerIcons_ttf_size),
+                                 static_cast<float>(28.0f), &tablerFontConfig, tablerIconRanges);
   VkSamplerCreateInfo samplerCreateInfo{};
   samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   samplerCreateInfo.maxAnisotropy = 1.0f;

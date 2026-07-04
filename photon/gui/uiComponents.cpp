@@ -1,6 +1,7 @@
 #include "uiComponents.hpp"
 
 #include <algorithm>
+#include <cfloat>
 
 #include "im_anim.h"
 #include "imgui_internal.h"
@@ -20,12 +21,36 @@ ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
 
 ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
 
+ImFont* iconFont() {
+  ImFontAtlas* fonts = ImGui::GetIO().Fonts;
+  if (fonts && fonts->Fonts.Size > 1 && fonts->Fonts[1]) return fonts->Fonts[1];
+  return ImGui::GetFont();
+}
+
 const char* tabIcon(std::string_view name) {
-  if (name.find("Plot") != std::string_view::npos) return "\uE6E1";
-  if (name.find("Arena") != std::string_view::npos) return "\uE875";
-  if (name.find("Network") != std::string_view::npos) return "\uE640";
-  if (name.find("Shader") != std::string_view::npos) return "\uE3B7";
-  return "\uE5C3";
+  if (name.find("Plot") != std::string_view::npos) return "\uea5c";
+  if (name.find("Arena") != std::string_view::npos) return "\uea88";
+  if (name.find("Network") != std::string_view::npos) return "\uf09f";
+  if (name.find("Shader") != std::string_view::npos) return "\uea77";
+  return "\ueada";
+}
+
+ImVec2 calcIconSize(const char* icon, float size) {
+  return iconFont()->CalcTextSizeA(size, FLT_MAX, 0.0f, icon);
+}
+
+void drawIcon(ImDrawList* draw, const char* icon, ImVec2 pos, float size, ImU32 color,
+              float yOffset) {
+  draw->AddText(iconFont(), size, {pos.x, pos.y + yOffset}, color, icon);
+}
+
+void drawIconCentered(ImDrawList* draw, const char* icon, ImVec2 min, ImVec2 max, float size,
+                      ImU32 color, float yOffset) {
+  const ImVec2 iconSize = calcIconSize(icon, size);
+  drawIcon(draw, icon,
+           {min.x + (max.x - min.x - iconSize.x) * 0.5f,
+            min.y + (max.y - min.y - iconSize.y) * 0.5f},
+           size, color, yOffset);
 }
 
 Palette palette() {

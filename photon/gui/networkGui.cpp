@@ -18,13 +18,13 @@ struct ProtocolOption {
 };
 
 constexpr std::array<ProtocolOption, 7> kProtocols{{
-    {"DAQ Server", "\uE1B0"},
-    {"TCP", "\uE875"},
-    {"UDP", "\uE875"},
-    {"UART", "\uE8B5"},
-    {"PCAN", "\uE1E6"},
-    {"BLE", "\uE1A7"},
-    {"WLAN", "\uE63E"},
+    {"DAQ Server", "\ueb1f"},
+    {"TCP", "\uf09f"},
+    {"UDP", "\ueb17"},
+    {"UART", "\uf00c"},
+    {"PCAN", "\uef8e"},
+    {"BLE", "\uea37"},
+    {"WLAN", "\ueb52"},
 }};
 
 void pushInputStyle(const PhotonUi::Palette& palette) {
@@ -111,10 +111,9 @@ bool protocolButton(const ProtocolOption& option, bool selected, ImVec2 size,
   if (selected) {
     draw->AddRectFilled(min, {min.x + 4.0f, max.y}, PhotonUi::colorU32(palette.accent), 8.0f);
   }
-  const ImVec2 iconSize = ImGui::CalcTextSize(option.icon);
-  draw->AddText({min.x + 14.0f, min.y + (size.y - iconSize.y) * 0.5f},
-                PhotonUi::colorU32(PhotonUi::mixColor(palette.muted, palette.text, focus)),
-                option.icon);
+  PhotonUi::drawIconCentered(
+      draw, option.icon, {min.x + 10.0f, min.y}, {min.x + 34.0f, max.y}, 17.0f,
+      PhotonUi::colorU32(PhotonUi::mixColor(palette.muted, palette.text, focus)), 1.0f);
   draw->AddText({min.x + 42.0f, min.y + (size.y - ImGui::GetTextLineHeight()) * 0.5f},
                 PhotonUi::colorU32(selected ? palette.text
                                             : PhotonUi::mixColor(palette.muted, palette.text, focus)),

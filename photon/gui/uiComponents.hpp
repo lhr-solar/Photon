@@ -22,7 +22,13 @@ Palette palette();
 ImVec4 withAlpha(ImVec4 color, float alpha);
 ImVec4 mixColor(ImVec4 a, ImVec4 b, float t);
 ImU32 colorU32(ImVec4 color);
+ImFont* iconFont();
 const char* tabIcon(std::string_view name);
+ImVec2 calcIconSize(const char* icon, float size);
+void drawIcon(ImDrawList* draw, const char* icon, ImVec2 pos, float size, ImU32 color,
+              float yOffset = 0.0f);
+void drawIconCentered(ImDrawList* draw, const char* icon, ImVec2 min, ImVec2 max, float size,
+                      ImU32 color, float yOffset = 0.0f);
 
 bool beginModal(const char* title, ImVec2 size);
 void endModal(bool open);

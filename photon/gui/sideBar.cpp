@@ -128,9 +128,7 @@ void drawSidebarHeader(float width, const SidebarPalette& palette, std::string_v
   draw->AddRectFilled(logoMin, logoMax, colorU32(withAlpha(palette.active, 0.86f)), 8.0f);
   draw->AddRect(logoMin, logoMax, colorU32(withAlpha(palette.accent, 0.65f)), 8.0f);
   const char* mark = PhotonUi::tabIcon(activePage);
-  const ImVec2 markSize = ImGui::CalcTextSize(mark);
-  draw->AddText({logoMin.x + (logo - markSize.x) * 0.5f, logoMin.y + (logo - markSize.y) * 0.5f},
-                colorU32(palette.text), mark);
+  PhotonUi::drawIconCentered(draw, mark, logoMin, logoMax, 19.0f, colorU32(palette.text), 1.0f);
 
   const float textX = logoMax.x + 12.0f;
   draw->PushClipRect({textX, pos.y}, {pos.x + width, pos.y + height - 1.0f}, true);
@@ -181,10 +179,9 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
 
   const char* icon = PhotonUi::tabIcon(tab.name);
-  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
-  draw->AddText(
-      {iconMin.x + (iconBox - iconSize.x) * 0.5f, iconMin.y + (iconBox - iconSize.y) * 0.5f},
-      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), icon);
+  PhotonUi::drawIconCentered(
+      draw, icon, iconMin, iconMax, 17.0f,
+      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), 1.0f);
 
   const ImVec4 labelColor = selected ? palette.text : mixColor(palette.muted, palette.text, focus);
   draw->PushClipRect({iconMax.x + 12.0f, bgMin.y}, {bgMax.x - 26.0f, bgMax.y}, true);
@@ -194,10 +191,10 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   draw->PopClipRect();
 
   if (hovered || selected) {
-    const ImVec2 chevronSize = ImGui::CalcTextSize("\uE5CC");
-    draw->AddText(
-        {bgMax.x - chevronSize.x - 10.0f, bgMin.y + (bgMax.y - bgMin.y - chevronSize.y) * 0.5f},
-        colorU32(withAlpha(palette.text, selected ? 0.70f : 0.34f)), "\uE5CC");
+    const ImVec2 chevronMin(bgMax.x - 26.0f, bgMin.y);
+    PhotonUi::drawIconCentered(draw, "\uea61", chevronMin, {bgMax.x - 8.0f, bgMax.y}, 15.0f,
+                               colorU32(withAlpha(palette.text, selected ? 0.70f : 0.34f)),
+                               1.0f);
   }
 
   PhotonUi::tooltip(tab.name);
@@ -228,12 +225,10 @@ bool drawActionIcon(const char* id, const char* icon, std::string_view tooltip, 
                                                 0.22f + focus * 0.28f)
                                      : palette.border;
   draw->AddRect(min, max, colorU32(withAlpha(border, 0.42f + focus * 0.24f)), 8.0f);
-  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
   const ImVec4 iconColor =
       notification ? mixColor(palette.text, ImVec4(0.70f, 0.68f, 1.0f, 1.0f), 0.24f + focus * 0.22f)
                    : mixColor(palette.muted, palette.text, 0.35f + focus * 0.65f);
-  draw->AddText({min.x + (size.x - iconSize.x) * 0.5f, min.y + (size.y - iconSize.y) * 0.5f},
-                colorU32(iconColor), icon);
+  PhotonUi::drawIconCentered(draw, icon, min, max, 17.0f, colorU32(iconColor), 1.0f);
   PhotonUi::tooltip(tooltip);
   ImGui::PopID();
   return clicked;
@@ -260,10 +255,8 @@ bool drawDBCButton(std::string_view current, std::string_view status, float widt
   draw->AddText({min.x + 30.0f, min.y + 30.0f}, colorU32(palette.muted), current.data(),
                 current.data() + current.size());
   draw->PopClipRect();
-  const char* icon = "\uE313";
-  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
-  draw->AddText({max.x - iconSize.x - 12.0f, min.y + (height - iconSize.y) * 0.5f},
-                colorU32(palette.muted), icon);
+  PhotonUi::drawIconCentered(draw, "\uea5f", {max.x - 30.0f, min.y}, {max.x - 10.0f, max.y},
+                             15.0f, colorU32(palette.muted), 1.0f);
   PhotonUi::tooltip(status);
   return clicked;
 }
@@ -292,11 +285,10 @@ bool drawDBCOption(const char* label, bool selected, float width, const SidebarP
     draw->AddRectFilled(bgMin, bgMax,
                         colorU32(withAlpha(mixColor(palette.raised, palette.active, focus), 0.88f)),
                         7.0f);
-  const char* icon = selected ? "\uE5CA" : "\uE061";
-  const ImVec2 iconSize = ImGui::CalcTextSize(icon);
-  draw->AddText({bgMin.x + 10.0f, bgMin.y + (bgMax.y - bgMin.y - iconSize.y) * 0.5f},
-                colorU32(selected ? palette.accent : mixColor(palette.muted, palette.text, focus)),
-                icon);
+  const char* icon = selected ? "\uea5e" : "\uea6b";
+  PhotonUi::drawIconCentered(
+      draw, icon, {bgMin.x + 6.0f, bgMin.y}, {bgMin.x + 30.0f, bgMax.y}, 16.0f,
+      colorU32(selected ? palette.accent : mixColor(palette.muted, palette.text, focus)), 1.0f);
   draw->PushClipRect({bgMin.x + 38.0f, bgMin.y}, {bgMax.x - 8.0f, bgMax.y}, true);
   draw->AddText(
       {bgMin.x + 38.0f, bgMin.y + (bgMax.y - bgMin.y - ImGui::GetTextLineHeight()) * 0.5f},
@@ -343,8 +335,8 @@ bool drawPopupAction(const char* id, const char* icon, std::string_view label, b
   if (uploadIcon) {
     drawUploadIcon(draw, min, height, colorU32(text));
   } else {
-    const ImVec2 iconSize = ImGui::CalcTextSize(icon);
-    draw->AddText({min.x + 12.0f, min.y + (height - iconSize.y) * 0.5f}, colorU32(text), icon);
+    PhotonUi::drawIconCentered(draw, icon, {min.x + 8.0f, min.y}, {min.x + 32.0f, max.y}, 17.0f,
+                               colorU32(text), 1.0f);
   }
   draw->PushClipRect({min.x + 38.0f, min.y}, {max.x - 10.0f, max.y}, true);
   draw->AddText({min.x + 38.0f, min.y + (height - ImGui::GetTextLineHeight()) * 0.5f},
@@ -524,7 +516,7 @@ void Sidebar::drawDBCSelector(GUI& gui) {
 
     drawDBCError(status, popupWidth, palette);
 
-    if (drawPopupAction("Close", "\uE5CD", "Close", false, popupWidth, palette))
+    if (drawPopupAction("Close", "\ueb55", "Close", false, popupWidth, palette))
       ImGui::CloseCurrentPopup();
     if (closeDBCModal) ImGui::CloseCurrentPopup();
 
@@ -588,20 +580,20 @@ void Sidebar::draw(GUI& gui) {
       ImGui::SetCursorPos(pos);
       drawDBCSelector(gui);
       ImGui::SetCursorPosY(ImGui::GetCursorPosY() + spacingY * 0.25f);
-      if (drawActionIcon("Theme", "\uE518", "Theme", {buttonW, buttonH}, palette))
+      if (drawActionIcon("Theme", "\ueb01", "Theme", {buttonW, buttonH}, palette))
         ImGui::OpenPopup("Theme");
       ImGui::SameLine();
-      if (drawActionIcon("Settings", "\uE8B8", "Settings", {buttonW, buttonH}, palette))
+      if (drawActionIcon("Settings", "\ueb20", "Settings", {buttonW, buttonH}, palette))
         ImGui::OpenPopup("Settings");
       ImGui::SameLine();
 
       const ImVec2 buttonMin = ImGui::GetCursorScreenPos();
       const ImVec2 buttonMax(buttonMin.x + buttonW, buttonMin.y + buttonH);
       gui.drawButtonShaderOverlay(buttonMin, buttonMax);
-      if (drawActionIcon("Update", "\uE8D7", "Update", {buttonW, buttonH}, palette, false))
+      if (drawActionIcon("Update", "\ueb13", "Update", {buttonW, buttonH}, palette, false))
         ImGui::OpenPopup("Update");
       ImGui::SameLine();
-      if (drawActionIcon("Export", "\uE89E", "Export", {buttonW, buttonH}, palette))
+      if (drawActionIcon("Export", "\uede9", "Export", {buttonW, buttonH}, palette))
         ImGui::OpenPopup("Export");
       gui.settings.colorUI();
       gui.settingsUI();
