@@ -11,12 +11,16 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(NOT DEFINED CMAKE_C_COMPILER)
-    find_program(CMAKE_C_COMPILER clang REQUIRED)
-endif()
+# When a toolchain file is in play (Yocto/cross builds) the compiler is set
+# there and only becomes visible at project(), so don't probe for clang.
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    if(NOT DEFINED CMAKE_C_COMPILER)
+        find_program(CMAKE_C_COMPILER clang REQUIRED)
+    endif()
 
-if(NOT DEFINED CMAKE_CXX_COMPILER)
-    find_program(CMAKE_CXX_COMPILER clang++ REQUIRED)
+    if(NOT DEFINED CMAKE_CXX_COMPILER)
+        find_program(CMAKE_CXX_COMPILER clang++ REQUIRED)
+    endif()
 endif()
 
 if(WIN32)
@@ -27,7 +31,10 @@ project(Photon VERSION 1.0 LANGUAGES C CXX)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/find")
 
-if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+# Cross builds (Yocto) use whatever the toolchain file provides (GCC on
+# scarthgap); the clang requirement only applies to native developer builds.
+if(NOT CMAKE_CROSSCOMPILING AND
+   (NOT CMAKE_C_COMPILER_ID MATCHES "Clang" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
     if(WIN32)
         message(FATAL_ERROR
             "Photon requires clang.\n"
@@ -50,30 +57,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 
-find_program(CLANG_FORMAT_EXE NAMES clang-format REQUIRED)
+find_program(CLANG_FORMAT_EXE NAMES clang-format)
 
-file(GLOB_RECURSE PHOTON_FORMAT_FILES
-    "${CMAKE_SOURCE_DIR}/photon/*.c"
-    "${CMAKE_SOURCE_DIR}/photon/*.cc"
-    "${CMAKE_SOURCE_DIR}/photon/*.cpp"
-    "${CMAKE_SOURCE_DIR}/photon/*.cxx"
-    "${CMAKE_SOURCE_DIR}/photon/*.h"
-    "${CMAKE_SOURCE_DIR}/photon/*.hpp"
-)
+if(CLANG_FORMAT_EXE)
+    file(GLOB_RECURSE PHOTON_FORMAT_FILES
+        "${CMAKE_SOURCE_DIR}/photon/*.c"
+        "${CMAKE_SOURCE_DIR}/photon/*.cc"
+        "${CMAKE_SOURCE_DIR}/photon/*.cpp"
+        "${CMAKE_SOURCE_DIR}/photon/*.cxx"
+        "${CMAKE_SOURCE_DIR}/photon/*.h"
+        "${CMAKE_SOURCE_DIR}/photon/*.hpp"
+    )
 
-add_custom_target(format
-    COMMAND "${CLANG_FORMAT_EXE}" -i ${PHOTON_FORMAT_FILES}
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    COMMENT "Formatting Photon source files"
-    VERBATIM
-)
+    add_custom_target(format
+        COMMAND "${CLANG_FORMAT_EXE}" -i ${PHOTON_FORMAT_FILES}
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        COMMENT "Formatting Photon source files"
+        VERBATIM
+    )
 
-add_custom_target(format-check
-    COMMAND "${CLANG_FORMAT_EXE}" --dry-run --Werror ${PHOTON_FORMAT_FILES}
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    COMMENT "Checking Photon source formatting"
-    VERBATIM
-)
+    add_custom_target(format-check
+        COMMAND "${CLANG_FORMAT_EXE}" --dry-run --Werror ${PHOTON_FORMAT_FILES}
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        COMMENT "Checking Photon source formatting"
+        VERBATIM
+    )
+endif()
 
 include(ProcessorCount)
 ProcessorCount(PHOTON_BUILD_JOBS)
