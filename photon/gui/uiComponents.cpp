@@ -25,6 +25,7 @@ Palette palette() {
   const ImVec4 text = style.Colors[ImGuiCol_Text];
   const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
   const ImVec4 button = style.Colors[ImGuiCol_Button];
+  const ImVec4 hover = style.Colors[ImGuiCol_ButtonHovered];
   const ImVec4 accent = style.Colors[ImGuiCol_NavHighlight];
   return Palette{
       .text = text,
@@ -32,6 +33,7 @@ Palette palette() {
       .bg = bg,
       .panel = mixColor(bg, button, 0.30f),
       .raised = mixColor(bg, button, 0.62f),
+      .hover = mixColor(button, hover, 0.68f),
       .active = mixColor(button, accent, 0.38f),
       .accent = accent,
       .border = mixColor(button, text, 0.20f),
@@ -109,6 +111,13 @@ bool button(const char* id, std::string_view text, ImVec2 size, const Palette& p
       text.data() + text.size());
   ImGui::PopID();
   return clicked;
+}
+
+void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->PushClipRect(min, {min.x + width, max.y}, true);
+  ImGui::RenderFrame(min, max, color, false, rounding);
+  draw->PopClipRect();
 }
 
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,

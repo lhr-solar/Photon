@@ -6,20 +6,12 @@
 #include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "uiComponents.hpp"
 
 namespace {
-ImVec4 withAlpha(ImVec4 color, float alpha) {
-  color.w = alpha;
-  return color;
-}
-
-ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
-                a.w + (b.w - a.w) * t);
-}
-
-ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
+using PhotonUi::colorU32;
+using PhotonUi::mixColor;
+using PhotonUi::withAlpha;
 
 struct TitleButtonResult {
   bool clicked = false;

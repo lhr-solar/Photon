@@ -17,6 +17,7 @@
 #include "imgui_internal.h"
 #include "tabs.hpp"
 #include "titlebar.hpp"
+#include "uiComponents.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -26,18 +27,10 @@ constexpr SDL_DialogFileFilter kDBCFileFilters[] = {
     {"All files", "*"},
 };
 
-ImVec4 withAlpha(ImVec4 color, float alpha) {
-  color.w = alpha;
-  return color;
-}
-
-ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
-                a.w + (b.w - a.w) * t);
-}
-
-ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
+using SidebarPalette = PhotonUi::Palette;
+using PhotonUi::colorU32;
+using PhotonUi::mixColor;
+using PhotonUi::withAlpha;
 
 float smoothstep(float edge0, float edge1, float x) {
   const float t = std::clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
@@ -90,13 +83,6 @@ void drawNotificationField(ImDrawList* draw, ImVec2 min, ImVec2 max, float focus
   }
 }
 
-void renderLeftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {
-  ImDrawList* draw = ImGui::GetWindowDrawList();
-  draw->PushClipRect(min, {min.x + width, max.y}, true);
-  ImGui::RenderFrame(min, max, color, false, rounding);
-  draw->PopClipRect();
-}
-
 int hexValue(char c) {
   if (c >= '0' && c <= '9') return c - '0';
   if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -145,37 +131,7 @@ const char* tabIcon(std::string_view name) {
   return "\uE5C3";
 }
 
-struct SidebarPalette {
-  ImVec4 text;
-  ImVec4 muted;
-  ImVec4 bg;
-  ImVec4 panel;
-  ImVec4 raised;
-  ImVec4 hover;
-  ImVec4 active;
-  ImVec4 accent;
-  ImVec4 border;
-};
-
-SidebarPalette sidebarPalette() {
-  const ImGuiStyle& style = ImGui::GetStyle();
-  const ImVec4 text = style.Colors[ImGuiCol_Text];
-  const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
-  const ImVec4 button = style.Colors[ImGuiCol_Button];
-  const ImVec4 hover = style.Colors[ImGuiCol_ButtonHovered];
-  const ImVec4 accent = style.Colors[ImGuiCol_NavHighlight];
-  return SidebarPalette{
-      .text = text,
-      .muted = mixColor(text, bg, 0.48f),
-      .bg = bg,
-      .panel = mixColor(bg, button, 0.28f),
-      .raised = mixColor(bg, button, 0.62f),
-      .hover = mixColor(button, hover, 0.68f),
-      .active = mixColor(button, accent, 0.38f),
-      .accent = accent,
-      .border = mixColor(button, text, 0.20f),
-  };
-}
+SidebarPalette sidebarPalette() { return PhotonUi::palette(); }
 
 void drawSidebarHeader(float width, const SidebarPalette& palette, std::string_view activePage) {
   ImDrawList* draw = ImGui::GetWindowDrawList();
@@ -231,8 +187,9 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   if (focus > 0.01f)
     ImGui::RenderFrame(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), false, rounding);
   if (selected)
-    renderLeftAccentFrame(bgMin, bgMax, colorU32(withAlpha(palette.accent, 0.78f + focus * 0.22f)),
-                          rounding, 5.0f);
+    PhotonUi::leftAccentFrame(bgMin, bgMax,
+                              colorU32(withAlpha(palette.accent, 0.78f + focus * 0.22f)),
+                              rounding, 5.0f);
 
   const float iconBox = 28.0f;
   const ImVec2 iconMin(bgMin.x + 10.0f, bgMin.y + (bgMax.y - bgMin.y - iconBox) * 0.5f);

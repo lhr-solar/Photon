@@ -8,55 +8,12 @@
 #include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "uiComponents.hpp"
 
-inline ImVec4 withAlpha(ImVec4 color, float alpha) {
-  color.w = alpha;
-  return color;
-}
-
-inline ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
-                a.w + (b.w - a.w) * t);
-}
-
-inline ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
-
-void renderLeftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {
-  ImDrawList* draw = ImGui::GetWindowDrawList();
-  draw->PushClipRect(min, {min.x + width, max.y}, true);
-  ImGui::RenderFrame(min, max, color, false, rounding);
-  draw->PopClipRect();
-}
-
-struct ArenaPalette {
-  ImVec4 text;
-  ImVec4 muted;
-  ImVec4 bg;
-  ImVec4 panel;
-  ImVec4 raised;
-  ImVec4 active;
-  ImVec4 accent;
-  ImVec4 border;
-};
-
-ArenaPalette arenaPalette() {
-  const ImGuiStyle& style = ImGui::GetStyle();
-  const ImVec4 text = style.Colors[ImGuiCol_Text];
-  const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
-  const ImVec4 button = style.Colors[ImGuiCol_Button];
-  const ImVec4 accent = style.Colors[ImGuiCol_NavHighlight];
-  return ArenaPalette{
-      .text = text,
-      .muted = mixColor(text, bg, 0.48f),
-      .bg = bg,
-      .panel = mixColor(bg, button, 0.24f),
-      .raised = mixColor(bg, button, 0.58f),
-      .active = mixColor(button, accent, 0.34f),
-      .accent = accent,
-      .border = mixColor(button, text, 0.18f),
-  };
-}
+using ArenaPalette = PhotonUi::Palette;
+using PhotonUi::colorU32;
+using PhotonUi::mixColor;
+using PhotonUi::withAlpha;
 
 inline void formatBytes(char* out, size_t outSize, uint64_t bytes) {
   static constexpr std::array<const char*, 6> units{"B", "KB", "MB", "GB", "TB", "PB"};
@@ -291,12 +248,6 @@ bool messageMatchesQuery(const Message& msg, const char* query, size_t queryLen)
   return false;
 }
 
-void drawArenaLabel(const char* label, const ArenaPalette& palette) {
-  const ImVec2 pos = ImGui::GetCursorScreenPos();
-  ImGui::GetWindowDrawList()->AddText(pos, colorU32(palette.muted), label);
-  ImGui::Dummy(ImGui::CalcTextSize(label));
-}
-
 void drawLivePanel(const char* id, const char* label, const char* value, const char* detail,
                    ImVec2 size, const ArenaPalette& palette, const UiRing* sparkline = nullptr,
                    float fraction = -1.0f) {
@@ -436,8 +387,9 @@ bool drawMessageRow(const Message& msg, const MessageUiStats& stats, bool expand
   const ImVec4 fill = mixColor(palette.panel, palette.active, focus * 0.62f);
   constexpr float rounding = 8.0f;
   ImGui::RenderFrame(min, max, colorU32(withAlpha(fill, 0.82f)), false, rounding);
-  renderLeftAccentFrame(min, max, colorU32(withAlpha(palette.accent, 0.38f + focus * 0.42f)),
-                        rounding, 5.0f);
+  PhotonUi::leftAccentFrame(min, max,
+                            colorU32(withAlpha(palette.accent, 0.38f + focus * 0.42f)), rounding,
+                            5.0f);
   draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.36f + focus * 0.24f)), rounding);
 
   char idText[32];
@@ -493,7 +445,7 @@ void Arena::statusUI(int flags) {
     constexpr double bandwidthAverageWindowSeconds = 3.0;
     const double smoothedNetDataRate =
         netDataRateHistory.average(now, bandwidthAverageWindowSeconds);
-    const ArenaPalette palette = arenaPalette();
+    const ArenaPalette palette = PhotonUi::palette();
     const ImGuiStyle& style = ImGui::GetStyle();
     const float contentWidth = ImGui::GetContentRegionAvail().x;
     const size_t capacityBytes = bytesPerBuffer * totalBuffers;
@@ -507,7 +459,7 @@ void Arena::statusUI(int flags) {
                     totalBuffers, totalTimeBuffers, totalSignals, validIds.size());
 
     ImGui::Spacing();
-    drawArenaLabel("Messages", palette);
+    PhotonUi::label("Messages", palette);
     static char query[128]{};
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 9.0f));

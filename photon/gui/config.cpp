@@ -14,91 +14,23 @@
 #include "imnodes.h"
 #include "implot.h"
 #include "implot3d.h"
+#include "uiComponents.hpp"
 
 namespace {
-ImVec4 withAlpha(ImVec4 color, float alpha) {
-  color.w = alpha;
-  return color;
-}
+using ThemePalette = PhotonUi::Palette;
+using PhotonUi::colorU32;
+using PhotonUi::mixColor;
+using PhotonUi::withAlpha;
 
-ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
-                a.w + (b.w - a.w) * t);
-}
-
-ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
-
-struct ThemePalette {
-  ImVec4 text;
-  ImVec4 muted;
-  ImVec4 bg;
-  ImVec4 panel;
-  ImVec4 raised;
-  ImVec4 active;
-  ImVec4 accent;
-  ImVec4 border;
-};
-
-ThemePalette themePalette() {
-  const ImGuiStyle& style = ImGui::GetStyle();
-  const ImVec4 text = style.Colors[ImGuiCol_Text];
-  const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
-  const ImVec4 button = style.Colors[ImGuiCol_Button];
-  const ImVec4 accent = style.Colors[ImGuiCol_NavHighlight];
-  return ThemePalette{
-      .text = text,
-      .muted = mixColor(text, bg, 0.48f),
-      .bg = bg,
-      .panel = mixColor(bg, button, 0.30f),
-      .raised = mixColor(bg, button, 0.62f),
-      .active = mixColor(button, accent, 0.38f),
-      .accent = accent,
-      .border = mixColor(button, text, 0.20f),
-  };
-}
+ThemePalette themePalette() { return PhotonUi::palette(); }
 
 void drawThemeLabel(std::string_view label, const ThemePalette& palette) {
-  const ImVec2 pos = ImGui::GetCursorScreenPos();
-  ImGui::GetWindowDrawList()->AddText(pos, colorU32(palette.muted), label.data(),
-                                      label.data() + label.size());
-  ImGui::Dummy(ImGui::CalcTextSize(label.data(), label.data() + label.size()));
+  PhotonUi::label(label, palette);
 }
 
 bool drawThemeButton(const char* id, std::string_view label, ImVec2 size,
                      const ThemePalette& palette, bool selected = false) {
-  ImGui::PushID(id);
-  ImGui::InvisibleButton("button", size);
-  const bool clicked = ImGui::IsItemClicked();
-  const bool hovered = ImGui::IsItemHovered();
-  const bool active = ImGui::IsItemActive();
-  const ImGuiID itemId = ImGui::GetItemID();
-  const float focus =
-      iam_tween_float(itemId, ImHashStr("focus"),
-                      selected  ? 1.0f
-                      : active  ? 0.88f
-                      : hovered ? 0.58f
-                                : 0.0f,
-                      0.14f, iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                      ImGui::GetIO().DeltaTime, selected ? 1.0f : 0.0f);
-  const float press = iam_tween_float(itemId, ImHashStr("press"), active ? 1.0f : 0.0f, 0.08f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                                      ImGui::GetIO().DeltaTime);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
-  ImDrawList* draw = ImGui::GetWindowDrawList();
-  draw->AddRectFilled({min.x + press, min.y + press}, {max.x - press, max.y + press},
-                      colorU32(withAlpha(mixColor(palette.raised, palette.active, focus), 0.88f)),
-                      8.0f);
-  draw->AddRect({min.x + press, min.y + press}, {max.x - press, max.y + press},
-                colorU32(withAlpha(palette.border, 0.38f + focus * 0.28f)), 8.0f);
-  const ImVec2 textSize = ImGui::CalcTextSize(label.data(), label.data() + label.size());
-  draw->AddText(
-      {min.x + (size.x - textSize.x) * 0.5f, min.y + (size.y - textSize.y) * 0.5f + press},
-      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)),
-      label.data(), label.data() + label.size());
-  ImGui::PopID();
-  return clicked;
+  return PhotonUi::button(id, label, size, palette, selected);
 }
 
 bool drawThemeStepper(const char* id, float& value, float step, float minValue,

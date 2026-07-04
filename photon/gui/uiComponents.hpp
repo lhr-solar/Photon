@@ -12,6 +12,7 @@ struct Palette {
   ImVec4 bg;
   ImVec4 panel;
   ImVec4 raised;
+  ImVec4 hover;
   ImVec4 active;
   ImVec4 accent;
   ImVec4 border;
@@ -27,6 +28,7 @@ void endModal(bool open);
 void label(std::string_view text, const Palette& palette);
 bool button(const char* id, std::string_view text, ImVec2 size, const Palette& palette,
             bool selected = false);
+void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width);
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
                const Palette& palette);
 
