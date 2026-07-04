@@ -99,6 +99,7 @@ endif()
 if(WIN32)
     add_link_options(-lurlmon)
     add_link_options(-lOle32)
+    add_link_options(-lShell32)
 endif()
 
 include_directories(
