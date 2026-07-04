@@ -104,6 +104,8 @@ void GUI::updateUI() {
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::label("Update", palette);
+    if(PhotonUi::button("Download", "Download Update", {96.0f, 34.0f}, palette)){
+    }
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
     if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette))
