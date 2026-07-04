@@ -179,7 +179,9 @@ VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
 
 void GUI::shaderTest(ImGuiWindowFlags flags) {
   testShader.showing = false;
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, {});
+  flags |= ImGuiWindowFlags_NoBackground;
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   if (ImGui::Begin("shader test", nullptr, flags)) {
     const bool ready = testShader.initialized.load() && !testShader.frames.empty() &&
                        testShader.frameIndex != nullptr;
@@ -197,7 +199,10 @@ void GUI::shaderTest(ImGuiWindowFlags flags) {
       drawSize.y = std::max(drawSize.y, 1.0f);
       if (ImGui::IsRectVisible(drawSize)) {
         testShader.showing = true;
-        ImGui::Image(frame.texture, drawSize);
+        const ImVec2 imageMin = ImGui::GetCursorScreenPos();
+        const ImVec2 imageMax(imageMin.x + drawSize.x, imageMin.y + drawSize.y);
+        ImGui::GetWindowDrawList()->AddImage(frame.texture, imageMin, imageMax);
+        ImGui::Dummy(drawSize);
       } else {
         ImGui::Dummy(drawSize);
       };
@@ -205,6 +210,7 @@ void GUI::shaderTest(ImGuiWindowFlags flags) {
       ImGui::Text("loading shader");
   }
   ImGui::End();
+  ImGui::PopStyleVar();
   ImGui::PopStyleColor();
 };
 
