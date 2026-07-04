@@ -116,34 +116,17 @@ void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAct
 void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::string_view page,
                                 float alpha) {
   if (alpha <= 0.01f || max.x <= min.x) return;
-
   const PhotonUi::Palette palette = PhotonUi::palette();
-  const ImVec4 text = withAlpha(palette.text, palette.text.w * alpha);
   const ImVec4 muted = withAlpha(palette.muted, palette.muted.w * alpha);
-  constexpr float iconBox = 28.0f;
-  constexpr float iconFontSize = 16.0f;
   constexpr float labelFontSize = 14.0f;
   ImFont* font = ImGui::GetFont();
-  const ImVec2 iconMin(min.x + 10.0f, min.y + (max.y - min.y - iconBox) * 0.5f);
-  const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
-
   const char* icon = PhotonUi::tabIcon(page);
-  const ImVec2 iconTextSize = font->CalcTextSizeA(iconFontSize, FLT_MAX, 0.0f, icon);
-  constexpr float iconBaselineAdjustY = 1.5f;
-  draw->AddText(font, iconFontSize,
-                {iconMin.x + (iconBox - iconTextSize.x) * 0.5f,
-                 iconMin.y + (iconBox - iconTextSize.y) * 0.5f + iconBaselineAdjustY},
-                colorU32(text), icon);
-
-  const float textX = iconMax.x + 12.0f;
-  if (textX >= max.x) return;
-
-  draw->PushClipRect({textX, min.y}, max, true);
+  std::string s = icon;
+  s = s + " " + page.data();
   const ImVec2 pageSize =
       font->CalcTextSizeA(labelFontSize, FLT_MAX, 0.0f, page.data(), page.data() + page.size());
-  draw->AddText(font, labelFontSize, {textX, min.y + (max.y - min.y - pageSize.y) * 0.5f},
-                colorU32(muted), page.data(), page.data() + page.size());
-  draw->PopClipRect();
+  draw->AddText(font, labelFontSize, {min.x, min.y + (max.y - min.y - pageSize.y) * 0.5f},
+                colorU32(muted), s.data(), s.data() + s.size());
 }
 }  // namespace
 
