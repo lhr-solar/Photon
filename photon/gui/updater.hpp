@@ -9,14 +9,11 @@ struct Updater {
     std::atomic<int> installerDownloadPercentage{-1};
     std::atomic<bool> running{false};
 
-    std::filesystem::path installerPath =
-        L"C:\\Users\\romer\\Documents\\code\\updater\\a.exe";
+    std::filesystem::path installerPath{};
+    std::string installerURL = 
+        "https://github.com/lhr-solar/Photon/releases/download/windowsUpdater/photonUpdater.exe";
 
-    std::string installerURL{};
-
-    std::filesystem::path photonPath =
-        L"C:\\Users\\romer\\Downloads\\photon.exe";
-
+    std::filesystem::path photonPath{};
     std::string photonURL =
         "https://github.com/lhr-solar/Photon/releases/download/Win_Pre-Release/Photon.exe";
 

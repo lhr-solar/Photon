@@ -55,58 +55,49 @@ void Updater::launchUpdater() {
     std::thread(&Updater::beginUpdate, this).detach();
 }
 
+std::filesystem::path getPhotonDownloadPath() {
+    char* local = std::getenv("LOCALAPPDATA");
+    std::filesystem::path dir = std::filesystem::path(local) / "Photon";
+    std::filesystem::create_directories(dir);
+    return dir / "photon.exe";
+}
+
+std::filesystem::path getInstallerDownloadPath() {
+    char* local = std::getenv("LOCALAPPDATA");
+    std::filesystem::path dir = std::filesystem::path(local) / "Photon";
+    std::filesystem::create_directories(dir);
+    return dir / "photonUpdater.exe";
+}
+
 void Updater::getOurInfo() {
     ourPid = GetCurrentProcessId();
     wchar_t buffer[MAX_PATH]{};
     GetModuleFileNameW(nullptr, buffer, MAX_PATH);
     ourPath = buffer;
+    photonPath = getPhotonDownloadPath();
+    installerPath = getInstallerDownloadPath();
 }
 
 void Updater::beginUpdate() {
-    // downloadInstaller(); // skip while using built installer exe
-    if(!downloadNewPhoton()){
-        running = false;
-        return;
-    }
+    downloadInstaller();
+    downloadNewPhoton();
     launchInstaller();
     running = false;
 }
 
 bool Updater::downloadInstaller() {
     DownloadProgress progress(installerDownloadPercentage);
-
     std::string path = installerPath.string();
-
-    HRESULT hr = URLDownloadToFileA(
-        nullptr,
-        installerURL.c_str(),
-        path.c_str(),
-        0,
-        &progress
-    );
-
+    HRESULT hr = URLDownloadToFileA( nullptr, installerURL.c_str(), path.c_str(), 0, &progress );
     if (hr == S_OK) return true;
-
-    std::cout << "Installer download failed: 0x" << std::hex << hr << "\n";
     return false;
 }
 
 bool Updater::downloadNewPhoton() {
     DownloadProgress progress(photonDownloadPercentage);
-
     std::string path = photonPath.string();
-
-    HRESULT hr = URLDownloadToFileA(
-        nullptr,
-        photonURL.c_str(),
-        path.c_str(),
-        0,
-        &progress
-    );
-
+    HRESULT hr = URLDownloadToFileA( nullptr, photonURL.c_str(), path.c_str(), 0, &progress );
     if (hr == S_OK) return true;
-
-    std::cout << "Photon download failed: 0x" << std::hex << hr << "\n";
     return false;
 }
 
@@ -122,23 +113,10 @@ void Updater::launchInstaller() {
         std::to_wstring(ourPid) + L" " +
         quote(ourPath);
 
-    BOOL ok = CreateProcessW(
-        exe.c_str(),
-        cmd.data(),
-        nullptr,
-        nullptr,
-        FALSE,
-        CREATE_NEW_CONSOLE,
-        nullptr,
-        nullptr,
-        &si,
-        &pi
-    );
+    BOOL ok = CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr,
+        nullptr, &si, &pi );
 
-    if (!ok) {
-        std::cout << "CreateProcessW failed: " << GetLastError() << "\n";
-        return;
-    }
+    if (!ok) return;
 
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
