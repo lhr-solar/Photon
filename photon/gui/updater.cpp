@@ -1,5 +1,7 @@
 #include "updater.hpp"
 
+#ifdef _WIN32
+
 #include <windows.h>
 #include <urlmon.h>
 
@@ -143,3 +145,14 @@ void Updater::launchInstaller() {
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
 }
+
+#else  // self-update is Windows-only; no-op elsewhere
+
+void Updater::launchUpdater() {}
+void Updater::getOurInfo() {}
+void Updater::beginUpdate() {}
+bool Updater::downloadInstaller() { return false; }
+bool Updater::downloadNewPhoton() { return false; }
+void Updater::launchInstaller() {}
+
+#endif

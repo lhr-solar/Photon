@@ -2,7 +2,9 @@
 #include <atomic>
 #include <filesystem>
 #include <string>
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 struct Updater {
     std::atomic<int> photonDownloadPercentage{-1};
@@ -20,8 +22,10 @@ struct Updater {
     std::string photonURL =
         "https://github.com/lhr-solar/Photon/releases/download/Win_Pre-Release/Photon.exe";
 
+#ifdef _WIN32
     DWORD ourPid{};
     std::wstring ourPath{};
+#endif
 
     std::string version = "00.00.01";
 
