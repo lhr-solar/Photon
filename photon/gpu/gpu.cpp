@@ -950,7 +950,9 @@ void GPU::imguiBackend(TitleBar* titleBar) {
   };
   ImFontConfig tablerFontConfig;
   tablerFontConfig.FontDataOwnedByAtlas = false;
-  tablerFontConfig.PixelSnapH = true;
+  tablerFontConfig.PixelSnapH = false;
+  tablerFontConfig.OversampleH = 2;
+  tablerFontConfig.OversampleV = 2;
   io.Fonts->AddFontFromMemoryTTF((void*)TablerIcons_ttf, static_cast<int>(TablerIcons_ttf_size),
                                  static_cast<float>(28.0f), &tablerFontConfig, tablerIconRanges);
   VkSamplerCreateInfo samplerCreateInfo{};

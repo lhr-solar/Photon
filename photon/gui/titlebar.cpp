@@ -66,51 +66,27 @@ TitleButtonResult titleButton(const char* id, ImVec2 size, bool selected, ImVec4
 
 void drawSidebarToggleIcon(ImDrawList* draw, const TitleButtonResult& button, bool open,
                            ImVec4 textColor, ImVec4 accent) {
-  const float dt = ImGui::GetIO().DeltaTime;
-  const float openT = iam_tween_float(ImHashStr("TitleSidebarToggle"), ImHashStr("open"),
-                                      open ? 1.0f : 0.0f, 0.20f, iam_ease_preset(iam_ease_out_quad),
-                                      iam_policy_crossfade, dt, open ? 1.0f : 0.0f);
   const ImVec4 icon = mixColor(textColor, accent, 0.25f + button.focus * 0.45f);
-  const ImU32 iconColor = colorU32(icon);
-  const float pressY = button.press;
-  const float w = button.max.x - button.min.x;
-  const float h = button.max.y - button.min.y;
-  const float boxW = 17.0f;
-  const float boxH = 13.0f;
-  const ImVec2 boxMin(button.min.x + (w - boxW) * 0.5f, button.min.y + (h - boxH) * 0.5f + pressY);
-  const ImVec2 boxMax(boxMin.x + boxW, boxMin.y + boxH);
-  draw->AddRect(boxMin, boxMax, colorU32(withAlpha(icon, 0.78f)), 3.0f, 0, 1.35f);
-  const float paneInset = 2.25f;
-  const float paneW = 4.2f + openT * 1.6f;
-  draw->AddRectFilled({boxMin.x + paneInset, boxMin.y + paneInset},
-                      {boxMin.x + paneInset + paneW, boxMax.y - paneInset},
-                      colorU32(withAlpha(accent, 0.42f + openT * 0.22f)), 2.0f);
-  const float lineX = boxMin.x + 9.5f - openT * 1.3f;
-  draw->AddLine({lineX, boxMin.y + 4.4f}, {boxMax.x - 3.2f, boxMin.y + 4.4f}, iconColor, 1.25f);
-  draw->AddLine({lineX, boxMin.y + 8.0f}, {boxMax.x - 4.4f, boxMin.y + 8.0f}, iconColor, 1.25f);
+  PhotonUi::drawIconCentered(draw, open ? "\ueada" : "\ufd47", button.min, button.max, 17.0f,
+                             colorU32(icon), button.press + 1.0f);
 }
 
 void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAction action,
-                    ImVec4 textColor) {
+                    ImVec4 textColor, bool windowMaximized = false) {
   const ImU32 iconColor = colorU32(withAlpha(textColor, 0.78f + button.focus * 0.22f));
-  const float w = button.max.x - button.min.x;
-  const float h = button.max.y - button.min.y;
-  const float s = 10.0f;
-  const ImVec2 p(button.min.x + (w - s) * 0.5f, button.min.y + (h - s) * 0.5f + button.press);
+  const char* icon = "\ueaf2";
+  float iconSize = 15.0f;
   if (action == WindowAction::Minimize) {
-    draw->AddLine({p.x, p.y + s}, {p.x + s, p.y + s}, iconColor, 1.65f);
+    icon = "\ueaf2";
   } else if (action == WindowAction::ToggleMaximize) {
-    draw->AddRect({p.x + 1.0f, p.y + 1.0f}, {p.x + s - 1.0f, p.y + s - 1.0f}, iconColor, 0.0f, 0,
-                  1.45f);
+    icon = windowMaximized ? "\uf15f" : "\ueaea";
+    iconSize = 14.0f;
   } else if (action == WindowAction::Close) {
-    const float inset = 1.0f;
-    const float center = s * 0.5f;
-    const ImVec2 c(p.x + center, p.y + center);
-    draw->AddLine({p.x + inset, p.y + inset}, c, iconColor, 1.65f);
-    draw->AddLine(c, {p.x + s - inset, p.y + s - inset}, iconColor, 1.65f);
-    draw->AddLine({p.x + inset, p.y + s - inset}, c, iconColor, 1.65f);
-    draw->AddLine(c, {p.x + s - inset, p.y + inset}, iconColor, 1.65f);
+    icon = "\ueb55";
+    iconSize = 15.0f;
   }
+  PhotonUi::drawIconCentered(draw, icon, button.min, button.max, iconSize, iconColor,
+                             button.press + 1.0f);
 }
 
 void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::string_view page,
@@ -217,7 +193,8 @@ void TitleBar::draw() {
     TitleButtonResult maximizeButton =
         titleButton("maximize", ImVec2(buttonWidth, barHeight), false, accentColor);
     if (maximizeButton.clicked) pendingAction = WindowAction::ToggleMaximize;
-    drawWindowIcon(draw, maximizeButton, WindowAction::ToggleMaximize, textColor);
+    drawWindowIcon(draw, maximizeButton, WindowAction::ToggleMaximize, textColor,
+                   (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0);
     addInteract(maximizeButton.min, maximizeButton.max);
 
     ImGui::SameLine();
