@@ -13,7 +13,6 @@ struct Photon {
   Parse parse{};
   bool running = true;
   double deltaTime = 16.67 * 1000;
-  std::string version = "00.00.01";
   void init();
   void handleInput();
   void appLogic();
