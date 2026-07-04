@@ -31,7 +31,7 @@ const char* tabIcon(std::string_view name) {
   if (name.find("Plot") != std::string_view::npos) return "\uea5c";
   if (name.find("Arena") != std::string_view::npos) return "\uea88";
   if (name.find("Network") != std::string_view::npos) return "\uf09f";
-  if (name.find("Shader") != std::string_view::npos) return "\uea77";
+  if (name.find("WIP") != std::string_view::npos) return "\uea77";
   return "\ueada";
 }
 

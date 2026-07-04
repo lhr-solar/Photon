@@ -285,7 +285,7 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "Plots"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
-  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "Shader"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
 };
 
 void GUI::buildUI() {
