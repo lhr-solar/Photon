@@ -99,18 +99,128 @@ void GUI::settingsUI() {
   PhotonUi::endModal(open);
 };
 
+namespace {
+
+void drawUpdateProgress(const char* id, int percentage, bool running,
+                        const PhotonUi::Palette& palette) {
+  const float width = ImGui::GetContentRegionAvail().x;
+  const ImVec2 size(width, 64.0f);
+  ImGui::InvisibleButton(id, size);
+
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const float rounding = 8.0f;
+  const float progress = percentage < 0 ? 0.0f : std::clamp(percentage / 100.0f, 0.0f, 1.0f);
+  const float animatedProgress =
+      iam_tween_float(ImGui::GetItemID(), ImHashStr("update_progress"), progress, 0.18f,
+                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
+                      ImGui::GetIO().DeltaTime);
+
+  draw->AddRectFilled(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.panel, 0.72f)),
+                      rounding);
+  draw->AddRect(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.46f)),
+                rounding);
+
+  char status[64]{};
+  if (percentage < 0) {
+    std::snprintf(status, sizeof(status), running ? "Preparing download" : "Ready to download");
+  } else {
+    std::snprintf(status, sizeof(status), "%d%% downloaded", std::clamp(percentage, 0, 100));
+  }
+
+  draw->AddText({min.x + 14.0f, min.y + 10.0f}, PhotonUi::colorU32(palette.text), status);
+
+  const ImVec2 barMin(min.x + 14.0f, min.y + 38.0f);
+  const ImVec2 barMax(max.x - 14.0f, min.y + 48.0f);
+  draw->AddRectFilled(barMin, barMax, PhotonUi::colorU32(PhotonUi::withAlpha(palette.bg, 0.56f)),
+                      5.0f);
+
+  if (percentage >= 0) {
+    const ImVec2 fillMax(barMin.x + (barMax.x - barMin.x) * animatedProgress, barMax.y);
+    if (fillMax.x > barMin.x + 1.0f) {
+      draw->PushClipRect(barMin, barMax, true);
+      draw->AddRectFilledMultiColor(
+          barMin, fillMax, PhotonUi::colorU32(ImVec4(0.44f, 0.55f, 1.0f, 0.92f)),
+          PhotonUi::colorU32(ImVec4(0.88f, 0.35f, 0.90f, 0.96f)),
+          PhotonUi::colorU32(ImVec4(0.72f, 0.42f, 1.0f, 0.96f)),
+          PhotonUi::colorU32(ImVec4(0.36f, 0.74f, 1.0f, 0.92f)));
+      draw->PopClipRect();
+    }
+  } else if (running) {
+    const float t = static_cast<float>(ImGui::GetTime());
+    const float span = barMax.x - barMin.x;
+    const float sweep = span * 0.28f;
+    const float x = barMin.x + std::fmod(t * 150.0f, span + sweep) - sweep;
+    draw->PushClipRect(barMin, barMax, true);
+    draw->AddRectFilled({x, barMin.y}, {x + sweep, barMax.y},
+                        PhotonUi::colorU32(ImVec4(0.72f, 0.42f, 1.0f, 0.55f)), 5.0f);
+    draw->PopClipRect();
+  }
+}
+
+void drawUpdateMeta(const char* id, const char* label, const char* value, float width,
+                    const PhotonUi::Palette& palette) {
+  ImGui::PushID(id);
+  const ImVec2 size(width, 58.0f);
+  ImGui::InvisibleButton("meta", size);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->AddRectFilled(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.panel, 0.56f)),
+                      8.0f);
+  draw->AddRect(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.34f)), 8.0f);
+  draw->AddText({min.x + 12.0f, min.y + 10.0f}, PhotonUi::colorU32(palette.muted), label);
+  draw->PushClipRect({min.x + 12.0f, min.y + 31.0f}, {max.x - 12.0f, max.y - 8.0f}, true);
+  draw->AddText({min.x + 12.0f, min.y + 32.0f}, PhotonUi::colorU32(palette.text), value);
+  draw->PopClipRect();
+  ImGui::PopID();
+}
+
+}  // namespace
+
 void GUI::updateUI() {
-  const bool open = PhotonUi::beginModal("Update", {420.0f, 220.0f});
+  const bool open = PhotonUi::beginModal("Update", {540.0f, 350.0f});
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
-    PhotonUi::label("Update", palette);
-    auto buttonSize = ImGui::CalcTextSize("Download Update");
-    PhotonUi::label("Update avaialble...", palette);
-    if (PhotonUi::button("Download", "Download Update", {buttonSize.x * 1.25f, 34.0f}, palette,
-                         false, "Download Update")) updater.launchUpdater();
-    if(updater.running) updater.progressBar();
-    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
-    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
+    const bool running = updater.running.load();
+    const int downloadPercentage = updater.photonDownloadPercentage.load();
+
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 headerMin = ImGui::GetCursorScreenPos();
+    const ImVec2 iconMax(headerMin.x + 42.0f, headerMin.y + 42.0f);
+    draw->AddRectFilled(headerMin, iconMax,
+                        PhotonUi::colorU32(PhotonUi::withAlpha(palette.active, 0.72f)), 8.0f);
+    PhotonUi::drawIconCentered(draw, "\ueb13", headerMin, iconMax, 24.0f,
+                               PhotonUi::colorU32(palette.text), -1.0f);
+    draw->AddText({headerMin.x + 54.0f, headerMin.y + 2.0f}, PhotonUi::colorU32(palette.text),
+                  "Update available");
+    draw->AddText({headerMin.x + 54.0f, headerMin.y + 25.0f}, PhotonUi::colorU32(palette.muted),
+                  running ? "Downloading the latest Photon build"
+                          : "A newer build is ready to download");
+    ImGui::Dummy({1.0f, 54.0f});
+
+    drawUpdateProgress("PhotonUpdateProgress", downloadPercentage, running, palette);
+
+    ImGui::Spacing();
+    const float metaWidth = (ImGui::GetContentRegionAvail().x - 10.0f) * 0.5f;
+    drawUpdateMeta("VersionMeta", "Version", updater.version.c_str(), metaWidth, palette);
+    ImGui::SameLine(0.0f, 10.0f);
+    drawUpdateMeta("PackageMeta", "Package", "Photon.exe", metaWidth, palette);
+
+    const float bottomY = ImGui::GetWindowHeight() - 52.0f;
+    ImGui::SetCursorPosY(bottomY);
+    const float closeW = 96.0f;
+    const float downloadW = 150.0f;
+    const float gap = 10.0f;
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - closeW - downloadW - gap - 14.0f);
+    ImGui::BeginDisabled(running);
+    if (PhotonUi::button("Download", running ? "Downloading" : "Download", {downloadW, 34.0f},
+                         palette, false, "Download update")) {
+      updater.launchUpdater();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine(0.0f, gap);
     if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette, false, "Close"))
       ImGui::CloseCurrentPopup();
   }

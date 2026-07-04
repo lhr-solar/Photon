@@ -1,5 +1,4 @@
 #include "updater.hpp"
-#include "imgui.h"
 
 #include <windows.h>
 #include <urlmon.h>
@@ -50,6 +49,8 @@ static std::wstring quote(const std::wstring& s) { return L"\"" + s + L"\""; }
 
 void Updater::launchUpdater() {
     if (running.exchange(true)) return;
+    photonDownloadPercentage.store(-1);
+    installerDownloadPercentage.store(-1);
     getOurInfo();
     std::thread(&Updater::beginUpdate, this).detach();
 }
@@ -141,17 +142,4 @@ void Updater::launchInstaller() {
 
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
-}
-
-void Updater::progressBar() {
-    int p = photonDownloadPercentage.load();
-
-    if (p < 0) {
-        ImGui::Text("Download not started");
-        return;
-    }
-
-    float f = p / 100.0f;
-    ImGui::ProgressBar(f, ImVec2(0.0f, 0.0f));
-    ImGui::Text("%d%%", p);
 }

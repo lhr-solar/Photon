@@ -31,5 +31,4 @@ struct Updater {
     void launchInstaller();
     void launchUpdater();
     void beginUpdate();
-    void progressBar();
 };
