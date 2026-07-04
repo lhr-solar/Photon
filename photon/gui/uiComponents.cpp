@@ -20,6 +20,14 @@ ImVec4 mixColor(ImVec4 a, ImVec4 b, float t) {
 
 ImU32 colorU32(ImVec4 color) { return ImGui::ColorConvertFloat4ToU32(color); }
 
+const char* tabIcon(std::string_view name) {
+  if (name.find("Plot") != std::string_view::npos) return "\uE6E1";
+  if (name.find("Arena") != std::string_view::npos) return "\uE875";
+  if (name.find("Network") != std::string_view::npos) return "\uE640";
+  if (name.find("Shader") != std::string_view::npos) return "\uE3B7";
+  return "\uE5C3";
+}
+
 Palette palette() {
   const ImGuiStyle& style = ImGui::GetStyle();
   const ImVec4 text = style.Colors[ImGuiCol_Text];

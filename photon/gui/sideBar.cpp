@@ -123,14 +123,6 @@ void drawTooltip(std::string_view text) {
   ImGui::EndTooltip();
 }
 
-const char* tabIcon(std::string_view name) {
-  if (name.find("Plot") != std::string_view::npos) return "\uE6E1";
-  if (name.find("Arena") != std::string_view::npos) return "\uE875";
-  if (name.find("Network") != std::string_view::npos) return "\uE640";
-  if (name.find("Shader") != std::string_view::npos) return "\uE3B7";
-  return "\uE5C3";
-}
-
 SidebarPalette sidebarPalette() { return PhotonUi::palette(); }
 
 void drawSidebarHeader(float width, const SidebarPalette& palette, std::string_view activePage) {
@@ -142,7 +134,7 @@ void drawSidebarHeader(float width, const SidebarPalette& palette, std::string_v
   const ImVec2 logoMax(logoMin.x + logo, logoMin.y + logo);
   draw->AddRectFilled(logoMin, logoMax, colorU32(withAlpha(palette.active, 0.86f)), 8.0f);
   draw->AddRect(logoMin, logoMax, colorU32(withAlpha(palette.accent, 0.65f)), 8.0f);
-  const char* mark = tabIcon(activePage);
+  const char* mark = PhotonUi::tabIcon(activePage);
   const ImVec2 markSize = ImGui::CalcTextSize(mark);
   draw->AddText({logoMin.x + (logo - markSize.x) * 0.5f, logoMin.y + (logo - markSize.y) * 0.5f},
                 colorU32(palette.text), mark);
@@ -195,7 +187,7 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   const ImVec2 iconMin(bgMin.x + 10.0f, bgMin.y + (bgMax.y - bgMin.y - iconBox) * 0.5f);
   const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
 
-  const char* icon = tabIcon(tab.name);
+  const char* icon = PhotonUi::tabIcon(tab.name);
   const ImVec2 iconSize = ImGui::CalcTextSize(icon);
   draw->AddText(
       {iconMin.x + (iconBox - iconSize.x) * 0.5f, iconMin.y + (iconBox - iconSize.y) * 0.5f},

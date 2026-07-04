@@ -1,6 +1,7 @@
 #include "titlebar.hpp"
 
 #include <algorithm>
+#include <string_view>
 
 #include "SDL3/SDL.h"
 #include "im_anim.h"
@@ -110,6 +111,39 @@ void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAct
     draw->AddLine(c, {p.x + s - inset, p.y + inset}, iconColor, 1.65f);
   }
 }
+
+void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::string_view page,
+                                float alpha) {
+  if (alpha <= 0.01f || max.x <= min.x) return;
+
+  const PhotonUi::Palette palette = PhotonUi::palette();
+  const ImVec4 text = withAlpha(palette.text, palette.text.w * alpha);
+  const ImVec4 muted = withAlpha(palette.muted, palette.muted.w * alpha);
+  const ImVec4 active = withAlpha(palette.active, 0.70f * alpha);
+  const ImVec4 accent = withAlpha(palette.accent, 0.58f * alpha);
+  const float iconSize = 28.0f;
+  const ImVec2 iconMin(min.x, min.y + (max.y - min.y - iconSize) * 0.5f);
+  const ImVec2 iconMax(iconMin.x + iconSize, iconMin.y + iconSize);
+
+  draw->AddRectFilled(iconMin, iconMax, colorU32(active), 7.0f);
+  draw->AddRect(iconMin, iconMax, colorU32(accent), 7.0f);
+
+  const char* icon = PhotonUi::tabIcon(page);
+  const ImVec2 iconTextSize = ImGui::CalcTextSize(icon);
+  draw->AddText(
+      {iconMin.x + (iconSize - iconTextSize.x) * 0.5f,
+       iconMin.y + (iconSize - iconTextSize.y) * 0.5f},
+      colorU32(text), icon);
+
+  const float textX = iconMax.x + 10.0f;
+  if (textX >= max.x) return;
+
+  draw->PushClipRect({textX, min.y}, max, true);
+  const ImVec2 pageSize = ImGui::CalcTextSize(page.data(), page.data() + page.size());
+  draw->AddText({textX, min.y + (max.y - min.y - pageSize.y) * 0.5f}, colorU32(muted),
+                page.data(), page.data() + page.size());
+  draw->PopClipRect();
+}
 }  // namespace
 
 void TitleBar::clearInteract() {
@@ -168,6 +202,13 @@ void TitleBar::draw() {
 
     const float controlsWidth = buttonWidth * 3.0f;
     const float controlsX = ImGui::GetWindowWidth() - controlsWidth - 6.0f;
+    const float collapsedHeaderAlpha =
+        iam_tween_float(ImHashStr("TitleCollapsedSidebarHeader"), ImHashStr("alpha"),
+                        showSidebar ? 0.0f : 1.0f, 0.18f, iam_ease_preset(iam_ease_out_quad),
+                        iam_policy_crossfade, ImGui::GetIO().DeltaTime, showSidebar ? 0.0f : 1.0f);
+    drawCollapsedSidebarHeader(draw, {sidebarButton.max.x + 10.0f, 0.0f},
+                               {controlsX - 10.0f, barHeight}, activePage,
+                               collapsedHeaderAlpha);
 
     ImGui::SetCursorPos(ImVec2(controlsX, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, style.ItemSpacing.y));

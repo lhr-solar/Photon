@@ -22,6 +22,7 @@ Palette palette();
 ImVec4 withAlpha(ImVec4 color, float alpha);
 ImVec4 mixColor(ImVec4 a, ImVec4 b, float t);
 ImU32 colorU32(ImVec4 color);
+const char* tabIcon(std::string_view name);
 
 bool beginModal(const char* title, ImVec2 size);
 void endModal(bool open);

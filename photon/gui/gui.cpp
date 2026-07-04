@@ -291,6 +291,9 @@ void GUI::buildUI() {
   iam_clip_update(ImGui::GetIO().DeltaTime);
 
   /* Per-Frame UI building */
+  titleBar.activePage = "Navigation";
+  if (!tabs.list.empty() && tabs.index < tabs.list.size())
+    titleBar.activePage = tabs.list[tabs.index].name;
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
