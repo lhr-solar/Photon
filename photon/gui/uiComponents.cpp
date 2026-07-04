@@ -70,6 +70,21 @@ void endModal(bool open) {
   ImGui::PopStyleVar(4);
 }
 
+bool beginPanel(const char* id, ImVec2 size, const Palette& palette, ImGuiChildFlags childFlags,
+                ImGuiWindowFlags windowFlags) {
+  ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, withAlpha(palette.panel, 0.76f));
+  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.48f));
+  return ImGui::BeginChild(id, size, childFlags, windowFlags);
+}
+
+void endPanel() {
+  ImGui::EndChild();
+  ImGui::PopStyleColor(2);
+  ImGui::PopStyleVar(2);
+}
+
 void label(std::string_view text, const Palette& palette) {
   const ImVec2 pos = ImGui::GetCursorScreenPos();
   ImGui::GetWindowDrawList()->AddText(pos, colorU32(palette.muted), text.data(),

@@ -635,16 +635,11 @@ void GuiSettings::colorUI() {
     const float leftWidth = std::min(320.0f, contentWidth * 0.44f);
     const float rightWidth = contentWidth - leftWidth - columnGap;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, withAlpha(palette.panel, 0.76f));
-    ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.48f));
-
     constexpr ImGuiWindowFlags childFlags =
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar;
 
-    ImGui::BeginChild("##ThemeColorPanel", {leftWidth, bodyHeight}, ImGuiChildFlags_Borders,
-                      childFlags);
+    PhotonUi::beginPanel("##ThemeColorPanel", {leftWidth, bodyHeight}, palette,
+                         ImGuiChildFlags_Borders, childFlags);
     drawThemeLabel("Font size", palette);
     if (drawThemeStepper("FontSize", fontSize, 1.0f, 1.0f, palette)) dirty = true;
     ImGui::Spacing();
@@ -754,11 +749,11 @@ void GuiSettings::colorUI() {
       draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.55f)), rounding);
     }
     ImGui::Dummy({paletteWidth, 2.0f * paletteSize + gap});
-    ImGui::EndChild();
+    PhotonUi::endPanel();
 
     ImGui::SameLine(0.0f, columnGap);
-    ImGui::BeginChild("##ThemePlotPanel", {rightWidth, bodyHeight}, ImGuiChildFlags_Borders,
-                      childFlags);
+    PhotonUi::beginPanel("##ThemePlotPanel", {rightWidth, bodyHeight}, palette,
+                         ImGuiChildFlags_Borders, childFlags);
     drawThemeLabel("Line Thickness", palette);
     if (plotLineSpec.LineWeight < 1.0f) plotLineSpec.LineWeight = 1.0f;
     if (drawThemeStepper("LineWeight", plotLineSpec.LineWeight, 1.0f, 1.0f, palette)) dirty = true;
@@ -794,10 +789,7 @@ void GuiSettings::colorUI() {
       ImPlot::EndPlot();
     }
     ImGui::PopStyleColor();
-    ImGui::EndChild();
-
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(2);
+    PhotonUi::endPanel();
 
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - 96.0f);
     if (dirty) ImGui::MarkIniSettingsDirty();

@@ -40,21 +40,6 @@ void popInputStyle() {
   ImGui::PopStyleVar(2);
 }
 
-bool beginPanel(const char* id, ImVec2 size, const PhotonUi::Palette& palette) {
-  ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_ChildBg, PhotonUi::withAlpha(palette.panel, 0.72f));
-  ImGui::PushStyleColor(ImGuiCol_Border, PhotonUi::withAlpha(palette.border, 0.48f));
-  constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings;
-  return ImGui::BeginChild(id, size, ImGuiChildFlags_Borders, flags);
-}
-
-void endPanel() {
-  ImGui::EndChild();
-  ImGui::PopStyleColor(2);
-  ImGui::PopStyleVar(2);
-}
-
 void submit(Network* network, TCPConfig config) {
   network->guiRxCommandBuffer.write([config](ProtocolTransmitVariant& cmd) { cmd = config; });
 }
@@ -190,7 +175,7 @@ void drawPcanFields(PCANConfig& config, const PhotonUi::Palette& palette) {
 }
 
 void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {
-  if (beginPanel("##NetworkLog", {-1.0f, -1.0f}, palette)) {
+  if (PhotonUi::beginPanel("##NetworkLog", {-1.0f, -1.0f}, palette)) {
     PhotonUi::label("Output", palette);
     ImGui::PushStyleColor(ImGuiCol_FrameBg, PhotonUi::withAlpha(palette.bg, 0.32f));
     ImGui::BeginChild("##NetworkLogText", {-1.0f, -1.0f}, ImGuiChildFlags_None,
@@ -200,7 +185,7 @@ void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {
     ImGui::EndChild();
     ImGui::PopStyleColor();
   }
-  endPanel();
+  PhotonUi::endPanel();
 }
 
 }  // namespace
@@ -225,15 +210,16 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
     const float leftWidth = std::min(220.0f, std::max(160.0f, avail.x * 0.28f));
     const float rightWidth = std::max(220.0f, avail.x - leftWidth - gap);
 
-    if (beginPanel("##NetworkProtocols", {leftWidth, avail.y}, palette)) {
+    if (PhotonUi::beginPanel("##NetworkProtocols", {leftWidth, avail.y}, palette)) {
       PhotonUi::label("Sources", palette);
       drawProtocolList(selected, palette);
     }
-    endPanel();
+    PhotonUi::endPanel();
 
     ImGui::SameLine(0.0f, gap);
     ImGui::BeginGroup();
-    if (beginPanel("##NetworkConfig", {rightWidth, std::max(180.0f, avail.y * 0.48f)}, palette)) {
+    if (PhotonUi::beginPanel("##NetworkConfig", {rightWidth, std::max(180.0f, avail.y * 0.48f)},
+                             palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
         drawTcpFields(daqConfig, palette);
@@ -266,7 +252,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
           submit(network, wlanConfig);
       }
     }
-    endPanel();
+    PhotonUi::endPanel();
 
     ImGui::Dummy({0.0f, gap});
     drawLogPanel(log, palette);

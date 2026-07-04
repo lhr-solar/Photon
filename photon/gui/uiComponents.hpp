@@ -25,6 +25,10 @@ ImU32 colorU32(ImVec4 color);
 
 bool beginModal(const char* title, ImVec2 size);
 void endModal(bool open);
+bool beginPanel(const char* id, ImVec2 size, const Palette& palette,
+                ImGuiChildFlags childFlags = ImGuiChildFlags_Borders,
+                ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoSavedSettings);
+void endPanel();
 void label(std::string_view text, const Palette& palette);
 bool button(const char* id, std::string_view text, ImVec2 size, const Palette& palette,
             bool selected = false);
