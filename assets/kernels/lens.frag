@@ -27,5 +27,9 @@ void main() {
     );
 
     o *= o;
-    outColor = vec4(clamp(o.rgb, 0.0, 1.0), 1.0);
+
+    vec3 color = clamp(o.rgb, 0.0, 1.0);
+    float intensity = max(max(color.r, color.g), color.b);
+    float alpha = smoothstep(0.015, 0.45, intensity);
+    outColor = vec4(color, alpha);
 }
