@@ -1,6 +1,7 @@
 #include "arena_bridge.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 #include "../../parse/arena.hpp"
@@ -10,6 +11,23 @@ namespace {
 void addFault(ui::AppState& state, const char* name,
              ui::FaultSeverity severity, const char* message) {
   state.faults.push_back(ui::Fault{name, message, severity, 0});
+}
+
+// Seconds since the message carrying signalName last had a frame appended
+// (see Arena::appendFrame); -1 if the signal isn't in any loaded message.
+double MessageAgeSecondsForSignal(Arena& arena, const char* signalName) {
+  for (uint32_t id : arena.validIds) {
+    Message* msg = arena.messages[id];
+    if (!msg) continue;
+    for (uint32_t s = 0; s < msg->signalCount; s++) {
+      Signal* sig = msg->signals[s];
+      if (sig && sig->name == signalName) {
+        auto age = std::chrono::system_clock::now() - msg->lastTimeUpdated;
+        return std::chrono::duration<double>(age).count();
+      }
+    }
+  }
+  return -1.0;
 }
 
 std::string joinFaultNames(const std::vector<ui::Fault>& faults) {
@@ -86,6 +104,9 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
       state.moduleTemps[idx] = (float)state.get("BPS_Temperature_Tap_Data");
     }
   }
+
+  state.bpsMsgAgeSeconds = MessageAgeSecondsForSignal(arena, "BPS_Fault");
+  state.vcuMsgAgeSeconds = MessageAgeSecondsForSignal(arena, "VCU_Fault");
 
   bool hasBps = state.signals.count("BPS_Fault") != 0;
   bool hasVcu = state.signals.count("VCU_Fault") != 0;

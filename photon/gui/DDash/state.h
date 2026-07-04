@@ -78,6 +78,12 @@ struct AppState {
     std::string canFaultRecoverableName;
     std::string canFaultRecoverableMessage;
 
+    // Seconds since the message carrying BPS_Fault / VCU_Fault last updated
+    // in the arena; -1 = never seen. Lets the dashboard flag a dropped CAN
+    // link instead of silently showing a stale "no fault" state forever.
+    double bpsMsgAgeSeconds = -1.0;
+    double vcuMsgAgeSeconds = -1.0;
+
     // UI-only state, not CAN data.
     uint8_t heartbeat = 0;
     bool showDebugScreen = false;

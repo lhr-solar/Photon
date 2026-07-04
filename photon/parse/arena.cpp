@@ -509,13 +509,18 @@ bool Arena::appendFrame(uint32_t id, double timeValue, const double* signalValue
   auto* timeDst = static_cast<uint8_t*>(msg.timeData) + offset;
   std::memcpy(timeDst, &timeValue, sizeof(double));
 
+  const auto now = std::chrono::system_clock::now();
   for (uint32_t i = 0; i < signalCount; i++) {
     Signal* sig = msg.signals[i];
     if (!sig || !sig->data) return false;
     auto* dst = static_cast<uint8_t*>(sig->data) + offset;
     std::memcpy(dst, &signalValues[i], sizeof(double));
+    sig->timeSinceMutation = std::chrono::duration_cast<std::chrono::milliseconds>(now - sig->lastTimeMutated);
+    sig->lastTimeMutated = now;
   }
 
+  msg.timeSinceUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(now - msg.lastTimeUpdated);
+  msg.lastTimeUpdated = now;
   msg.signalSize.store(offset + sizeof(double), std::memory_order_release);
   return true;
 }

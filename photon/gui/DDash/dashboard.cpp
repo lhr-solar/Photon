@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <ctime>
+#include <cctype>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -164,12 +165,82 @@ static bool FormatBpsExtremaSummary(const AppState& state, char* buffer, size_t 
 }
 
 static const char* BpsFaultName(uint8_t code);
+static const char* VcuFaultName(uint8_t code);
 
 // Forward declarations
 
 static void RenderBatteryPanel(const AppState& state, const ImVec2& size);
 static void RenderButtonGrid(AppState& state, const ImVec2& size);
 static void RenderSpeedGauge(AppState& state, const ImVec2& size);
+
+// Highest-priority active fault, short-form. BPS always wins over VCU: a BPS
+// fault is the more actionable/severe one, and showing both at once just
+// forces the driver to read two lines under pressure.
+struct ActiveFaultInfo {
+    std::string label;   // e.g. "BPS Fault"
+    std::string detail;  // e.g. "Overtemp"
+};
+
+static bool GetActiveFault(const AppState& state, ActiveFaultInfo& out) {
+    const uint8_t bpsFaultCode = (uint8_t)state.get("BPS_Fault");
+    const uint8_t vcuFaultCode = (uint8_t)state.get("VCU_Fault");
+    if (bpsFaultCode != 0) {
+        out.label = "BPS Fault";
+        out.detail = BpsFaultName(bpsFaultCode);
+        return true;
+    }
+    if (vcuFaultCode != 0) {
+        out.label = "VCU Fault";
+        out.detail = VcuFaultName(vcuFaultCode);
+        return true;
+    }
+    return false;
+}
+
+// Big knockout-style fault banner: a solid fault-colored plate sized to the
+// text, with the text itself punched through in the page background color so
+// it reads as a cutout rather than tinting the whole screen.
+static void RenderFaultBanner(const AppState& state) {
+    ActiveFaultInfo info;
+    if (!GetActiveFault(state, info)) {
+        return;
+    }
+
+    char text[128];
+    snprintf(text, sizeof(text), "%s: %s", info.label.c_str(), info.detail.c_str());
+    for (char* c = text; *c; ++c) {
+        *c = static_cast<char>(std::toupper(static_cast<unsigned char>(*c)));
+    }
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImFont* bigFont = (io.Fonts->Fonts.Size > 2) ? io.Fonts->Fonts[2] : ImGui::GetFont();
+    float fontSize = std::min(io.DisplaySize.x * 0.026f, bigFont->LegacySize * 1.15f);
+    ImVec2 textSz = bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, text);
+
+    float padX = 26.0f, padY = 14.0f;
+    ImVec2 plateSz(textSz.x + padX * 2.0f, textSz.y + padY * 2.0f);
+    ImVec2 plateMin((io.DisplaySize.x - plateSz.x) * 0.5f,
+                     io.DisplaySize.y * 0.44f);
+    ImVec2 plateMax(plateMin.x + plateSz.x, plateMin.y + plateSz.y);
+
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    dl->AddRectFilled(plateMin, plateMax, ColorToU32(Colors::Destructive()), 12.0f);
+
+    // No bold TTF is loaded, so fake it: stamp the knockout text a couple of
+    // times at whole-pixel offsets to thicken the strokes. Sub-pixel offsets
+    // blur into mush under AA, so keep this to integer pixels and a small ring.
+    const ImU32 knockoutColor = ColorToU32(Colors::Background());
+    ImVec2 textOrigin(plateMin.x + padX, plateMin.y + padY);
+    static const ImVec2 kBoldOffsets[] = {
+        {0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f},
+        {2.0f, 0.0f}, {0.0f, 2.0f}, {2.0f, 1.0f}, {1.0f, 2.0f},
+    };
+    for (const ImVec2& off : kBoldOffsets) {
+        dl->AddText(bigFont, fontSize,
+                    ImVec2(textOrigin.x + off.x, textOrigin.y + off.y),
+                    knockoutColor, text);
+    }
+}
 
 
 //Camera placeholder (used for LEFT / RIGHT / REAR views)
@@ -394,16 +465,29 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
 
         widgets::Space(12);
 
-        if (!state.faults.empty()) {
+        // Faults already surfaced by the big banner (see RenderFaultBanner)
+        // don't need to repeat in this list.
+        ActiveFaultInfo bannerInfo;
+        bool bannerActive = GetActiveFault(state, bannerInfo);
+        std::vector<const Fault*> listFaults;
+        for (const Fault& fault : state.faults) {
+            if (bannerActive) {
+                if (bannerInfo.label == "BPS Fault" && fault.name == "BPS") continue;
+                if (bannerInfo.label == "VCU Fault" && fault.name == "VCU") continue;
+            }
+            listFaults.push_back(&fault);
+        }
+
+        if (!listFaults.empty()) {
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
             ImGui::SetWindowFontScale(0.95f);
             ImGui::TextUnformatted("FAULTS");
             ImGui::SetWindowFontScale(1.0f);
             ImGui::PopStyleColor();
 
-            int visibleRows = std::min<int>(static_cast<int>(state.faults.size()), 4);
+            int visibleRows = std::min<int>(static_cast<int>(listFaults.size()), 4);
             for (int i = 0; i < visibleRows; ++i) {
-                const Fault& fault = state.faults[static_cast<size_t>(i)];
+                const Fault& fault = *listFaults[static_cast<size_t>(i)];
                 std::string faultText = FaultDisplayText(fault);
                 ImGui::PushStyleColor(ImGuiCol_Text, FaultColor(fault.severity));
                 ImGui::SetWindowFontScale(1.18f);
@@ -411,9 +495,9 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
                 ImGui::SetWindowFontScale(1.0f);
                 ImGui::PopStyleColor();
             }
-            if (state.faults.size() > static_cast<size_t>(visibleRows)) {
+            if (listFaults.size() > static_cast<size_t>(visibleRows)) {
                 ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-                ImGui::Text("+%zu more", state.faults.size() - static_cast<size_t>(visibleRows));
+                ImGui::Text("+%zu more", listFaults.size() - static_cast<size_t>(visibleRows));
                 ImGui::PopStyleColor();
             }
             widgets::Space(10);
@@ -448,6 +532,30 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             }
             ImGui::SetWindowFontScale(1.0f);
             ImGui::PopStyleColor();
+        }
+
+        // Stale-link warning: flashes if we haven't decoded a BPS or VCU
+        // status signal in a while, since the last-known fault state above
+        // can otherwise look falsely "all clear" once the CAN link drops.
+        {
+            constexpr double kStaleThresholdS = 10.0;
+            bool bpsStale = state.bpsMsgAgeSeconds < 0.0 || state.bpsMsgAgeSeconds > kStaleThresholdS;
+            bool vcuStale = state.vcuMsgAgeSeconds < 0.0 || state.vcuMsgAgeSeconds > kStaleThresholdS;
+            if (bpsStale || vcuStale) {
+                const char* staleTxt = (bpsStale && vcuStale) ? "NO BPS/VCU DATA"
+                                     : bpsStale               ? "NO BPS DATA"
+                                                               : "NO VCU DATA";
+                float blink = 0.5f + 0.5f * sinf(static_cast<float>(ImGui::GetTime()) * 5.0f);
+                if (blink > 0.5f) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning());
+                    ImGui::SetWindowFontScale(1.1f);
+                    ImGui::TextUnformatted(staleTxt);
+                    ImGui::SetWindowFontScale(1.0f);
+                    ImGui::PopStyleColor();
+                } else {
+                    widgets::Space(ImGui::GetTextLineHeight());
+                }
+            }
         }
     }
     ImGui::EndChild();
@@ -1325,5 +1433,7 @@ void RenderDashboard(AppState& state) {
     ImGui::End();
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
+
+    RenderFaultBanner(state);
 }
 }
