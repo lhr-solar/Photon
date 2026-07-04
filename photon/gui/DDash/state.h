@@ -164,11 +164,13 @@ struct AppState {
     float prechargeArrayV = 0.0f;       // Precharge circuit array voltage
     float mainBatteryCurrentRawV = 0.0f;// Raw current sensor voltage
     uint8_t bpsFaultCode = 0;           // BPS fault value (0=no fault, see table)
-    
+    double bpsMsgAgeSeconds = -1.0;     // seconds since a BPS status signal was last decoded; -1 = never seen
+
     // VCU status (CarCAN ID 24)
     uint8_t vcuFsmState = 0;            // VCU finite state machine state
     uint8_t vcuFaultCode = 0;           // VCU fault code
-    bool motorReadyToDrive = false;
+    double vcuMsgAgeSeconds = -1.0;     // seconds since a VCU status signal was last decoded; -1 = never seen
+bool motorReadyToDrive = false;
     bool vcuPedalsOK = false;
     bool vcuDriverInputOK = false;
     bool vcuRegenActive = false;

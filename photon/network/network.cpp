@@ -323,10 +323,14 @@ void Network::interpretDBCFrame(uint16_t canId, uint64_t rawValue, int dlc) {
 
         // ---- STORE PARSED VALUE ----
         {
+            const double nowS = std::chrono::duration<double>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
             std::lock_guard<std::mutex> parsedLock(parsedSignalsMutex);
             parsedSignals[sigName] = physValue;
+            parsedSignalTimestamps[sigName] = nowS;
             const std::string qualifiedName = msg.name + "." + sigName;
             parsedSignals[qualifiedName] = physValue;
+            parsedSignalTimestamps[qualifiedName] = nowS;
             parsedSignalAliases[qualifiedName] = sigName;
         }
 
@@ -555,6 +559,17 @@ bool Network::readParsedSignal(const std::string& sigName, double& outValue) {
     }
     outValue = it->second;
     return true;
+}
+
+double Network::parsedSignalAgeSeconds(const std::string& sigName) {
+    std::lock_guard<std::mutex> lock(parsedSignalsMutex);
+    auto it = parsedSignalTimestamps.find(sigName);
+    if (it == parsedSignalTimestamps.end()) {
+        return -1.0;
+    }
+    const double nowS = std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    return nowS - it->second;
 }
 
 std::string Network::describeParsedSignalValue(const std::string& sigName, double value) {

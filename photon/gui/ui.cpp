@@ -313,6 +313,30 @@ void UI::build(){
         hasVcu |= networkINTF->readParsedSignal("VCU_STEERING_FAULT_DETECTED",  vcuFaults[4]);
         double vcuF = 0;
         for (int i = 0; i < 5; ++i) vcuF += vcuFaults[i];
+
+        // Track staleness: age of the freshest signal in each group, so the
+        // dashboard can flag "no BPS/VCU status" if the CAN link drops rather
+        // than just going quiet while still showing the last-known fault state.
+        ddashState.bpsMsgAgeSeconds = networkINTF->parsedSignalAgeSeconds("BPS_Fault");
+        {
+            static const char* kVcuSignals[] = {
+                "VCU_Fault",
+                "VCU_BPS_FAULT_DETECTED",
+                "VCU_CONTROLS_FAULT_DETECTED",
+                "VCU_MTR_FAULT_DETECTED",
+                "VCU_PEDALS_FAULT_DETECTED",
+                "VCU_STEERING_FAULT_DETECTED",
+            };
+            double freshest = -1.0;
+            for (const char* sig : kVcuSignals) {
+                double age = networkINTF->parsedSignalAgeSeconds(sig);
+                if (age >= 0.0 && (freshest < 0.0 || age < freshest)) {
+                    freshest = age;
+                }
+            }
+            ddashState.vcuMsgAgeSeconds = freshest;
+        }
+
         if (hasBps && bpsF != 0) {
             addFault(ddashState, "BPS", ui::FaultSeverity::Critical,
                      signalValueMessage(networkINTF, "BPS_Fault", bpsF, "BPS fault detected").c_str());

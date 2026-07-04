@@ -59,9 +59,12 @@ public:
     std::mutex parsedSignalsMutex;
     std::unordered_map<std::string, double> parsedSignals;
     std::unordered_map<std::string, std::string> parsedSignalAliases;
+    std::unordered_map<std::string, double> parsedSignalTimestamps; // steady-clock seconds of last update
     bool readParsedSignal(const std::string& sigName, double& outValue);
     std::string describeParsedSignalValue(const std::string& sigName, double value);
     std::string parsedSignalComment(const std::string& sigName);
+    // Seconds since sigName was last decoded off the wire; -1 if never seen.
+    double parsedSignalAgeSeconds(const std::string& sigName);
 
 private:
     struct sample {
