@@ -100,8 +100,27 @@ void label(std::string_view text, const Palette& palette) {
   ImGui::Dummy(ImGui::CalcTextSize(text.data(), text.data() + text.size()));
 }
 
+void tooltip(std::string_view text, ImGuiHoveredFlags flags) {
+  if (text.empty() || !ImGui::IsItemHovered(flags)) return;
+
+  const Palette p = palette();
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(p.bg, 0.96f));
+  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(p.border, 0.64f));
+  ImGui::PushStyleColor(ImGuiCol_Text, p.text);
+  ImGui::BeginTooltip();
+  ImGui::PushTextWrapPos(ImGui::GetFontSize() * 22.0f);
+  ImGui::TextUnformatted(text.data(), text.data() + text.size());
+  ImGui::PopTextWrapPos();
+  ImGui::EndTooltip();
+  ImGui::PopStyleColor(3);
+  ImGui::PopStyleVar(3);
+}
+
 bool button(const char* id, std::string_view text, ImVec2 size, const Palette& palette,
-            bool selected) {
+            bool selected, std::string_view tooltipText) {
   ImGui::PushID(id);
   ImGui::InvisibleButton("button", size);
   const bool clicked = ImGui::IsItemClicked();
@@ -132,6 +151,7 @@ bool button(const char* id, std::string_view text, ImVec2 size, const Palette& p
       {min.x + (size.x - textSize.x) * 0.5f, min.y + (size.y - textSize.y) * 0.5f + press},
       colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), text.data(),
       text.data() + text.size());
+  tooltip(tooltipText);
   ImGui::PopID();
   return clicked;
 }

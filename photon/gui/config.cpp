@@ -29,15 +29,16 @@ void drawThemeLabel(std::string_view label, const ThemePalette& palette) {
 }
 
 bool drawThemeButton(const char* id, std::string_view label, ImVec2 size,
-                     const ThemePalette& palette, bool selected = false) {
-  return PhotonUi::button(id, label, size, palette, selected);
+                     const ThemePalette& palette, bool selected = false,
+                     std::string_view tooltip = {}) {
+  return PhotonUi::button(id, label, size, palette, selected, tooltip.empty() ? label : tooltip);
 }
 
 bool drawThemeStepper(const char* id, float& value, float step, float minValue,
                       const ThemePalette& palette) {
   bool changed = false;
   ImGui::PushID(id);
-  if (drawThemeButton("minus", "-", {34.0f, 32.0f}, palette)) {
+  if (drawThemeButton("minus", "-", {34.0f, 32.0f}, palette, false, "Decrease")) {
     value = std::max(minValue, value - step);
     changed = true;
   }
@@ -53,7 +54,7 @@ bool drawThemeStepper(const char* id, float& value, float step, float minValue,
   draw->AddText({pos.x + (54.0f - textSize.x) * 0.5f, pos.y + (32.0f - textSize.y) * 0.5f},
                 colorU32(palette.text), buf);
   ImGui::SameLine(0.0f, 6.0f);
-  if (drawThemeButton("plus", "+", {34.0f, 32.0f}, palette)) {
+  if (drawThemeButton("plus", "+", {34.0f, 32.0f}, palette, false, "Increase")) {
     value += step;
     changed = true;
   }

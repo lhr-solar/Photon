@@ -119,14 +119,9 @@ void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::s
   const PhotonUi::Palette palette = PhotonUi::palette();
   const ImVec4 text = withAlpha(palette.text, palette.text.w * alpha);
   const ImVec4 muted = withAlpha(palette.muted, palette.muted.w * alpha);
-  const ImVec4 active = withAlpha(palette.active, 0.70f * alpha);
-  const ImVec4 accent = withAlpha(palette.accent, 0.58f * alpha);
   const float iconSize = 28.0f;
   const ImVec2 iconMin(min.x, min.y + (max.y - min.y - iconSize) * 0.5f);
   const ImVec2 iconMax(iconMin.x + iconSize, iconMin.y + iconSize);
-
-  draw->AddRectFilled(iconMin, iconMax, colorU32(active), 7.0f);
-  draw->AddRect(iconMin, iconMax, colorU32(accent), 7.0f);
 
   const char* icon = PhotonUi::tabIcon(page);
   const ImVec2 iconTextSize = ImGui::CalcTextSize(icon);

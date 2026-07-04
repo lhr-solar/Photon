@@ -116,13 +116,6 @@ std::string normalizeDialogPath(const char* rawPath) {
   return decoded;
 }
 
-void drawTooltip(std::string_view text) {
-  if (!ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) return;
-  ImGui::BeginTooltip();
-  ImGui::TextUnformatted(text.data(), text.data() + text.size());
-  ImGui::EndTooltip();
-}
-
 SidebarPalette sidebarPalette() { return PhotonUi::palette(); }
 
 void drawSidebarHeader(float width, const SidebarPalette& palette, std::string_view activePage) {
@@ -207,7 +200,7 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
         colorU32(withAlpha(palette.text, selected ? 0.70f : 0.34f)), "\uE5CC");
   }
 
-  drawTooltip(tab.name);
+  PhotonUi::tooltip(tab.name);
   ImGui::PopID();
   ImGui::SetCursorScreenPos({pos.x, pos.y + height + style.ItemSpacing.y * 0.35f});
   return clicked;
@@ -241,7 +234,7 @@ bool drawActionIcon(const char* id, const char* icon, std::string_view tooltip, 
                    : mixColor(palette.muted, palette.text, 0.35f + focus * 0.65f);
   draw->AddText({min.x + (size.x - iconSize.x) * 0.5f, min.y + (size.y - iconSize.y) * 0.5f},
                 colorU32(iconColor), icon);
-  drawTooltip(tooltip);
+  PhotonUi::tooltip(tooltip);
   ImGui::PopID();
   return clicked;
 }
@@ -271,7 +264,7 @@ bool drawDBCButton(std::string_view current, std::string_view status, float widt
   const ImVec2 iconSize = ImGui::CalcTextSize(icon);
   draw->AddText({max.x - iconSize.x - 12.0f, min.y + (height - iconSize.y) * 0.5f},
                 colorU32(palette.muted), icon);
-  if (!status.empty()) drawTooltip(status);
+  PhotonUi::tooltip(status);
   return clicked;
 }
 
@@ -309,7 +302,7 @@ bool drawDBCOption(const char* label, bool selected, float width, const SidebarP
       {bgMin.x + 38.0f, bgMin.y + (bgMax.y - bgMin.y - ImGui::GetTextLineHeight()) * 0.5f},
       colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), label);
   draw->PopClipRect();
-  drawTooltip(label);
+  PhotonUi::tooltip(label);
   ImGui::PopID();
   return clicked;
 }
@@ -357,7 +350,7 @@ bool drawPopupAction(const char* id, const char* icon, std::string_view label, b
   draw->AddText({min.x + 38.0f, min.y + (height - ImGui::GetTextLineHeight()) * 0.5f},
                 colorU32(text), label.data(), label.data() + label.size());
   draw->PopClipRect();
-  drawTooltip(label);
+  PhotonUi::tooltip(label);
   ImGui::PopID();
   return clicked;
 }

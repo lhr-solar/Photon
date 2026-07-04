@@ -93,7 +93,7 @@ void GUI::settingsUI() {
     PhotonUi::label("Settings", palette);
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
-    if (PhotonUi::button("CloseSettings", "Close", {96.0f, 34.0f}, palette))
+    if (PhotonUi::button("CloseSettings", "Close", {96.0f, 34.0f}, palette, false, "Close"))
       ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
@@ -106,12 +106,13 @@ void GUI::updateUI() {
     PhotonUi::label("Update", palette);
     auto buttonSize = ImGui::CalcTextSize("Download Update");
     PhotonUi::label("Update avaialble...", palette);
-    if(PhotonUi::button("Download", "Download Update", {buttonSize.x * 1.25f, 34.0f}, palette)){
+    if (PhotonUi::button("Download", "Download Update", {buttonSize.x * 1.25f, 34.0f}, palette,
+                         false, "Download Update")) {
 
     }
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
-    if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette))
+    if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette, false, "Close"))
       ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
@@ -124,7 +125,7 @@ void GUI::exportUI() {
     PhotonUi::label("Export", palette);
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
-    if (PhotonUi::button("CloseExport", "Close", {96.0f, 34.0f}, palette))
+    if (PhotonUi::button("CloseExport", "Close", {96.0f, 34.0f}, palette, false, "Close"))
       ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
