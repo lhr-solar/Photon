@@ -38,7 +38,7 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   settings.setStyle();
   setTabs();
   testShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
-                          (uint32_t*)nucleus_frag_spv, nucleus_frag_spv_size);
+                          (uint32_t*)lens_frag_spv, lens_frag_spv_size);
   buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                             (uint32_t*)glowButton_frag_spv, glowButton_frag_spv_size);
 }
@@ -107,9 +107,8 @@ void GUI::updateUI() {
     auto buttonSize = ImGui::CalcTextSize("Download Update");
     PhotonUi::label("Update avaialble...", palette);
     if (PhotonUi::button("Download", "Download Update", {buttonSize.x * 1.25f, 34.0f}, palette,
-                         false, "Download Update")) {
-
-    }
+                         false, "Download Update")) updater.launchUpdater();
+    if(updater.running) updater.progressBar();
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
     if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette, false, "Close"))
@@ -180,6 +179,7 @@ VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
 
 void GUI::shaderTest(ImGuiWindowFlags flags) {
   testShader.showing = false;
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, {});
   if (ImGui::Begin("shader test", nullptr, flags)) {
     const bool ready = testShader.initialized.load() && !testShader.frames.empty() &&
                        testShader.frameIndex != nullptr;
@@ -205,6 +205,7 @@ void GUI::shaderTest(ImGuiWindowFlags flags) {
       ImGui::Text("loading shader");
   }
   ImGui::End();
+  ImGui::PopStyleColor();
 };
 
 void GUI::drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax) {
