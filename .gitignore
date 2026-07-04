@@ -10,3 +10,4 @@ assets/video/
 Photon.exe
 *.ini
 build-release/
+artifacts-dash/

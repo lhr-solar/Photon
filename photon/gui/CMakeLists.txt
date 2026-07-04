@@ -1,3 +1,8 @@
+option(PHOTON_DASHBOARD_ONLY "Restrict the UI to the dashboard tab (kiosk/kart builds)" OFF)
+if(PHOTON_DASHBOARD_ONLY)
+    add_compile_definitions(PHOTON_DASHBOARD_ONLY)
+endif()
+
 file(GLOB gui_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.cpp")
 file(GLOB ddash_src "${CMAKE_CURRENT_SOURCE_DIR}/DDash/*.cpp")

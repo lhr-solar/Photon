@@ -45,7 +45,12 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                             (uint32_t*)glowButton_frag_spv, glowButton_frag_spv_size);
 
-  if (std::getenv("PHOTON_DASHBOARD")) {
+#ifdef PHOTON_DASHBOARD_ONLY
+  const bool dashboardOnly = true;
+#else
+  const bool dashboardOnly = std::getenv("PHOTON_DASHBOARD") != nullptr;
+#endif
+  if (dashboardOnly) {
     for (size_t i = 0; i < tabs.list.size(); ++i) {
       if (tabs.list[i].name == "Dashboard") {
         tabs.index = static_cast<int>(i);
@@ -407,10 +412,12 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 
 void GUI::setTabs() {
   tabs.list.clear();
+#ifndef PHOTON_DASHBOARD_ONLY
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "Plots"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
+#endif
   tabs.list.push_back(Tab::bind<GUI, &GUI::dashboardPage>(*this, "Dashboard"));
 };
 
