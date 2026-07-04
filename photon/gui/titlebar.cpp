@@ -1,6 +1,7 @@
 #include "titlebar.hpp"
 
 #include <algorithm>
+#include <cfloat>
 #include <string_view>
 
 #include "SDL3/SDL.h"
@@ -119,24 +120,29 @@ void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::s
   const PhotonUi::Palette palette = PhotonUi::palette();
   const ImVec4 text = withAlpha(palette.text, palette.text.w * alpha);
   const ImVec4 muted = withAlpha(palette.muted, palette.muted.w * alpha);
-  const float iconSize = 28.0f;
-  const ImVec2 iconMin(min.x, min.y + (max.y - min.y - iconSize) * 0.5f);
-  const ImVec2 iconMax(iconMin.x + iconSize, iconMin.y + iconSize);
+  constexpr float iconBox = 28.0f;
+  constexpr float iconFontSize = 16.0f;
+  constexpr float labelFontSize = 14.0f;
+  ImFont* font = ImGui::GetFont();
+  const ImVec2 iconMin(min.x + 10.0f, min.y + (max.y - min.y - iconBox) * 0.5f);
+  const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
 
   const char* icon = PhotonUi::tabIcon(page);
-  const ImVec2 iconTextSize = ImGui::CalcTextSize(icon);
-  draw->AddText(
-      {iconMin.x + (iconSize - iconTextSize.x) * 0.5f,
-       iconMin.y + (iconSize - iconTextSize.y) * 0.5f},
-      colorU32(text), icon);
+  const ImVec2 iconTextSize = font->CalcTextSizeA(iconFontSize, FLT_MAX, 0.0f, icon);
+  constexpr float iconBaselineAdjustY = 1.5f;
+  draw->AddText(font, iconFontSize,
+                {iconMin.x + (iconBox - iconTextSize.x) * 0.5f,
+                 iconMin.y + (iconBox - iconTextSize.y) * 0.5f + iconBaselineAdjustY},
+                colorU32(text), icon);
 
-  const float textX = iconMax.x + 10.0f;
+  const float textX = iconMax.x + 12.0f;
   if (textX >= max.x) return;
 
   draw->PushClipRect({textX, min.y}, max, true);
-  const ImVec2 pageSize = ImGui::CalcTextSize(page.data(), page.data() + page.size());
-  draw->AddText({textX, min.y + (max.y - min.y - pageSize.y) * 0.5f}, colorU32(muted),
-                page.data(), page.data() + page.size());
+  const ImVec2 pageSize =
+      font->CalcTextSizeA(labelFontSize, FLT_MAX, 0.0f, page.data(), page.data() + page.size());
+  draw->AddText(font, labelFontSize, {textX, min.y + (max.y - min.y - pageSize.y) * 0.5f},
+                colorU32(muted), page.data(), page.data() + page.size());
   draw->PopClipRect();
 }
 }  // namespace
