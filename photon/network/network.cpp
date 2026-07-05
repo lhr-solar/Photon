@@ -21,10 +21,25 @@ void Network::startTCP(TCPConfig config) {
   });
 }
 
+void Network::startCandump(PCANConfig config) {
+#ifdef LINUX
+  std::lock_guard lock(writerMutex);
+  stopWriterUnlocked();
+  activeTCPConfig.reset();
+  activePCANConfig = config;
+  writerThread = std::jthread([this, config](std::stop_token stoken) {
+    Protocols::Candump(stoken, guiTxCommandBuffer, config, parse->arena);
+  });
+#else
+  (void)config;
+#endif
+}
+
 void Network::stopWriter() {
   std::lock_guard lock(writerMutex);
   stopWriterUnlocked();
   activeTCPConfig.reset();
+  activePCANConfig.reset();
 }
 
 void Network::stopWriterUnlocked() {
@@ -34,16 +49,28 @@ void Network::stopWriterUnlocked() {
 }
 
 void Network::restartWriterUnlocked() {
-  if (!activeTCPConfig || !parse) return;
-  const TCPConfig config = *activeTCPConfig;
-  writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
-  });
+  if (!parse) return;
+  if (activeTCPConfig) {
+    const TCPConfig config = *activeTCPConfig;
+    writerThread = std::jthread([this, config](std::stop_token stoken) {
+      Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+    });
+    return;
+  }
+#ifdef LINUX
+  if (activePCANConfig) {
+    const PCANConfig config = *activePCANConfig;
+    writerThread = std::jthread([this, config](std::stop_token stoken) {
+      Protocols::Candump(stoken, guiTxCommandBuffer, config, parse->arena);
+    });
+  }
+#endif
 }
 
 bool Network::switchDBC(DBCType kind) {
   std::lock_guard lock(writerMutex);
-  const bool shouldRestart = writerThread.joinable() && activeTCPConfig.has_value();
+  const bool shouldRestart =
+      writerThread.joinable() && (activeTCPConfig.has_value() || activePCANConfig.has_value());
   stopWriterUnlocked();
   const bool loaded = parse && parse->loadDBC(kind);
   if (shouldRestart) restartWriterUnlocked();
@@ -52,7 +79,8 @@ bool Network::switchDBC(DBCType kind) {
 
 bool Network::switchDBCFile(const std::string& path) {
   std::lock_guard lock(writerMutex);
-  const bool shouldRestart = writerThread.joinable() && activeTCPConfig.has_value();
+  const bool shouldRestart =
+      writerThread.joinable() && (activeTCPConfig.has_value() || activePCANConfig.has_value());
   stopWriterUnlocked();
   const bool loaded = parse && parse->loadDBCFile(path);
   if (shouldRestart) restartWriterUnlocked();
@@ -69,6 +97,7 @@ void Network::backend(std::stop_token stoken) {
       } else if (auto* udp = std::get_if<UDPConfig>(cmd)) {
       } else if (auto* uart = std::get_if<UARTConfig>(cmd)) {
       } else if (auto* pcan = std::get_if<PCANConfig>(cmd)) {
+        startCandump(*pcan);
       } else if (std::get_if<BLEConfig>(cmd)) {
       } else if (std::get_if<WLANConfig>(cmd)) {
       } else if (std::get_if<Quit>(cmd))

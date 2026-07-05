@@ -60,6 +60,11 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
     titleBar.showSidebar = false;
     titleBar.enabled = false;
     kioskMode = true;
+#if defined(PHOTON_DASHBOARD_ONLY) && defined(LINUX)
+    // Kiosk build has no Networks tab to start ingest from; read the local
+    // CAN bus (candump, default channel can0) automatically.
+    network.guiRxCommandBuffer.write([](ProtocolTransmitVariant& cmd) { cmd = PCANConfig{}; });
+#endif
   }
 }
 

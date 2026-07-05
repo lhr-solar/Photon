@@ -385,3 +385,125 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
   closeSocket(sock);
   publishMessage(txBuffer, timeNow() + "TCP stopped");
 }
+
+#ifdef LINUX
+
+#include <signal.h>
+#include <sys/wait.h>
+
+#include <cstdlib>
+
+namespace {
+
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+  return -1;
+}
+
+// candump -L prints one frame per line: "(<timestamp>) <iface> <ID>#<DATA>"
+// e.g. "(1612345678.123456) can0 0C0#1122334455667788"
+bool parseCandumpLine(const std::string& line, canpBatch_t& batch) {
+  const size_t tsOpen = line.find('(');
+  const size_t tsClose = line.find(')');
+  if (tsOpen == std::string::npos || tsClose == std::string::npos || tsClose <= tsOpen) return false;
+
+  const double ts = strtod(line.c_str() + tsOpen + 1, nullptr);
+
+  const size_t hash = line.find('#', tsClose);
+  if (hash == std::string::npos) return false;
+
+  size_t idStart = line.rfind(' ', hash);
+  idStart = (idStart == std::string::npos) ? tsClose + 1 : idStart + 1;
+  if (idStart >= hash) return false;
+
+  const uint32_t id = static_cast<uint32_t>(strtoul(line.substr(idStart, hash - idStart).c_str(), nullptr, 16));
+
+  const char* dataStr = line.c_str() + hash + 1;
+  if (*dataStr == 'R') return false;  // remote frame — no data
+
+  uint8_t data[8]{};
+  uint8_t dlc = 0;
+  while (dlc < 8) {
+    const int hi = hexNibble(dataStr[dlc * 2]);
+    if (hi < 0) break;
+    const int lo = hexNibble(dataStr[dlc * 2 + 1]);
+    if (lo < 0) return false;
+    data[dlc++] = static_cast<uint8_t>((hi << 4) | lo);
+  }
+
+  const uint16_t zeroDt[8]{};
+  batch.timestamp = static_cast<uint64_t>(ts * 1000.0);
+  batch.count = 1;
+  batch.packets[0] = canpMakePacket(id, dlc, data, zeroDt);
+  return true;
+}
+
+}  // namespace
+
+void Protocols::Candump(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
+                        PCANConfig config, Arena& arena) {
+  int fds[2];
+  if (pipe(fds) != 0) {
+    publishError(txBuffer, timeNow() + "candump pipe creation failed");
+    return;
+  }
+
+  const pid_t pid = fork();
+  if (pid < 0) {
+    close(fds[0]);
+    close(fds[1]);
+    publishError(txBuffer, timeNow() + "candump fork failed");
+    return;
+  }
+  if (pid == 0) {
+    dup2(fds[1], STDOUT_FILENO);
+    close(fds[0]);
+    close(fds[1]);
+    execlp("candump", "candump", "-L", config.channel, static_cast<char*>(nullptr));
+    _exit(127);
+  }
+  close(fds[1]);
+  const int fd = fds[0];
+
+  publishMessage(txBuffer, timeNow() + "candump reading " + config.channel);
+
+  canpBatch_t batch{};
+  std::string pending{};
+  char buf[512];
+  while (!stoken.stop_requested()) {
+    std::string waitError{};
+    const SocketWaitResult waitResult = waitForReadable(fd, stoken, waitError);
+    if (waitResult == SocketWaitResult::Stopped) break;
+    if (waitResult == SocketWaitResult::Error) {
+      publishError(txBuffer, waitError);
+      break;
+    }
+
+    const ssize_t n = read(fd, buf, sizeof(buf));
+    if (n == 0) {
+      publishError(txBuffer, timeNow() + "candump exited — is " + config.channel + " up?");
+      break;
+    }
+    if (n < 0) {
+      if (errno == EINTR || errno == EAGAIN) continue;
+      publishError(txBuffer, socketError("candump read"));
+      break;
+    }
+
+    pending.append(buf, static_cast<size_t>(n));
+    size_t newline;
+    while ((newline = pending.find('\n')) != std::string::npos) {
+      if (parseCandumpLine(pending.substr(0, newline), batch)) handleNetwork(batch, arena);
+      pending.erase(0, newline + 1);
+    }
+  }
+
+  close(fd);
+  kill(pid, SIGTERM);
+  waitpid(pid, nullptr, 0);
+  publishMessage(txBuffer, timeNow() + "candump stopped");
+}
+
+#endif

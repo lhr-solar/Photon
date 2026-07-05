@@ -112,4 +112,10 @@ using ProtocolReceiveVariant = std::variant<ProtocolError, ProtocolMessage, Prot
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
                   TCPConfig config, Arena& arena);
+#ifdef LINUX
+  // Reads the local CAN bus by spawning `candump -L <channel>` (can-utils),
+  // the same approach the old driver-dash used on the kart.
+  static void Candump(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
+                      PCANConfig config, Arena& arena);
+#endif
 };
