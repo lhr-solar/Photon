@@ -99,8 +99,6 @@ void GUI::settingsUI() {
   PhotonUi::endModal(open);
 };
 
-namespace {
-
 void drawUpdateProgress(const char* id, int percentage, bool running,
                         const PhotonUi::Palette& palette) {
   const float width = ImGui::GetContentRegionAvail().x;
@@ -176,8 +174,6 @@ void drawUpdateMeta(const char* id, const char* label, const char* value, float 
   draw->PopClipRect();
   ImGui::PopID();
 }
-
-}  // namespace
 
 void GUI::updateUI() {
   const bool open = PhotonUi::beginModal("Update", {540.0f, 350.0f});
@@ -400,7 +396,7 @@ void GUI::setTabs() {
 
 void GUI::buildUI() {
   /* Per-Frame state updates */
-  updateAvailable = true;
+  updateAvailable = false;
   settings.setStyle();
   setFont();
   setTabs();
