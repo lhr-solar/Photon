@@ -30,8 +30,8 @@ struct Updater {
   UpdaterProcessId ourPid{};
   std::wstring ourPath{};
 
-  std::string version = "00.00.01";
-  std::string newVersion = "00.00.02";
+  std::string version = "00.00.00";
+  std::string newVersion{}; 
 
   void getOurInfo();
   bool downloadInstaller();
