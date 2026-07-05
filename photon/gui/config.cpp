@@ -576,11 +576,11 @@ void GuiSettings::colorUI() {
   bool dirty = false;
   ImGuiIO& io = ImGui::GetIO();
   const ImVec2 displaySize = io.DisplaySize;
-  const ImVec2 winSize{std::min(780.0f, std::max(360.0f, displaySize.x - 64.0f)),
-                       std::min(600.0f, std::max(420.0f, displaySize.y - 64.0f))};
+  const ImVec2 winSize{std::clamp(displaySize.x - 64.0f, 260.0f, 780.0f),
+                       std::clamp(displaySize.y - 64.0f, 220.0f, 600.0f)};
   const ImVec2 winPos{(displaySize.x - winSize.x) * 0.5f, (displaySize.y - winSize.y) * 0.5f};
-  ImGui::SetNextWindowSize(winSize, ImGuiCond_Appearing);
-  ImGui::SetNextWindowPos(winPos, ImGuiCond_Appearing);
+  ImGui::SetNextWindowSize(winSize);
+  ImGui::SetNextWindowPos(winPos);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 14.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
@@ -631,10 +631,10 @@ void GuiSettings::colorUI() {
     ImGui::ColorConvertRGBtoHSV(colorSeed.x, colorSeed.y, colorSeed.z, hue, saturation, value);
 
     const float footerHeight = 40.0f;
-    const float bodyHeight = std::max(260.0f, ImGui::GetContentRegionAvail().y - footerHeight);
+    const float bodyHeight = std::max(150.0f, ImGui::GetContentRegionAvail().y - footerHeight);
     const float columnGap = 10.0f;
-    const float leftWidth = std::min(320.0f, contentWidth * 0.44f);
-    const float rightWidth = contentWidth - leftWidth - columnGap;
+    const float leftWidth = std::max(140.0f, std::min(320.0f, contentWidth * 0.44f));
+    const float rightWidth = std::max(140.0f, contentWidth - leftWidth - columnGap);
 
     constexpr ImGuiWindowFlags childFlags =
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar;
@@ -646,9 +646,11 @@ void GuiSettings::colorUI() {
     ImGui::Spacing();
     const float gap = 8.0f;
     const float barWidth = 16.0f;
-    const float maxPickerWidth =
-        leftWidth - 2.0f * ImGui::GetStyle().WindowPadding.x - 2.0f * (barWidth + gap);
-    const float size = std::clamp(bodyHeight * 0.34f, 96.0f, std::min(160.0f, maxPickerWidth));
+    const float maxPickerWidth = std::max(
+        40.0f, leftWidth - 2.0f * ImGui::GetStyle().WindowPadding.x - 2.0f * (barWidth + gap));
+    const float pickerMax = std::max(40.0f, std::min(160.0f, maxPickerWidth));
+    const float pickerMin = std::min(96.0f, pickerMax);
+    const float size = std::clamp(bodyHeight * 0.34f, pickerMin, pickerMax);
     ImGui::BeginGroup();
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("##HueValueField", {size, size});
@@ -739,9 +741,12 @@ void GuiSettings::colorUI() {
     ImGui::Spacing();
     ImVec2 palettePos = ImGui::GetCursorScreenPos();
     const float paletteWidth = leftWidth - 2.0f * ImGui::GetStyle().WindowPadding.x;
-    const float paletteFit = (paletteWidth - 3.0f * gap) / 4.0f;
+    const float paletteFit = std::max(12.0f, (paletteWidth - 3.0f * gap) / 4.0f);
     const float paletteHeightFit = std::max(24.0f, (bodyHeight - size - 142.0f) * 0.5f);
-    const float paletteSize = std::clamp(std::min(paletteFit, paletteHeightFit), 24.0f, 58.0f);
+    const float paletteMax = std::max(12.0f, std::min(58.0f, paletteFit));
+    const float paletteMin = std::min(24.0f, paletteMax);
+    const float paletteSize = std::clamp(std::min(paletteFit, paletteHeightFit), paletteMin,
+                                         paletteMax);
     for (int i = 0; i < 8; ++i) {
       ImVec2 min = {palettePos.x + (i % 4) * (paletteSize + gap),
                     palettePos.y + (i / 4) * (paletteSize + gap)};

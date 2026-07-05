@@ -79,8 +79,8 @@ bool beginModal(const char* title, ImVec2 size) {
   const ImVec2 winSize{std::min(size.x, std::max(320.0f, display.x - 64.0f)),
                        std::min(size.y, std::max(220.0f, display.y - 64.0f))};
   const ImVec2 winPos{(display.x - winSize.x) * 0.5f, (display.y - winSize.y) * 0.5f};
-  ImGui::SetNextWindowSize(winSize, ImGuiCond_Appearing);
-  ImGui::SetNextWindowPos(winPos, ImGuiCond_Appearing);
+  ImGui::SetNextWindowSize(winSize);
+  ImGui::SetNextWindowPos(winPos);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 14.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);

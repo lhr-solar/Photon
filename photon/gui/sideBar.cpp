@@ -471,9 +471,9 @@ void Sidebar::drawDBCSelector(GUI& gui) {
                               viewport->Pos.y + viewport->Size.y * 0.5f};
   const float maxModalWidth = std::max(280.0f, viewport->Size.x - 48.0f);
   const float modalWidth = std::min(440.0f, maxModalWidth);
-  ImGui::SetNextWindowPos(modalCenter, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-  ImGui::SetNextWindowSizeConstraints(ImVec2{modalWidth, 0.0f},
-                                      ImVec2{modalWidth, viewport->Size.y * 0.82f});
+  const float modalHeight = std::min(360.0f, std::max(220.0f, viewport->Size.y - 48.0f));
+  ImGui::SetNextWindowPos(modalCenter, 0, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize({modalWidth, modalHeight});
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
