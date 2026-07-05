@@ -4,7 +4,12 @@
 #include <curl/curl.h>
 #endif
 
+#ifdef _WIN32
+#include <winhttp.h>
+#endif
+
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -26,7 +31,7 @@ static constexpr const char* kPhotonAssetName = "Photon.AppImage";
 static constexpr const char* kUpdaterAssetName = "photonUpdater-linux-x64";
 #endif
 
-#ifdef PHOTON_HAS_CURL
+#if defined(_WIN32) || defined(PHOTON_HAS_CURL)
 static constexpr bool kCanQueryReleases = true;
 
 static std::string jsonUnescape(std::string_view text) {
@@ -114,62 +119,139 @@ static size_t curlWriteToString(char* ptr, size_t size, size_t nmemb, void* user
   out->append(ptr, bytes);
   return bytes;
 }
+#endif
+
+#ifdef PHOTON_HAS_CURL
+static bool fetchLatestReleaseJson(std::string& response) {
+  curl_global_init(CURL_GLOBAL_DEFAULT);
+  CURL* curl = curl_easy_init();
+  if (!curl) {
+    curl_global_cleanup();
+    return false;
+  }
+
+  curl_slist* headers = nullptr;
+  headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
+  headers = curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
+
+  curl_easy_setopt(curl, CURLOPT_URL, kLatestReleaseUrl);
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Photon-Updater/0.1");
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteToString);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+  const CURLcode result = curl_easy_perform(curl);
+  long status = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+
+  curl_slist_free_all(headers);
+  curl_easy_cleanup(curl);
+  curl_global_cleanup();
+  return result == CURLE_OK && status >= 200 && status < 300;
+}
+#endif
+
+#ifdef _WIN32
+static bool fetchLatestReleaseJson(std::string& response) {
+  HINTERNET session = WinHttpOpen(L"Photon-Updater/0.1", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+                                  WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+  if (!session) return false;
+
+  HINTERNET connect = WinHttpConnect(session, L"api.github.com", INTERNET_DEFAULT_HTTPS_PORT, 0);
+  if (!connect) {
+    WinHttpCloseHandle(session);
+    return false;
+  }
+
+  HINTERNET request =
+      WinHttpOpenRequest(connect, L"GET", L"/repos/lhr-solar/Photon/releases/latest", nullptr,
+                         WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+  if (!request) {
+    WinHttpCloseHandle(connect);
+    WinHttpCloseHandle(session);
+    return false;
+  }
+
+  const wchar_t* headers =
+      L"Accept: application/vnd.github+json\r\n"
+      L"X-GitHub-Api-Version: 2022-11-28\r\n"
+      L"User-Agent: Photon-Updater/0.1\r\n";
+  bool ok = WinHttpSendRequest(request, headers, DWORD(-1), WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
+            WinHttpReceiveResponse(request, nullptr);
+
+  DWORD status = 0;
+  DWORD statusSize = sizeof(status);
+  ok = ok &&
+       WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                           WINHTTP_HEADER_NAME_BY_INDEX, &status, &statusSize,
+                           WINHTTP_NO_HEADER_INDEX) &&
+       status >= 200 && status < 300;
+
+  std::array<char, 4096> buffer{};
+  while (ok) {
+    DWORD available = 0;
+    if (!WinHttpQueryDataAvailable(request, &available) || available == 0) break;
+
+    while (available > 0) {
+      const DWORD toRead = std::min<DWORD>(available, DWORD(buffer.size()));
+      DWORD read = 0;
+      if (!WinHttpReadData(request, buffer.data(), toRead, &read)) {
+        ok = false;
+        break;
+      }
+      if (read == 0) break;
+      response.append(buffer.data(), read);
+      available -= read;
+    }
+  }
+
+  WinHttpCloseHandle(request);
+  WinHttpCloseHandle(connect);
+  WinHttpCloseHandle(session);
+  return ok;
+}
+#endif
+
+void Updater::setReleaseInfo(std::string remoteVersion, std::string appURL,
+                             std::string updaterURL) {
+  if (remoteVersion.empty() || appURL.empty() || updaterURL.empty()) return;
+
+  std::lock_guard lock(releaseMutex);
+  if (remoteVersion == version) return;
+
+  newVersion = std::move(remoteVersion);
+  photonURL = std::move(appURL);
+  installerURL = std::move(updaterURL);
+  updateAvailable.store(true);
+}
+
+void Updater::versionSnapshot(std::string& current, std::string& remote) const {
+  std::lock_guard lock(releaseMutex);
+  current = version;
+  remote = newVersion;
+}
+
+void Updater::downloadSnapshot(std::string& appURL, std::string& updaterURL) const {
+  std::lock_guard lock(releaseMutex);
+  appURL = photonURL;
+  updaterURL = installerURL;
+}
 
 void Updater::queryReleaseInfoOnceAsync() {
   if (releaseQueryStarted.exchange(true)) return;
 
   std::thread([this] {
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-      curl_global_cleanup();
-      return;
-    }
-
     std::string response;
-    curl_slist* headers = nullptr;
-    headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
-    headers = curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
+    if (!fetchLatestReleaseJson(response)) return;
 
-    curl_easy_setopt(curl, CURLOPT_URL, kLatestReleaseUrl);
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Photon-Updater/0.1");
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteToString);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-
-    const CURLcode result = curl_easy_perform(curl);
-    long status = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-
-    if (result == CURLE_OK && status >= 200 && status < 300) {
-      const std::string tag = jsonStringValue(response, "tag_name");
-      const std::string nextPhotonURL = releaseAssetUrl(response, kPhotonAssetName);
-      const std::string nextUpdaterURL = releaseAssetUrl(response, kUpdaterAssetName);
-      const std::string nextVersion = displayVersion(tag);
-
-      if (!nextVersion.empty() && !nextPhotonURL.empty() && !nextUpdaterURL.empty() &&
-          nextVersion != version) {
-        newVersion = nextVersion;
-        photonURL = nextPhotonURL;
-        installerURL = nextUpdaterURL;
-        updateAvailable.store(true);
-      }
-    }
-
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
+    const std::string nextVersion = displayVersion(jsonStringValue(response, "tag_name"));
+    const std::string nextPhotonURL = releaseAssetUrl(response, kPhotonAssetName);
+    const std::string nextUpdaterURL = releaseAssetUrl(response, kUpdaterAssetName);
+    setReleaseInfo(nextVersion, nextPhotonURL, nextUpdaterURL);
   }).detach();
 }
-#else
-static constexpr bool kCanQueryReleases = false;
-
-void Updater::queryReleaseInfoOnceAsync() {
-  if (releaseQueryStarted.exchange(true)) return;
-}
-#endif
 
 void drawUpdateProgress(const char* id, int percentage, bool running,
                         const PhotonUi::Palette& palette) {
@@ -305,7 +387,10 @@ void Updater::drawUI(bool updateAvailable) {
       drawUpdateProgress("PhotonUpdateProgress", downloadPercentage, updaterRunning, palette);
       ImGui::Spacing();
     }
-    drawVersionTransition("VersionMeta", version.c_str(), newVersion.c_str(), palette);
+    std::string currentVersion;
+    std::string remoteVersion;
+    versionSnapshot(currentVersion, remoteVersion);
+    drawVersionTransition("VersionMeta", currentVersion.c_str(), remoteVersion.c_str(), palette);
 
     const float bottomY = ImGui::GetWindowHeight() - 52.0f;
     ImGui::SetCursorPosY(bottomY);
@@ -427,7 +512,10 @@ void Updater::beginUpdate() {
 bool Updater::downloadInstaller() {
   DownloadProgress progress(installerDownloadPercentage);
   std::string path = installerPath.string();
-  HRESULT hr = URLDownloadToFileA(nullptr, installerURL.c_str(), path.c_str(), 0, &progress);
+  std::string appURL;
+  std::string updaterURL;
+  downloadSnapshot(appURL, updaterURL);
+  HRESULT hr = URLDownloadToFileA(nullptr, updaterURL.c_str(), path.c_str(), 0, &progress);
   if (hr == S_OK) return true;
   return false;
 }
@@ -435,7 +523,10 @@ bool Updater::downloadInstaller() {
 bool Updater::downloadNewPhoton() {
   DownloadProgress progress(photonDownloadPercentage);
   std::string path = photonPath.string();
-  HRESULT hr = URLDownloadToFileA(nullptr, photonURL.c_str(), path.c_str(), 0, &progress);
+  std::string appURL;
+  std::string updaterURL;
+  downloadSnapshot(appURL, updaterURL);
+  HRESULT hr = URLDownloadToFileA(nullptr, appURL.c_str(), path.c_str(), 0, &progress);
   if (hr == S_OK) return true;
   return false;
 }

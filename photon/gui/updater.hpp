@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include <filesystem>
+#include <mutex>
 #include <string>
 
 #ifdef _WIN32
@@ -16,6 +17,7 @@ struct Updater {
   std::atomic<bool> running{false};
   std::atomic<bool> releaseQueryStarted{false};
   std::atomic<bool> updateAvailable{false};
+  mutable std::mutex releaseMutex;
 
   std::filesystem::path installerPath{};
   std::string installerURL =
@@ -39,4 +41,7 @@ struct Updater {
   void beginUpdate();
   void drawUI(bool updateAvailable);
   void queryReleaseInfoOnceAsync();
+  void setReleaseInfo(std::string remoteVersion, std::string appURL, std::string updaterURL);
+  void versionSnapshot(std::string& current, std::string& remote) const;
+  void downloadSnapshot(std::string& appURL, std::string& updaterURL) const;
 };

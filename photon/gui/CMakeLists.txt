@@ -1,13 +1,11 @@
 file(GLOB gui_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.cpp")
 
-find_package(CURL QUIET)
-add_library(libcurl INTERFACE)
-if (CURL_FOUND)
-    target_compile_definitions(libcurl INTERFACE PHOTON_HAS_CURL=1)
-    target_link_libraries(libcurl INTERFACE CURL::libcurl)
-else()
-    message(WARNING "libcurl not found; update release checks are disabled.")
+add_library(photon_http INTERFACE)
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(CURL REQUIRED)
+    target_compile_definitions(photon_http INTERFACE PHOTON_HAS_CURL=1)
+    target_link_libraries(photon_http INTERFACE CURL::libcurl)
 endif()
 
 add_library(gui ${gui_src})
@@ -25,7 +23,7 @@ target_link_libraries(gui
     gpu
     network
     parse
-    libcurl 
+    photon_http
 )
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -46,7 +44,7 @@ if (PHOTON_UI_HOT_RELOAD)
         gpu
         network
         parse
-        libcurl
+        photon_http
     )
 
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
