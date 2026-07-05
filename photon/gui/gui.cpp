@@ -62,8 +62,11 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
     kioskMode = true;
 #if defined(PHOTON_DASHBOARD_ONLY) && defined(LINUX)
     // Kiosk build has no Networks tab to start ingest from; read the local
-    // CAN bus (candump, default channel can0) automatically.
-    network.guiRxCommandBuffer.write([](ProtocolTransmitVariant& cmd) { cmd = PCANConfig{}; });
+    // CAN bus (candump, default channel can0) automatically. Started directly
+    // rather than via guiRxCommandBuffer: the backend thread's queue reader
+    // only sees writes made after it exists, so a command written this early
+    // in startup would be missed.
+    network.startCandump(PCANConfig{});
 #endif
   }
 }
