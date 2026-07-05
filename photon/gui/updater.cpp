@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <iostream>
 #include <string>
 #include <thread>
 
@@ -18,6 +17,14 @@
 
 static constexpr const char* kLatestReleaseUrl =
     "https://api.github.com/repos/lhr-solar/Photon/releases/latest";
+
+#ifdef _WIN32
+static constexpr const char* kPhotonAssetName = "Photon.exe";
+static constexpr const char* kUpdaterAssetName = "photonUpdater.exe";
+#else
+static constexpr const char* kPhotonAssetName = "Photon.AppImage";
+static constexpr const char* kUpdaterAssetName = "photonUpdater-linux-x64";
+#endif
 
 #ifdef PHOTON_HAS_CURL
 static constexpr bool kCanQueryReleases = true;
@@ -82,8 +89,7 @@ static std::string jsonStringValue(std::string_view json, std::string_view key,
   return jsonUnescape(json.substr(quote + 1, end - quote - 1));
 }
 
-static void printReleaseAssets(std::string_view json) {
-  int count = 0;
+static std::string releaseAssetUrl(std::string_view json, std::string_view assetName) {
   std::size_t pos = 0;
   while ((pos = json.find("\"browser_download_url\"", pos)) != std::string_view::npos) {
     const std::size_t objectStart = json.rfind('{', pos);
@@ -91,14 +97,15 @@ static void printReleaseAssets(std::string_view json) {
     const std::string name = objectStart == std::string_view::npos
                                  ? std::string{}
                                  : jsonStringValue(json, "name", objectStart);
-    if (!url.empty()) {
-      ++count;
-      std::cout << "[updater] asset " << (name.empty() ? "<unnamed>" : name) << " -> " << url
-                << '\n';
-    }
+    if (name == assetName) return url;
     pos += 22;
   }
-  std::cout << "[updater] assets: " << count << '\n';
+  return {};
+}
+
+static std::string displayVersion(std::string tag) {
+  if (!tag.empty() && tag[0] == 'v') tag.erase(0, 1);
+  return tag;
 }
 
 static size_t curlWriteToString(char* ptr, size_t size, size_t nmemb, void* userdata) {
@@ -111,13 +118,10 @@ static size_t curlWriteToString(char* ptr, size_t size, size_t nmemb, void* user
 void Updater::queryReleaseInfoOnceAsync() {
   if (releaseQueryStarted.exchange(true)) return;
 
-  std::thread([] {
-    std::cout << "[updater] querying " << kLatestReleaseUrl << '\n';
-
+  std::thread([this] {
     curl_global_init(CURL_GLOBAL_DEFAULT);
     CURL* curl = curl_easy_init();
     if (!curl) {
-      std::cout << "[updater] failed to initialize curl\n";
       curl_global_cleanup();
       return;
     }
@@ -139,18 +143,19 @@ void Updater::queryReleaseInfoOnceAsync() {
     long status = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
 
-    std::cout << "[updater] github release query status=" << status
-              << " curl=" << curl_easy_strerror(result) << '\n';
-
     if (result == CURLE_OK && status >= 200 && status < 300) {
       const std::string tag = jsonStringValue(response, "tag_name");
-      const std::string name = jsonStringValue(response, "name");
+      const std::string nextPhotonURL = releaseAssetUrl(response, kPhotonAssetName);
+      const std::string nextUpdaterURL = releaseAssetUrl(response, kUpdaterAssetName);
+      const std::string nextVersion = displayVersion(tag);
 
-      std::cout << "[updater] latest tag: " << (tag.empty() ? "<missing>" : tag) << '\n';
-      std::cout << "[updater] release name: " << (name.empty() ? "<missing>" : name) << '\n';
-      printReleaseAssets(response);
-    } else if (!response.empty()) {
-      std::cout << "[updater] response body:\n" << response << '\n';
+      if (!nextVersion.empty() && !nextPhotonURL.empty() && !nextUpdaterURL.empty() &&
+          nextVersion != version) {
+        newVersion = nextVersion;
+        photonURL = nextPhotonURL;
+        installerURL = nextUpdaterURL;
+        updateAvailable.store(true);
+      }
     }
 
     curl_slist_free_all(headers);
@@ -163,7 +168,6 @@ static constexpr bool kCanQueryReleases = false;
 
 void Updater::queryReleaseInfoOnceAsync() {
   if (releaseQueryStarted.exchange(true)) return;
-  std::cout << "[updater] libcurl not found; release query disabled\n";
 }
 #endif
 
@@ -373,10 +377,6 @@ struct DownloadProgress : IBindStatusCallback {
 
 static std::wstring quote(const std::wstring& s) { return L"\"" + s + L"\""; }
 
-static void debugUpdater(const std::wstring& message) {
-  OutputDebugStringW((L"Photon updater: " + message + L"\n").c_str());
-}
-
 void Updater::launchUpdater() {
   if (running.exchange(true)) return;
   photonDownloadPercentage.store(-1);
@@ -410,20 +410,16 @@ void Updater::getOurInfo() {
 
 void Updater::beginUpdate() {
   if (!downloadInstaller()) {
-    debugUpdater(L"installer download failed");
     running = false;
     return;
   }
 
   if (!downloadNewPhoton()) {
-    debugUpdater(L"Photon download failed");
     running = false;
     return;
   }
 
-  if (!launchInstaller()) {
-    debugUpdater(L"installer launch failed");
-  }
+  launchInstaller();
 
   running = false;
 }
@@ -458,10 +454,7 @@ bool Updater::launchInstaller() {
   sei.lpDirectory = workingDirectory.c_str();
   sei.nShow = SW_SHOWNORMAL;
 
-  if (!ShellExecuteExW(&sei)) {
-    debugUpdater(L"ShellExecuteExW failed with error " + std::to_wstring(GetLastError()));
-    return false;
-  }
+  if (!ShellExecuteExW(&sei)) return false;
 
   if (sei.hProcess) CloseHandle(sei.hProcess);
   return true;

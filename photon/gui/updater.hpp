@@ -15,6 +15,7 @@ struct Updater {
   std::atomic<int> installerDownloadPercentage{-1};
   std::atomic<bool> running{false};
   std::atomic<bool> releaseQueryStarted{false};
+  std::atomic<bool> updateAvailable{false};
 
   std::filesystem::path installerPath{};
   std::string installerURL =
