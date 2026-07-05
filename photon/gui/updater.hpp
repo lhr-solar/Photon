@@ -1,9 +1,14 @@
 #pragma once
-#include <windows.h>
-
 #include <atomic>
 #include <filesystem>
 #include <string>
+
+#ifdef _WIN32
+#include <windows.h>
+using UpdaterProcessId = DWORD;
+#else
+using UpdaterProcessId = unsigned long;
+#endif
 
 struct Updater {
   std::atomic<int> photonDownloadPercentage{-1};
@@ -18,10 +23,11 @@ struct Updater {
   std::string photonURL =
       "https://github.com/lhr-solar/Photon/releases/download/Win_Pre-Release/Photon.exe";
 
-  DWORD ourPid{};
+  UpdaterProcessId ourPid{};
   std::wstring ourPath{};
 
   std::string version = "00.00.01";
+  std::string newVersion = "00.00.02";
 
   void getOurInfo();
   bool downloadInstaller();
@@ -29,4 +35,5 @@ struct Updater {
   bool launchInstaller();
   void launchUpdater();
   void beginUpdate();
+  void drawUI(bool updateAvailable);
 };
