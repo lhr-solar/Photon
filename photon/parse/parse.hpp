@@ -8,6 +8,7 @@ enum class DBCType : uint32_t {
   DaybreakMaster,
   Test,
   AssettoCorsa,
+  CarCAN,
   File,
 };
 
@@ -21,7 +22,7 @@ struct Parse {
   bool loadDBCFile(const std::string& path);
   void destroy();
 
-  static constexpr uint32_t dbcCount() { return 5; }
+  static constexpr uint32_t dbcCount() { return 6; }
   static const char* dbcName(DBCType kind);
   const char* currentDBCName() const;
 };

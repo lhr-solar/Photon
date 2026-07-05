@@ -105,13 +105,21 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
     }
   }
 
+  // VCU_Status has no single consolidated fault signal on the real bus; it
+  // splits fault state into six per-subsystem 1-bit flags.
+  static constexpr const char* kVcuFaultSignals[] = {
+      "VCU_BPS_FAULT_DETECTED",     "VCU_CONTROLS_FAULT_DETECTED", "VCU_MTR_FAULT_DETECTED",
+      "VCU_PEDALS_FAULT_DETECTED",  "VCU_STEERING_FAULT_DETECTED", "VCU_OTHER_FAULT",
+  };
+
   state.bpsMsgAgeSeconds = MessageAgeSecondsForSignal(arena, "BPS_Fault");
-  state.vcuMsgAgeSeconds = MessageAgeSecondsForSignal(arena, "VCU_Fault");
+  state.vcuMsgAgeSeconds = MessageAgeSecondsForSignal(arena, kVcuFaultSignals[0]);
 
   bool hasBps = state.signals.count("BPS_Fault") != 0;
-  bool hasVcu = state.signals.count("VCU_Fault") != 0;
+  bool hasVcu = state.signals.count(kVcuFaultSignals[0]) != 0;
   double bpsF = state.get("BPS_Fault");
-  double vcuF = state.get("VCU_Fault");
+  double vcuF = 0.0;
+  for (const char* sig : kVcuFaultSignals) vcuF += state.get(sig) != 0.0 ? 1.0 : 0.0;
   if (hasBps && bpsF != 0) addFault(state, "BPS", FaultSeverity::Critical, "BPS fault detected");
   if (hasVcu && vcuF != 0) addFault(state, "VCU", FaultSeverity::Critical, "VCU fault detected");
   std::stable_sort(state.faults.begin(), state.faults.end(), [](const Fault& a, const Fault& b) {

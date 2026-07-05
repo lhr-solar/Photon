@@ -7,6 +7,7 @@
 
 #include "../engine/include.hpp"
 #include "arena.hpp"
+#include "CarCAN_dbc.hpp"
 #include "assettoCorsa_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
 #include "lonestar_dbc.hpp"
@@ -30,6 +31,8 @@ DBCAsset dbcAsset(DBCType kind) {
       return {DBCType::Test, "test", test_dbc, test_dbc_size};
     case DBCType::AssettoCorsa:
       return {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size};
+    case DBCType::CarCAN:
+      return {DBCType::CarCAN, "CarCAN", CarCAN_dbc, CarCAN_dbc_size};
     case DBCType::File:
       return {DBCType::File, "selected-file", nullptr, 0};
   }
