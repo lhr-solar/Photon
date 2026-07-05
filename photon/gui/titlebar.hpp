@@ -15,7 +15,7 @@ enum class WindowAction {
 
 struct TitleBar {
   SDL_Window* window;
-  float height = 40;
+  float height = 30;
   bool enabled = true;
   bool showSidebar = true;
   std::string activePage = "Navigation";

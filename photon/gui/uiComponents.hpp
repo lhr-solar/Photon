@@ -18,6 +18,17 @@ struct Palette {
   ImVec4 border;
 };
 
+struct ControlState {
+  bool clicked = false;
+  bool hovered = false;
+  bool active = false;
+  ImGuiID id = 0;
+  ImVec2 min{};
+  ImVec2 max{};
+  float focus = 0.0f;
+  float press = 0.0f;
+};
+
 Palette palette();
 ImVec4 withAlpha(ImVec4 color, float alpha);
 ImVec4 mixColor(ImVec4 a, ImVec4 b, float t);
@@ -38,8 +49,17 @@ bool beginPanel(const char* id, ImVec2 size, const Palette& palette,
 void endPanel();
 void label(std::string_view text, const Palette& palette);
 void tooltip(std::string_view text, ImGuiHoveredFlags flags = ImGuiHoveredFlags_DelayShort);
+ControlState control(const char* id, ImVec2 size, bool selected = false, float hoverFocus = 0.58f,
+                     float activeFocus = 0.88f, float focusSeconds = 0.14f,
+                     float pressSeconds = 0.08f);
 bool button(const char* id, std::string_view text, ImVec2 size, const Palette& palette,
             bool selected = false, std::string_view tooltipText = {});
+bool iconButton(const char* id, const char* icon, std::string_view tooltipText, ImVec2 size,
+                const Palette& palette, bool selected = false);
+bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
+               const Palette& palette, bool selected = false, bool disabled = false);
+void pushInputStyle(const Palette& palette);
+void popInputStyle();
 void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width);
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
                const Palette& palette);

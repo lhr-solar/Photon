@@ -1,13 +1,10 @@
-#include "gui.hpp"
-
 #include <algorithm>
 #include <array>
 #include <string>
 #include <variant>
 
-#include "im_anim.h"
+#include "gui.hpp"
 #include "imgui.h"
-#include "imgui_internal.h"
 #include "uiComponents.hpp"
 
 namespace {
@@ -26,19 +23,6 @@ constexpr std::array<ProtocolOption, 7> kProtocols{{
     {"BLE", "\uea37"},
     {"WLAN", "\ueb52"},
 }};
-
-void pushInputStyle(const PhotonUi::Palette& palette) {
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 7.0f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBg, PhotonUi::withAlpha(palette.panel, 0.82f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, PhotonUi::withAlpha(palette.raised, 0.88f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgActive, PhotonUi::withAlpha(palette.raised, 0.96f));
-}
-
-void popInputStyle() {
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(2);
-}
 
 void submit(Network* network, TCPConfig config) {
   network->guiRxCommandBuffer.write([config](ProtocolTransmitVariant& cmd) { cmd = config; });
@@ -84,83 +68,47 @@ void drainNetworkLog(Network* network, std::string& log) {
   if (log.size() > maxLogBytes) log.erase(0, log.size() - maxLogBytes);
 }
 
-bool protocolButton(const ProtocolOption& option, bool selected, ImVec2 size,
-                    const PhotonUi::Palette& palette) {
-  ImGui::PushID(option.name);
-  ImGui::InvisibleButton("protocol", size);
-  const bool clicked = ImGui::IsItemClicked();
-  const bool hovered = ImGui::IsItemHovered();
-  const bool active = ImGui::IsItemActive();
-  const ImGuiID id = ImGui::GetItemID();
-  const float focus =
-      iam_tween_float(id, ImHashStr("focus"),
-                      selected  ? 1.0f
-                      : active  ? 0.88f
-                      : hovered ? 0.58f
-                                : 0.0f,
-                      0.14f, iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                      ImGui::GetIO().DeltaTime, selected ? 1.0f : 0.0f);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
-  ImDrawList* draw = ImGui::GetWindowDrawList();
-  const ImVec4 fill = PhotonUi::mixColor(palette.raised, palette.active, focus);
-  draw->AddRectFilled(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(fill, 0.84f)), 8.0f);
-  draw->AddRect(min, max,
-                PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.38f + focus * 0.28f)),
-                8.0f);
-  if (selected) {
-    draw->AddRectFilled(min, {min.x + 4.0f, max.y}, PhotonUi::colorU32(palette.accent), 8.0f);
-  }
-  PhotonUi::drawIconCentered(
-      draw, option.icon, {min.x + 10.0f, min.y}, {min.x + 34.0f, max.y}, 17.0f,
-      PhotonUi::colorU32(PhotonUi::mixColor(palette.muted, palette.text, focus)), 1.0f);
-  draw->AddText({min.x + 42.0f, min.y + (size.y - ImGui::GetTextLineHeight()) * 0.5f},
-                PhotonUi::colorU32(selected ? palette.text
-                                            : PhotonUi::mixColor(palette.muted, palette.text, focus)),
-                option.name);
-  ImGui::PopID();
-  return clicked;
-}
-
 void drawProtocolList(int& selected, const PhotonUi::Palette& palette) {
   const float width = ImGui::GetContentRegionAvail().x;
   for (int i = 0; i < static_cast<int>(kProtocols.size()); ++i) {
-    if (protocolButton(kProtocols[i], selected == i, {width, 40.0f}, palette)) selected = i;
+    if (PhotonUi::rowButton(kProtocols[i].name, kProtocols[i].icon, kProtocols[i].name,
+                            {width, 40.0f}, palette, selected == i))
+      selected = i;
     ImGui::Dummy({0.0f, 4.0f});
   }
 }
 
 void drawTcpFields(TCPConfig& config, const PhotonUi::Palette& palette) {
-  pushInputStyle(palette);
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("IP", config.ip, sizeof(config.ip));
   ImGui::SetNextItemWidth(140.0f);
   ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
-  popInputStyle();
+  PhotonUi::popInputStyle();
 }
 
 void drawUdpFields(UDPConfig& config, const PhotonUi::Palette& palette) {
-  pushInputStyle(palette);
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("IP", config.ip, sizeof(config.ip));
   ImGui::SetNextItemWidth(140.0f);
   ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("Subscription", config.subscribeMessage, sizeof(config.subscribeMessage));
-  popInputStyle();
+  PhotonUi::popInputStyle();
 }
 
 void drawUartFields(UARTConfig& config, const PhotonUi::Palette& palette) {
-  pushInputStyle(palette);
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("Device", config.device, sizeof(config.device));
   ImGui::SetNextItemWidth(180.0f);
   ImGui::InputScalar("Baud", ImGuiDataType_U32, &config.baudRate);
-  popInputStyle();
+  PhotonUi::popInputStyle();
 }
 
 void drawPcanFields(PCANConfig& config, const PhotonUi::Palette& palette) {
-  pushInputStyle(palette);
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("Channel", config.channel, sizeof(config.channel));
   ImGui::SetNextItemWidth(140.0f);
@@ -170,7 +118,7 @@ void drawPcanFields(PCANConfig& config, const PhotonUi::Palette& palette) {
   ImGui::Checkbox("Listen only", &config.listenOnly);
   ImGui::SameLine();
   ImGui::Checkbox("Bus reset", &config.busoffReset);
-  popInputStyle();
+  PhotonUi::popInputStyle();
 }
 
 void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {

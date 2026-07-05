@@ -47,10 +47,10 @@ void drawIcon(ImDrawList* draw, const char* icon, ImVec2 pos, float size, ImU32 
 void drawIconCentered(ImDrawList* draw, const char* icon, ImVec2 min, ImVec2 max, float size,
                       ImU32 color, float yOffset) {
   const ImVec2 iconSize = calcIconSize(icon, size);
-  drawIcon(draw, icon,
-           {min.x + (max.x - min.x - iconSize.x) * 0.5f,
-            min.y + (max.y - min.y - iconSize.y) * 0.5f},
-           size, color, yOffset);
+  drawIcon(
+      draw, icon,
+      {min.x + (max.x - min.x - iconSize.x) * 0.5f, min.y + (max.y - min.y - iconSize.y) * 0.5f},
+      size, color, yOffset);
 }
 
 Palette palette() {
@@ -90,10 +90,8 @@ bool beginModal(const char* title, ImVec2 size) {
   ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(p.bg, 0.98f));
   ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(p.border, 0.70f));
   constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                                     ImGuiWindowFlags_NoDocking |
-                                     ImGuiWindowFlags_NoSavedSettings |
-                                     ImGuiWindowFlags_NoTitleBar |
-                                     ImGuiWindowFlags_NoScrollbar;
+                                     ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings |
+                                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
   return ImGui::BeginPopupModal(title, nullptr, flags);
 }
 
@@ -144,41 +142,110 @@ void tooltip(std::string_view text, ImGuiHoveredFlags flags) {
   ImGui::PopStyleVar(3);
 }
 
+ControlState control(const char* id, ImVec2 size, bool selected, float hoverFocus,
+                     float activeFocus, float focusSeconds, float pressSeconds) {
+  ImGui::InvisibleButton(id, size);
+  ControlState state{};
+  state.clicked = ImGui::IsItemClicked();
+  state.hovered = ImGui::IsItemHovered();
+  state.active = ImGui::IsItemActive();
+  state.id = ImGui::GetItemID();
+  state.min = ImGui::GetItemRectMin();
+  state.max = ImGui::GetItemRectMax();
+  const float target = selected        ? 1.0f
+                       : state.active  ? activeFocus
+                       : state.hovered ? hoverFocus
+                                       : 0.0f;
+  state.focus = iam_tween_float(state.id, ImHashStr("focus"), target, focusSeconds,
+                                iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
+                                ImGui::GetIO().DeltaTime, selected ? 1.0f : 0.0f);
+  state.press = iam_tween_float(state.id, ImHashStr("press"), state.active ? 1.0f : 0.0f,
+                                pressSeconds, iam_ease_preset(iam_ease_out_quad),
+                                iam_policy_crossfade, ImGui::GetIO().DeltaTime);
+  return state;
+}
+
 bool button(const char* id, std::string_view text, ImVec2 size, const Palette& palette,
             bool selected, std::string_view tooltipText) {
   ImGui::PushID(id);
-  ImGui::InvisibleButton("button", size);
-  const bool clicked = ImGui::IsItemClicked();
-  const bool hovered = ImGui::IsItemHovered();
-  const bool active = ImGui::IsItemActive();
-  const ImGuiID itemId = ImGui::GetItemID();
-  const float focus =
-      iam_tween_float(itemId, ImHashStr("focus"),
-                      selected  ? 1.0f
-                      : active  ? 0.88f
-                      : hovered ? 0.58f
-                                : 0.0f,
-                      0.14f, iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                      ImGui::GetIO().DeltaTime, selected ? 1.0f : 0.0f);
-  const float press = iam_tween_float(itemId, ImHashStr("press"), active ? 1.0f : 0.0f, 0.08f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                                      ImGui::GetIO().DeltaTime);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
+  const ControlState state = control("button", size, selected);
   ImDrawList* draw = ImGui::GetWindowDrawList();
-  draw->AddRectFilled({min.x + press, min.y + press}, {max.x - press, max.y + press},
-                      colorU32(withAlpha(mixColor(palette.raised, palette.active, focus), 0.88f)),
-                      8.0f);
-  draw->AddRect({min.x + press, min.y + press}, {max.x - press, max.y + press},
-                colorU32(withAlpha(palette.border, 0.38f + focus * 0.28f)), 8.0f);
+  draw->AddRectFilled(
+      {state.min.x + state.press, state.min.y + state.press},
+      {state.max.x - state.press, state.max.y + state.press},
+      colorU32(withAlpha(mixColor(palette.raised, palette.active, state.focus), 0.88f)), 8.0f);
+  draw->AddRect({state.min.x + state.press, state.min.y + state.press},
+                {state.max.x - state.press, state.max.y + state.press},
+                colorU32(withAlpha(palette.border, 0.38f + state.focus * 0.28f)), 8.0f);
   const ImVec2 textSize = ImGui::CalcTextSize(text.data(), text.data() + text.size());
   draw->AddText(
-      {min.x + (size.x - textSize.x) * 0.5f, min.y + (size.y - textSize.y) * 0.5f + press},
-      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), text.data(),
-      text.data() + text.size());
+      {state.min.x + (size.x - textSize.x) * 0.5f,
+       state.min.y + (size.y - textSize.y) * 0.5f + state.press},
+      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, state.focus)),
+      text.data(), text.data() + text.size());
   tooltip(tooltipText);
   ImGui::PopID();
-  return clicked;
+  return state.clicked;
+}
+
+bool iconButton(const char* id, const char* icon, std::string_view tooltipText, ImVec2 size,
+                const Palette& palette, bool selected) {
+  ImGui::PushID(id);
+  const ControlState state = control("icon", size, selected, 0.62f, 1.0f);
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const ImVec4 fill = mixColor(palette.raised, palette.active, state.focus);
+  draw->AddRectFilled(state.min, state.max, colorU32(withAlpha(fill, 0.88f)), 8.0f);
+  draw->AddRect(state.min, state.max,
+                colorU32(withAlpha(palette.border, 0.42f + state.focus * 0.24f)), 8.0f);
+  const ImVec4 iconColor = mixColor(palette.muted, palette.text, 0.35f + state.focus * 0.65f);
+  drawIconCentered(draw, icon, state.min, state.max, 17.0f, colorU32(iconColor), 1.0f);
+  tooltip(tooltipText);
+  ImGui::PopID();
+  return state.clicked;
+}
+
+bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
+               const Palette& palette, bool selected, bool disabled) {
+  ImGui::PushID(id);
+  if (disabled) ImGui::BeginDisabled();
+  const ControlState state = control("row", size, selected, 0.62f, 1.0f);
+  if (disabled) ImGui::EndDisabled();
+
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  const ImVec4 fill = disabled
+                          ? withAlpha(palette.panel, 0.55f)
+                          : withAlpha(mixColor(palette.raised, palette.active, state.focus), 0.88f);
+  const ImVec4 fg = disabled   ? withAlpha(palette.muted, 0.65f)
+                    : selected ? palette.text
+                               : mixColor(palette.muted, palette.text, 0.48f + state.focus * 0.52f);
+  draw->AddRectFilled(state.min, state.max, colorU32(fill), 8.0f);
+  draw->AddRect(state.min, state.max,
+                colorU32(withAlpha(palette.border, 0.40f + state.focus * 0.24f)), 8.0f);
+  if (selected) leftAccentFrame(state.min, state.max, colorU32(palette.accent), 8.0f, 4.0f);
+  if (icon && icon[0] != '\0')
+    drawIconCentered(draw, icon, {state.min.x + 8.0f, state.min.y},
+                     {state.min.x + 32.0f, state.max.y}, 17.0f, colorU32(fg), 1.0f);
+  const float textX = icon && icon[0] != '\0' ? state.min.x + 38.0f : state.min.x + 12.0f;
+  draw->PushClipRect({textX, state.min.y}, {state.max.x - 10.0f, state.max.y}, true);
+  draw->AddText({textX, state.min.y + (size.y - ImGui::GetTextLineHeight()) * 0.5f}, colorU32(fg),
+                text.data(), text.data() + text.size());
+  draw->PopClipRect();
+  tooltip(text);
+  ImGui::PopID();
+  return state.clicked && !disabled;
+}
+
+void pushInputStyle(const Palette& palette) {
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 7.0f));
+  ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.panel, 0.82f));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, withAlpha(palette.raised, 0.88f));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgActive, withAlpha(palette.raised, 0.96f));
+}
+
+void popInputStyle() {
+  ImGui::PopStyleColor(3);
+  ImGui::PopStyleVar(2);
 }
 
 void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {

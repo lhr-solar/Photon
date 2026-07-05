@@ -1,13 +1,171 @@
 #include "updater.hpp"
 
+#ifdef PHOTON_HAS_CURL
+#include <curl/curl.h>
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iostream>
+#include <string>
+#include <thread>
 
 #include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "uiComponents.hpp"
+
+static constexpr const char* kLatestReleaseUrl =
+    "https://api.github.com/repos/lhr-solar/Photon/releases/latest";
+
+#ifdef PHOTON_HAS_CURL
+static constexpr bool kCanQueryReleases = true;
+
+static std::string jsonUnescape(std::string_view text) {
+  std::string out;
+  out.reserve(text.size());
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    if (text[i] != '\\' || i + 1 >= text.size()) {
+      out.push_back(text[i]);
+      continue;
+    }
+    const char escaped = text[++i];
+    switch (escaped) {
+      case '"':
+      case '\\':
+      case '/':
+        out.push_back(escaped);
+        break;
+      case 'n':
+        out.push_back('\n');
+        break;
+      case 'r':
+        out.push_back('\r');
+        break;
+      case 't':
+        out.push_back('\t');
+        break;
+      default:
+        out.push_back(escaped);
+        break;
+    }
+  }
+  return out;
+}
+
+static std::string jsonStringValue(std::string_view json, std::string_view key,
+                                   std::size_t start = 0) {
+  const std::string needle = "\"" + std::string(key) + "\"";
+  std::size_t keyPos = json.find(needle, start);
+  if (keyPos == std::string_view::npos) return {};
+  std::size_t colon = json.find(':', keyPos + needle.size());
+  if (colon == std::string_view::npos) return {};
+  std::size_t quote = json.find('"', colon + 1);
+  if (quote == std::string_view::npos) return {};
+
+  std::size_t end = quote + 1;
+  bool escaped = false;
+  for (; end < json.size(); ++end) {
+    const char c = json[end];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (c == '\\') {
+      escaped = true;
+      continue;
+    }
+    if (c == '"') break;
+  }
+  if (end >= json.size()) return {};
+  return jsonUnescape(json.substr(quote + 1, end - quote - 1));
+}
+
+static void printReleaseAssets(std::string_view json) {
+  int count = 0;
+  std::size_t pos = 0;
+  while ((pos = json.find("\"browser_download_url\"", pos)) != std::string_view::npos) {
+    const std::size_t objectStart = json.rfind('{', pos);
+    const std::string url = jsonStringValue(json, "browser_download_url", pos);
+    const std::string name = objectStart == std::string_view::npos
+                                 ? std::string{}
+                                 : jsonStringValue(json, "name", objectStart);
+    if (!url.empty()) {
+      ++count;
+      std::cout << "[updater] asset " << (name.empty() ? "<unnamed>" : name) << " -> " << url
+                << '\n';
+    }
+    pos += 22;
+  }
+  std::cout << "[updater] assets: " << count << '\n';
+}
+
+static size_t curlWriteToString(char* ptr, size_t size, size_t nmemb, void* userdata) {
+  auto* out = static_cast<std::string*>(userdata);
+  const size_t bytes = size * nmemb;
+  out->append(ptr, bytes);
+  return bytes;
+}
+
+void Updater::queryReleaseInfoOnceAsync() {
+  if (releaseQueryStarted.exchange(true)) return;
+
+  std::thread([] {
+    std::cout << "[updater] querying " << kLatestReleaseUrl << '\n';
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+      std::cout << "[updater] failed to initialize curl\n";
+      curl_global_cleanup();
+      return;
+    }
+
+    std::string response;
+    curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
+    headers = curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
+
+    curl_easy_setopt(curl, CURLOPT_URL, kLatestReleaseUrl);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Photon-Updater/0.1");
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteToString);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    const CURLcode result = curl_easy_perform(curl);
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+
+    std::cout << "[updater] github release query status=" << status
+              << " curl=" << curl_easy_strerror(result) << '\n';
+
+    if (result == CURLE_OK && status >= 200 && status < 300) {
+      const std::string tag = jsonStringValue(response, "tag_name");
+      const std::string name = jsonStringValue(response, "name");
+
+      std::cout << "[updater] latest tag: " << (tag.empty() ? "<missing>" : tag) << '\n';
+      std::cout << "[updater] release name: " << (name.empty() ? "<missing>" : name) << '\n';
+      printReleaseAssets(response);
+    } else if (!response.empty()) {
+      std::cout << "[updater] response body:\n" << response << '\n';
+    }
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+  }).detach();
+}
+#else
+static constexpr bool kCanQueryReleases = false;
+
+void Updater::queryReleaseInfoOnceAsync() {
+  if (releaseQueryStarted.exchange(true)) return;
+  std::cout << "[updater] libcurl not found; release query disabled\n";
+}
+#endif
 
 void drawUpdateProgress(const char* id, int percentage, bool running,
                         const PhotonUi::Palette& palette) {
@@ -20,15 +178,13 @@ void drawUpdateProgress(const char* id, int percentage, bool running,
   ImDrawList* draw = ImGui::GetWindowDrawList();
   const float rounding = 8.0f;
   const float progress = percentage < 0 ? 0.0f : std::clamp(percentage / 100.0f, 0.0f, 1.0f);
-  const float animatedProgress =
-      iam_tween_float(ImGui::GetItemID(), ImHashStr("update_progress"), progress, 0.18f,
-                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                      ImGui::GetIO().DeltaTime);
+  const float animatedProgress = iam_tween_float(
+      ImGui::GetItemID(), ImHashStr("update_progress"), progress, 0.18f,
+      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, ImGui::GetIO().DeltaTime);
 
   draw->AddRectFilled(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.panel, 0.72f)),
                       rounding);
-  draw->AddRect(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.46f)),
-                rounding);
+  draw->AddRect(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.46f)), rounding);
 
   char status[64]{};
   if (percentage < 0 && running) {
@@ -51,11 +207,11 @@ void drawUpdateProgress(const char* id, int percentage, bool running,
     const ImVec2 fillMax(barMin.x + (barMax.x - barMin.x) * animatedProgress, barMax.y);
     if (fillMax.x > barMin.x + 1.0f) {
       draw->PushClipRect(barMin, barMax, true);
-      draw->AddRectFilledMultiColor(
-          barMin, fillMax, PhotonUi::colorU32(ImVec4(0.44f, 0.55f, 1.0f, 0.92f)),
-          PhotonUi::colorU32(ImVec4(0.88f, 0.35f, 0.90f, 0.96f)),
-          PhotonUi::colorU32(ImVec4(0.72f, 0.42f, 1.0f, 0.96f)),
-          PhotonUi::colorU32(ImVec4(0.36f, 0.74f, 1.0f, 0.92f)));
+      draw->AddRectFilledMultiColor(barMin, fillMax,
+                                    PhotonUi::colorU32(ImVec4(0.44f, 0.55f, 1.0f, 0.92f)),
+                                    PhotonUi::colorU32(ImVec4(0.88f, 0.35f, 0.90f, 0.96f)),
+                                    PhotonUi::colorU32(ImVec4(0.72f, 0.42f, 1.0f, 0.96f)),
+                                    PhotonUi::colorU32(ImVec4(0.36f, 0.74f, 1.0f, 0.92f)));
       draw->PopClipRect();
     }
   } else if (running) {
@@ -88,15 +244,13 @@ void drawVersionTransition(const char* id, const char* currentVersion, const cha
   draw->AddText({rightX, min.y + 12.0f}, PhotonUi::colorU32(palette.muted), "New");
 
   draw->PushClipRect({min.x + 14.0f, min.y + 38.0f}, {centerX - 42.0f, max.y - 10.0f}, true);
-  draw->AddText({min.x + 14.0f, min.y + 39.0f}, PhotonUi::colorU32(palette.text),
-                currentVersion);
+  draw->AddText({min.x + 14.0f, min.y + 39.0f}, PhotonUi::colorU32(palette.text), currentVersion);
   draw->PopClipRect();
 
   const ImVec2 arrowMin(centerX - 18.0f, min.y + 35.0f);
   const ImVec2 arrowMax(centerX + 18.0f, min.y + 61.0f);
   PhotonUi::drawIconCentered(draw, "\uea1f", arrowMin, arrowMax, 24.0f,
-                             PhotonUi::colorU32(PhotonUi::withAlpha(palette.accent, 0.82f)),
-                             0.0f);
+                             PhotonUi::colorU32(PhotonUi::withAlpha(palette.accent, 0.82f)), 0.0f);
 
   draw->PushClipRect({rightX, min.y + 38.0f}, {max.x - 14.0f, max.y - 10.0f}, true);
   draw->AddText({rightX, min.y + 39.0f}, PhotonUi::colorU32(palette.text), newVersion);
@@ -105,15 +259,17 @@ void drawVersionTransition(const char* id, const char* currentVersion, const cha
 }
 
 void Updater::drawUI(bool updateAvailable) {
-  const bool open = PhotonUi::beginModal("Update", updateAvailable ? ImVec2{540.0f, 350.0f}
-                                                                   : ImVec2{420.0f, 190.0f});
+  const bool open = PhotonUi::beginModal(
+      "Update", updateAvailable ? ImVec2{540.0f, 350.0f} : ImVec2{420.0f, 190.0f});
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     if (!updateAvailable) {
       const ImVec2 start = ImGui::GetCursorScreenPos();
       ImDrawList* draw = ImGui::GetWindowDrawList();
       draw->AddText(start, PhotonUi::colorU32(palette.text),
-                    "No update available at this time");
+                    kCanQueryReleases
+                        ? "No update available at this time"
+                        : "Update checks unavailable: libcurl was not found at build time");
 
       ImGui::Dummy({1.0f, 44.0f});
       ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);

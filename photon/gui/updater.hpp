@@ -14,6 +14,7 @@ struct Updater {
   std::atomic<int> photonDownloadPercentage{-1};
   std::atomic<int> installerDownloadPercentage{-1};
   std::atomic<bool> running{false};
+  std::atomic<bool> releaseQueryStarted{false};
 
   std::filesystem::path installerPath{};
   std::string installerURL =
@@ -36,4 +37,5 @@ struct Updater {
   void launchUpdater();
   void beginUpdate();
   void drawUI(bool updateAvailable);
+  void queryReleaseInfoOnceAsync();
 };

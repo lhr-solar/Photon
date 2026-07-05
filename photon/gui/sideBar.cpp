@@ -4,8 +4,6 @@
 #include <SDL3/SDL_error.h>
 
 #include <algorithm>
-#include <cfloat>
-#include <cmath>
 #include <iterator>
 #include <string_view>
 #include <utility>
@@ -31,57 +29,6 @@ using SidebarPalette = PhotonUi::Palette;
 using PhotonUi::colorU32;
 using PhotonUi::mixColor;
 using PhotonUi::withAlpha;
-
-float smoothstep(float edge0, float edge1, float x) {
-  const float t = std::clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
-  return t * t * (3.0f - 2.0f * t);
-}
-
-float roundedRectDistance(ImVec2 p, ImVec2 center, ImVec2 halfSize, float radius) {
-  const ImVec2 q(std::abs(p.x - center.x) - (halfSize.x - radius),
-                 std::abs(p.y - center.y) - (halfSize.y - radius));
-  const float outsideX = std::max(q.x, 0.0f);
-  const float outsideY = std::max(q.y, 0.0f);
-  return std::sqrt(outsideX * outsideX + outsideY * outsideY) + std::min(std::max(q.x, q.y), 0.0f) -
-         radius;
-}
-
-void drawNotificationField(ImDrawList* draw, ImVec2 min, ImVec2 max, float focus, float press) {
-  const ImVec2 size(max.x - min.x, max.y - min.y);
-  const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
-  const ImVec2 half(size.x * 0.5f, size.y * 0.5f);
-  const float radius = 8.0f;
-  const float extent = 31.0f + press * 8.0f;
-  const float step = 2.5f;
-  const float time = static_cast<float>(ImGui::GetTime());
-  const float gain = 1.10f + focus * 0.38f + press * 0.58f;
-
-  for (float y = min.y - extent; y < max.y + extent; y += step) {
-    for (float x = min.x - extent; x < max.x + extent; x += step) {
-      const ImVec2 sample(x + step * 0.5f, y + step * 0.5f);
-      const float dist = roundedRectDistance(sample, center, half, radius);
-      const float outside = std::max(dist, 0.0f);
-      if (outside > extent) continue;
-
-      const float d = outside / std::max(size.y, 1.0f);
-      const float px = (sample.x - center.x) / std::max(size.y, 1.0f);
-      const float ripple = std::cos(d * 8.5f - px * 1.45f - time * 2.4f - press * 2.0f);
-      const float rippleGate = 0.075f / std::exp(std::abs(ripple) / 0.18f);
-      const float denom = std::max(d * d + 0.0008f, d + rippleGate);
-      const float energy = 0.011f / denom;
-      const float compressed = std::sqrt(std::tanh(energy));
-      const float fade = 1.0f - smoothstep(extent * 0.25f, extent, outside);
-      const float alpha = std::clamp(compressed * fade * gain * 0.38f, 0.0f, 0.58f);
-      if (alpha < 0.010f) continue;
-
-      const float phase = px / (std::abs(d) + 0.38f) + time * 1.65f + press * 1.2f;
-      const ImVec4 color(0.50f + 0.50f * std::cos(phase + 6.0f),
-                         0.42f + 0.48f * std::cos(phase + 1.0f),
-                         0.56f + 0.44f * std::cos(phase + 2.0f), alpha);
-      draw->AddRectFilled({x, y}, {x + step + 0.6f, y + step + 0.6f}, colorU32(color), 1.5f);
-    }
-  }
-}
 
 int hexValue(char c) {
   if (c >= '0' && c <= '9') return c - '0';
@@ -144,34 +91,22 @@ void drawSidebarHeader(float width, const SidebarPalette& palette, std::string_v
 bool drawNavItem(const Tab& tab, int index, bool selected, float width,
                  const SidebarPalette& palette) {
   const ImGuiStyle& style = ImGui::GetStyle();
-  const float dt = ImGui::GetIO().DeltaTime;
   const float height = 42.0f;
   const ImVec2 pos = ImGui::GetCursorScreenPos();
   ImGui::PushID(index);
-  ImGui::InvisibleButton("nav", {width, height});
-  const bool clicked = ImGui::IsItemClicked();
-  const bool hovered = ImGui::IsItemHovered();
-  const bool active = ImGui::IsItemActive();
-  const ImGuiID id = ImGui::GetItemID();
-  const float target = selected ? 1.0f : hovered ? 0.42f : 0.0f;
-  const float focus =
-      iam_tween_float(id, ImHashStr("focus"), target, 0.18f, iam_ease_preset(iam_ease_out_quad),
-                      iam_policy_crossfade, dt, selected ? 1.0f : 0.0f);
-  const float press = iam_tween_float(id, ImHashStr("press"), active ? 1.0f : 0.0f, 0.10f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
+  const PhotonUi::ControlState state =
+      PhotonUi::control("nav", {width, height}, selected, 0.42f, 0.88f, 0.18f, 0.10f);
   ImDrawList* draw = ImGui::GetWindowDrawList();
-  const float inset = 2.0f + press * 1.5f;
-  const ImVec2 bgMin(min.x + inset, min.y + 2.0f + press);
-  const ImVec2 bgMax(max.x - inset, max.y - 2.0f + press);
-  const ImVec4 fill = mixColor(withAlpha(palette.raised, 0.0f), palette.active, focus);
+  const float inset = 2.0f + state.press * 1.5f;
+  const ImVec2 bgMin(state.min.x + inset, state.min.y + 2.0f + state.press);
+  const ImVec2 bgMax(state.max.x - inset, state.max.y - 2.0f + state.press);
+  const ImVec4 fill = mixColor(withAlpha(palette.raised, 0.0f), palette.active, state.focus);
   constexpr float rounding = 8.0f;
-  if (focus > 0.01f)
+  if (state.focus > 0.01f)
     ImGui::RenderFrame(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), false, rounding);
   if (selected)
     PhotonUi::leftAccentFrame(bgMin, bgMax,
-                              colorU32(withAlpha(palette.accent, 0.78f + focus * 0.22f)),
+                              colorU32(withAlpha(palette.accent, 0.78f + state.focus * 0.22f)),
                               rounding, 5.0f);
 
   const float iconBox = 28.0f;
@@ -181,122 +116,60 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   const char* icon = PhotonUi::tabIcon(tab.name);
   PhotonUi::drawIconCentered(
       draw, icon, iconMin, iconMax, 17.0f,
-      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), 1.0f);
+      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, state.focus)), 1.0f);
 
-  const ImVec4 labelColor = selected ? palette.text : mixColor(palette.muted, palette.text, focus);
+  const ImVec4 labelColor =
+      selected ? palette.text : mixColor(palette.muted, palette.text, state.focus);
   draw->PushClipRect({iconMax.x + 12.0f, bgMin.y}, {bgMax.x - 26.0f, bgMax.y}, true);
   draw->AddText(
       {iconMax.x + 12.0f, bgMin.y + (bgMax.y - bgMin.y - ImGui::GetTextLineHeight()) * 0.5f},
       colorU32(labelColor), tab.name.c_str());
   draw->PopClipRect();
 
-  if (hovered || selected) {
+  if (state.hovered || selected) {
     const ImVec2 chevronMin(bgMax.x - 26.0f, bgMin.y);
     PhotonUi::drawIconCentered(draw, "\uea61", chevronMin, {bgMax.x - 8.0f, bgMax.y}, 15.0f,
-                               colorU32(withAlpha(palette.text, selected ? 0.70f : 0.34f)),
-                               1.0f);
+                               colorU32(withAlpha(palette.text, selected ? 0.70f : 0.34f)), 1.0f);
   }
 
   PhotonUi::tooltip(tab.name);
   ImGui::PopID();
   ImGui::SetCursorScreenPos({pos.x, pos.y + height + style.ItemSpacing.y * 0.35f});
-  return clicked;
+  return state.clicked;
 }
 
 bool drawActionIcon(const char* id, const char* icon, std::string_view tooltip, ImVec2 size,
-                    const SidebarPalette& palette, bool notification = false) {
-  const float dt = ImGui::GetIO().DeltaTime;
-  ImGui::PushID(id);
-  ImGui::InvisibleButton("action", size);
-  const bool clicked = ImGui::IsItemClicked();
-  const bool hovered = ImGui::IsItemHovered();
-  const bool active = ImGui::IsItemActive();
-  const ImGuiID itemId = ImGui::GetItemID();
-  const float target = active ? 1.0f : hovered ? 0.62f : 0.0f;
-  const float focus = iam_tween_float(itemId, ImHashStr("focus"), target, 0.14f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
-  ImDrawList* draw = ImGui::GetWindowDrawList();
-  if (notification) drawNotificationField(draw, min, max, focus, active ? 1.0f : 0.0f);
-  const ImVec4 fill = mixColor(palette.raised, palette.active, focus);
-  draw->AddRectFilled(min, max, colorU32(withAlpha(fill, 0.88f)), 8.0f);
-  const ImVec4 border = notification ? mixColor(palette.border, ImVec4(0.58f, 0.40f, 0.95f, 1.0f),
-                                                0.22f + focus * 0.28f)
-                                     : palette.border;
-  draw->AddRect(min, max, colorU32(withAlpha(border, 0.42f + focus * 0.24f)), 8.0f);
-  const ImVec4 iconColor =
-      notification ? mixColor(palette.text, ImVec4(0.70f, 0.68f, 1.0f, 1.0f), 0.24f + focus * 0.22f)
-                   : mixColor(palette.muted, palette.text, 0.35f + focus * 0.65f);
-  PhotonUi::drawIconCentered(draw, icon, min, max, 17.0f, colorU32(iconColor), 1.0f);
-  PhotonUi::tooltip(tooltip);
-  ImGui::PopID();
-  return clicked;
+                    const SidebarPalette& palette) {
+  return PhotonUi::iconButton(id, icon, tooltip, size, palette);
 }
 
 bool drawDBCButton(std::string_view current, std::string_view status, float width,
                    const SidebarPalette& palette) {
   const float height = 54.0f;
-  const float dt = ImGui::GetIO().DeltaTime;
-  ImGui::InvisibleButton("dbc_selector", {width, height});
-  const bool clicked = ImGui::IsItemClicked();
-  const bool hovered = ImGui::IsItemHovered();
-  const ImGuiID id = ImGui::GetItemID();
-  const float focus = iam_tween_float(id, ImHashStr("focus"), hovered ? 1.0f : 0.0f, 0.16f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
+  const PhotonUi::ControlState state =
+      PhotonUi::control("dbc_selector", {width, height}, false, 1.0f, 1.0f, 0.16f);
   ImDrawList* draw = ImGui::GetWindowDrawList();
-  draw->AddRectFilled(min, max, colorU32(mixColor(palette.panel, palette.raised, focus)), 8.0f);
-  draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.48f + focus * 0.22f)), 8.0f);
-  draw->AddCircleFilled({min.x + 18.0f, min.y + 18.0f}, 4.0f, colorU32(palette.accent));
-  draw->AddText({min.x + 30.0f, min.y + 9.0f}, colorU32(palette.text), "DBC");
-  draw->PushClipRect({min.x + 30.0f, min.y + 28.0f}, {max.x - 34.0f, max.y - 4.0f}, true);
-  draw->AddText({min.x + 30.0f, min.y + 30.0f}, colorU32(palette.muted), current.data(),
+  draw->AddRectFilled(state.min, state.max,
+                      colorU32(mixColor(palette.panel, palette.raised, state.focus)), 8.0f);
+  draw->AddRect(state.min, state.max,
+                colorU32(withAlpha(palette.border, 0.48f + state.focus * 0.22f)), 8.0f);
+  draw->AddCircleFilled({state.min.x + 18.0f, state.min.y + 18.0f}, 4.0f, colorU32(palette.accent));
+  draw->AddText({state.min.x + 30.0f, state.min.y + 9.0f}, colorU32(palette.text), "DBC");
+  draw->PushClipRect({state.min.x + 30.0f, state.min.y + 28.0f},
+                     {state.max.x - 34.0f, state.max.y - 4.0f}, true);
+  draw->AddText({state.min.x + 30.0f, state.min.y + 30.0f}, colorU32(palette.muted), current.data(),
                 current.data() + current.size());
   draw->PopClipRect();
-  PhotonUi::drawIconCentered(draw, "\uea5f", {max.x - 30.0f, min.y}, {max.x - 10.0f, max.y},
-                             15.0f, colorU32(palette.muted), 1.0f);
+  PhotonUi::drawIconCentered(draw, "\uea5f", {state.max.x - 30.0f, state.min.y},
+                             {state.max.x - 10.0f, state.max.y}, 15.0f, colorU32(palette.muted),
+                             1.0f);
   PhotonUi::tooltip(status);
-  return clicked;
+  return state.clicked;
 }
 
 bool drawDBCOption(const char* label, bool selected, float width, const SidebarPalette& palette) {
-  const float dt = ImGui::GetIO().DeltaTime;
-  const float height = 36.0f;
-  ImGui::PushID(label);
-  ImGui::InvisibleButton("dbc_option", {width, height});
-  const bool clicked = ImGui::IsItemClicked();
-  const bool hovered = ImGui::IsItemHovered();
-  const bool active = ImGui::IsItemActive();
-  const ImGuiID id = ImGui::GetItemID();
-  const float target = selected ? 1.0f : hovered ? 0.45f : 0.0f;
-  const float focus =
-      iam_tween_float(id, ImHashStr("focus"), target, 0.15f, iam_ease_preset(iam_ease_out_quad),
-                      iam_policy_crossfade, dt, selected ? 1.0f : 0.0f);
-  const float press = iam_tween_float(id, ImHashStr("press"), active ? 1.0f : 0.0f, 0.08f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
-  ImDrawList* draw = ImGui::GetWindowDrawList();
-  const ImVec2 bgMin(min.x + 1.0f + press, min.y + 2.0f + press);
-  const ImVec2 bgMax(max.x - 1.0f - press, max.y - 2.0f + press);
-  if (focus > 0.01f)
-    draw->AddRectFilled(bgMin, bgMax,
-                        colorU32(withAlpha(mixColor(palette.raised, palette.active, focus), 0.88f)),
-                        7.0f);
   const char* icon = selected ? "\uea5e" : "\uea6b";
-  PhotonUi::drawIconCentered(
-      draw, icon, {bgMin.x + 6.0f, bgMin.y}, {bgMin.x + 30.0f, bgMax.y}, 16.0f,
-      colorU32(selected ? palette.accent : mixColor(palette.muted, palette.text, focus)), 1.0f);
-  draw->PushClipRect({bgMin.x + 38.0f, bgMin.y}, {bgMax.x - 8.0f, bgMax.y}, true);
-  draw->AddText(
-      {bgMin.x + 38.0f, bgMin.y + (bgMax.y - bgMin.y - ImGui::GetTextLineHeight()) * 0.5f},
-      colorU32(selected ? palette.text : mixColor(palette.muted, palette.text, focus)), label);
-  draw->PopClipRect();
-  PhotonUi::tooltip(label);
-  ImGui::PopID();
-  return clicked;
+  return PhotonUi::rowButton(label, icon, label, {width, 36.0f}, palette, selected);
 }
 
 void drawUploadIcon(ImDrawList* draw, ImVec2 min, float height, ImU32 color) {
@@ -310,41 +183,32 @@ void drawUploadIcon(ImDrawList* draw, ImVec2 min, float height, ImU32 color) {
 
 bool drawPopupAction(const char* id, const char* icon, std::string_view label, bool disabled,
                      float width, const SidebarPalette& palette, bool uploadIcon = false) {
-  const float dt = ImGui::GetIO().DeltaTime;
+  if (!uploadIcon)
+    return PhotonUi::rowButton(id, icon, label, {width, 38.0f}, palette, false, disabled);
+
   const float height = 38.0f;
   ImGui::PushID(id);
   if (disabled) ImGui::BeginDisabled();
-  ImGui::InvisibleButton("popup_action", {width, height});
-  const bool clicked = ImGui::IsItemClicked() && !disabled;
-  const bool hovered = ImGui::IsItemHovered() && !disabled;
-  const bool active = ImGui::IsItemActive() && !disabled;
+  const PhotonUi::ControlState state =
+      PhotonUi::control("popup_action", {width, height}, false, 0.62f, 1.0f);
   if (disabled) ImGui::EndDisabled();
-  const ImGuiID itemId = ImGui::GetItemID();
-  const float target = active ? 1.0f : hovered ? 0.62f : 0.0f;
-  const float focus = iam_tween_float(itemId, ImHashStr("focus"), target, 0.14f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
-  const ImVec2 min = ImGui::GetItemRectMin();
-  const ImVec2 max = ImGui::GetItemRectMax();
   ImDrawList* draw = ImGui::GetWindowDrawList();
-  const ImVec4 fill = disabled ? withAlpha(palette.panel, 0.55f)
-                               : withAlpha(mixColor(palette.raised, palette.active, focus), 0.88f);
+  const ImVec4 fill = disabled
+                          ? withAlpha(palette.panel, 0.55f)
+                          : withAlpha(mixColor(palette.raised, palette.active, state.focus), 0.88f);
   const ImVec4 text = disabled ? withAlpha(palette.muted, 0.65f)
-                               : mixColor(palette.muted, palette.text, 0.48f + focus * 0.52f);
-  draw->AddRectFilled(min, max, colorU32(fill), 8.0f);
-  draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.40f + focus * 0.24f)), 8.0f);
-  if (uploadIcon) {
-    drawUploadIcon(draw, min, height, colorU32(text));
-  } else {
-    PhotonUi::drawIconCentered(draw, icon, {min.x + 8.0f, min.y}, {min.x + 32.0f, max.y}, 17.0f,
-                               colorU32(text), 1.0f);
-  }
-  draw->PushClipRect({min.x + 38.0f, min.y}, {max.x - 10.0f, max.y}, true);
-  draw->AddText({min.x + 38.0f, min.y + (height - ImGui::GetTextLineHeight()) * 0.5f},
+                               : mixColor(palette.muted, palette.text, 0.48f + state.focus * 0.52f);
+  draw->AddRectFilled(state.min, state.max, colorU32(fill), 8.0f);
+  draw->AddRect(state.min, state.max,
+                colorU32(withAlpha(palette.border, 0.40f + state.focus * 0.24f)), 8.0f);
+  drawUploadIcon(draw, state.min, height, colorU32(text));
+  draw->PushClipRect({state.min.x + 38.0f, state.min.y}, {state.max.x - 10.0f, state.max.y}, true);
+  draw->AddText({state.min.x + 38.0f, state.min.y + (height - ImGui::GetTextLineHeight()) * 0.5f},
                 colorU32(text), label.data(), label.data() + label.size());
   draw->PopClipRect();
   PhotonUi::tooltip(label);
   ImGui::PopID();
-  return clicked;
+  return state.clicked && !disabled;
 }
 
 void drawDBCError(std::string_view error, float width, const SidebarPalette& palette) {
@@ -529,7 +393,10 @@ void Sidebar::drawDBCSelector(GUI& gui) {
 void Sidebar::draw(GUI& gui) {
   auto& titleBar = gui.titleBar;
   auto& tabs = gui.tabs;
-  ImVec2 winSize = ImGui::GetMainViewport()->Size;
+  const ImGuiViewport* viewport = ImGui::GetMainViewport();
+  const ImVec2 viewportPos = viewport->Pos;
+  const ImVec2 viewportSize = viewport->Size;
+  ImVec2 winSize = viewportSize;
   const float minSidebarWidth = std::min(240.0f, winSize.x * 0.60f);
   const float maxSidebarWidth = std::max(minSidebarWidth, winSize.x * 0.5f);
   storedWidth = std::clamp(storedWidth, minSidebarWidth, maxSidebarWidth);
@@ -539,13 +406,14 @@ void Sidebar::draw(GUI& gui) {
                           ImGui::GetIO().DeltaTime, targetWidth);
   if (width < 2.0f) return;
   float sideBarHeight = winSize.y - (float)titleBar.height;
-  ImVec2 pos = {0, titleBar.height};
+  ImVec2 pos = {viewportPos.x, viewportPos.y + titleBar.height + 2.0f};
   ImVec2 dim = {width, sideBarHeight};
   ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNavFocus |
                                  ImGuiWindowFlags_NoDocking;
   ImGui::SetNextWindowPos(pos);
   ImGui::SetNextWindowSize(dim);
+  ImGui::SetNextWindowViewport(viewport->ID);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 12.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
@@ -590,7 +458,7 @@ void Sidebar::draw(GUI& gui) {
       const ImVec2 buttonMin = ImGui::GetCursorScreenPos();
       const ImVec2 buttonMax(buttonMin.x + buttonW, buttonMin.y + buttonH);
       gui.drawButtonShaderOverlay(buttonMin, buttonMax);
-      if (drawActionIcon("Update", "\ueb13", "Update", {buttonW, buttonH}, palette, false))
+      if (drawActionIcon("Update", "\ueb13", "Update", {buttonW, buttonH}, palette))
         ImGui::OpenPopup("Update");
       ImGui::SameLine();
       if (drawActionIcon("Export", "\uede9", "Export", {buttonW, buttonH}, palette))

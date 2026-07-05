@@ -25,40 +25,35 @@ struct TitleButtonResult {
 
 TitleButtonResult titleButton(const char* id, ImVec2 size, bool selected, ImVec4 accent) {
   ImGui::PushID(id);
-  ImGui::InvisibleButton("button", size);
-  TitleButtonResult result{};
-  result.clicked = ImGui::IsItemClicked();
-  result.min = ImGui::GetItemRectMin();
-  result.max = ImGui::GetItemRectMax();
-  const bool hovered = ImGui::IsItemHovered();
-  const bool active = ImGui::IsItemActive();
-  const float dt = ImGui::GetIO().DeltaTime;
-  const ImGuiID itemId = ImGui::GetItemID();
-  result.focus = iam_tween_float(itemId, ImHashStr("focus"),
-                                 selected  ? 1.0f
-                                 : active  ? 0.86f
-                                 : hovered ? 0.58f
-                                           : 0.0f,
-                                 0.16f, iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                                 dt, selected ? 1.0f : 0.0f);
-  result.press = iam_tween_float(itemId, ImHashStr("press"), active ? 1.0f : 0.0f, 0.08f,
-                                 iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade, dt);
+  const PhotonUi::ControlState state =
+      PhotonUi::control("button", size, selected, 0.58f, 0.86f, 0.16f);
+  TitleButtonResult result{
+      .clicked = state.clicked,
+      .min = state.min,
+      .max = state.max,
+      .focus = state.focus,
+      .press = state.press,
+  };
 
   const ImGuiStyle& style = ImGui::GetStyle();
   const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
   const ImVec4 button = style.Colors[ImGuiCol_Button];
   const ImVec4 fill = mixColor(withAlpha(button, 0.0f), accent, result.focus);
-  const float inset = 5.0f + result.press * 1.5f;
+  const float buttonHeight = result.max.y - result.min.y;
+  const float padX = std::max(1.0f, buttonHeight * 0.13f);
+  const float padY = std::max(1.0f, buttonHeight * 0.10f);
+  const float rounding = std::max(1.0f, buttonHeight * 0.20f);
+  const float inset = padX + result.press;
   ImDrawList* draw = ImGui::GetWindowDrawList();
   if (selected || result.focus > 0.03f) {
-    draw->AddRectFilled({result.min.x + inset, result.min.y + 5.0f + result.press},
-                        {result.max.x - inset, result.max.y - 5.0f + result.press},
-                        colorU32(withAlpha(mixColor(bg, fill, 0.68f), 0.88f)), 8.0f);
+    draw->AddRectFilled({result.min.x + inset, result.min.y + padY + result.press},
+                        {result.max.x - inset, result.max.y - padY + result.press},
+                        colorU32(withAlpha(mixColor(bg, fill, 0.68f), 0.88f)), rounding);
   }
   if (result.focus > 0.04f) {
-    draw->AddRect({result.min.x + inset, result.min.y + 5.0f + result.press},
-                  {result.max.x - inset, result.max.y - 5.0f + result.press},
-                  colorU32(withAlpha(accent, 0.34f + result.focus * 0.28f)), 8.0f);
+    draw->AddRect({result.min.x + inset, result.min.y + padY + result.press},
+                  {result.max.x - inset, result.max.y - padY + result.press},
+                  colorU32(withAlpha(accent, 0.34f + result.focus * 0.28f)), rounding);
   }
   ImGui::PopID();
   return result;
@@ -67,7 +62,8 @@ TitleButtonResult titleButton(const char* id, ImVec2 size, bool selected, ImVec4
 void drawSidebarToggleIcon(ImDrawList* draw, const TitleButtonResult& button, bool open,
                            ImVec4 textColor, ImVec4 accent) {
   const ImVec4 icon = mixColor(textColor, accent, 0.25f + button.focus * 0.45f);
-  PhotonUi::drawIconCentered(draw, open ? "\ueada" : "\ufd47", button.min, button.max, 17.0f,
+  const float iconSize = (button.max.y - button.min.y) * 0.47f;
+  PhotonUi::drawIconCentered(draw, open ? "\ueada" : "\ufd47", button.min, button.max, iconSize,
                              colorU32(icon), button.press + 1.0f);
 }
 
@@ -75,15 +71,15 @@ void drawWindowIcon(ImDrawList* draw, const TitleButtonResult& button, WindowAct
                     ImVec4 textColor, bool windowMaximized = false) {
   const ImU32 iconColor = colorU32(withAlpha(textColor, 0.78f + button.focus * 0.22f));
   const char* icon = "\ueaf2";
-  float iconSize = 15.0f;
+  const float buttonHeight = button.max.y - button.min.y;
+  float iconSize = buttonHeight * 0.43f;
   if (action == WindowAction::Minimize) {
     icon = "\ueaf2";
   } else if (action == WindowAction::ToggleMaximize) {
     icon = windowMaximized ? "\uf15f" : "\ueaea";
-    iconSize = 14.0f;
+    iconSize = buttonHeight * 0.40f;
   } else if (action == WindowAction::Close) {
     icon = "\ueb55";
-    iconSize = 15.0f;
   }
   PhotonUi::drawIconCentered(draw, icon, button.min, button.max, iconSize, iconColor,
                              button.press + 1.0f);
@@ -94,23 +90,23 @@ void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::s
   if (alpha <= 0.01f || max.x <= min.x) return;
   const PhotonUi::Palette palette = PhotonUi::palette();
   const ImVec4 headerText = withAlpha(palette.muted, palette.muted.w * alpha);
-  constexpr float iconBox = 28.0f;
-  constexpr float iconFontSize = 17.0f;
-  constexpr float labelFontSize = 14.0f;
   ImFont* font = ImGui::GetFont();
   const char* icon = PhotonUi::tabIcon(page);
-  const ImVec2 iconMin(min.x, min.y + (max.y - min.y - iconBox) * 0.5f);
+  const float height = max.y - min.y;
+  const float iconBox = height;
+  const float iconSize = height * 0.47f;
+  const float labelSize = std::min(ImGui::GetFontSize(), height * 0.46f);
+  const ImVec2 iconMin(min.x, min.y);
   const ImVec2 iconMax(iconMin.x + iconBox, iconMin.y + iconBox);
-  PhotonUi::drawIconCentered(draw, icon, iconMin, iconMax, iconFontSize, colorU32(headerText),
-                             1.0f);
+  PhotonUi::drawIconCentered(draw, icon, iconMin, iconMax, iconSize, colorU32(headerText), 1.0f);
 
   const float textX = iconMax.x + 4.0f;
   if (textX >= max.x) return;
 
   draw->PushClipRect({textX, min.y}, max, true);
   const ImVec2 pageSize =
-      font->CalcTextSizeA(labelFontSize, FLT_MAX, 0.0f, page.data(), page.data() + page.size());
-  draw->AddText(font, labelFontSize, {textX, min.y + (max.y - min.y - pageSize.y) * 0.5f},
+      font->CalcTextSizeA(labelSize, FLT_MAX, 0.0f, page.data(), page.data() + page.size());
+  draw->AddText(font, labelSize, {textX, min.y + (max.y - min.y - pageSize.y) * 0.5f},
                 colorU32(headerText), page.data(), page.data() + page.size());
   draw->PopClipRect();
 }
@@ -177,8 +173,7 @@ void TitleBar::draw() {
                         showSidebar ? 0.0f : 1.0f, 0.18f, iam_ease_preset(iam_ease_out_quad),
                         iam_policy_crossfade, ImGui::GetIO().DeltaTime, showSidebar ? 0.0f : 1.0f);
     drawCollapsedSidebarHeader(draw, {sidebarButton.max.x + 4.0f, 0.0f},
-                               {controlsX - 10.0f, barHeight}, activePage,
-                               collapsedHeaderAlpha);
+                               {controlsX - 10.0f, barHeight}, activePage, collapsedHeaderAlpha);
 
     ImGui::SetCursorPos(ImVec2(controlsX, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, style.ItemSpacing.y));

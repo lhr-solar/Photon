@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 #include <csignal>
 #include <cstddef>
+#include <cstdio>
 #include <locale>
 #include <string>
 #include <vector>
@@ -16,6 +16,7 @@
 #include "config.hpp"
 #include "crude_json.h"
 #include "custom_shader_vert_spv.hpp"
+#include "glowButton_frag_spv.hpp"
 #include "gpuGui.hpp"
 #include "im_anim.h"
 #include "imgui.h"
@@ -28,7 +29,6 @@
 #include "nucleus_frag_spv.hpp"
 #include "uiComponents.hpp"
 #include "widget.hpp"
-#include "glowButton_frag_spv.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   this->gpu = &gpu;
@@ -37,6 +37,7 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   GuiSettings::regster(&settings);
   settings.setStyle();
   setTabs();
+  updater.queryReleaseInfoOnceAsync();
   testShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                           (uint32_t*)lens_frag_spv, lens_frag_spv_size);
   buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
