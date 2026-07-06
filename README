@@ -37,3 +37,30 @@ analysis & synthesis
 ┌ windows ───────────────┐
 │ > .\winBuild.ps1       │
 └────────────────────────┘
+
+to build on linux:
+cmake -S . -B .artifacts -DCMAKE_BUILD_TYPE=Release
+cmake --build .artifacts -j20
+
+if compiled for debug (no "release" flag)
+
+enable tracy:
+
+    make tracy
+
+disable tracy:
+
+    make notracy
+
+to build on windows:
+cmake -S . -B .artifacts -G Ninja -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++
+
+build for release:
+cmake -S . -B .artifacts -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++
+cmake --build .artifacts -j20
+
+check for dependencies:
+llvm-readobj.exe --needed-libs .artifacts\bin\Photon.exe
+
+format:
+cmake --build .artifacts --target format

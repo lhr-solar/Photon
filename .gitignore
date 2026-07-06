@@ -1,8 +1,12 @@
 .cache
+.codex
+.clangd
 .notes
 .vscode
-artifacts
-imgui.ini
-perf.data
-perf.data.old
+.artifacts
+.old
+build
+assets/video/
 Photon.exe
+*.ini
+build-release/

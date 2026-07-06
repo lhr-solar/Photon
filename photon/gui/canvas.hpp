@@ -1,0 +1,22 @@
+#pragma once
+#include "imgui.h"
+#include "sideBar.hpp"
+#include "tabs.hpp"
+#include "titlebar.hpp"
+
+struct Canvas {
+  float width = 0.0f;
+
+  void draw(TitleBar& titleBar, Sidebar& sideBar, Tabs& tabs) {
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImVec2 viewportSize = viewport->Size;
+    ImVec2 canvasSize = {viewportSize.x - sideBar.width, viewportSize.y - titleBar.height};
+    ImVec2 canvasPos = {sideBar.width, titleBar.height};
+    width = canvasSize.x;
+    ImGui::SetNextWindowSize(canvasSize);
+    ImGui::SetNextWindowPos(canvasPos);
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking;
+    if (!tabs.list.empty() && tabs.index < tabs.list.size()) tabs.list[tabs.index].draw(flags);
+  }
+};

@@ -1,3 +1,0 @@
-#define IDI_PHOTON_APP 101
-
-IDI_PHOTON_APP ICON "../fonts/Photon.ico"
