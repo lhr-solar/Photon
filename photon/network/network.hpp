@@ -1,47 +1,41 @@
-/*[ξ] the photon network interface*/
 #pragma once
-#include <array>
-#include <stdint.h>
-#include <string>
-#include <unordered_map>
 #include <mutex>
-#include <memory>
-#include "spsc.hpp"
+#include <optional>
+#include <stop_token>
+#include <string>
+#include <thread>
+#include <variant>
 
-class Network{
-private:
+#include "../parse/parse.hpp"
+#include "../parse/spmc.hpp"
+#include "protocols.hpp"
 
-public:
-    Network();
-    void producer();
-    void parser();
+struct Network {
+  void init();
+  void destroy();
+  void backend(std::stop_token stoken);
+  void startTCP(TCPConfig config);
+  void stopWriter();
+  bool switchDBC(DBCType kind);
+  bool switchDBCFile(const std::string& path);
+  Parse* parse;
 
-    bool readSample(uint16_t canId, uint64_t& outValue);
-    void writeSample(uint16_t canId, uint64_t value);
+  std::jthread backendThread{};
+  std::jthread writerThread{};
+  std::mutex writerMutex{};
+  std::optional<TCPConfig> activeTCPConfig{};
 
-    SPSCQueue<uint8_t> spscQueue;
-    std::string IP ="3.141.38.115";
-    unsigned PORT = 8187;
+  /* GUI Sends here, Network Reads here */
+  SPMCQueue<ProtocolTransmitVariant, 32> guiRxCommandBuffer{};
+  /* Network Sends here, GUI Reads here */
+  SPMCQueue<ProtocolReceiveVariant, 32> guiTxCommandBuffer{};
 
+  /* Network Sends Here, Writer Reads Here */
+  SPMCQueue<ProtocolTransmitVariant, 32> writerRxCommandBuffer{};
+  /* Writer Sends Here, Network Reads Here */
+  SPMCQueue<ProtocolReceiveVariant, 32> writerTxCommandBuffer{};
 
-private:
-    struct sample {
-        sample() = default;
-        sample(const sample&) = delete;
-        sample& operator=(const sample&) = delete;
-        sample(sample&&) = delete;
-        sample& operator=(sample&&) = delete;
-
-        std::mutex lock;
-        uint64_t point = 0;
-    };
-
-    sample& ensureSample(uint16_t canId);
-    bool decodeFrame(const std::string& frame, uint16_t& canId, uint64_t& value);
-    void handleFrame(const std::string& frame);
-
-    std::mutex sampleMapMutex;
-    std::unordered_map<uint16_t, std::unique_ptr<sample>> sampleMap;
-
-/* end of network class */
+ private:
+  void stopWriterUnlocked();
+  void restartWriterUnlocked();
 };

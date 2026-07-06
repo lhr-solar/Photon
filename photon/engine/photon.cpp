@@ -1,202 +1,261 @@
-/*[Δ] the photon heterogenous compute engine*/
-#include <thread>
-#include <iostream>
-
 #include "photon.hpp"
-#include "include.hpp"
-#include "../gpu/gpu.hpp"
-#include "../gui/gui.hpp"
+
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <tracy/Tracy.hpp>
+
+#include "../gui/io.hpp"
 #include "imgui.h"
+#include "vulkan_core.h"
 
-Photon::Photon(){ 
-    logs("[+] Constructing Photon"); 
-    gui.ui.networkINTF = &network;
+#if !defined(NDEBUG)
+#if defined(__linux__)
+#include <dlfcn.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#endif
+#endif
+
+void Photon::init() {
+  gpu.init();
+  logs("Initialized GPU");
+  gpu.imguiBackend(&gui.titleBar);
+  logs("Initialized ImGui");
+  parse.init();
+  logs("Initialized Arena");
+  network.parse = &parse;
+  network.init();
+  logs("Initialized Network");
+  gui.init(gpu, parse.arena, network);
+  logs("Initialized GUI");
+}
+
+void Photon::renderLoop() {
+  logs("Starting render loop");
+  while (running) {
+    FrameMark;
+    ZoneScopedN("Photon::renderLoop");
+    auto startFrame = std::chrono::high_resolution_clock::now();
+    uint32_t imgIdx{};
+    gpu.startFrame(imgIdx);
+    gpu.startCommands();
+
+    appLogic();
+    gpu.imguiPresentation(imgIdx);
+
+    gpu.endCommands();
+    gpu.submitFrame(imgIdx);
+
+    gpu.frameIndex = (gpu.frameIndex + 1) % gpu.swapchainImages.size();
+    auto endFrame = std::chrono::high_resolution_clock::now();
+    deltaTime = std::chrono::duration<double, std::milli>(endFrame - startFrame).count();
+  };
 };
-Photon::~Photon(){ 
-    logs("[!] Destructuring Photon");
-    gpu.vulkanSwapchain.cleanup(gpu.instance, gpu.vulkanDevice.logicalDevice);
-    if(gpu.descriptorPool != VK_NULL_HANDLE)
-        vkDestroyDescriptorPool(gpu.vulkanDevice.logicalDevice, gpu.descriptorPool, nullptr);
 
+void Photon::destroy() {
+  if (gpuAsyncDispatches.load(std::memory_order_relaxed) != 0) std::quick_exit(0);
+  gui.destroy();
+  gpu.destroy();
+  network.destroy();
+  parse.destroy();
 };
 
-void Photon::prepareScene(){
-#ifdef XCB
-   gpu.vulkanSwapchain.initSurface(gpu.instance, gui.connection, gui.window, gpu.vulkanDevice.physicalDevice);
-#endif
-#ifdef WIN
-    gpu.vulkanSwapchain.initSurface(gpu.instance, gui.windowInstance, gui.window, gpu.vulkanDevice.physicalDevice);
-#endif
-   gpu.vulkanSwapchain.createSurfaceCommandPool(gpu.vulkanDevice.logicalDevice);
-   gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, 
-           gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
-   gpu.vulkanSwapchain.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice);
-   gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.drawCmdBuffers);
-   gpu.setupDepthStencil(gui.width, gui.height);
-   gpu.setupRenderPass(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceFormat);
-   gpu.createPipelineCache(gpu.vulkanDevice.logicalDevice);
-   gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.buffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
-   gpu.prepareUniformBuffers();
-   gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
-   gpu.setupLayoutsAndDescriptors(gpu.vulkanDevice.logicalDevice);
-   gpu.preparePipelines(gpu.vulkanDevice.logicalDevice);
-   gui.prepareImGui();
-   gui.initResources(gpu.vulkanDevice, gpu.renderPass);
-   gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
-   prepared = true;
+void Photon::handleInput() {
+  ImGuiIO& io = ImGui::GetIO();
+  io.DeltaTime = deltaTime / 1000;
+  const bool wantTextInput = io.WantTextInput;
+  if (wantTextInput != SDL_TextInputActive(gpu.window)) {
+    if (wantTextInput)
+      SDL_StartTextInput(gpu.window);
+    else
+      SDL_StopTextInput(gpu.window);
+  }
+  SDL_Event events{};
+  while (SDL_PollEvent(&events)) {
+    if (events.type == SDL_EVENT_QUIT) running = false;
+    if ((events.type == SDL_EVENT_WINDOW_RESIZED) ||
+        (events.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) ||
+        (events.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED) ||
+        (events.type == SDL_EVENT_WINDOW_DISPLAY_CHANGED))
+      gpu.resizePending = true;
+    IO::handleInput(&events);
+  }
 };
 
-void Photon::initThreads(){
-    // lowkey consider moving this really early?
-#ifdef XCB
-    logs("[+] Initializing Threads ");
-    logs("[?] Cache line size (destructive) : " << std::hardware_destructive_interference_size);
-    logs("[?] Cache line size (constructive): " << std::hardware_constructive_interference_size);
-    logs("[?] Usable Hardware Threads: " << std::thread::hardware_concurrency());
+static std::string uiErrorText{};
+bool Photon::reloadUI() {
+#if !defined(NDEBUG) && (defined(__linux__) || defined(_WIN32))
+  namespace fs = std::filesystem;
+  using BuildUI = bool (*)(GUI*);
+#if defined(_WIN32)
+  using ModuleHandle = HMODULE;
+#else
+  using ModuleHandle = void*;
 #endif
-    std::thread producer_t(&Network::producer, &network);
-    producer_t.detach();
-    std::thread parser_t(&Network::parser, &network);
-    parser_t.detach();
-}
-
-void Photon::renderLoop(){
-    gui.destHeight = gui.height;
-    gui.destWidth  = gui.width;
-    lastTimestamp = std::chrono::high_resolution_clock::now();
-    tPrevEnd = lastTimestamp;
-    logs("[Δ] Entering Render Loop");
-#ifdef WIN
-    MSG msg;
-    bool quitMessageReceived = false;
-	while (!quitMessageReceived) {
-		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-        TranslateMessage(&msg);
-			DispatchMessage(&msg);
-			if (msg.message == WM_QUIT) {
-				quitMessageReceived = true;
-				break;
-			}
-		}
-        if (prepared && !IsIconic(gui.window)) { nextFrame(); }
-	}
+  static const fs::path buildLogPath = fs::path(PHOTON_BUILD_DIR) / "photon_ui_build.log";
+  static const std::string kBuildCommand = "cmake --build \"" PHOTON_BUILD_DIR
+                                           "\" --target photonUI --parallel > \"" +
+                                           buildLogPath.string() + "\" 2>&1";
+  struct State {
+    ModuleHandle handle{};
+    BuildUI build{};
+    fs::file_time_type loadedAt{};
+    fs::file_time_type failedBinaryAt{};
+    fs::file_time_type failedSourceAt{};
+    fs::path loadedPath{};
+  };
+  static State state{};
+  static const fs::path soPath = PHOTON_UI_SO_PATH;
+  static const fs::path uiDirPath = PHOTON_UI_DIR_PATH;
+  const auto winErrorText = []() -> std::string {
+#if defined(_WIN32)
+    const DWORD errorCode = GetLastError();
+    if (errorCode == 0) return {};
+    LPSTR buffer = nullptr;
+    const DWORD size = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        reinterpret_cast<LPSTR>(&buffer), 0, nullptr);
+    std::string text = (size != 0 && buffer != nullptr)
+                           ? std::string(buffer, size)
+                           : ("Win32 error " + std::to_string(errorCode));
+    if (buffer) LocalFree(buffer);
+    return text;
+#else
+    return {};
 #endif
-#ifdef XCB
-    xcb_flush(gui.connection);
-    windowResize();
-    while (!gui.quit) {
-        xcb_generic_event_t *event;
-        while((event = xcb_poll_for_event(gui.connection))){
-            gui.handleEvent(event);
-            free(event);
-        }
-        nextFrame();
+  };
+  const auto readText = [](const fs::path& path) {
+    std::ifstream file(path);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+  };
+  const auto readTime = [](const fs::path& path) {
+    std::error_code ec;
+    return fs::exists(path, ec) ? fs::last_write_time(path, ec) : fs::file_time_type::min();
+  };
+  const auto readSourceTreeTime = [](const fs::path& dirPath) {
+    std::error_code ec;
+    if (!fs::exists(dirPath, ec) || !fs::is_directory(dirPath, ec))
+      return fs::file_time_type::min();
+    fs::file_time_type latest = fs::file_time_type::min();
+    for (const fs::directory_entry& entry : fs::directory_iterator(dirPath, ec)) {
+      if (ec) break;
+      if (!entry.is_regular_file(ec)) continue;
+      const fs::path extension = entry.path().extension();
+      if (extension != ".cpp" && extension != ".hpp" && extension != ".h" && extension != ".inl")
+        continue;
+      latest = std::max(latest, entry.last_write_time(ec));
+      if (ec) break;
+    }
+    return latest;
+  };
+  const auto unloadUI = [](State& loaded) {
+    if (loaded.handle) {
+#if defined(_WIN32)
+      FreeLibrary(loaded.handle);
+#else
+      dlclose(loaded.handle);
+#endif
+    }
+    if (!loaded.loadedPath.empty()) {
+      std::error_code ec;
+      fs::remove(loaded.loadedPath, ec);
+    }
+    loaded = {};
+  };
+  const auto loadUI = [&](fs::file_time_type soAt, State& candidate) {
+    const fs::path loadPath =
+        soPath.parent_path() /
+        (soPath.stem().string() + "." + std::to_string(soAt.time_since_epoch().count()) +
+         soPath.extension().string());
+    std::error_code ec;
+    fs::copy_file(soPath, loadPath, fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+      uiErrorText = "UI copy failed:\n" + ec.message();
+      logs("UI copy failed: " << ec.message());
+      return false;
+    }
+    logs("Loading UI: " << loadPath.string());
+#if defined(_WIN32)
+    candidate.handle = LoadLibraryA(loadPath.string().c_str());
+    candidate.build =
+        candidate.handle
+            ? reinterpret_cast<BuildUI>(GetProcAddress(candidate.handle, "photonBuildUI"))
+            : nullptr;
+#else
+    dlerror();
+    candidate.handle = dlopen(loadPath.c_str(), RTLD_NOW | RTLD_LOCAL);
+    const char* loadError = dlerror();
+    if (candidate.handle) {
+      dlerror();
+      candidate.build = reinterpret_cast<BuildUI>(dlsym(candidate.handle, "photonBuildUI"));
+      if (const char* symbolError = dlerror()) loadError = symbolError;
     }
 #endif
-    vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
-}
-
-void Photon::nextFrame(){
-    auto tStart = std::chrono::high_resolution_clock::now();
-	if (gui.viewUpdated){ gui.viewUpdated = false; }
-	render();
-    gpu.frameCounter++;
-    auto tEnd = std::chrono::high_resolution_clock::now();
-    double frameTime = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-    if(frameTime < gpu.targetFrameTime){std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(gpu.targetFrameTime - frameTime))); frameTime = gpu.targetFrameTime;}
-    auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-    gpu.frameTimer = frameTime / 1000.0f;
-    gpu.camera.update(gpu.frameTimer); 
-	if (gpu.camera.moving()) { gui.viewUpdated = true; }
-    if(!paused){
-        gpu.timer += gpu.timerSpeed * gpu.frameTimer;
-        if (gpu.timer > 1.0) { gpu.timer -= 1.0f; }
+    if (!candidate.build) {
+#if defined(_WIN32)
+      uiErrorText = "UI load failed:\n" + winErrorText();
+#else
+      uiErrorText = loadError ? std::string("UI load failed:\n") + loadError : "UI load failed";
+#endif
+      candidate.loadedPath = loadPath;
+      unloadUI(candidate);
+      return false;
     }
-}
+    candidate.loadedAt = soAt;
+    candidate.loadedPath = loadPath;
+    uiErrorText.clear();
+    return true;
+  };
 
-void Photon::render(){
-    if(!prepared) return;
-    gpu.updateUniformBuffers(gui.ui.renderSettings.animateLight, gui.ui.renderSettings.lightTimer, gui.ui.renderSettings.lightSpeed);
-    ImGuiIO &io = ImGui::GetIO();
-    io.DisplaySize = ImVec2((float)gui.width, (float)gui.height);
-    io.DeltaTime = gpu.frameTimer;
-    draw();
-}
-
-void Photon::draw(){
-    prepareFrame();
-    if (!prepared) { return; }
-    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
-    gpu.submitInfo.commandBufferCount = 1;
-    gpu.submitInfo.pCommandBuffers = &gpu.vulkanSwapchain.drawCmdBuffers[gpu.currentBuffer];
-    VK_CHECK(vkQueueSubmit(gpu.vulkanDevice.graphicsQueue, 1, &gpu.submitInfo, VK_NULL_HANDLE));
-    submitFrame();
-}
-
-void Photon::prepareFrame(){
-    // Acquire the next image from the swap chain
-	VkResult result = gpu.vulkanSwapchain.acquireNextImage(gpu.vulkanDevice.logicalDevice, gpu.semaphores.presentComplete, &gpu.currentBuffer);
-	if (result == VK_ERROR_SURFACE_LOST_KHR) {
-        logs("[!] Swap chain surface lost; stopping rendering loop");
-        prepared = false;
-        return;
+  const auto sourceAt = readSourceTreeTime(uiDirPath);
+  auto soAt = readTime(soPath);
+  if ((soAt == fs::file_time_type::min() || sourceAt > soAt) && sourceAt != state.failedSourceAt) {
+    logs("Rebuilding UI: " << kBuildCommand);
+    if (std::system(kBuildCommand.c_str()) != 0) {
+      state.failedSourceAt = sourceAt;
+      uiErrorText = readText(buildLogPath);
+      if (uiErrorText.empty()) uiErrorText = "UI rebuild failed";
+      logs("UI rebuild failed");
+      return state.build ? state.build(&gui) : false;
     }
-	if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) {
-        if (result == VK_ERROR_OUT_OF_DATE_KHR) { windowResize(); }
-		return;
-	} else { VK_CHECK(result);}
-}
+    soAt = readTime(soPath);
+  }
 
-void Photon::submitFrame(){
-    VkResult result = gpu.vulkanSwapchain.queuePresent(gpu.vulkanDevice.graphicsQueue, gpu.currentBuffer, gpu.semaphores.renderComplete);
-    if (result == VK_ERROR_SURFACE_LOST_KHR) {
-        logs("[!] Swap chain surface lost during present; stopping rendering loop");
-        prepared = false;
-        return;
+  if ((!state.build || soAt != state.loadedAt) && soAt != state.failedBinaryAt) {
+    State candidate{};
+    if (!loadUI(soAt, candidate)) {
+      state.failedBinaryAt = soAt;
+      return state.build ? state.build(&gui) : false;
     }
-    if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR)) {
-        windowResize();
-		if (result == VK_ERROR_OUT_OF_DATE_KHR) { return; }
-	} else { VK_CHECK(result); }
-	VK_CHECK(vkQueueWaitIdle(gpu.vulkanDevice.graphicsQueue));
-}
+    State previous = std::move(state);
+    state = std::move(candidate);
+    unloadUI(previous);
+  }
 
-void Photon::windowResize(){
-    if(!prepared) return;
-    prepared = false;
-    gui.resized = true;
-    vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
-    gui.width = gui.destWidth;
-	gui.height = gui.destHeight;
-    VkResult swapchainResult = gpu.vulkanSwapchain.createSwapChain(&gui.width, &gui.height, gui.settings.vsync, gui.settings.fullscreen, gui.settings.transparent, gpu.vulkanDevice.physicalDevice, gpu.vulkanDevice.logicalDevice);
-    if (swapchainResult == VK_ERROR_SURFACE_LOST_KHR) {
-        logs("[!] Swap chain recreation skipped because the surface was lost");
-        return;
-    }
-    if (swapchainResult != VK_SUCCESS) {
-        logs("[!] Swap chain recreation failed with VkResult " << swapchainResult);
-        return;
-    }
-    vkDestroyImageView(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.view, nullptr);
-    vkDestroyImage(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.image, nullptr);
-	vkFreeMemory(gpu.vulkanDevice.logicalDevice, gpu.depthStencil.memory, nullptr);
-    gpu.setupDepthStencil(gui.width, gui.height);
-    for (uint32_t i = 0; i < gpu.frameBuffers.size(); i++) {
-		vkDestroyFramebuffer(gpu.vulkanDevice.logicalDevice, gpu.frameBuffers[i], nullptr);
-	}
-    gpu.setupFrameBuffer(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.buffers, gpu.vulkanSwapchain.imageCount, gui.width, gui.height);
-    if ((gui.width > 0.0f) && (gui.height > 0.0f)) {
-        ImGuiIO& io = ImGui::GetIO();
-		io.DisplaySize = ImVec2((float)(gui.width), (float)(gui.height));
-	}
-    vkFreeCommandBuffers(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.surfaceCommandPool, gpu.vulkanSwapchain.drawCmdBuffers.size(), gpu.vulkanSwapchain.drawCmdBuffers.data());
-    gpu.vulkanSwapchain.createSurfaceCommandBuffers(gpu.vulkanDevice.logicalDevice);
-    gui.buildCommandBuffers(gpu.vulkanDevice, gpu.renderPass, gpu.frameBuffers, gpu.vulkanSwapchain.drawCmdBuffers);
+  return state.build(&gui);
+#else
+  return false;
+#endif
+};
 
-    for (auto& fence : gpu.waitFences) { vkDestroyFence(gpu.vulkanDevice.logicalDevice, fence, nullptr); }
-    gpu.createSynchronizationPrimitives(gpu.vulkanDevice.logicalDevice, gpu.vulkanSwapchain.drawCmdBuffers);
-    vkDeviceWaitIdle(gpu.vulkanDevice.logicalDevice);
-    if ((gui.width > 0.0f) && (gui.height > 0.0f)) { gpu.camera.updateAspectRatio((float)gui.width / (float)gui.height); }
-    gui.resized = true;
-    prepared = true;
-}
+void Photon::appLogic() {
+  ZoneScopedN("Photon::appLogic");
+  handleInput();
+#if !defined(NDEBUG) && (defined(__linux__) || defined(_WIN32))
+  if (!reloadUI()) {
+    ImGui::NewFrame();
+    ImGui::TextUnformatted("UI Not Found...");
+    if (!uiErrorText.empty()) {
+      ImGui::Separator();
+      ImGui::TextWrapped("%s", uiErrorText.c_str());
+    }
+    ImGui::Render();
+  };
+#else
+  gui.buildUI();
+#endif
+};

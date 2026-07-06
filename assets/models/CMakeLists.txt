@@ -1,0 +1,15 @@
+include(${CMAKE_SOURCE_DIR}/find/embed_assets.cmake)
+
+set(MODEL_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(MODEL_HEADER_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated)
+set(MODEL_OBJECT_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated/model_objects)
+
+file(GLOB MODEL_FILES "${MODEL_DIR}/*.glb")
+
+photon_embed_assets(
+    HEADER_OUTPUT_DIR ${MODEL_HEADER_OUTPUT_DIR}
+    OBJECT_OUTPUT_DIR ${MODEL_OBJECT_OUTPUT_DIR}
+    HEADER_TARGET ModelHeaders
+    ASSET_TARGET ModelAssets
+    FILES ${MODEL_FILES}
+)

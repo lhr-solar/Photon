@@ -1,0 +1,17 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+┌──                        ──┐ ┌────────────┐                                                       
+│ At Initialization          │ │Memory Arena│                   ┌──                            ──┐  
+│  DBC File ───► Structure   │ │            │                   │ The main thread reads from the │  
+   Size     ───► Total Alloc   │            │   ┌─────────────┐   arena each frame in order to      
+                               │            ├──►│Reader Thread│   populate relevent figures         
+  At Runtime                   │            │   └─────────────┘                                     
+    Read Data                  │            │                     The writer thread handles data    
+    Write Data                 │            │   ┌─────────────┐   ingress from aribtrary network    
+    Query MetaData             │            │◄──┤Writer Thread│   sources, and formats it to be     
+                               │            │   └─────────────┘   appropriate for the arena. The    
+│ At Deletion                │ │            │                     writer thread is dispatched       
+│   Free Memory              │ │            │                   │ once by the network backend    │  
+└──                        ──┘ └────────────┘                   └──                            ──┘  
+
+────────────────────────────────────────────────────────────────────────────────────────────────────

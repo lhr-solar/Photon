@@ -1,183 +1,69 @@
-/*[μ] the photon graphical user interface*/
 #pragma once
-#include <assert.h>
-#include <string>
-#include <stdlib.h>
-#include <glm/glm.hpp>
-#include <array>
-#include <vector>
-#include <vulkan/vulkan.h>
-#include "ui.hpp"
-#include "inputs.hpp"
-#include "../gpu/vulkanBuffer.hpp"
-#include "../gpu/vulkanDevice.hpp"
-#include "../engine/include.hpp"
+#include "../gpu/gpu.hpp"
+#include "../gpu/shader.hpp"
 #include "../network/network.hpp"
-#include "webcam.hpp"
+#include "../parse/arena.hpp"
+#include "../parse/spmc.hpp"
+#include "canvas.hpp"
+#include "config.hpp"
+#include "plots.hpp"
+#include "sideBar.hpp"
+#include "tabs.hpp"
+#include "titlebar.hpp"
+#include "updater.hpp"
 
+struct GUI {
+  void init(GPU& gpu, Arena& arena, Network& network);
+  void setTabs();
+  void destroy();
+  void setFont();
+  void buildUI();
+  void render();
+  void settingsUI();
+  void updateUI();
+  void exportUI();
 
-#ifdef XCB
-#include "xcb/xcb.h"
-#endif
+  void genericPlot(uint32_t id, uint32_t signal, ImVec2 size);
+  void shaderTest(ImGuiWindowFlags flags);
+  void testFunc(ImGuiWindowFlags flags);
+  void plotTest(ImGuiWindowFlags flags);
+  void networkPage(ImGuiWindowFlags flags);
+  void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
 
-class Gui{
-public:
-#ifdef XCB
-    xcb_connection_t *connection;
-    xcb_screen_t *screen;
-    xcb_window_t window;
-    xcb_intern_atom_reply_t *atom_wm_delete_window;
-#endif
-#ifdef WIN
-    HINSTANCE windowInstance;
-    HWND window;
-#endif
-    UI ui;
+  GPU* gpu;
+  Arena* arena;
+  Network* network;
 
-    uint32_t width = 1280;
-    uint32_t height = 720;
-    bool viewUpdated = false;
-    bool resized = false;
-
-    uint32_t destWidth;
-    uint32_t destHeight;
-
-    std::string title = "Photon";
-    std::string name = "photon";
-
-    struct{
-        bool fullscreen = false;
-        bool vsync = false;
-        bool transparent = true;
-    } settings;
-
-    struct PushConstBlock {
-        glm::vec2 scale;
-        glm::vec2 translate;
-        glm::vec2 invScreenSize;
-        glm::vec2 whitePixel;
-        glm::vec4 gradTop;
-        glm::vec4 gradBottom;
-        float u_time;
-    } imguiPushConst;
-
-    struct CustomShaderResources {
-        VkExtent2D extent{512, 512};
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory memory = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkFramebuffer framebuffer = VK_NULL_HANDLE;
-        VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-        VkPipeline pipeline = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bool initialized = false;
-    } customShader;
-
-    struct BackgroundShaderResources {
-        VkExtent2D extent{0, 0};
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory memory = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkFramebuffer framebuffer = VK_NULL_HANDLE;
-        VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-        VkPipeline pipeline = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bool initialized = false;
-    } backgroundShader;
-
-    struct VideoFeedResources {
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory memory = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-        VkExtent2D extent{0, 0};
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bool initialized = false;
-    } videoFeed;
-
-    VulkanBuffer videoStagingBuffer;
-    VkDeviceSize videoStagingBufferSize = 0;
-    std::vector<uint8_t> videoFrameData;
-    WebcamCapture webcam;
-    VkDevice deviceHandle = VK_NULL_HANDLE;
-
-    Inputs inputs;
-
-    VkImage fontImage = VK_NULL_HANDLE;
-    VkDeviceMemory fontMemory = VK_NULL_HANDLE;
-    VkImageView fontView = VK_NULL_HANDLE;
-
-    VkSampler sampler = VK_NULL_HANDLE;
-
-    VkDescriptorPool guiDescriptorPool = VK_NULL_HANDLE;
-    VkDescriptorSetLayout guiDescriptorSetLayout = VK_NULL_HANDLE;
-    VkDescriptorSet guiDescriptorSet = VK_NULL_HANDLE;
-
-    VkPipelineCache guiPipelineCache = VK_NULL_HANDLE;
-    VkPipelineLayout guiPipelineLayout = VK_NULL_HANDLE;
-    VkPipeline guiPipeline = VK_NULL_HANDLE;
-
-    VulkanBuffer vertexBuffer;
-    int32_t vertexCount = 0;
-    VulkanBuffer indexBuffer;
-    int32_t indexCount = 0;
-
-    bool quit = false;
-
-
-    struct alignas(16) PushConstants {
-    glm::vec2 resolution;
-    float     u_time;
-    float     pad;
-    };
-
-    PushConstants pc{};
-
-    Gui();
-    ~Gui();
-
-    std::string getWindowTitle()const;
-    void prepareImGui();
-
-    void initResources(VulkanDevice vulkanDevice, VkRenderPass renderPass);
-
-    void initCustomShaderResources(VulkanDevice vulkanDevice, VkExtent2D extent);
-    void destroyCustomShaderResources(bool releaseDescriptorSet = false);
-    VkExtent2D getCustomShaderExtent() const;
-    void resizeCustomShader(VulkanDevice vulkanDevice, float width, float height);
-    VkExtent2D calculateCustomShaderExtent(float width, float height) const;
-    void recordCustomShaderPass(VkCommandBuffer commandBuffer);
-
-    void initBackgroundResources(VulkanDevice vulkanDevice, VkExtent2D extent);
-    void destroyBackgroundResources(bool releaseDescriptorSet = false);
-    VkExtent2D getBackgroundExtent() const;
-    void resizeBackground(VulkanDevice vulkanDevice, float width, float height);
-    VkExtent2D calculateBackgroundExtent(float width, float height) const;
-    void recordBackgroundPass(VkCommandBuffer commandBuffer);
-
-    void initVideoFeedResources(VulkanDevice vulkanDevice);
-    void updateVideoFeed(VulkanDevice vulkanDevice);
-    void destroyVideoFeedResources(bool releaseDescriptorSet = false);
-
-    void buildCommandBuffers(VulkanDevice vulkanDevice, VkRenderPass renderPass, std::vector<VkFramebuffer> frameBuffers, std::vector<VkCommandBuffer> drawCmdBuffers);
-    void updateBuffers(VulkanDevice vulkanDevice);
-    void drawFrame(VkCommandBuffer commandBuffer);
-
-#ifdef XCB
-    void initWindow();
-    void initxcbConnection();
-    void setupWindow();
-    void handleEvent(const xcb_generic_event_t *event);
-#endif
-#ifdef WIN
-    void initWindow(HINSTANCE hInstance);
-    LRESULT handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-    static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-#endif
-
-/* end of gui class */
+  TitleBar titleBar{};
+  Sidebar sideBar{};
+  Tabs tabs{};
+  Canvas canvas{};
+  Shader testShader{};
+  Shader buttonShader{};
+  GuiSettings settings{};
+  GuiFlags flags{};
+  bool updateAvailable = false;
+  std::vector<Plots> plots;
+  Updater updater;
 };
+
+/* forward function handles */
+void ImAnimDemoWindow();
+void ImAnimDocWindow();
+
+/* Toggles flag if key is released. If flag is true, executes function */
+template <typename F, typename... Args>
+decltype(auto) ifKey(ImGuiKey key, bool& flag, F&& func, Args&&... args) {
+  if (ImGui::IsKeyReleased(key)) flag = !flag;
+  if (flag) std::forward<F>(func)(std::forward<Args>(args)...);
+}
+
+/* aligns the given text to rhs of the window */
+template <typename... Args>
+void TextRightAligned(const char* fmt, Args... args) {
+  char buf[128] = {};
+  snprintf(buf, sizeof(buf), fmt, args...);
+  ImVec2 dims = ImGui::CalcTextSize(buf);
+  ImGui::SetCursorPosX(ImGui::GetWindowWidth() - dims.x);
+  ImGui::TextUnformatted(buf);
+}
