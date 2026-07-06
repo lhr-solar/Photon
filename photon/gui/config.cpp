@@ -745,8 +745,8 @@ void GuiSettings::colorUI() {
     const float paletteHeightFit = std::max(24.0f, (bodyHeight - size - 142.0f) * 0.5f);
     const float paletteMax = std::max(12.0f, std::min(58.0f, paletteFit));
     const float paletteMin = std::min(24.0f, paletteMax);
-    const float paletteSize = std::clamp(std::min(paletteFit, paletteHeightFit), paletteMin,
-                                         paletteMax);
+    const float paletteSize =
+        std::clamp(std::min(paletteFit, paletteHeightFit), paletteMin, paletteMax);
     for (int i = 0; i < 8; ++i) {
       ImVec2 min = {palettePos.x + (i % 4) * (paletteSize + gap),
                     palettePos.y + (i / 4) * (paletteSize + gap)};

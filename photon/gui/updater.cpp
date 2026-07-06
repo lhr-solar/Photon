@@ -600,7 +600,7 @@ std::filesystem::path currentPhotonPath() {
 }
 
 void makeExecutable(const std::filesystem::path& path) {
-  struct stat st {};
+  struct stat st{};
   if (stat(path.c_str(), &st) != 0) return;
   chmod(path.c_str(), st.st_mode | S_IXUSR | S_IXGRP | S_IXOTH);
 }

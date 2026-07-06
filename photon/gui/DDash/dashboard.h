@@ -11,4 +11,4 @@ namespace ui {
  */
 void RenderDashboard(AppState& state, ImGuiWindowFlags flags = 0);
 
-} // namespace ui
+}  // namespace ui

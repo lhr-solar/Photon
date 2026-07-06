@@ -1,3 +1,2 @@
 #pragma once
-struct Plots {
-};
+struct Plots {};

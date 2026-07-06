@@ -1,10 +1,9 @@
-#include "../parse/arena.hpp"
-
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
 
+#include "../parse/arena.hpp"
 #include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -27,8 +26,7 @@ inline void formatBytes(char* out, size_t outSize, uint64_t bytes) {
 }
 
 inline void formatBytesPerSecond(char* out, size_t outSize, double bytesPerSecond) {
-  static constexpr std::array<const char*, 6> units{"B/s", "KB/s", "MB/s", "GB/s", "TB/s",
-                                                   "PB/s"};
+  static constexpr std::array<const char*, 6> units{"B/s", "KB/s", "MB/s", "GB/s", "TB/s", "PB/s"};
   double value = bytesPerSecond;
   size_t unit = 0;
   while (value >= 1024.0 && unit < units.size() - 1) {
@@ -151,7 +149,8 @@ struct ArenaUiFrameStats {
   double netDataRate{};
 };
 
-ArenaUiFrameStats refreshArenaUiStats(Arena& arena, std::array<MessageUiStats, MESSAGE_MAX>& cache) {
+ArenaUiFrameStats refreshArenaUiStats(Arena& arena,
+                                      std::array<MessageUiStats, MESSAGE_MAX>& cache) {
   ArenaUiFrameStats frame{};
   const double now = ImGui::GetTime();
 
@@ -162,8 +161,7 @@ ArenaUiFrameStats refreshArenaUiStats(Arena& arena, std::array<MessageUiStats, M
     MessageUiStats& stats = cache[id];
     const uint32_t signalBytes = msg.signalSize.value.load(std::memory_order_acquire);
     stats.sampleCount = signalBytes / sizeof(double);
-    stats.heldBytes =
-        static_cast<size_t>(signalBytes) * (static_cast<size_t>(msg.signalCount) + 1);
+    stats.heldBytes = static_cast<size_t>(signalBytes) * (static_cast<size_t>(msg.signalCount) + 1);
 
     if (!stats.initialized) {
       stats.initialized = true;
@@ -172,8 +170,8 @@ ArenaUiFrameStats refreshArenaUiStats(Arena& arena, std::array<MessageUiStats, M
       stats.lastChangeTime = signalBytes > 0 ? now : 0.0;
       stats.dataRate = 0.0;
     } else {
-      const uint32_t deltaBytes = signalBytes >= stats.lastBytes ? signalBytes - stats.lastBytes
-                                                                 : signalBytes;
+      const uint32_t deltaBytes =
+          signalBytes >= stats.lastBytes ? signalBytes - stats.lastBytes : signalBytes;
       const double elapsed = now - stats.lastPollTime;
       const size_t deltaHeldBytes =
           static_cast<size_t>(deltaBytes) * (static_cast<size_t>(msg.signalCount) + 1);
@@ -377,19 +375,21 @@ bool drawMessageRow(const Message& msg, const MessageUiStats& stats, bool expand
   const bool clicked = ImGui::IsItemClicked();
   const bool hovered = ImGui::IsItemHovered();
   const ImGuiID itemId = ImGui::GetItemID();
-  const float focus = iam_tween_float(itemId, ImHashStr("focus"),
-                                      expanded ? 1.0f : hovered ? 0.55f : 0.0f, 0.16f,
-                                      iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
-                                      ImGui::GetIO().DeltaTime, expanded ? 1.0f : 0.0f);
+  const float focus =
+      iam_tween_float(itemId, ImHashStr("focus"),
+                      expanded  ? 1.0f
+                      : hovered ? 0.55f
+                                : 0.0f,
+                      0.16f, iam_ease_preset(iam_ease_out_quad), iam_policy_crossfade,
+                      ImGui::GetIO().DeltaTime, expanded ? 1.0f : 0.0f);
   const ImVec2 min = ImGui::GetItemRectMin();
   const ImVec2 max = ImGui::GetItemRectMax();
   ImDrawList* draw = ImGui::GetWindowDrawList();
   const ImVec4 fill = mixColor(palette.panel, palette.active, focus * 0.62f);
   constexpr float rounding = 8.0f;
   ImGui::RenderFrame(min, max, colorU32(withAlpha(fill, 0.82f)), false, rounding);
-  PhotonUi::leftAccentFrame(min, max,
-                            colorU32(withAlpha(palette.accent, 0.38f + focus * 0.42f)), rounding,
-                            5.0f);
+  PhotonUi::leftAccentFrame(min, max, colorU32(withAlpha(palette.accent, 0.38f + focus * 0.42f)),
+                            rounding, 5.0f);
   draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.36f + focus * 0.24f)), rounding);
 
   char idText[32];
@@ -418,9 +418,8 @@ bool drawMessageRow(const Message& msg, const MessageUiStats& stats, bool expand
   }
 
   const char* chevron = expanded ? "\uea5f" : "\uea61";
-  PhotonUi::drawIconCentered(draw, chevron, {max.x - 30.0f, min.y}, {max.x - 10.0f, max.y},
-                             16.0f, colorU32(mixColor(palette.muted, palette.text, focus)),
-                             1.0f);
+  PhotonUi::drawIconCentered(draw, chevron, {max.x - 30.0f, min.y}, {max.x - 10.0f, max.y}, 16.0f,
+                             colorU32(mixColor(palette.muted, palette.text, focus)), 1.0f);
   ImGui::PopID();
   return clicked;
 }
@@ -449,9 +448,9 @@ void Arena::statusUI(int flags) {
     const ImGuiStyle& style = ImGui::GetStyle();
     const float contentWidth = ImGui::GetContentRegionAvail().x;
     const size_t capacityBytes = bytesPerBuffer * totalBuffers;
-    const float heldFraction =
-        capacityBytes > 0 ? static_cast<float>(frameStats.heldBytes) / static_cast<float>(capacityBytes)
-                          : 0.0f;
+    const float heldFraction = capacityBytes > 0 ? static_cast<float>(frameStats.heldBytes) /
+                                                       static_cast<float>(capacityBytes)
+                                                 : 0.0f;
     char buf[64];
 
     drawArenaHeader(contentWidth, palette, frameStats, netDataRateHistory, smoothedNetDataRate,
@@ -558,8 +557,9 @@ void Arena::statusUI(int flags) {
             ImGui::TextUnformatted(buf);
 
             ImGui::TableSetColumnIndex(2);
-            const char* type =
-                sig->type == vFLOAT ? "float" : sig->type == vDOUBLE ? "double" : "int";
+            const char* type = sig->type == vFLOAT    ? "float"
+                               : sig->type == vDOUBLE ? "double"
+                                                      : "int";
             ImGui::Text("%s %s", sig->isSigned ? "s" : "u", type);
 
             ImGui::TableSetColumnIndex(3);
@@ -576,8 +576,7 @@ void Arena::statusUI(int flags) {
 
             ImGui::TableSetColumnIndex(7);
             formatAge(buf, sizeof(buf),
-                      stats.lastChangeTime > 0.0 ? ImGui::GetTime() - stats.lastChangeTime
-                                                 : -1.0);
+                      stats.lastChangeTime > 0.0 ? ImGui::GetTime() - stats.lastChangeTime : -1.0);
             ImGui::TextUnformatted(buf);
           }
           ImGui::EndTable();
@@ -597,8 +596,7 @@ void Arena::statusUI(int flags) {
                           colorU32(withAlpha(palette.panel, 0.72f)), 8.0f);
       list->AddRect(pos, {pos.x + contentWidth, pos.y + h},
                     colorU32(withAlpha(palette.border, 0.44f)), 8.0f);
-      list->AddText({pos.x + 14.0f, pos.y + 18.0f}, colorU32(palette.muted),
-                    "No messages match");
+      list->AddText({pos.x + 14.0f, pos.y + 18.0f}, colorU32(palette.muted), "No messages match");
       ImGui::Dummy({contentWidth, h});
     }
   }
