@@ -955,6 +955,12 @@ void GPU::imguiBackend(TitleBar* titleBar) {
   tablerFontConfig.OversampleV = 2;
   io.Fonts->AddFontFromMemoryTTF((void*)TablerIcons_ttf, static_cast<int>(TablerIcons_ttf_size),
                                  static_cast<float>(28.0f), &tablerFontConfig, tablerIconRanges);
+  // Fonts[1..3]: dashboard code indexes by size tier (Fonts[2]/[3]).
+  for (float tierSize : {16.0f, 24.0f, 32.0f}) {
+    io.Fonts->AddFontFromMemoryTTF((void*)Inter_28pt_Regular_ttf,
+                                   static_cast<int>(Inter_28pt_Regular_ttf_size), tierSize,
+                                   &fontConfig);
+  }
   VkSamplerCreateInfo samplerCreateInfo{};
   samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   samplerCreateInfo.maxAnisotropy = 1.0f;

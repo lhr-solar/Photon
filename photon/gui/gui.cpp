@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "../gpu/shader.hpp"
+#include "DDash/dashboard_tab.h"
 #include "arena.hpp"
 #include "bits_frag_spv.hpp"
 #include "box_frag_spv.hpp"
@@ -271,6 +272,8 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
+  tabs.list.push_back(
+      Tab::bind<ui::DashboardTab, &ui::DashboardTab::draw>(ui::dashboardTab(), "Dashboard"));
 };
 
 void GUI::buildUI() {
