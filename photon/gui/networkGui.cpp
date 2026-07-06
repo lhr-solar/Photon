@@ -169,7 +169,6 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
                              palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
-        drawTcpFields(daqConfig, palette);
         if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 34.0f}, palette, true))
           submit(network, daqConfig);
         ImGui::SameLine(0.0f, 8.0f);
