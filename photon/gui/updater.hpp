@@ -22,18 +22,16 @@ struct Updater {
   mutable std::mutex releaseMutex;
 
   std::filesystem::path installerPath{};
-  std::string installerURL =
-      "https://github.com/lhr-solar/Photon/releases/download/windowsUpdater/photonUpdater.exe";
+  std::string installerURL{};
 
   std::filesystem::path photonPath{};
-  std::string photonURL =
-      "https://github.com/lhr-solar/Photon/releases/download/Win_Pre-Release/Photon.exe";
+  std::string photonURL{};
 
   UpdaterProcessId ourPid{};
   UpdaterPathString ourPath{};
 
   std::string version = "00.00.00";
-  std::string newVersion{}; 
+  std::string newVersion{};
 
   void getOurInfo();
   bool downloadInstaller();

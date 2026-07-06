@@ -103,11 +103,10 @@ static std::string jsonStringValue(std::string_view json, std::string_view key,
 static std::string releaseAssetUrl(std::string_view json, std::string_view assetName) {
   std::size_t pos = 0;
   while ((pos = json.find("\"browser_download_url\"", pos)) != std::string_view::npos) {
-    const std::size_t objectStart = json.rfind('{', pos);
+    const std::size_t namePos = json.rfind("\"name\"", pos);
     const std::string url = jsonStringValue(json, "browser_download_url", pos);
-    const std::string name = objectStart == std::string_view::npos
-                                 ? std::string{}
-                                 : jsonStringValue(json, "name", objectStart);
+    const std::string name =
+        namePos == std::string_view::npos ? std::string{} : jsonStringValue(json, "name", namePos);
     if (name == assetName) return url;
     pos += 22;
   }
@@ -521,9 +520,13 @@ bool Updater::downloadInstaller() {
   std::string appURL;
   std::string updaterURL;
   downloadSnapshot(appURL, updaterURL);
+  if (updaterURL.empty()) return false;
+  std::error_code ignored;
+  std::filesystem::remove(installerPath, ignored);
   HRESULT hr = URLDownloadToFileA(nullptr, updaterURL.c_str(), path.c_str(), 0, &progress);
-  if (hr == S_OK) return true;
-  return false;
+  ignored.clear();
+  const std::uintmax_t size = std::filesystem::file_size(installerPath, ignored);
+  return hr == S_OK && !ignored && size > 0;
 }
 
 bool Updater::downloadNewPhoton() {
@@ -532,19 +535,24 @@ bool Updater::downloadNewPhoton() {
   std::string appURL;
   std::string updaterURL;
   downloadSnapshot(appURL, updaterURL);
+  if (appURL.empty()) return false;
+  std::error_code ignored;
+  std::filesystem::remove(photonPath, ignored);
   HRESULT hr = URLDownloadToFileA(nullptr, appURL.c_str(), path.c_str(), 0, &progress);
-  if (hr == S_OK) return true;
-  return false;
+  ignored.clear();
+  const std::uintmax_t size = std::filesystem::file_size(photonPath, ignored);
+  return hr == S_OK && !ignored && size > 0;
 }
 
 bool Updater::launchInstaller() {
+  if (!std::filesystem::exists(installerPath)) return false;
   const std::wstring exe = installerPath.wstring();
   const std::wstring parameters = std::to_wstring(ourPid) + L" " + quote(ourPath);
   std::wstring workingDirectory = installerPath.parent_path().wstring();
 
   SHELLEXECUTEINFOW sei{};
   sei.cbSize = sizeof(sei);
-  sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+  sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
   sei.lpVerb = L"runas";
   sei.lpFile = exe.c_str();
   sei.lpParameters = parameters.c_str();
