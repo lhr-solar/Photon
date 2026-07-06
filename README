@@ -38,13 +38,9 @@ analysis & synthesis
 │ > .\winBuild.ps1       │
 └────────────────────────┘
 
-build using cmake:
-
-mkdir .artifacts
-cd .artifacts
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j"$(nproc)" release
-./bin/Photon
+to build on linux:
+cmake -S . -B .artifacts -DCMAKE_BUILD_TYPE=Release
+cmake --build .artifacts -j20
 
 if compiled for debug (no "release" flag)
 

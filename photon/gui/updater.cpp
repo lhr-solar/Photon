@@ -12,8 +12,14 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <thread>
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 #include "im_anim.h"
 #include "imgui.h"
@@ -554,22 +560,147 @@ bool Updater::launchInstaller() {
 #else
 
 void Updater::launchUpdater() {
+  if (running.exchange(true)) return;
   photonDownloadPercentage.store(-1);
   installerDownloadPercentage.store(-1);
-  running.store(false);
+  getOurInfo();
+  std::thread(&Updater::beginUpdate, this).detach();
+}
+
+std::filesystem::path getPhotonCacheDir() {
+  if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg && *xdg) {
+    std::filesystem::path dir = std::filesystem::path(xdg) / "Photon";
+    std::filesystem::create_directories(dir);
+    return dir;
+  }
+
+  const char* home = std::getenv("HOME");
+  if (!home || !*home) return {};
+  std::filesystem::path dir = std::filesystem::path(home) / ".cache" / "Photon";
+  std::filesystem::create_directories(dir);
+  return dir;
+}
+
+std::filesystem::path currentPhotonPath() {
+  if (const char* appImage = std::getenv("APPIMAGE"); appImage && *appImage) return appImage;
+
+  std::array<char, 4096> path{};
+  const ssize_t size = readlink("/proc/self/exe", path.data(), path.size() - 1);
+  if (size <= 0) return {};
+  path[static_cast<std::size_t>(size)] = '\0';
+  return path.data();
+}
+
+void makeExecutable(const std::filesystem::path& path) {
+  struct stat st {};
+  if (stat(path.c_str(), &st) != 0) return;
+  chmod(path.c_str(), st.st_mode | S_IXUSR | S_IXGRP | S_IXOTH);
+}
+
+static size_t curlWriteToFile(char* ptr, size_t size, size_t nmemb, void* userdata) {
+  return std::fwrite(ptr, size, nmemb, static_cast<FILE*>(userdata));
+}
+
+static int curlProgress(void* userdata, curl_off_t total, curl_off_t now, curl_off_t, curl_off_t) {
+  auto* percent = static_cast<std::atomic<int>*>(userdata);
+  if (total > 0) percent->store(static_cast<int>((now * 100) / total));
+  return 0;
+}
+
+bool downloadFile(const std::string& url, const std::filesystem::path& path,
+                  std::atomic<int>& percentage) {
+  if (url.empty() || path.empty()) return false;
+  std::filesystem::create_directories(path.parent_path());
+
+  FILE* file = std::fopen(path.c_str(), "wb");
+  if (!file) return false;
+
+  curl_global_init(CURL_GLOBAL_DEFAULT);
+  CURL* curl = curl_easy_init();
+  if (!curl) {
+    std::fclose(file);
+    curl_global_cleanup();
+    return false;
+  }
+
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Photon-Updater/0.1");
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteToFile);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+  curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, curlProgress);
+  curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &percentage);
+
+  const CURLcode result = curl_easy_perform(curl);
+  curl_easy_cleanup(curl);
+  curl_global_cleanup();
+  std::fclose(file);
+
+  if (result != CURLE_OK) {
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+    return false;
+  }
+
+  percentage.store(100);
+  return true;
 }
 
 void Updater::getOurInfo() {
-  ourPid = 0;
-  ourPath.clear();
+  ourPid = getpid();
+  photonPath = getPhotonCacheDir() / "Photon.AppImage";
+  installerPath = getPhotonCacheDir() / "photonUpdater-linux-x64";
+  ourPath = currentPhotonPath().string();
 }
 
-void Updater::beginUpdate() { running.store(false); }
+void Updater::beginUpdate() {
+  if (!downloadInstaller()) {
+    running = false;
+    return;
+  }
 
-bool Updater::downloadInstaller() { return false; }
+  if (!downloadNewPhoton()) {
+    running = false;
+    return;
+  }
 
-bool Updater::downloadNewPhoton() { return false; }
+  launchInstaller();
+  running = false;
+}
 
-bool Updater::launchInstaller() { return false; }
+bool Updater::downloadInstaller() {
+  std::string appURL;
+  std::string updaterURL;
+  downloadSnapshot(appURL, updaterURL);
+  const bool ok = downloadFile(updaterURL, installerPath, installerDownloadPercentage);
+  if (ok) makeExecutable(installerPath);
+  return ok;
+}
+
+bool Updater::downloadNewPhoton() {
+  std::string appURL;
+  std::string updaterURL;
+  downloadSnapshot(appURL, updaterURL);
+  const bool ok = downloadFile(appURL, photonPath, photonDownloadPercentage);
+  if (ok) makeExecutable(photonPath);
+  return ok;
+}
+
+bool Updater::launchInstaller() {
+  if (installerPath.empty() || ourPath.empty()) return false;
+
+  pid_t child = fork();
+  if (child < 0) return false;
+  if (child > 0) return true;
+
+  setsid();
+  const std::string pid = std::to_string(ourPid);
+  execl(installerPath.c_str(), installerPath.c_str(), pid.c_str(), ourPath.c_str(),
+        static_cast<char*>(nullptr));
+  _exit(127);
+}
 
 #endif

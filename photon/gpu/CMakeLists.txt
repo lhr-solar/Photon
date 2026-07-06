@@ -11,4 +11,5 @@ target_link_libraries(gpu
     FontHeaders
     FontAssets
     Tracy::TracyClient
+    photon_platform_graphics
 )

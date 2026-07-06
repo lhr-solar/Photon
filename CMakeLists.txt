@@ -252,18 +252,12 @@ endif()
 
 message(STATUS "${Vulkan_LIBRARY}")
 
+add_library(photon_platform_graphics INTERFACE)
 if(WIN32)
-    link_libraries("${Vulkan_LIBRARY}")
+    target_link_libraries(photon_platform_graphics INTERFACE "${Vulkan_LIBRARY}")
 else()
-    link_libraries(${XCB_LIBRARIES} "${Vulkan_LIBRARY}")
+    target_link_libraries(photon_platform_graphics INTERFACE ${XCB_LIBRARIES} "${Vulkan_LIBRARY}")
 endif()
-
-set(PHOTON_RELEASE_BINARY_DIR "${CMAKE_SOURCE_DIR}/build-release")
-add_custom_target(release
-    COMMAND "${CMAKE_COMMAND}" -S "${CMAKE_SOURCE_DIR}" -B "${PHOTON_RELEASE_BINARY_DIR}" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    COMMAND "${CMAKE_COMMAND}" --build "${PHOTON_RELEASE_BINARY_DIR}" --parallel "${PHOTON_BUILD_JOBS}"
-    USES_TERMINAL
-)
 
 add_custom_target(tracy
     COMMAND "${CMAKE_COMMAND}" -S "${CMAKE_SOURCE_DIR}" -B "${CMAKE_BINARY_DIR}" -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DPHOTON_TRACY=ON
@@ -283,3 +277,27 @@ add_subdirectory(assets/dbc)
 add_subdirectory(assets/environments)
 add_subdirectory(assets/models)
 add_subdirectory(photon)
+
+if(WIN32)
+    add_executable(photonUpdaterWindows release/windowsUpdater/main.cpp)
+    set_target_properties(photonUpdaterWindows PROPERTIES
+        OUTPUT_NAME "photonUpdater"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    )
+    target_link_options(photonUpdaterWindows PRIVATE
+        $<$<CONFIG:Release>:LINKER:/SUBSYSTEM:WINDOWS>
+        $<$<CONFIG:Release>:LINKER:/ENTRY:mainCRTStartup>
+        $<$<CONFIG:RelWithDebInfo>:LINKER:/SUBSYSTEM:WINDOWS>
+        $<$<CONFIG:RelWithDebInfo>:LINKER:/ENTRY:mainCRTStartup>
+        $<$<CONFIG:MinSizeRel>:LINKER:/SUBSYSTEM:WINDOWS>
+        $<$<CONFIG:MinSizeRel>:LINKER:/ENTRY:mainCRTStartup>
+    )
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(photonUpdaterLinux release/linuxUpdater/main.cpp)
+    set_target_properties(photonUpdaterLinux PROPERTIES
+        OUTPUT_NAME "photonUpdater-linux-x64"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    )
+endif()

@@ -7,8 +7,10 @@
 #ifdef _WIN32
 #include <windows.h>
 using UpdaterProcessId = DWORD;
+using UpdaterPathString = std::wstring;
 #else
-using UpdaterProcessId = unsigned long;
+using UpdaterProcessId = int;
+using UpdaterPathString = std::string;
 #endif
 
 struct Updater {
@@ -28,7 +30,7 @@ struct Updater {
       "https://github.com/lhr-solar/Photon/releases/download/Win_Pre-Release/Photon.exe";
 
   UpdaterProcessId ourPid{};
-  std::wstring ourPath{};
+  UpdaterPathString ourPath{};
 
   std::string version = "00.00.00";
   std::string newVersion{}; 
