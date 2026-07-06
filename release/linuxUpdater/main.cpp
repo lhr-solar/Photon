@@ -35,9 +35,9 @@ void parseArgs(int argc, char** argv) {
 
   state.photonPid = static_cast<pid_t>(std::stol(argv[1]));
   state.photonPath = argv[2];
-  state.downloadPath = cacheDir() / "Photon.AppImage";
-  state.oldPhotonPath = state.photonPath;
-  state.oldPhotonPath += ".old";
+  const std::filesystem::path cache = cacheDir();
+  state.downloadPath = cache / "Photon.AppImage";
+  state.oldPhotonPath = cache / "Photon.AppImage.old";
 }
 
 bool processAlive(pid_t pid) { return pid > 0 && kill(pid, 0) == 0; }
