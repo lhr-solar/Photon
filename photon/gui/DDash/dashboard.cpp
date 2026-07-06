@@ -200,7 +200,8 @@ static bool GetActiveFault(const AppState& state, ActiveFaultInfo& out) {
 // Big knockout-style fault banner: a solid fault-colored plate sized to the
 // text, with the text itself punched through in the page background color so
 // it reads as a cutout rather than tinting the whole screen.
-static void RenderFaultBanner(const AppState& state) {
+static void RenderFaultBanner(const AppState& state, const ImVec2& boundsMin,
+                              const ImVec2& boundsSize) {
     ActiveFaultInfo info;
     if (!GetActiveFault(state, info)) {
         return;
@@ -214,13 +215,13 @@ static void RenderFaultBanner(const AppState& state) {
 
     ImGuiIO& io = ImGui::GetIO();
     ImFont* bigFont = (io.Fonts->Fonts.Size > 2) ? io.Fonts->Fonts[2] : ImGui::GetFont();
-    float fontSize = std::min(io.DisplaySize.x * 0.026f, bigFont->LegacySize * 1.15f);
+    float fontSize = std::min(boundsSize.x * 0.026f, bigFont->LegacySize * 1.15f);
     ImVec2 textSz = bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, text);
 
     float padX = 26.0f, padY = 14.0f;
     ImVec2 plateSz(textSz.x + padX * 2.0f, textSz.y + padY * 2.0f);
-    ImVec2 plateMin((io.DisplaySize.x - plateSz.x) * 0.5f,
-                     io.DisplaySize.y * 0.44f);
+    ImVec2 plateMin(boundsMin.x + (boundsSize.x - plateSz.x) * 0.5f,
+                    boundsMin.y + boundsSize.y * 0.44f);
     ImVec2 plateMax(plateMin.x + plateSz.x, plateMin.y + plateSz.y);
 
     ImDrawList* dl = ImGui::GetForegroundDrawList();
@@ -1270,11 +1271,9 @@ static void RenderDebugScreen(AppState& liveState) {
     ImGui::PopStyleColor(); // ChildBg
 }
 
-void RenderDashboard(AppState& state) {
+void RenderDashboard(AppState& state, ImGuiWindowFlags flags) {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(io.DisplaySize);
-    ImGuiWindowFlags flags =
+    flags |=
         ImGuiWindowFlags_NoTitleBar   |
         ImGuiWindowFlags_NoResize     |
         ImGuiWindowFlags_NoMove       |
@@ -1293,6 +1292,9 @@ void RenderDashboard(AppState& state) {
         ImGui::PopStyleVar(2);
         return;
     }
+
+    const ImVec2 windowPos = ImGui::GetWindowPos();
+    const ImVec2 windowSize = ImGui::GetWindowSize();
 
     // --- FAULT SNAPSHOT DETECTION ---
     static uint8_t lastBpsFaultCode = 0;
@@ -1353,11 +1355,15 @@ void RenderDashboard(AppState& state) {
         static double lastRightClickT = -1e9;
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             ImVec2 mp = io.MousePos;
-            ImVec2 ds = io.DisplaySize;
             double nowT = ImGui::GetTime();
-            if (mp.y >= 0 && mp.y <= CORNER_PX) {
-                if (mp.x >= 0 && mp.x <= CORNER_PX)              lastLeftClickT  = nowT;
-                if (mp.x >= ds.x - CORNER_PX && mp.x <= ds.x)    lastRightClickT = nowT;
+            if (mp.y >= windowPos.y && mp.y <= windowPos.y + CORNER_PX) {
+                if (mp.x >= windowPos.x && mp.x <= windowPos.x + CORNER_PX) {
+                    lastLeftClickT = nowT;
+                }
+                if (mp.x >= windowPos.x + windowSize.x - CORNER_PX &&
+                    mp.x <= windowPos.x + windowSize.x) {
+                    lastRightClickT = nowT;
+                }
             }
             if ((nowT - lastLeftClickT)  < CHORD_WINDOW_S &&
                 (nowT - lastRightClickT) < CHORD_WINDOW_S) {
@@ -1434,6 +1440,6 @@ void RenderDashboard(AppState& state) {
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
 
-    RenderFaultBanner(state);
+    RenderFaultBanner(state, windowPos, windowSize);
 }
 }

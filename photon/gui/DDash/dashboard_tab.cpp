@@ -4,7 +4,7 @@
 
 namespace ui {
 
-void DashboardTab::draw(ImGuiWindowFlags) { RenderDashboard(state); }
+void DashboardTab::draw(ImGuiWindowFlags flags) { RenderDashboard(state, flags); }
 
 DashboardTab& dashboardTab() {
   static DashboardTab tab;
