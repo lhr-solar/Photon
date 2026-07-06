@@ -330,26 +330,9 @@ void Sidebar::drawDBCSelector(GUI& gui) {
   const char* current = parse ? parse->currentDBCName() : "None";
   if (drawDBCButton(current, status, fullWidth, palette)) ImGui::OpenPopup("Select DBC");
 
-  const ImGuiViewport* viewport = ImGui::GetMainViewport();
-  const ImVec2 modalCenter = {viewport->Pos.x + viewport->Size.x * 0.5f,
-                              viewport->Pos.y + viewport->Size.y * 0.5f};
-  const float maxModalWidth = std::max(280.0f, viewport->Size.x - 48.0f);
-  const float modalWidth = std::min(440.0f, maxModalWidth);
-  const float modalHeight = std::min(360.0f, std::max(220.0f, viewport->Size.y - 48.0f));
-  ImGui::SetNextWindowPos(modalCenter, 0, ImVec2(0.5f, 0.5f));
-  ImGui::SetNextWindowSize({modalWidth, modalHeight});
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 10.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
-  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(palette.bg, 0.98f));
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(palette.bg, 0.98f));
-  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.72f));
-  const ImGuiWindowFlags modalFlags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove |
-                                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
-  if (ImGui::BeginPopupModal("Select DBC", nullptr, modalFlags)) {
+  const bool open = PhotonUi::beginModal("Select DBC", {440.0f, 360.0f});
+  if (open) {
+    PhotonUi::label("Select DBC", palette);
     const float popupWidth = ImGui::GetContentRegionAvail().x;
 
     for (uint32_t i = 0; i < Parse::dbcCount(); i++) {
@@ -380,14 +363,10 @@ void Sidebar::drawDBCSelector(GUI& gui) {
 
     drawDBCError(status, popupWidth, palette);
 
-    if (drawPopupAction("Close", "\ueb55", "Close", false, popupWidth, palette))
-      ImGui::CloseCurrentPopup();
+    if (PhotonUi::modalCloseButton("CloseDBCSelector", palette)) ImGui::CloseCurrentPopup();
     if (closeDBCModal) ImGui::CloseCurrentPopup();
-
-    ImGui::EndPopup();
   }
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(6);
+  PhotonUi::endModal(open);
 }
 
 void Sidebar::draw(GUI& gui) {
@@ -415,8 +394,8 @@ void Sidebar::draw(GUI& gui) {
   ImGui::SetNextWindowSize(dim);
   ImGui::SetNextWindowViewport(viewport->ID);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 12.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 8.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImVec4 windowBgColor = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
                         {windowBgColor.x, windowBgColor.y, windowBgColor.z, 0.85});

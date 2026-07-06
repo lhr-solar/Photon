@@ -363,10 +363,7 @@ void Updater::drawUI(bool updateAvailable) {
                         : "Update checks unavailable: libcurl was not found at build time");
 
       ImGui::Dummy({1.0f, 44.0f});
-      ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
-      ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
-      if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette, false, "Close"))
-        ImGui::CloseCurrentPopup();
+      if (PhotonUi::modalCloseButton("CloseUpdate", palette)) ImGui::CloseCurrentPopup();
       PhotonUi::endModal(open);
       return;
     }
@@ -410,8 +407,7 @@ void Updater::drawUI(bool updateAvailable) {
     }
     ImGui::EndDisabled();
     ImGui::SameLine(0.0f, gap);
-    if (PhotonUi::button("CloseUpdate", "Close", {96.0f, 34.0f}, palette, false, "Close"))
-      ImGui::CloseCurrentPopup();
+    if (PhotonUi::modalCloseButton("CloseUpdate", palette, false)) ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
 }

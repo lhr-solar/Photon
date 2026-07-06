@@ -339,22 +339,22 @@ void GuiSettings::setStyle() {
   style.FontSizeBase = fontSize;
   style.Alpha = 1.0f;
   style.DisabledAlpha = 0.55f;
-  style.TabRounding = 0.0f;
-  style.WindowRounding = 0.0f;
-  style.ChildRounding = 0.0f;
-  style.PopupRounding = 0.0f;
-  style.GrabRounding = 8.0f;
-  style.ScrollbarRounding = 0.0f;
-  style.FrameRounding = 0.0f;
+  style.TabRounding = PhotonUi::kFrameRounding;
+  style.WindowRounding = PhotonUi::kPopupRounding;
+  style.ChildRounding = PhotonUi::kPanelRounding;
+  style.PopupRounding = PhotonUi::kPopupRounding;
+  style.GrabRounding = PhotonUi::kFrameRounding;
+  style.ScrollbarRounding = PhotonUi::kFrameRounding;
+  style.FrameRounding = PhotonUi::kFrameRounding;
   style.FrameBorderSize = 0.0f;
-  style.WindowBorderSize = 0.0f;
-  style.ChildBorderSize = 1.0f;
-  style.PopupBorderSize = 1.0f;
+  style.WindowBorderSize = PhotonUi::kBorderSize;
+  style.ChildBorderSize = PhotonUi::kBorderSize;
+  style.PopupBorderSize = PhotonUi::kBorderSize;
   style.DockingSeparatorSize = 1.0f;
-  style.WindowPadding = ImVec2{8.0f, 5.0f};
-  style.FramePadding = ImVec2{12.0f, 9.0f};
-  style.CellPadding = ImVec2{14.0f, 8.0f};
-  style.ItemSpacing = ImVec2{10.0f, 8.0f};
+  style.WindowPadding = PhotonUi::kWindowPadding;
+  style.FramePadding = PhotonUi::kFramePadding;
+  style.CellPadding = PhotonUi::kCellPadding;
+  style.ItemSpacing = PhotonUi::kItemSpacing;
   style.ItemInnerSpacing = ImVec2{8.0f, 6.0f};
   style.IndentSpacing = 18.0f;
   style.ScrollbarSize = 12.0f;
@@ -374,19 +374,22 @@ void GuiSettings::setStyle() {
   auto color5 = colorScheme.color5;
   auto color6 = colorScheme.color6;
   auto color7 = colorScheme.color7;
+  const ImVec4 panel = mixColor(color7, color4, 0.30f);
+  const ImVec4 raised = mixColor(color7, color4, 0.62f);
+  const ImVec4 active = mixColor(color4, color1, 0.38f);
+  const ImVec4 border = mixColor(color4, color0, 0.20f);
 
-  ImVec4 red = {1.0, 0.0, 0.0, 1.0};
   ImVec4* colors = style.Colors;
   colors[ImGuiCol_Text] = color0;
   colors[ImGuiCol_TextDisabled] = color3;
   colors[ImGuiCol_WindowBg] = color7;
-  colors[ImGuiCol_ChildBg] = color7;
-  colors[ImGuiCol_PopupBg] = color7;
-  colors[ImGuiCol_Border] = color4;
-  colors[ImGuiCol_BorderShadow] = color7;
-  colors[ImGuiCol_FrameBg] = color4;
-  colors[ImGuiCol_FrameBgHovered] = color3;
-  colors[ImGuiCol_FrameBgActive] = color4;
+  colors[ImGuiCol_ChildBg] = withAlpha(panel, 0.76f);
+  colors[ImGuiCol_PopupBg] = withAlpha(color7, 0.98f);
+  colors[ImGuiCol_Border] = withAlpha(border, 0.55f);
+  colors[ImGuiCol_BorderShadow] = withAlpha(color7, 0.0f);
+  colors[ImGuiCol_FrameBg] = withAlpha(panel, 0.82f);
+  colors[ImGuiCol_FrameBgHovered] = withAlpha(raised, 0.88f);
+  colors[ImGuiCol_FrameBgActive] = withAlpha(raised, 0.96f);
   colors[ImGuiCol_TitleBg] = color6;
   colors[ImGuiCol_TitleBgActive] = color5;
   colors[ImGuiCol_TitleBgCollapsed] = color7;
@@ -398,12 +401,12 @@ void GuiSettings::setStyle() {
   colors[ImGuiCol_CheckMark] = color1;
   colors[ImGuiCol_SliderGrab] = color2;
   colors[ImGuiCol_SliderGrabActive] = color1;
-  colors[ImGuiCol_Button] = color4;
-  colors[ImGuiCol_ButtonHovered] = color3;
-  colors[ImGuiCol_ButtonActive] = color7;
-  colors[ImGuiCol_Header] = color4;
-  colors[ImGuiCol_HeaderHovered] = color3;
-  colors[ImGuiCol_HeaderActive] = color2;
+  colors[ImGuiCol_Button] = withAlpha(raised, 0.80f);
+  colors[ImGuiCol_ButtonHovered] = withAlpha(active, 0.72f);
+  colors[ImGuiCol_ButtonActive] = withAlpha(active, 0.88f);
+  colors[ImGuiCol_Header] = withAlpha(active, 0.42f);
+  colors[ImGuiCol_HeaderHovered] = withAlpha(active, 0.52f);
+  colors[ImGuiCol_HeaderActive] = withAlpha(active, 0.68f);
   colors[ImGuiCol_Separator] = color3;
   colors[ImGuiCol_SeparatorHovered] = color2;
   colors[ImGuiCol_SeparatorActive] = color1;
@@ -422,11 +425,11 @@ void GuiSettings::setStyle() {
   colors[ImGuiCol_PlotLinesHovered] = color2;
   colors[ImGuiCol_PlotHistogram] = color1;
   colors[ImGuiCol_PlotHistogramHovered] = color2;
-  colors[ImGuiCol_TableHeaderBg] = color3;
-  colors[ImGuiCol_TableBorderStrong] = color4;
-  colors[ImGuiCol_TableBorderLight] = color4;
-  colors[ImGuiCol_TableRowBg] = color5;
-  colors[ImGuiCol_TableRowBgAlt] = color6;
+  colors[ImGuiCol_TableHeaderBg] = withAlpha(raised, 0.74f);
+  colors[ImGuiCol_TableBorderStrong] = withAlpha(border, 0.42f);
+  colors[ImGuiCol_TableBorderLight] = withAlpha(border, 0.30f);
+  colors[ImGuiCol_TableRowBg] = withAlpha(panel, 0.34f);
+  colors[ImGuiCol_TableRowBgAlt] = withAlpha(raised, 0.28f);
   colors[ImGuiCol_TextSelectedBg] = color3;
   colors[ImGuiCol_DragDropTarget] = color3;
   colors[ImGuiCol_NavHighlight] = color1;
@@ -574,25 +577,9 @@ ColorScheme GuiSettings::genColors(ImVec4 seed) {
 
 void GuiSettings::colorUI() {
   bool dirty = false;
-  ImGuiIO& io = ImGui::GetIO();
-  const ImVec2 displaySize = io.DisplaySize;
-  const ImVec2 winSize{std::clamp(displaySize.x - 64.0f, 260.0f, 780.0f),
-                       std::clamp(displaySize.y - 64.0f, 220.0f, 600.0f)};
-  const ImVec2 winPos{(displaySize.x - winSize.x) * 0.5f, (displaySize.y - winSize.y) * 0.5f};
-  ImGui::SetNextWindowSize(winSize);
-  ImGui::SetNextWindowPos(winPos);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 14.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 10.0f));
   const ThemePalette palette = themePalette();
-  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(palette.bg, 0.98f));
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(palette.bg, 0.98f));
-  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.70f));
-  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                                 ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings |
-                                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
-  if (ImGui::BeginPopupModal("Theme", nullptr, flags)) {
+  const bool open = PhotonUi::beginModal("Theme", {780.0f, 600.0f});
+  if (open) {
     const float hueMax = 0.999f;
     const float valueMin = 0.001f;
     const float rounding = 8.0f;
@@ -765,25 +752,16 @@ void GuiSettings::colorUI() {
     if (drawThemeStepper("LineWeight", plotLineSpec.LineWeight, 1.0f, 1.0f, palette)) dirty = true;
     ImGui::Spacing();
     drawThemeLabel("Colormap", palette);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 7.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.raised, 0.80f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, withAlpha(palette.active, 0.72f));
-    ImGui::PushStyleColor(ImGuiCol_Button, withAlpha(palette.raised, 0.80f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, withAlpha(palette.active, 0.72f));
     if (ImPlot::ShowCustomColormapSelector("##ImPlotColormap")) {
       plotColormap = ImPlot::GetStyle().Colormap;
       dirty = true;
     }
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar(2);
 
     ImGui::Spacing();
     drawThemeLabel("Preview", palette);
     std::array<double, 2> time = {0.0, 5.0};
     std::array<double, 2> points = {0.0, 2.0};
     const float plotHeight = std::max(140.0f, ImGui::GetContentRegionAvail().y);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.bg, 0.40f));
     if (ImPlot::BeginPlot("##colorPalettePlot", {-FLT_MIN, plotHeight}, ImPlotFlags_NoInputs)) {
       for (int i{0}; i < 10; i++) {
         char buf[10];
@@ -794,14 +772,10 @@ void GuiSettings::colorUI() {
       }
       ImPlot::EndPlot();
     }
-    ImGui::PopStyleColor();
     PhotonUi::endPanel();
 
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - 96.0f);
     if (dirty) ImGui::MarkIniSettingsDirty();
-    if (drawThemeButton("CloseTheme", "Close", {96.0f, 34.0f}, palette)) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
+    if (PhotonUi::modalCloseButton("CloseTheme", palette)) ImGui::CloseCurrentPopup();
   }
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(4);
+  PhotonUi::endModal(open);
 }

@@ -23,7 +23,6 @@ struct GUI {
   void updateUI();
   void exportUI();
 
-  void genericPlot(uint32_t id, uint32_t signal, ImVec2 size);
   void shaderTest(ImGuiWindowFlags flags);
   void testFunc(ImGuiWindowFlags flags);
   void plotTest(ImGuiWindowFlags flags);

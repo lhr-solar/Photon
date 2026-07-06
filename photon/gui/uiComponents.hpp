@@ -6,6 +6,15 @@
 
 namespace PhotonUi {
 
+inline constexpr float kFrameRounding = 8.0f;
+inline constexpr float kPanelRounding = 8.0f;
+inline constexpr float kPopupRounding = 10.0f;
+inline constexpr float kBorderSize = 1.0f;
+inline constexpr ImVec2 kWindowPadding{14.0f, 12.0f};
+inline constexpr ImVec2 kFramePadding{10.0f, 7.0f};
+inline constexpr ImVec2 kCellPadding{12.0f, 7.0f};
+inline constexpr ImVec2 kItemSpacing{10.0f, 8.0f};
+
 struct Palette {
   ImVec4 text;
   ImVec4 muted;
@@ -43,6 +52,7 @@ void drawIconCentered(ImDrawList* draw, const char* icon, ImVec2 min, ImVec2 max
 
 bool beginModal(const char* title, ImVec2 size);
 void endModal(bool open);
+bool modalCloseButton(const char* id, const Palette& palette, bool alignRight = true);
 bool beginPanel(const char* id, ImVec2 size, const Palette& palette,
                 ImGuiChildFlags childFlags = ImGuiChildFlags_Borders,
                 ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoSavedSettings);
@@ -58,8 +68,6 @@ bool iconButton(const char* id, const char* icon, std::string_view tooltipText, 
                 const Palette& palette, bool selected = false);
 bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
                const Palette& palette, bool selected = false, bool disabled = false);
-void pushInputStyle(const Palette& palette);
-void popInputStyle();
 void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width);
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
                const Palette& palette);

@@ -1,18 +1,26 @@
 #include <algorithm>
 #include <cctype>
+#include <cfloat>
+#include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 
 #include "../parse/arena.hpp"
 #include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "plots.hpp"
 #include "uiComponents.hpp"
 
 using ArenaPalette = PhotonUi::Palette;
 using PhotonUi::colorU32;
 using PhotonUi::mixColor;
 using PhotonUi::withAlpha;
+
+constexpr float kArenaTableRowHeight = 32.0f;
+constexpr double kArenaDisplaySmoothingSeconds = 0.65;
 
 inline void formatBytes(char* out, size_t outSize, uint64_t bytes) {
   static constexpr std::array<const char*, 6> units{"B", "KB", "MB", "GB", "TB", "PB"};
@@ -50,6 +58,35 @@ inline void formatAge(char* out, size_t outSize, double seconds) {
     return;
   }
   std::snprintf(out, outSize, "%.1f s", seconds);
+}
+
+bool formatLatestSignalValue(char* out, size_t outSize, const Signal& signal,
+                             uint32_t publishedBytes) {
+  if (!signal.data || publishedBytes < sizeof(double)) {
+    std::snprintf(out, outSize, "no data");
+    return false;
+  }
+
+  double value = 0.0;
+  const auto* data = static_cast<const uint8_t*>(signal.data);
+  std::memcpy(&value, data + publishedBytes - sizeof(double), sizeof(value));
+
+  const double magnitude = std::fabs(value);
+  if (!std::isfinite(value)) {
+    std::snprintf(out, outSize, "%g", value);
+  } else if ((magnitude > 0.0 && magnitude < 0.001) || magnitude >= 100000.0) {
+    std::snprintf(out, outSize, "%.4g", value);
+  } else {
+    std::snprintf(out, outSize, "%.3f", value);
+  }
+  return true;
+}
+
+inline double smoothDisplayValue(double current, double target, double elapsed,
+                                 double smoothingSeconds = kArenaDisplaySmoothingSeconds) {
+  if (elapsed <= 0.0 || smoothingSeconds <= 0.0) return target;
+  const double alpha = 1.0 - std::exp(-elapsed / smoothingSeconds);
+  return current + (target - current) * std::clamp(alpha, 0.0, 1.0);
 }
 
 struct UiRing {
@@ -127,20 +164,32 @@ struct MessageUiStats {
   uint32_t lastBytes{};
   uint32_t sampleCount{};
   size_t heldBytes{};
+  double displayHeldBytes{};
+  double displayDataRate{};
+  double displayBandwidthFraction{};
+  double displayCapacityFraction{};
+  double displayElapsed{};
   double lastPollTime{};
   double lastChangeTime{};
   double dataRate{};
   double bandwidthFraction{};
+  double capacityFraction{};
 
   void reset() {
     initialized = false;
     lastBytes = 0;
     sampleCount = 0;
     heldBytes = 0;
+    displayHeldBytes = 0.0;
+    displayDataRate = 0.0;
+    displayBandwidthFraction = 0.0;
+    displayCapacityFraction = 0.0;
+    displayElapsed = 0.0;
     lastPollTime = 0.0;
     lastChangeTime = 0.0;
     dataRate = 0.0;
     bandwidthFraction = 0.0;
+    capacityFraction = 0.0;
   }
 };
 
@@ -162,6 +211,10 @@ ArenaUiFrameStats refreshArenaUiStats(Arena& arena,
     const uint32_t signalBytes = msg.signalSize.value.load(std::memory_order_acquire);
     stats.sampleCount = signalBytes / sizeof(double);
     stats.heldBytes = static_cast<size_t>(signalBytes) * (static_cast<size_t>(msg.signalCount) + 1);
+    stats.capacityFraction =
+        arena.bytesPerBuffer > 0
+            ? static_cast<double>(signalBytes) / static_cast<double>(arena.bytesPerBuffer)
+            : 0.0;
 
     if (!stats.initialized) {
       stats.initialized = true;
@@ -169,16 +222,26 @@ ArenaUiFrameStats refreshArenaUiStats(Arena& arena,
       stats.lastPollTime = now;
       stats.lastChangeTime = signalBytes > 0 ? now : 0.0;
       stats.dataRate = 0.0;
+      stats.displayElapsed = 0.0;
+      stats.displayHeldBytes = static_cast<double>(stats.heldBytes);
+      stats.displayDataRate = 0.0;
+      stats.displayCapacityFraction = stats.capacityFraction;
     } else {
       const uint32_t deltaBytes =
           signalBytes >= stats.lastBytes ? signalBytes - stats.lastBytes : signalBytes;
       const double elapsed = now - stats.lastPollTime;
+      stats.displayElapsed = elapsed;
       const size_t deltaHeldBytes =
           static_cast<size_t>(deltaBytes) * (static_cast<size_t>(msg.signalCount) + 1);
       stats.dataRate = elapsed > 0.0 ? static_cast<double>(deltaHeldBytes) / elapsed : 0.0;
       if (deltaBytes > 0 || signalBytes < stats.lastBytes) stats.lastChangeTime = now;
       stats.lastBytes = signalBytes;
       stats.lastPollTime = now;
+      stats.displayHeldBytes =
+          smoothDisplayValue(stats.displayHeldBytes, static_cast<double>(stats.heldBytes), elapsed);
+      stats.displayDataRate = smoothDisplayValue(stats.displayDataRate, stats.dataRate, elapsed);
+      stats.displayCapacityFraction =
+          smoothDisplayValue(stats.displayCapacityFraction, stats.capacityFraction, elapsed);
     }
 
     frame.heldBytes += stats.heldBytes;
@@ -190,6 +253,8 @@ ArenaUiFrameStats refreshArenaUiStats(Arena& arena,
 
     MessageUiStats& stats = cache[id];
     stats.bandwidthFraction = frame.netDataRate > 0.0 ? stats.dataRate / frame.netDataRate : 0.0;
+    stats.displayBandwidthFraction = smoothDisplayValue(
+        stats.displayBandwidthFraction, stats.bandwidthFraction, stats.displayElapsed);
   }
 
   return frame;
@@ -244,6 +309,13 @@ bool messageMatchesQuery(const Message& msg, const char* query, size_t queryLen)
     if (msg.signals[s] && containsQuery(msg.signals[s]->name.c_str(), query, queryLen)) return true;
   }
   return false;
+}
+
+void drawClippedText(ImDrawList* draw, ImVec2 pos, ImVec2 clipMin, ImVec2 clipMax, ImU32 color,
+                     std::string_view text) {
+  draw->PushClipRect(clipMin, clipMax, true);
+  draw->AddText(pos, color, text.data(), text.data() + text.size());
+  draw->PopClipRect();
 }
 
 void drawLivePanel(const char* id, const char* label, const char* value, const char* detail,
@@ -403,18 +475,24 @@ bool drawMessageRow(const Message& msg, const MessageUiStats& stats, bool expand
   if (width > 660.0f) {
     char text[64];
     const float right = max.x - 34.0f;
-    formatBytesPerSecond(text, sizeof(text), stats.dataRate);
-    draw->AddText({right - 300.0f, min.y + 13.0f}, colorU32(palette.text), text);
-    draw->AddText({right - 300.0f, min.y + 36.0f}, colorU32(palette.muted), "rate");
+    formatBytesPerSecond(text, sizeof(text), stats.displayDataRate);
+    drawClippedText(draw, {right - 300.0f, min.y + 13.0f}, {right - 300.0f, min.y},
+                    {right - 202.0f, max.y}, colorU32(palette.text), text);
+    drawClippedText(draw, {right - 300.0f, min.y + 36.0f}, {right - 300.0f, min.y},
+                    {right - 202.0f, max.y}, colorU32(palette.muted), "rate");
 
     std::snprintf(text, sizeof(text), "%u", stats.sampleCount);
-    draw->AddText({right - 178.0f, min.y + 13.0f}, colorU32(palette.text), text);
-    draw->AddText({right - 178.0f, min.y + 36.0f}, colorU32(palette.muted), "samples");
+    drawClippedText(draw, {right - 178.0f, min.y + 13.0f}, {right - 178.0f, min.y},
+                    {right - 96.0f, max.y}, colorU32(palette.text), text);
+    drawClippedText(draw, {right - 178.0f, min.y + 36.0f}, {right - 178.0f, min.y},
+                    {right - 96.0f, max.y}, colorU32(palette.muted), "samples");
 
     formatAge(text, sizeof(text),
               stats.lastChangeTime > 0.0 ? ImGui::GetTime() - stats.lastChangeTime : -1.0);
-    draw->AddText({right - 72.0f, min.y + 13.0f}, colorU32(palette.text), text);
-    draw->AddText({right - 72.0f, min.y + 36.0f}, colorU32(palette.muted), "age");
+    drawClippedText(draw, {right - 72.0f, min.y + 13.0f}, {right - 72.0f, min.y},
+                    {right - 4.0f, max.y}, colorU32(palette.text), text);
+    drawClippedText(draw, {right - 72.0f, min.y + 36.0f}, {right - 72.0f, min.y},
+                    {right - 4.0f, max.y}, colorU32(palette.muted), "age");
   }
 
   const char* chevron = expanded ? "\uea5f" : "\uea61";
@@ -424,11 +502,122 @@ bool drawMessageRow(const Message& msg, const MessageUiStats& stats, bool expand
   return clicked;
 }
 
+void tableCell(int column, std::string_view text, const ArenaPalette& palette, bool muted = false) {
+  ImGui::TableSetColumnIndex(column);
+  ImGui::Dummy({0.0f, kArenaTableRowHeight - ImGui::GetStyle().CellPadding.y * 2.0f});
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImRect clipRect = ImGui::TableGetCellBgRect(ImGui::GetCurrentTable(), column);
+  drawClippedText(ImGui::GetWindowDrawList(), min, clipRect.Min, clipRect.Max,
+                  colorU32(muted ? palette.muted : palette.text), text);
+}
+
+void tableCellf(int column, const ArenaPalette& palette, const char* fmt, ...) {
+  char text[96];
+  va_list args;
+  va_start(args, fmt);
+  std::vsnprintf(text, sizeof(text), fmt, args);
+  va_end(args);
+  tableCell(column, text, palette);
+}
+
+bool tableRowClicked(int columnCount, const ArenaPalette& palette) {
+  const ImGuiTable* table = ImGui::GetCurrentTable();
+  if (!table || columnCount <= 0) return false;
+
+  const ImRect first = ImGui::TableGetCellBgRect(table, 0);
+  const ImRect last = ImGui::TableGetCellBgRect(table, columnCount - 1);
+  const ImRect rowRect(first.Min, {last.Max.x, first.Max.y});
+  const bool hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+                       rowRect.Contains(ImGui::GetIO().MousePos);
+  if (hovered) {
+    ImGui::GetWindowDrawList()->AddRectFilled(rowRect.Min, rowRect.Max,
+                                              colorU32(withAlpha(palette.active, 0.12f)));
+    ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+  }
+  return hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+}
+
+struct ArenaTableColumn {
+  const char* label;
+  float weight;
+};
+
+void setupArenaTableColumns(std::initializer_list<ArenaTableColumn> columns) {
+  constexpr ImGuiTableColumnFlags columnFlags =
+      ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoResize |
+      ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoHide |
+      ImGuiTableColumnFlags_NoHeaderWidth;
+  for (const ArenaTableColumn& column : columns)
+    ImGui::TableSetupColumn(column.label, columnFlags, column.weight);
+  ImGui::TableNextRow(ImGuiTableRowFlags_Headers, kArenaTableRowHeight);
+  int columnIndex = 0;
+  for (const ArenaTableColumn& column : columns) {
+    ImGui::TableSetColumnIndex(columnIndex++);
+    ImGui::TableHeader(column.label);
+  }
+}
+
+float arenaTableHeight(size_t rows) { return kArenaTableRowHeight * static_cast<float>(rows + 1); }
+
+float arenaTablePanelHeight(size_t rows) {
+  const ImGuiStyle& style = ImGui::GetStyle();
+  return style.WindowPadding.y * 2.0f + ImGui::GetTextLineHeight() + style.ItemSpacing.y +
+         arenaTableHeight(rows);
+}
+
+bool beginArenaTablePanel(const char* id, std::string_view label, float width, float height,
+                          const ArenaPalette& palette) {
+  const ImGuiStyle& style = ImGui::GetStyle();
+  ImGui::Dummy({width, style.ItemSpacing.y * 0.25f});
+  const bool open =
+      PhotonUi::beginPanel(id, {width, height}, palette, ImGuiChildFlags_Borders,
+                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+  if (open) {
+    const ImVec2 min = ImGui::GetWindowPos();
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        min, {min.x + ImGui::GetWindowWidth(), min.y + ImGui::GetTextLineHeight() + 18.0f},
+        colorU32(withAlpha(palette.raised, 0.30f)), style.ChildRounding);
+    PhotonUi::label(label, palette);
+  }
+  return open;
+}
+
+void endArenaTablePanel() { PhotonUi::endPanel(); }
+
+void drawSignalPlotPopup(Arena& arena, uint32_t id, uint32_t signal, const ArenaPalette& palette) {
+  if (id >= arena.messages.size() || !arena.messages[id]) return;
+  Message* msg = arena.messages[id];
+  if (signal >= msg->signalCount || !msg->signals[signal]) return;
+
+  const bool open = PhotonUi::beginModal("Signal Plot", {760.0f, 440.0f});
+  if (!open) return;
+
+  char heading[192];
+  std::snprintf(heading, sizeof(heading), "%s / %s", msg->name.c_str(),
+                msg->signals[signal]->name.c_str());
+  PhotonUi::label(heading, palette);
+  ImGui::Spacing();
+
+  const ImVec2 plotSize{-FLT_MIN, std::max(260.0f, ImGui::GetContentRegionAvail().y - 48.0f)};
+  ImPlotSpec spec{ImPlotProp_LineWeight, 4.0f};
+  if (!Plots::signal(arena, id, signal, plotSize, spec)) {
+    ImGui::Dummy(plotSize);
+    const ImVec2 min = ImGui::GetItemRectMin();
+    ImGui::GetWindowDrawList()->AddText({min.x + 14.0f, min.y + 14.0f}, colorU32(palette.muted),
+                                        "No samples yet");
+  }
+
+  if (PhotonUi::modalCloseButton("CloseSignalPlot", palette)) ImGui::CloseCurrentPopup();
+  PhotonUi::endModal(open);
+}
+
 void Arena::statusUI(int flags) {
   if (ImGui::Begin("Arena Status", nullptr, flags)) {
     static std::array<MessageUiStats, MESSAGE_MAX> uiStats{};
     static UiRing netDataRateHistory{};
     static std::array<bool, MESSAGE_MAX> expandedMessages{};
+    static uint32_t plotMessageId = 0;
+    static uint32_t plotSignalIndex = 0;
     static uint64_t cachedArenaGeneration = UINT64_MAX;
 
     if (cachedArenaGeneration != generation) {
@@ -460,20 +649,14 @@ void Arena::statusUI(int flags) {
     ImGui::Spacing();
     PhotonUi::label("Messages", palette);
     static char query[128]{};
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 9.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.panel, 0.82f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, withAlpha(palette.raised, 0.88f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, withAlpha(palette.raised, 0.96f));
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##arena_search", "Search name, id, or signal", query, sizeof(query));
-    ImGui::PopStyleColor(3);
-    ImGui::PopStyleVar(2);
 
     char normalizedQuery[128];
     const size_t queryLen = normalizeQuery(query, normalizedQuery, sizeof(normalizedQuery));
 
     ImGui::Spacing();
+    bool signalPlotRequested = false;
     uint32_t visibleMessages = 0;
     for (const uint32_t id : validIds) {
       if (id >= messages.size()) continue;
@@ -488,101 +671,91 @@ void Arena::statusUI(int flags) {
 
       if (expandedMessages[id]) {
         ImGui::PushID(static_cast<int>(msg->id));
-        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(12.0f, 8.0f));
-        ImGui::PushStyleColor(ImGuiCol_TableRowBg, withAlpha(palette.panel, 0.48f));
-        ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, withAlpha(palette.raised, 0.34f));
-        ImGui::PushStyleColor(ImGuiCol_TableBorderLight, withAlpha(palette.border, 0.52f));
-        ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, withAlpha(palette.border, 0.62f));
-        ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, withAlpha(palette.raised, 0.72f));
+        constexpr ImGuiTableFlags tableFlags =
+            ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg |
+            ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings |
+            ImGuiTableFlags_PadOuterX | ImGuiTableFlags_NoHostExtendY;
 
-        constexpr ImGuiTableFlags metaFlags =
-            ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
-            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings;
-        if (ImGui::BeginTable("message_meta", 6, metaFlags)) {
-          ImGui::TableSetupColumn("DLC");
-          ImGui::TableSetupColumn("TX");
-          ImGui::TableSetupColumn("Transfer");
-          ImGui::TableSetupColumn("Bandwidth");
-          ImGui::TableSetupColumn("Capacity");
-          ImGui::TableSetupColumn("Signals");
-          ImGui::TableHeadersRow();
-          ImGui::TableNextRow();
-          ImGui::TableSetColumnIndex(0);
-          ImGui::Text("%u", msg->dlc);
-          ImGui::TableSetColumnIndex(1);
-          ImGui::TextUnformatted(msg->transmitter.c_str());
-          ImGui::TableSetColumnIndex(2);
-          formatBytes(buf, sizeof(buf), static_cast<uint64_t>(stats.heldBytes));
-          ImGui::TextUnformatted(buf);
-          ImGui::TableSetColumnIndex(3);
-          formatPercent(buf, sizeof(buf), stats.bandwidthFraction);
-          ImGui::TextUnformatted(buf);
-          ImGui::TableSetColumnIndex(4);
-          const float fillFraction = bytesPerBuffer > 0 ? static_cast<float>(stats.lastBytes) /
-                                                              static_cast<float>(bytesPerBuffer)
-                                                        : 0.0f;
-          formatPercent(buf, sizeof(buf), fillFraction);
-          ImGui::TextUnformatted(buf);
-          ImGui::TableSetColumnIndex(5);
-          ImGui::Text("%u", msg->signalCount);
-          ImGui::EndTable();
-        }
-
-        constexpr ImGuiTableFlags signalFlags =
-            ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
-            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings |
-            ImGuiTableFlags_PadOuterX;
-        if (ImGui::BeginTable("signals", 8, signalFlags)) {
-          ImGui::TableSetupScrollFreeze(0, 1);
-          ImGui::TableSetupColumn("Signal");
-          ImGui::TableSetupColumn("Layout");
-          ImGui::TableSetupColumn("Type");
-          ImGui::TableSetupColumn("Scale");
-          ImGui::TableSetupColumn("Offset");
-          ImGui::TableSetupColumn("Range");
-          ImGui::TableSetupColumn("Unit");
-          ImGui::TableSetupColumn("Age");
-          ImGui::TableHeadersRow();
-          for (size_t s{0uz}; s < msg->signalCount; s++) {
-            Signal* sig = msg->signals[s];
-            if (!sig) continue;
-            ImGui::TableNextRow();
-
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(sig->name.c_str());
-
-            ImGui::TableSetColumnIndex(1);
-            std::snprintf(buf, sizeof(buf), "%d:%d %s", sig->startBit, sig->length,
-                          sig->endianness == 1 ? "le" : "be");
-            ImGui::TextUnformatted(buf);
-
-            ImGui::TableSetColumnIndex(2);
-            const char* type = sig->type == vFLOAT    ? "float"
-                               : sig->type == vDOUBLE ? "double"
-                                                      : "int";
-            ImGui::Text("%s %s", sig->isSigned ? "s" : "u", type);
-
-            ImGui::TableSetColumnIndex(3);
-            ImGui::Text("%.3f", sig->scale);
-
-            ImGui::TableSetColumnIndex(4);
-            ImGui::Text("%.3f", sig->offset);
-
-            ImGui::TableSetColumnIndex(5);
-            ImGui::Text("%.3f .. %.3f", sig->min, sig->max);
-
-            ImGui::TableSetColumnIndex(6);
-            ImGui::TextUnformatted(sig->unit.c_str());
-
-            ImGui::TableSetColumnIndex(7);
-            formatAge(buf, sizeof(buf),
-                      stats.lastChangeTime > 0.0 ? ImGui::GetTime() - stats.lastChangeTime : -1.0);
-            ImGui::TextUnformatted(buf);
+        if (beginArenaTablePanel("##message_meta_panel", "Message", contentWidth,
+                                 arenaTablePanelHeight(1), palette)) {
+          if (ImGui::BeginTable("message_meta", 6, tableFlags, {0.0f, arenaTableHeight(1)})) {
+            setupArenaTableColumns({{"DLC", 0.60f},
+                                    {"TX", 1.35f},
+                                    {"Transfer", 1.10f},
+                                    {"Bandwidth", 1.00f},
+                                    {"Capacity", 0.90f},
+                                    {"Signals", 0.70f}});
+            ImGui::TableNextRow(ImGuiTableRowFlags_None, kArenaTableRowHeight);
+            tableCellf(0, palette, "%u", msg->dlc);
+            tableCell(1, msg->transmitter, palette);
+            formatBytes(buf, sizeof(buf), static_cast<uint64_t>(stats.displayHeldBytes));
+            tableCell(2, buf, palette);
+            formatPercent(buf, sizeof(buf), stats.displayBandwidthFraction);
+            tableCell(3, buf, palette);
+            formatPercent(buf, sizeof(buf), stats.displayCapacityFraction);
+            tableCell(4, buf, palette);
+            tableCellf(5, palette, "%u", msg->signalCount);
+            ImGui::EndTable();
           }
-          ImGui::EndTable();
         }
-        ImGui::PopStyleColor(5);
-        ImGui::PopStyleVar();
+        endArenaTablePanel();
+
+        if (beginArenaTablePanel("##signals_panel", "Signals", contentWidth,
+                                 arenaTablePanelHeight(msg->signalCount), palette)) {
+          if (ImGui::BeginTable("signals", 9, tableFlags,
+                                {0.0f, arenaTableHeight(msg->signalCount)})) {
+            setupArenaTableColumns({{"Signal", 1.60f},
+                                    {"Layout", 0.92f},
+                                    {"Type", 0.72f},
+                                    {"Scale", 0.78f},
+                                    {"Offset", 0.78f},
+                                    {"Range", 1.18f},
+                                    {"Unit", 0.68f},
+                                    {"Value", 0.92f},
+                                    {"Age", 0.72f}});
+            for (size_t s{0uz}; s < msg->signalCount; s++) {
+              Signal* sig = msg->signals[s];
+              if (!sig) continue;
+              ImGui::TableNextRow(ImGuiTableRowFlags_None, kArenaTableRowHeight);
+
+              tableCell(0, sig->name, palette);
+
+              std::snprintf(buf, sizeof(buf), "%d:%d %s", sig->startBit, sig->length,
+                            sig->endianness == 1 ? "le" : "be");
+              tableCell(1, buf, palette, true);
+
+              const char* type = sig->type == vFLOAT    ? "float"
+                                 : sig->type == vDOUBLE ? "double"
+                                                        : "int";
+              tableCellf(2, palette, "%s %s", sig->isSigned ? "s" : "u", type);
+
+              tableCellf(3, palette, "%.3f", sig->scale);
+
+              tableCellf(4, palette, "%.3f", sig->offset);
+
+              tableCellf(5, palette, "%.3f .. %.3f", sig->min, sig->max);
+
+              tableCell(6, sig->unit, palette, sig->unit.empty());
+
+              const bool hasValue =
+                  formatLatestSignalValue(buf, sizeof(buf), *sig, stats.lastBytes);
+              tableCell(7, buf, palette, !hasValue);
+
+              formatAge(
+                  buf, sizeof(buf),
+                  stats.lastChangeTime > 0.0 ? ImGui::GetTime() - stats.lastChangeTime : -1.0);
+              tableCell(8, buf, palette, true);
+
+              if (tableRowClicked(9, palette)) {
+                plotMessageId = msg->id;
+                plotSignalIndex = static_cast<uint32_t>(s);
+                signalPlotRequested = true;
+              }
+            }
+            ImGui::EndTable();
+          }
+        }
+        endArenaTablePanel();
         ImGui::PopID();
       }
       ImGui::Dummy({contentWidth, style.ItemSpacing.y * 0.35f});
@@ -599,6 +772,8 @@ void Arena::statusUI(int flags) {
       list->AddText({pos.x + 14.0f, pos.y + 18.0f}, colorU32(palette.muted), "No messages match");
       ImGui::Dummy({contentWidth, h});
     }
+    if (signalPlotRequested) ImGui::OpenPopup("Signal Plot");
+    drawSignalPlotPopup(*this, plotMessageId, plotSignalIndex, palette);
   }
   ImGui::End();
 };

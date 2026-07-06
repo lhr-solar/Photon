@@ -28,6 +28,7 @@
 #include "lens_frag_spv.hpp"
 #include "nodes.hpp"
 #include "nucleus_frag_spv.hpp"
+#include "plots.hpp"
 #include "uiComponents.hpp"
 #include "widget.hpp"
 
@@ -93,10 +94,7 @@ void GUI::settingsUI() {
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::label("Settings", palette);
-    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
-    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
-    if (PhotonUi::button("CloseSettings", "Close", {96.0f, 34.0f}, palette, false, "Close"))
-      ImGui::CloseCurrentPopup();
+    if (PhotonUi::modalCloseButton("CloseSettings", palette)) ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
 };
@@ -108,49 +106,20 @@ void GUI::exportUI() {
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::label("Export", palette);
-    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
-    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
-    if (PhotonUi::button("CloseExport", "Close", {96.0f, 34.0f}, palette, false, "Close"))
-      ImGui::CloseCurrentPopup();
+    if (PhotonUi::modalCloseButton("CloseExport", palette)) ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
-};
-
-void GUI::genericPlot(uint32_t id, uint32_t signal, ImVec2 size) {
-  ImPlotSpec spec = this->settings.plotLineSpec;
-  void* data = nullptr;
-  void* time = nullptr;
-  uint32_t timeBytes = 0;
-  uint32_t dataBytes = 0;
-  arena->read(id, signal, &data, &dataBytes);
-  arena->readTime(id, &time, &timeBytes);
-  if (!dataBytes || !timeBytes) return;
-  char name[64];
-  std::snprintf(name, sizeof(name), "##%u_%u", id, signal);
-  const char* signalName = arena->messages[id]->signals[signal]->name.c_str();
-  constexpr uint32_t maxPlotSamples = 100;
-  const uint32_t sampleCount = std::min(dataBytes, timeBytes) / sizeof(double);
-  const uint32_t visibleCount = std::min(sampleCount, maxPlotSamples);
-  if (visibleCount == 0) return;
-  const uint32_t firstSample = sampleCount - visibleCount;
-  const auto* timeValues = static_cast<const double*>(time) + firstSample;
-  const auto* dataValues = static_cast<const double*>(data) + firstSample;
-  if (ImPlot::BeginPlot(name, size)) {
-    ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-    ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
-    ImPlot::PlotLine(signalName, timeValues, dataValues, static_cast<int>(visibleCount), spec);
-    ImPlot::EndPlot();
-  }
 };
 
 void GUI::plotTest(ImGuiWindowFlags flags) {
   if (ImGui::Begin("Page 1", NULL, flags)) {
     auto dim = ImGui::GetContentRegionAvail();
     dim.y = 0;
+    ImPlotSpec spec = settings.plotLineSpec;
     for (const uint32_t id : arena->validIds) {
       if (id >= arena->messages.size() || !arena->messages[id]) continue;
       for (uint32_t signal = 0; signal < arena->messages[id]->signalCount; signal++)
-        genericPlot(id, signal, dim);
+        Plots::signal(*arena, id, signal, dim, spec);
     }
   }
   ImGui::End();

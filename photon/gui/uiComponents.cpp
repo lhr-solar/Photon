@@ -7,6 +7,18 @@
 #include "imgui_internal.h"
 
 namespace PhotonUi {
+namespace {
+constexpr int kModalStyleVarCount = 6;
+
+void pushModalStyle() {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kWindowPadding);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, kPopupRounding);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, kBorderSize);
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, kPopupRounding);
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, kBorderSize);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kItemSpacing);
+}
+}  // namespace
 
 ImVec4 withAlpha(ImVec4 color, float alpha) {
   color.w = alpha;
@@ -82,40 +94,38 @@ bool beginModal(const char* title, ImVec2 size) {
   const ImVec2 winPos{(display.x - winSize.x) * 0.5f, (display.y - winSize.y) * 0.5f};
   ImGui::SetNextWindowSize(winSize);
   ImGui::SetNextWindowPos(winPos);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 14.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 10.0f));
-  const Palette p = palette();
-  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(p.bg, 0.98f));
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(p.bg, 0.98f));
-  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(p.border, 0.70f));
   constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                                      ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings |
                                      ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
-  return ImGui::BeginPopupModal(title, nullptr, flags);
+  pushModalStyle();
+  const bool open = ImGui::BeginPopupModal(title, nullptr, flags);
+  if (open && ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+  if (!open) ImGui::PopStyleVar(kModalStyleVarCount);
+  return open;
 }
 
 void endModal(bool open) {
-  if (open) ImGui::EndPopup();
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(4);
+  if (open) {
+    ImGui::EndPopup();
+    ImGui::PopStyleVar(kModalStyleVarCount);
+  }
+}
+
+bool modalCloseButton(const char* id, const Palette& palette, bool alignRight) {
+  if (alignRight) {
+    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
+  }
+  return button(id, "Close", {96.0f, 34.0f}, palette, false, "Close");
 }
 
 bool beginPanel(const char* id, ImVec2 size, const Palette& palette, ImGuiChildFlags childFlags,
                 ImGuiWindowFlags windowFlags) {
-  ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_ChildBg, withAlpha(palette.panel, 0.76f));
-  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.48f));
+  (void)palette;
   return ImGui::BeginChild(id, size, childFlags, windowFlags);
 }
 
-void endPanel() {
-  ImGui::EndChild();
-  ImGui::PopStyleColor(2);
-  ImGui::PopStyleVar(2);
-}
+void endPanel() { ImGui::EndChild(); }
 
 void label(std::string_view text, const Palette& palette) {
   const ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -127,20 +137,11 @@ void label(std::string_view text, const Palette& palette) {
 void tooltip(std::string_view text, ImGuiHoveredFlags flags) {
   if (text.empty() || !ImGui::IsItemHovered(flags)) return;
 
-  const Palette p = palette();
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(p.bg, 0.96f));
-  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(p.border, 0.64f));
-  ImGui::PushStyleColor(ImGuiCol_Text, p.text);
   ImGui::BeginTooltip();
   ImGui::PushTextWrapPos(ImGui::GetFontSize() * 22.0f);
   ImGui::TextUnformatted(text.data(), text.data() + text.size());
   ImGui::PopTextWrapPos();
   ImGui::EndTooltip();
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(3);
 }
 
 ControlState control(const char* id, ImVec2 size, bool selected, float hoverFocus,
@@ -234,19 +235,6 @@ bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 s
   tooltip(text);
   ImGui::PopID();
   return state.clicked && !disabled;
-}
-
-void pushInputStyle(const Palette& palette) {
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 7.0f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.panel, 0.82f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, withAlpha(palette.raised, 0.88f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgActive, withAlpha(palette.raised, 0.96f));
-}
-
-void popInputStyle() {
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(2);
 }
 
 void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {
