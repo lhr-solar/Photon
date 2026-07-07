@@ -114,6 +114,7 @@ struct Scene {
   bool dirty{};
   uint32_t fif{};
   uint32_t* frameIndex{nullptr};
+  bool showing = false;
 
   void addModel(const char* name, const unsigned char* newModel, size_t size,
                 bool trackable = false);

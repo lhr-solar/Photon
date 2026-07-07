@@ -7,6 +7,7 @@
 #include "canvas.hpp"
 #include "config.hpp"
 #include "plots.hpp"
+#include "scene.hpp"
 #include "sideBar.hpp"
 #include "tabs.hpp"
 #include "titlebar.hpp"
@@ -28,6 +29,8 @@ struct GUI {
   void plotTest(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
+  void carMap(ImGuiWindowFlags flags);
+
 
   GPU* gpu;
   Arena* arena;
@@ -44,6 +47,7 @@ struct GUI {
   bool updateAvailable = false;
   std::vector<Plots> plots;
   Updater updater;
+  Scene scene;
 };
 
 /* forward function handles */
@@ -65,4 +69,11 @@ void TextRightAligned(const char* fmt, Args... args) {
   ImVec2 dims = ImGui::CalcTextSize(buf);
   ImGui::SetCursorPosX(ImGui::GetWindowWidth() - dims.x);
   ImGui::TextUnformatted(buf);
+}
+
+inline VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
+  if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) return fallback;
+  const uint32_t width = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.x)));
+  const uint32_t height = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.y)));
+  return {width, height};
 }

@@ -26,6 +26,7 @@
 #include "implot.h"
 #include "implot3d.h"
 #include "lens_frag_spv.hpp"
+#include "newCar_glb.hpp"
 #include "nodes.hpp"
 #include "nucleus_frag_spv.hpp"
 #include "plots.hpp"
@@ -44,6 +45,8 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
                           (uint32_t*)lens_frag_spv, lens_frag_spv_size);
   buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                             (uint32_t*)glowButton_frag_spv, glowButton_frag_spv_size);
+  scene.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
+  scene.dispatchInit(gpu);
 }
 
 void GUI::render() {
@@ -60,6 +63,12 @@ void GUI::render() {
     buttonShader.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
     buttonShader.showing = false;
   }
+
+  if (!scene.initialized.load() && scene.partInitialized.load()) scene.finishInit(*gpu);
+  if (scene.showing) {
+    scene.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
+    scene.showing = false;
+  }
 };
 
 void GUI::destroy() {
@@ -70,6 +79,7 @@ void GUI::destroy() {
   }
   testShader.destroy();
   buttonShader.destroy();
+  scene.destroy();
 };
 
 void GUI::setFont() {
@@ -125,12 +135,117 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
   ImGui::End();
 };
 
-VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
-  if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) return fallback;
-  const uint32_t width = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.x)));
-  const uint32_t height = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.y)));
-  return {width, height};
-}
+void GUI::carMap(ImGuiWindowFlags flags) {
+  scene.showing = false;
+  const bool ready =
+      scene.initialized.load() && !scene.frames.empty() && scene.frameIndex != nullptr;
+  SceneFrame fallbackFrame{};
+  SceneFrame& frame = ready ? scene.frames[*scene.frameIndex] : fallbackFrame;
+
+  ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowBgAlpha(0.0f);
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+
+  if (ImGui::Begin("scene", nullptr, flags)) {
+    if (ready) {
+      const VkExtent2D nextExtent =
+          quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+      if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+        frame.extent = nextExtent;
+        scene.dirty = true;
+      }
+    }
+
+    ImVec2 drawSize(frame.extent.width, frame.extent.height);
+    drawSize.x = std::max(drawSize.x, 1.0f);
+    drawSize.y = std::max(drawSize.y, 1.0f);
+    if (ready) {
+      const bool sceneVisible = ImGui::IsRectVisible(drawSize);
+      if (sceneVisible) scene.showing = true;
+      ImGui::Image(frame.texture, drawSize);
+      const bool sceneHovered = ImGui::IsItemHovered();
+      const ImVec2 imageMin = ImGui::GetItemRectMin();
+      const ImVec2 imageMax = ImGui::GetItemRectMax();
+      const bool hasTrackedObject =
+          scene.trackedObjectIndex >= 0 &&
+          scene.trackedObjectIndex < static_cast<int>(scene.objects.size());
+      const Position trackedPosition =
+          hasTrackedObject ? scene.objects[scene.trackedObjectIndex].position : Position{};
+
+      const char* cameraModes[] = {"Free", "Track"};
+      int cameraMode = scene.cameraMode == SceneCameraMode::TrackModel ? 1 : 0;
+      const float overlayWidth = 120.0f;
+      const ImVec2 comboPos(imageMin.x + 12.0f, imageMin.y + 12.0f);
+      ImGui::SetCursorScreenPos(comboPos);
+      ImGui::PushItemWidth(overlayWidth);
+      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+      ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.10f, 0.10f, 0.11f, 0.88f));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.14f, 0.14f, 0.15f, 0.92f));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.16f, 0.16f, 0.17f, 0.94f));
+      ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.08f, 0.08f, 0.09f, 0.96f));
+      if (ImGui::Combo("##SceneCameraMode", &cameraMode, cameraModes, IM_ARRAYSIZE(cameraModes))) {
+        scene.cameraMode = cameraMode == 1 ? SceneCameraMode::TrackModel : SceneCameraMode::Free;
+      }
+      ImGui::PopStyleColor(4);
+      ImGui::PopStyleVar();
+      ImGui::PopItemWidth();
+
+      char positionLabel[128]{};
+      std::snprintf(positionLabel, sizeof(positionLabel), "x: %.3f | y: %.3f | z: %.3f",
+                    trackedPosition.x, trackedPosition.y, trackedPosition.z);
+      const ImVec2 textPadding(10.0f, 6.0f);
+      const ImVec2 textSize = ImGui::CalcTextSize(positionLabel);
+      const ImVec2 textMin(imageMin.x + 12.0f,
+                           imageMax.y - textSize.y - textPadding.y * 2.0f - 12.0f);
+      const ImVec2 textMax(textMin.x + textSize.x + textPadding.x * 2.0f,
+                           textMin.y + textSize.y + textPadding.y * 2.0f);
+      ImDrawList* drawList = ImGui::GetWindowDrawList();
+      drawList->AddRectFilled(textMin, textMax,
+                              ImGui::GetColorU32(ImVec4(0.10f, 0.10f, 0.11f, 0.88f)), 6.0f);
+      drawList->AddText(ImVec2(textMin.x + textPadding.x, textMin.y + textPadding.y),
+                        ImGui::GetColorU32(ImGuiCol_Text), positionLabel);
+
+      ImGuiIO& io = ImGui::GetIO();
+      if (sceneHovered) {
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+          scene.camera.yaw -= io.MouseDelta.x * scene.camera.orbitSensitivity;
+          scene.camera.pitch += io.MouseDelta.y * scene.camera.orbitSensitivity;
+          scene.camera.pitch = std::clamp(scene.camera.pitch, -89.0f, 89.0f);
+        }
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
+          if (scene.cameraMode == SceneCameraMode::Free) {
+            const float yawRadians = glm::radians(scene.camera.yaw);
+            const float pitchRadians = glm::radians(scene.camera.pitch);
+            const glm::vec3 front = glm::normalize(
+                glm::vec3(-std::cos(pitchRadians) * std::cos(yawRadians),
+                          -std::cos(pitchRadians) * std::sin(yawRadians), -std::sin(pitchRadians)));
+            const glm::vec3 right = glm::normalize(glm::cross(front, scene.camera.up));
+            const glm::vec3 cameraUp = glm::normalize(glm::cross(right, front));
+            const float viewportHeight = std::max(drawSize.y, 1.0f);
+            const float worldUnitsPerPixel =
+                (2.0f * scene.camera.distance * std::tan(glm::radians(93.0f) * 0.5f)) /
+                viewportHeight;
+            const glm::vec3 panOffset = (-right * io.MouseDelta.x + cameraUp * io.MouseDelta.y) *
+                                        worldUnitsPerPixel * scene.camera.panSensitivity;
+            scene.camera.target += panOffset;
+          }
+        }
+        if (std::abs(io.MouseWheel) > 0.0f) {
+          const float zoomScale =
+              std::max(0.1f, 1.0f - io.MouseWheel * scene.camera.zoomSensitivity);
+          scene.camera.distance *= zoomScale;
+          scene.camera.distance =
+              std::clamp(scene.camera.distance, scene.camera.minDistance, scene.camera.maxDistance);
+        }
+      }
+    } else {
+      ImGui::Text("loading scene");
+    }
+  }
+  ImGui::End();
+  ImGui::PopStyleColor(2);
+};
 
 void GUI::shaderTest(ImGuiWindowFlags flags) {
   testShader.showing = false;
@@ -243,6 +358,7 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
   tabs.list.push_back(
       Tab::bind<ui::DashboardTab, &ui::DashboardTab::draw>(ui::dashboardTab(), "Dashboard"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::carMap>(*this, "Map"));
 };
 
 void GUI::buildUI() {
