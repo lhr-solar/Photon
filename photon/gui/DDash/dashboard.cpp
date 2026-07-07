@@ -750,7 +750,6 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
         float arcCenterY = origin.y + heartbeatH + 8.0f + radius;
         ImVec2 center(cX, arcCenterY);
 
-<<<<<<< Updated upstream
         //  hb
         {
             float t     = static_cast<float>(ImGui::GetTime());
@@ -787,11 +786,11 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             ImGuiIO& io = ImGui::GetIO();
             ImFont* bigFont = (io.Fonts->Fonts.Size > 3)
                                   ? io.Fonts->Fonts[3] : nullptr;
-            
+
             // Limit font size based on radius to avoid clashing
             float maxFontSize = radius * 2.2f;
             float fontSize = std::min((bigFont ? bigFont->LegacySize : 48.0f) * 3.0f, maxFontSize);
-            
+
             sSz = bigFont
                 ? bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, speedTxt)
                 : ImGui::CalcTextSize(speedTxt);
@@ -807,14 +806,19 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             // Dynamically scale icons so they don't overlap speed or FNR
             float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
             float iconSize    = std::max(20.0f, maxIconSize);
-            
+
             // Place icons nicely between the arc center and the FNR text
             float iconY       = center.y + sSz.y * 0.25f + iconSize * 0.5f + 4.0f;
             float iconSpacing = iconSize * 1.2f;
 
+            // Turn/hazard flash: ~1.5 Hz square wave. Hazard lights both arrows.
+            bool hazard = state.getBool("Hazard_Pressed");
+            bool flashOn = (static_cast<int>(ImGui::GetTime() * 3.0) % 2) == 0;
+
             // Left Turn Signal
             {
-                ImVec4 lC = (state.turnSignal == TurnSignal::Left)
+                bool leftActive = (state.turnSignal == TurnSignal::Left) || hazard;
+                ImVec4 lC = (leftActive && flashOn)
                     ? Colors::Accent() : Colors::MutedForeground();
                 icons::DrawLeftArrow(dl, ImVec2(cX - iconSpacing * 2.0f, iconY),
                                      iconSize, ColorToU32(lC));
@@ -842,7 +846,8 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             }
             // Right Turn Signal
             {
-                ImVec4 rC = (state.turnSignal == TurnSignal::Right)
+                bool rightActive = (state.turnSignal == TurnSignal::Right) || hazard;
+                ImVec4 rC = (rightActive && flashOn)
                     ? Colors::Accent() : Colors::MutedForeground();
                 icons::DrawRightArrow(dl, ImVec2(cX + iconSpacing * 2.0f, iconY),
                                       iconSize, ColorToU32(rC));
@@ -899,19 +904,36 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             {
                 float pbW = radius * 1.5f;
                 float pbH = 8.0f;
-                float pbY = fnrY + fnrH + 5.0f; 
-                ImVec2 pPos(cX - pbW * 0.5f, pbY);
-                
+                float pbY = fnrY + fnrH + 5.0f;
+
+                float pedalPct = std::clamp((float)state.get("AccelPedal_Main_Pos") / 100.0f, 0.0f, 1.0f);
+                const int throttlePct = static_cast<int>(std::lround(pedalPct * 100.0f));
+                char throttleTxt[8];
+                snprintf(throttleTxt, sizeof(throttleTxt), "%d%%", throttlePct);
+
+                float throttleFs = std::min(28.0f, std::max(18.0f, pbH * 2.5f));
+                ImVec2 throttleSz = medFont
+                    ? medFont->CalcTextSizeA(throttleFs, FLT_MAX, 0, throttleTxt)
+                    : ImGui::CalcTextSize(throttleTxt);
+                constexpr float textGap = 6.0f;
+                const float groupW = pbW + textGap + throttleSz.x;
+                ImVec2 pPos(cX - groupW * 0.5f, pbY);
+
                 // bg
-                dl->AddRectFilled(pPos, ImVec2(pPos.x + pbW, pPos.y + pbH), ColorToU32(Colors::Muted()), pbH * 0.5f);
-                
-                float pct = std::clamp((float)state.get("AccelPedal_Main_Pos") / 100.0f, 0.0f, 1.0f);
-                float fillW = pbW * pct;
+                dl->AddRectFilled(pPos, ImVec2(pPos.x + pbW, pPos.y + pbH),
+                                  ColorToU32(Colors::Muted()), pbH * 0.5f);
+
+                float fillW = pbW * pedalPct;
                 if (fillW > 2.0f) {
                     ImDrawFlags fillFlags = ImDrawFlags_RoundCornersLeft;
                     if (fillW >= pbW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
-                    dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH), ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
+                    dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH),
+                                      ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
                 }
+
+                dl->AddText(medFont, throttleFs,
+                            ImVec2(pPos.x + pbW + textGap, pPos.y + (pbH - throttleSz.y) * 0.5f),
+                            ColorToU32(Colors::Accent()), throttleTxt);
                 // break pressure 1: front
                 // break pressure 2: rear
                 const float brakePressure1 = (float)state.get("Brake_Pressure_1");
@@ -943,162 +965,6 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                     pressureTxt);
             }
         }
-=======
-    //  Speed
-    ImVec2 sSz;
-    {
-      char speedTxt[8];
-      snprintf(speedTxt, sizeof(speedTxt), "%d", state.speed);
-      ImGuiIO& io = ImGui::GetIO();
-      ImFont* bigFont = (io.Fonts->Fonts.Size > 3) ? io.Fonts->Fonts[3] : nullptr;
-
-      // Limit font size based on radius to avoid clashing
-      float maxFontSize = radius * 2.2f;
-      float fontSize = std::min((bigFont ? bigFont->LegacySize : 48.0f) * 3.0f, maxFontSize);
-
-      sSz = bigFont ? bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, speedTxt)
-                    : ImGui::CalcTextSize(speedTxt);
-      float textY = center.y - sSz.y * 0.75f;
-      dl->AddText(bigFont, fontSize, ImVec2(cX - sSz.x * 0.5f, textY),
-                  ColorToU32(Colors::Foreground()), speedTxt);
-    }
-
-    // Status icons below speed
-    //    left-turn | cruise control | brake | regen | right-turn
-    {
-      // Dynamically scale icons so they don't overlap speed or FNR
-      float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
-      float iconSize = std::max(20.0f, maxIconSize);
-
-      // Place icons nicely between the arc center and the FNR text
-      float iconY = center.y + sSz.y * 0.25f + iconSize * 0.5f + 4.0f;
-      float iconSpacing = iconSize * 1.2f;
-
-      // Turn/hazard flash: ~1.5 Hz square wave. Hazard lights both arrows.
-      bool hazard = state.getBool("Hazard_Pressed");
-      bool flashOn = (static_cast<int>(ImGui::GetTime() * 3.0) % 2) == 0;
-
-      // Left Turn Signal
-      {
-        bool leftActive = (state.turnSignal == TurnSignal::Left) || hazard;
-        ImVec4 lC = (leftActive && flashOn) ? Colors::Accent() : Colors::MutedForeground();
-        icons::DrawLeftArrow(dl, ImVec2(cX - iconSpacing * 2.0f, iconY), iconSize, ColorToU32(lC));
-      }
-      // Cruise Control
-      {
-        ImVec4 ccCol =
-            state.getBool("Cruise_Enable") ? Colors::Warning() : Colors::MutedForeground();
-        icons::DrawCruiseControl(dl, ImVec2(cX - iconSpacing, iconY), iconSize, ColorToU32(ccCol));
-      }
-      // Brake
-      {
-        ImVec4 bkCol = state.brakeEngaged ? Colors::Destructive() : Colors::MutedForeground();
-        icons::DrawBrake(dl, ImVec2(cX, iconY), iconSize, ColorToU32(bkCol));
-      }
-      // Regen
-      {
-        ImVec4 rgCol =
-            state.getBool("Regen_Enable") ? Colors::Success() : Colors::MutedForeground();
-        icons::DrawRegen(dl, ImVec2(cX + iconSpacing, iconY), iconSize, ColorToU32(rgCol));
-      }
-      // Right Turn Signal
-      {
-        bool rightActive = (state.turnSignal == TurnSignal::Right) || hazard;
-        ImVec4 rC = (rightActive && flashOn) ? Colors::Accent() : Colors::MutedForeground();
-        icons::DrawRightArrow(dl, ImVec2(cX + iconSpacing * 2.0f, iconY), iconSize, ColorToU32(rC));
-      }
-    }
-
-    // Brake pressure readout below icons
-    float brakeReadoutBottomY = 0.0f;
-    {
-      float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
-      float iconSize = std::max(20.0f, maxIconSize);
-      float iconBottomY = center.y + sSz.y * 0.25f + iconSize + 4.0f;
-      brakeReadoutBottomY = iconBottomY;
-    }
-
-    // FNR gear display below icons
-    {
-      float maxIconSize = std::min(48.0f, (arcSpace - sSz.y) * 0.4f);
-      float iconSize = std::max(20.0f, maxIconSize);
-      float iconBottomY = center.y + sSz.y * 0.25f + iconSize + 4.0f;
-      float fnrY = std::max(iconBottomY + 8.0f, brakeReadoutBottomY + 4.0f);
-      float fnrH = 50.0f;  // Give it less hardcoded vertical space
-      const char* letters[] = {"F", "N", "R"};
-      const Gear vals[] = {Gear::Forward, Gear::Neutral, Gear::Reverse};
-      float spacing = 96.0f;
-      float totalW = spacing * 2.0f;
-      float startX = cX - totalW * 0.5f;
-
-      ImGuiIO& io2 = ImGui::GetIO();
-      ImFont* medFont = (io2.Fonts->Fonts.Size > 2) ? io2.Fonts->Fonts[2] : nullptr;
-      ImFont* hugeFont = (io2.Fonts->Fonts.Size > 3) ? io2.Fonts->Fonts[3] : nullptr;
-      ImFont* baseFont = hugeFont ? hugeFont : medFont;
-
-      for (int i = 0; i < 3; i++) {
-        bool sel = (state.gear == vals[i]);
-        ImVec4 col = sel ? Colors::Primary() : Colors::MutedForeground();
-        float maxFs = std::min(72.0f, fnrH * 1.2f);
-        float fs = sel ? maxFs : maxFs * 0.75f;
-        ImFont* useFont = baseFont;
-        ImVec2 lSz = useFont ? useFont->CalcTextSizeA(fs, FLT_MAX, 0, letters[i])
-                             : ImGui::CalcTextSize(letters[i]);
-        float x = startX + spacing * static_cast<float>(i) - lSz.x * 0.5f;
-        dl->AddText(useFont, fs, ImVec2(x, fnrY + (fnrH - lSz.y) * 0.5f), ColorToU32(col),
-                    letters[i]);
-      }
-
-      // Pedal Percentage Bar (inside FNR scope to access fnrY/fnrH)
-      {
-        float pbW = radius * 1.5f;
-        float pbH = 8.0f;
-        float pbY = fnrY + fnrH + 5.0f;
-
-        float pct = std::clamp((float)state.get("AccelPedal_Main_Pos") / 100.0f, 0.0f, 1.0f);
-        const int throttlePct = static_cast<int>(std::lround(pct * 100.0f));
-        char throttleTxt[8];
-        snprintf(throttleTxt, sizeof(throttleTxt), "%d%%", throttlePct);
-
-        float throttleFs = std::min(28.0f, std::max(18.0f, pbH * 2.5f));
-        ImVec2 throttleSz = medFont ? medFont->CalcTextSizeA(throttleFs, FLT_MAX, 0, throttleTxt)
-                                     : ImGui::CalcTextSize(throttleTxt);
-        constexpr float textGap = 6.0f;
-        const float groupW = pbW + textGap + throttleSz.x;
-        ImVec2 pPos(cX - groupW * 0.5f, pbY);
-
-        // bg
-        dl->AddRectFilled(pPos, ImVec2(pPos.x + pbW, pPos.y + pbH), ColorToU32(Colors::Muted()),
-                          pbH * 0.5f);
-
-        float fillW = pbW * pct;
-        if (fillW > 2.0f) {
-          ImDrawFlags fillFlags = ImDrawFlags_RoundCornersLeft;
-          if (fillW >= pbW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
-          dl->AddRectFilled(pPos, ImVec2(pPos.x + fillW, pPos.y + pbH),
-                            ColorToU32(Colors::Accent()), pbH * 0.5f, fillFlags);
-        }
-
-        dl->AddText(medFont, throttleFs,
-                    ImVec2(pPos.x + pbW + textGap, pPos.y + (pbH - throttleSz.y) * 0.5f),
-                    ColorToU32(Colors::Accent()), throttleTxt);
-        // break pressure 1: front
-        // break pressure 2: rear
-        const float brakePressure1 = (float)state.get("Brake_Pressure_1");
-        const float brakePressure2 = (float)state.get("Brake_Pressure_2");
-        char pressureTxt[48];
-        snprintf(pressureTxt, sizeof(pressureTxt), "FRONT %.0f   REAR %.0f",
-                 std::max(0.0f, brakePressure1), std::max(0.0f, brakePressure2));
-        ImVec4 pressureCol =
-            (state.getBool("Brake_Pressure_1_Fault") || state.getBool("Brake_Pressure_2_Fault"))
-                ? Colors::Warning()
-                : ((std::max(brakePressure1, brakePressure2) > 25.0f) ? Colors::Destructive()
-                                                                      : Colors::MutedForeground());
-        float pressureFs = std::min(42.0f, std::max(27.0f, iconSize * 0.87f));
-        float pressureY = pbY + pbH + 10.0f;
-        ImVec2 pSz = medFont ? medFont->CalcTextSizeA(pressureFs, FLT_MAX, 0, pressureTxt)
-                             : ImGui::CalcTextSize(pressureTxt);
->>>>>>> Stashed changes
 
     }
     ImGui::EndChild();
