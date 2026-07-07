@@ -104,10 +104,6 @@ bool drawNavItem(const Tab& tab, int index, bool selected, float width,
   constexpr float rounding = 8.0f;
   if (state.focus > 0.01f)
     ImGui::RenderFrame(bgMin, bgMax, colorU32(withAlpha(fill, 0.88f)), false, rounding);
-  if (selected)
-    PhotonUi::leftAccentFrame(bgMin, bgMax,
-                              colorU32(withAlpha(palette.accent, 0.78f + state.focus * 0.22f)),
-                              rounding, 5.0f);
 
   const float iconBox = 28.0f;
   const ImVec2 iconMin(bgMin.x + 10.0f, bgMin.y + (bgMax.y - bgMin.y - iconBox) * 0.5f);

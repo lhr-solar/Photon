@@ -68,7 +68,6 @@ bool iconButton(const char* id, const char* icon, std::string_view tooltipText, 
                 const Palette& palette, bool selected = false);
 bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
                const Palette& palette, bool selected = false, bool disabled = false);
-void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width);
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
                const Palette& palette);
 

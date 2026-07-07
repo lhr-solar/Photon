@@ -460,8 +460,6 @@ bool drawMessageRow(const Message& msg, const MessageUiStats& stats, bool expand
   const ImVec4 fill = mixColor(palette.panel, palette.active, focus * 0.62f);
   constexpr float rounding = 8.0f;
   ImGui::RenderFrame(min, max, colorU32(withAlpha(fill, 0.82f)), false, rounding);
-  PhotonUi::leftAccentFrame(min, max, colorU32(withAlpha(palette.accent, 0.38f + focus * 0.42f)),
-                            rounding, 5.0f);
   draw->AddRect(min, max, colorU32(withAlpha(palette.border, 0.36f + focus * 0.24f)), rounding);
 
   char idText[32];

@@ -9,6 +9,8 @@
 namespace PhotonUi {
 namespace {
 constexpr int kModalStyleVarCount = 6;
+constexpr int kTooltipStyleVarCount = 4;
+constexpr int kTooltipStyleColorCount = 3;
 
 void pushModalStyle() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kWindowPadding);
@@ -17,6 +19,16 @@ void pushModalStyle() {
   ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, kPopupRounding);
   ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, kBorderSize);
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kItemSpacing);
+}
+
+void pushTooltipStyle(const Palette& palette) {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{10.0f, 8.0f});
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, kPopupRounding);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, kBorderSize);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{6.0f, 4.0f});
+  ImGui::PushStyleColor(ImGuiCol_PopupBg, withAlpha(palette.bg, 0.98f));
+  ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette.border, 0.72f));
+  ImGui::PushStyleColor(ImGuiCol_Text, palette.text);
 }
 }  // namespace
 
@@ -137,11 +149,15 @@ void label(std::string_view text, const Palette& palette) {
 void tooltip(std::string_view text, ImGuiHoveredFlags flags) {
   if (text.empty() || !ImGui::IsItemHovered(flags)) return;
 
+  const Palette colors = palette();
+  pushTooltipStyle(colors);
   ImGui::BeginTooltip();
   ImGui::PushTextWrapPos(ImGui::GetFontSize() * 22.0f);
   ImGui::TextUnformatted(text.data(), text.data() + text.size());
   ImGui::PopTextWrapPos();
   ImGui::EndTooltip();
+  ImGui::PopStyleColor(kTooltipStyleColorCount);
+  ImGui::PopStyleVar(kTooltipStyleVarCount);
 }
 
 ControlState control(const char* id, ImVec2 size, bool selected, float hoverFocus,
@@ -223,7 +239,6 @@ bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 s
   draw->AddRectFilled(state.min, state.max, colorU32(fill), 8.0f);
   draw->AddRect(state.min, state.max,
                 colorU32(withAlpha(palette.border, 0.40f + state.focus * 0.24f)), 8.0f);
-  if (selected) leftAccentFrame(state.min, state.max, colorU32(palette.accent), 8.0f, 4.0f);
   if (icon && icon[0] != '\0')
     drawIconCentered(draw, icon, {state.min.x + 8.0f, state.min.y},
                      {state.min.x + 32.0f, state.max.y}, 17.0f, colorU32(fg), 1.0f);
@@ -235,13 +250,6 @@ bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 s
   tooltip(text);
   ImGui::PopID();
   return state.clicked && !disabled;
-}
-
-void leftAccentFrame(ImVec2 min, ImVec2 max, ImU32 color, float rounding, float width) {
-  ImDrawList* draw = ImGui::GetWindowDrawList();
-  draw->PushClipRect(min, {min.x + width, max.y}, true);
-  ImGui::RenderFrame(min, max, color, false, rounding);
-  draw->PopClipRect();
 }
 
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
