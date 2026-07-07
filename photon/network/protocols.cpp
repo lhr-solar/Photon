@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 
+#include "../io/pre_fault_recorder.hpp"
 #include "../parse/arena.hpp"
 #include "canp.h"
 
@@ -308,7 +309,7 @@ bool decodeSignalValue(const canpPacket_t& packet, const Signal& sig, double& va
 
 double batchTimeSeconds(uint64_t timestampMs) { return static_cast<double>(timestampMs) / 1000.0; }
 
-void handleNetwork(const canpBatch_t& batch, Arena& arena) {
+void handleNetwork(const canpBatch_t& batch, Arena& arena, io::Pre_Fault_Recorder* recorder) {
   double timeValue = batchTimeSeconds(batch.timestamp);
   const uint16_t count = batch.count > CANP_MAX_BATCH ? CANP_MAX_BATCH : batch.count;
   for (uint16_t i = 0; i < count; i++) {
@@ -336,6 +337,9 @@ void handleNetwork(const canpBatch_t& batch, Arena& arena) {
       arena.clear(id);
       arena.appendFrame(id, timeValue, values.data(), msg->signalCount);
     }
+    if (recorder) {
+      recorder->appendFrame(id, timeValue, values.data(), msg->signalCount);
+    }
   }
 }
 
@@ -347,7 +351,7 @@ std::string timeNow() {
 };
 
 void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                    TCPConfig config, Arena& arena) {
+                    TCPConfig config, Arena& arena, io::Pre_Fault_Recorder* recorder) {
   SocketHandle sock = INVALID_SOCKET;
   std::string error{};
   if (!connectTcp(sock, config, stoken, error)) {
@@ -368,7 +372,7 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
 
     int readStatus = canpReadBatch(sock, &batch);
     if (readStatus == CANP_READ_OK) {
-      handleNetwork(batch, arena);
+      handleNetwork(batch, arena, recorder);
       continue;
     }
     if (readStatus == CANP_READ_CLOSED) {

@@ -278,6 +278,9 @@ add_subdirectory(assets/environments)
 add_subdirectory(assets/models)
 add_subdirectory(photon)
 
+enable_testing()
+add_subdirectory(tests/io)
+
 if(WIN32)
     add_executable(photonUpdaterWindows release/windowsUpdater/main.cpp)
     set_target_properties(photonUpdaterWindows PROPERTIES

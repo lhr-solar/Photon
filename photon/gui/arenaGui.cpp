@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -7,6 +8,7 @@
 #include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "implot.h"
 #include "uiComponents.hpp"
 
 using ArenaPalette = PhotonUi::Palette;
@@ -144,6 +146,24 @@ struct MessageUiStats {
   }
 };
 
+struct SignalUiStats {
+  double lastValue{};
+  double lastChangeTime{};
+  bool hasData{};
+
+  void reset() {
+    lastValue = 0.0;
+    lastChangeTime = 0.0;
+    hasData = false;
+  }
+};
+
+struct SignalPlotState {
+  bool showPlot{};
+  uint32_t messageId{};
+  uint32_t signalIndex{};
+};
+
 struct ArenaUiFrameStats {
   size_t heldBytes{};
   double netDataRate{};
@@ -244,6 +264,61 @@ bool messageMatchesQuery(const Message& msg, const char* query, size_t queryLen)
     if (msg.signals[s] && containsQuery(msg.signals[s]->name.c_str(), query, queryLen)) return true;
   }
   return false;
+}
+
+// Returns the most recently written double value for signal, or 0.0 if no data.
+inline double readLastSignalValue(const Arena& arena, uint32_t id, uint32_t signal) {
+  if (id >= arena.messages.size() || !arena.messages[id]) return 0.0;
+  const Message& msg = *arena.messages[id];
+  if (signal >= msg.signalCount || !msg.signals[signal]) return 0.0;
+  const uint32_t published = msg.signalSize.value.load(std::memory_order_acquire);
+  if (published < sizeof(double)) return 0.0;
+  // Last sample sits at offset (published - sizeof(double))
+  const auto* buf = static_cast<const double*>(msg.signals[signal]->data);
+  return buf[(published / sizeof(double)) - 1];
+}
+
+// Draws an inline ImPlot for a single signal inside a popup window.
+void drawSignalPlot(Arena& arena, const SignalPlotState& state, const ArenaPalette& palette) {
+  const uint32_t id = state.messageId;
+  const uint32_t sig = state.signalIndex;
+  if (id >= arena.messages.size() || !arena.messages[id]) return;
+  const Message& msg = *arena.messages[id];
+  if (sig >= msg.signalCount || !msg.signals[sig]) return;
+
+  void* data = nullptr;
+  void* time = nullptr;
+  uint32_t dataBytes = 0;
+  uint32_t timeBytes = 0;
+  arena.read(id, sig, &data, &dataBytes);
+  arena.readTime(id, &time, &timeBytes);
+
+  const uint32_t sampleCount = (data && time) ? std::min(dataBytes, timeBytes) / sizeof(double) : 0;
+  constexpr uint32_t maxPlotSamples = 200;
+  const uint32_t visibleCount = std::min(sampleCount, maxPlotSamples);
+  const uint32_t firstSample = sampleCount - visibleCount;
+  const auto* timeValues = static_cast<const double*>(time) + firstSample;
+  const auto* dataValues = static_cast<const double*>(data) + firstSample;
+
+  char plotId[64];
+  std::snprintf(plotId, sizeof(plotId), "##sigplot_%u_%u", id, sig);
+
+  ImVec2 plotSize = ImGui::GetContentRegionAvail();
+  plotSize.y = std::max(plotSize.y, 140.0f);
+
+  if (visibleCount < 2) {
+    ImGui::TextColored(ImVec4(palette.muted.x, palette.muted.y, palette.muted.z, palette.muted.w),
+                       "Waiting for data...");
+    return;
+  }
+  if (ImPlot::BeginPlot(plotId, plotSize)) {
+    ImPlot::SetupAxes("time", msg.signals[sig]->unit.c_str(),
+                      ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+    ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
+    ImPlot::PlotLine(msg.signals[sig]->name.c_str(), timeValues, dataValues,
+                     static_cast<int>(visibleCount));
+    ImPlot::EndPlot();
+  }
 }
 
 void drawLivePanel(const char* id, const char* label, const char* value, const char* detail,
@@ -430,17 +505,42 @@ void Arena::statusUI(int flags) {
     static UiRing netDataRateHistory{};
     static std::array<bool, MESSAGE_MAX> expandedMessages{};
     static uint64_t cachedArenaGeneration = UINT64_MAX;
+    // Per-signal last-known value cache: [messageId][signalIndex]
+    static std::array<std::array<SignalUiStats, SIGNAL_MAX>, MESSAGE_MAX> signalStats{};
+    // Currently open plot popup (only one at a time)
+    static SignalPlotState activePlot{};
 
     if (cachedArenaGeneration != generation) {
       cachedArenaGeneration = generation;
       for (MessageUiStats& stats : uiStats) stats.reset();
+      for (auto& msgSigs : signalStats)
+        for (SignalUiStats& s : msgSigs) s.reset();
       expandedMessages.fill(false);
       netDataRateHistory.reset();
+      activePlot = {};
     }
 
     const double now = ImGui::GetTime();
     const ArenaUiFrameStats frameStats = refreshArenaUiStats(*this, uiStats);
     netDataRateHistory.push(static_cast<float>(frameStats.netDataRate), now);
+
+    // Refresh per-signal last-known values (hold the last value when data stops)
+    for (const uint32_t id : validIds) {
+      if (id >= messages.size() || !messages[id]) continue;
+      Message& msg = *messages[id];
+      const uint32_t published = msg.signalSize.value.load(std::memory_order_acquire);
+      if (published >= sizeof(double)) {
+        for (uint32_t s = 0; s < msg.signalCount; s++) {
+          SignalUiStats& ss = signalStats[id][s];
+          const double v = readLastSignalValue(*this, id, s);
+          if (!ss.hasData || v != ss.lastValue) {
+            ss.lastValue = v;
+            ss.lastChangeTime = now;
+            ss.hasData = true;
+          }
+        }
+      }
+    }
     constexpr double bandwidthAverageWindowSeconds = 3.0;
     const double smoothedNetDataRate =
         netDataRateHistory.average(now, bandwidthAverageWindowSeconds);
@@ -530,54 +630,99 @@ void Arena::statusUI(int flags) {
 
         constexpr ImGuiTableFlags signalFlags =
             ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
-            ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings |
+            ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings |
             ImGuiTableFlags_PadOuterX;
-        if (ImGui::BeginTable("signals", 8, signalFlags)) {
+        if (ImGui::BeginTable("signals", 9, signalFlags)) {
           ImGui::TableSetupScrollFreeze(0, 1);
-          ImGui::TableSetupColumn("Signal");
-          ImGui::TableSetupColumn("Layout");
-          ImGui::TableSetupColumn("Type");
-          ImGui::TableSetupColumn("Scale");
-          ImGui::TableSetupColumn("Offset");
-          ImGui::TableSetupColumn("Range");
-          ImGui::TableSetupColumn("Unit");
-          ImGui::TableSetupColumn("Age");
+          ImGui::TableSetupColumn("Signal",  ImGuiTableColumnFlags_WidthStretch);
+          ImGui::TableSetupColumn("Value",   ImGuiTableColumnFlags_WidthFixed,  86.0f);
+          ImGui::TableSetupColumn("Layout",  ImGuiTableColumnFlags_WidthFixed,  80.0f);
+          ImGui::TableSetupColumn("Type",    ImGuiTableColumnFlags_WidthFixed,  62.0f);
+          ImGui::TableSetupColumn("Scale",   ImGuiTableColumnFlags_WidthFixed,  52.0f);
+          ImGui::TableSetupColumn("Offset",  ImGuiTableColumnFlags_WidthFixed,  52.0f);
+          ImGui::TableSetupColumn("Range",   ImGuiTableColumnFlags_WidthFixed, 110.0f);
+          ImGui::TableSetupColumn("Unit",    ImGuiTableColumnFlags_WidthFixed,  48.0f);
+          ImGui::TableSetupColumn("Age",     ImGuiTableColumnFlags_WidthFixed,  64.0f);
           ImGui::TableHeadersRow();
           for (size_t s{0uz}; s < msg->signalCount; s++) {
             Signal* sig = msg->signals[s];
             if (!sig) continue;
             ImGui::TableNextRow();
+            ImGui::PushID(static_cast<int>(s));
 
+            // Selectable spanning all columns for click-to-plot.
+            // Use ##id label so the visible text is drawn separately and never
+            // clips the selectable hit area.
             ImGui::TableSetColumnIndex(0);
+            const bool isActive = activePlot.showPlot &&
+                                  activePlot.messageId == msg->id &&
+                                  activePlot.signalIndex == static_cast<uint32_t>(s);
+            char selId[16];
+            std::snprintf(selId, sizeof(selId), "##sel%zu", s);
+            if (ImGui::Selectable(selId, isActive,
+                                  ImGuiSelectableFlags_SpanAllColumns |
+                                  ImGuiSelectableFlags_AllowOverlap)) {
+              if (isActive)
+                activePlot.showPlot = false;
+              else {
+                activePlot.showPlot = true;
+                activePlot.messageId = msg->id;
+                activePlot.signalIndex = static_cast<uint32_t>(s);
+              }
+            }
+            // Draw the signal name on top of the selectable
+            ImGui::SameLine(0.0f, 0.0f);
             ImGui::TextUnformatted(sig->name.c_str());
+            if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+              ImGui::TextUnformatted(sig->name.c_str());
+              ImGui::EndTooltip();
+            }
 
+            // Value column — shows held last-known value
             ImGui::TableSetColumnIndex(1);
+            {
+              const SignalUiStats& ss = signalStats[msg->id][s];
+              if (ss.hasData) {
+                // Dim the value if it's stale (no new data for > 0.5s)
+                const double age = now - ss.lastChangeTime;
+                const float alpha = age > 0.5 ? 0.45f : 1.0f;
+                ImGui::PushStyleColor(ImGuiCol_Text, withAlpha(PhotonUi::palette().text, alpha));
+                ImGui::Text("%.4g", ss.lastValue);
+                ImGui::PopStyleColor();
+              } else {
+                ImGui::TextDisabled("—");
+              }
+            }
+
+            ImGui::TableSetColumnIndex(2);
             std::snprintf(buf, sizeof(buf), "%d:%d %s", sig->startBit, sig->length,
                           sig->endianness == 1 ? "le" : "be");
             ImGui::TextUnformatted(buf);
 
-            ImGui::TableSetColumnIndex(2);
+            ImGui::TableSetColumnIndex(3);
             const char* type = sig->type == vFLOAT    ? "float"
                                : sig->type == vDOUBLE ? "double"
                                                       : "int";
             ImGui::Text("%s %s", sig->isSigned ? "s" : "u", type);
 
-            ImGui::TableSetColumnIndex(3);
+            ImGui::TableSetColumnIndex(4);
             ImGui::Text("%.3f", sig->scale);
 
-            ImGui::TableSetColumnIndex(4);
+            ImGui::TableSetColumnIndex(5);
             ImGui::Text("%.3f", sig->offset);
 
-            ImGui::TableSetColumnIndex(5);
+            ImGui::TableSetColumnIndex(6);
             ImGui::Text("%.3f .. %.3f", sig->min, sig->max);
 
-            ImGui::TableSetColumnIndex(6);
+            ImGui::TableSetColumnIndex(7);
             ImGui::TextUnformatted(sig->unit.c_str());
 
-            ImGui::TableSetColumnIndex(7);
+            ImGui::TableSetColumnIndex(8);
             formatAge(buf, sizeof(buf),
                       stats.lastChangeTime > 0.0 ? ImGui::GetTime() - stats.lastChangeTime : -1.0);
             ImGui::TextUnformatted(buf);
+
+            ImGui::PopID();
           }
           ImGui::EndTable();
         }
@@ -598,6 +743,29 @@ void Arena::statusUI(int flags) {
                     colorU32(withAlpha(palette.border, 0.44f)), 8.0f);
       list->AddText({pos.x + 14.0f, pos.y + 18.0f}, colorU32(palette.muted), "No messages match");
       ImGui::Dummy({contentWidth, h});
+    }
+
+    // Signal plot popup — shown when a signal row is clicked
+    if (activePlot.showPlot) {
+      const uint32_t pid = activePlot.messageId;
+      const uint32_t psig = activePlot.signalIndex;
+      const bool msgOk = pid < messages.size() && messages[pid] &&
+                         psig < messages[pid]->signalCount && messages[pid]->signals[psig];
+      if (msgOk) {
+        char popupTitle[128];
+        std::snprintf(popupTitle, sizeof(popupTitle), "%s  –  %s###signal_plot_popup",
+                      messages[pid]->name.c_str(), messages[pid]->signals[psig]->name.c_str());
+        ImGui::SetNextWindowSize({520.0f, 300.0f}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSizeConstraints({320.0f, 200.0f}, {2000.0f, 2000.0f});
+        bool open = true;
+        if (ImGui::Begin(popupTitle, &open, ImGuiWindowFlags_None)) {
+          drawSignalPlot(*this, activePlot, palette);
+        }
+        ImGui::End();
+        if (!open) activePlot.showPlot = false;
+      } else {
+        activePlot.showPlot = false;
+      }
     }
   }
   ImGui::End();

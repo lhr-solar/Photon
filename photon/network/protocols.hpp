@@ -107,7 +107,10 @@ using ProtocolTransmitVariant =
     std::variant<TCPConfig, UDPConfig, UARTConfig, PCANConfig, BLEConfig, WLANConfig, Quit>;
 using ProtocolReceiveVariant = std::variant<ProtocolError, ProtocolMessage, ProtocolDeviceList>;
 
+namespace io { class Pre_Fault_Recorder; }
+
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                  TCPConfig config, Arena& arena);
+                  TCPConfig config, Arena& arena,
+                  io::Pre_Fault_Recorder* recorder = nullptr);
 };

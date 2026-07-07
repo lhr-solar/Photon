@@ -797,10 +797,14 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
       float iconY = center.y + sSz.y * 0.25f + iconSize * 0.5f + 4.0f;
       float iconSpacing = iconSize * 1.2f;
 
+      // Turn/hazard flash: ~1.5 Hz square wave. Hazard lights both arrows.
+      bool hazard = state.getBool("Hazard_Pressed");
+      bool flashOn = (static_cast<int>(ImGui::GetTime() * 3.0) % 2) == 0;
+
       // Left Turn Signal
       {
-        ImVec4 lC =
-            (state.turnSignal == TurnSignal::Left) ? Colors::Accent() : Colors::MutedForeground();
+        bool leftActive = (state.turnSignal == TurnSignal::Left) || hazard;
+        ImVec4 lC = (leftActive && flashOn) ? Colors::Accent() : Colors::MutedForeground();
         icons::DrawLeftArrow(dl, ImVec2(cX - iconSpacing * 2.0f, iconY), iconSize, ColorToU32(lC));
       }
       // Cruise Control
@@ -822,8 +826,8 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
       }
       // Right Turn Signal
       {
-        ImVec4 rC =
-            (state.turnSignal == TurnSignal::Right) ? Colors::Accent() : Colors::MutedForeground();
+        bool rightActive = (state.turnSignal == TurnSignal::Right) || hazard;
+        ImVec4 rC = (rightActive && flashOn) ? Colors::Accent() : Colors::MutedForeground();
         icons::DrawRightArrow(dl, ImVec2(cX + iconSpacing * 2.0f, iconY), iconSize, ColorToU32(rC));
       }
     }

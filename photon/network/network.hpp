@@ -10,6 +10,9 @@
 #include "../parse/spmc.hpp"
 #include "protocols.hpp"
 
+// Forward declaration — avoids pulling in the full recorder header here
+namespace io { class Pre_Fault_Recorder; }
+
 struct Network {
   void init();
   void destroy();
@@ -19,6 +22,7 @@ struct Network {
   bool switchDBC(DBCType kind);
   bool switchDBCFile(const std::string& path);
   Parse* parse;
+  io::Pre_Fault_Recorder* recorder{nullptr};
 
   std::jthread backendThread{};
   std::jthread writerThread{};

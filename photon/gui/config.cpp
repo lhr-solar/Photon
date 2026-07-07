@@ -135,7 +135,8 @@ GuiSettings* GuiSettings::get(ImGuiContext* ctx, ImGuiSettingsHandler*) {
 }
 
 void* GuiSettings::readOpenFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name) {
-  if (strcmp(name, "UI") != 0 && strcmp(name, "Theme") != 0 && strcmp(name, "Plot") != 0)
+  if (strcmp(name, "UI") != 0 && strcmp(name, "Theme") != 0 && strcmp(name, "Plot") != 0 &&
+      strcmp(name, "PreFaultRecorder") != 0)
     return nullptr;
   return get(ctx, handler);
 }
@@ -245,6 +246,21 @@ void GuiSettings::readLineFn(ImGuiContext*, ImGuiSettingsHandler*, void* entry, 
     settings->colorScheme.color7 = ImVec4(f0, f1, f2, f3);
     return;
   }
+  if (sscanf(line, "PFR_Enabled=%d", &i0) == 1) {
+    settings->pfrEnabled = i0 != 0;
+    return;
+  }
+  if (sscanf(line, "PFR_WindowS=%d", &i0) == 1) {
+    settings->pfrWindowS = i0;
+    return;
+  }
+  {
+    char buf[512]{};
+    if (sscanf(line, "PFR_LogDirectory=%511[^\n]", buf) == 1) {
+      settings->pfrLogDir = buf;
+      return;
+    }
+  }
 }
 
 void GuiSettings::applyAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler) {
@@ -316,6 +332,12 @@ void GuiSettings::writeAllFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler,
   out_buf->appendf("PlotOffset=%d\n", settings->plotLineSpec.Offset);
   out_buf->appendf("PlotStride=%d\n", settings->plotLineSpec.Stride);
   out_buf->appendf("PlotFlags=%u\n", static_cast<unsigned int>(settings->plotLineSpec.Flags));
+  out_buf->append("\n");
+
+  out_buf->appendf("[Photon][PreFaultRecorder]\n");
+  out_buf->appendf("PFR_Enabled=%d\n", settings->pfrEnabled ? 1 : 0);
+  out_buf->appendf("PFR_WindowS=%d\n", settings->pfrWindowS);
+  out_buf->appendf("PFR_LogDirectory=%s\n", settings->pfrLogDir.c_str());
   out_buf->append("\n");
 }
 

@@ -1,6 +1,8 @@
 file(GLOB gui_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.cpp")
 file(GLOB ddash_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/DDash/*.cpp")
+# Exclude the DashboardOnly entry point from the library — it is an executable main
+list(REMOVE_ITEM ddash_src "${CMAKE_CURRENT_SOURCE_DIR}/DDash/main_standalone.cpp")
 list(APPEND gui_src ${ddash_src})
 
 add_library(photon_http INTERFACE)
@@ -25,6 +27,7 @@ target_link_libraries(gui
     gpu
     network
     parse
+    io
     photon_http
 )
 
@@ -46,6 +49,7 @@ if (PHOTON_UI_HOT_RELOAD)
         gpu
         network
         parse
+        io
         photon_http
     )
 

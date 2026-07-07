@@ -9,6 +9,7 @@ target_link_libraries(engine
     network
     parse
     synth
+    io
     KernelHeaders
     KernelAssets
     ModelHeaders

@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "implot.h"
@@ -45,6 +46,11 @@ struct GuiSettings {
   SelectedColorMode selectedColor = dark;
   ImPlotSpec plotLineSpec{ImPlotProp_LineWeight, 4.0f};
   ImPlotColormap plotColormap = ImPlotColormap_Deep;
+
+  // Pre-Fault Recorder settings
+  bool pfrEnabled{false};
+  int pfrWindowS{30};
+  std::string pfrLogDir{};
 
   static GuiSettings* get(ImGuiContext* ctx, ImGuiSettingsHandler*);
   static void* readOpenFn(ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name);

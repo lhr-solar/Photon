@@ -29,6 +29,9 @@
 #include "nodes.hpp"
 #include "nucleus_frag_spv.hpp"
 #include "uiComponents.hpp"
+#include "exportPanel.hpp"
+#include "recorderSettings.hpp"
+#include "replayPanel.hpp"
 #include "widget.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
@@ -108,6 +111,8 @@ void GUI::exportUI() {
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::label("Export", palette);
+    ImGui::Dummy({0.0f, 6.0f});
+    gui::drawExportPanel(*arena, gpu->window, recorder, &replayController);
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 48.0f);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 110.0f);
     if (PhotonUi::button("CloseExport", "Close", {96.0f, 34.0f}, palette, false, "Close"))
@@ -266,6 +271,134 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
   ImGui::End();
 };
 
+void GUI::replayTransportWindow() {
+  if (!replayController.isLoaded()) return;
+
+  const auto   status    = replayController.status();
+  const bool   isPlaying = (status.state == io::ReplayState::Playing);
+  const PhotonUi::Palette palette = PhotonUi::palette();
+  const float  gap       = ImGui::GetStyle().ItemSpacing.x;
+
+  ImGui::SetNextWindowSize({460.0f, 112.0f}, ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSizeConstraints({320.0f, 112.0f}, {900.0f, 112.0f});
+
+  const ImGuiIO& io = ImGui::GetIO();
+  ImGui::SetNextWindowPos(
+    {(io.DisplaySize.x - 460.0f) * 0.5f, io.DisplaySize.y - 160.0f},
+    ImGuiCond_FirstUseEver);
+
+  // Bring to front only once when replay first loads
+  static bool s_bringToFront = false;
+  static bool s_wasLoaded    = false;
+  const bool  nowLoaded      = replayController.isLoaded();
+  if (nowLoaded && !s_wasLoaded) { s_bringToFront = true; }
+  s_wasLoaded = nowLoaded;
+  if (s_bringToFront) {
+    ImGui::SetNextWindowBringToDisplayFront();
+    s_bringToFront = false;
+  }
+
+  bool open = true;
+  ImGuiWindowFlags wflags = ImGuiWindowFlags_NoScrollbar |
+                            ImGuiWindowFlags_NoScrollWithMouse |
+                            ImGuiWindowFlags_NoCollapse;
+  if (ImGui::Begin("Replay###ReplayTransport", &open, wflags)) {
+
+    // ── Row 1: Play  Stop  |  -  speed  +  ─────────────────────────────
+    if (PhotonUi::button("RT_Play", isPlaying ? "Pause" : "Play",
+                         {60.0f, 28.0f}, palette, isPlaying)) {
+      if (isPlaying) replayController.pause();
+      else           replayController.play();
+    }
+    ImGui::SameLine(0.0f, gap);
+    if (PhotonUi::button("RT_Stop", "Stop", {52.0f, 28.0f}, palette))
+      replayController.stop();
+
+    ImGui::SameLine(0.0f, gap * 2.0f);
+    {
+      ImVec2 p = ImGui::GetCursorScreenPos();
+      ImGui::GetWindowDrawList()->AddLine(
+        {p.x, p.y + 3.0f}, {p.x, p.y + 25.0f},
+        IM_COL32(90, 90, 90, 180), 1.0f);
+      ImGui::Dummy({1.0f, 28.0f});
+    }
+    ImGui::SameLine(0.0f, gap * 2.0f);
+
+    static float s_speed = 1.0f;
+    if (PhotonUi::button("RT_SpeedDn", "-", {28.0f, 28.0f}, palette)) {
+      s_speed = std::max(0.25f, s_speed - 0.25f);
+      replayController.setSpeed(s_speed);
+    }
+    ImGui::SameLine(0.0f, gap);
+    // Show speed as "1.00x" centred in a fixed-width slot
+    char speedBuf[12];
+    std::snprintf(speedBuf, sizeof(speedBuf), "%.2fx", s_speed);
+    ImGui::SetNextItemWidth(52.0f);
+    ImGui::TextUnformatted(speedBuf);
+    ImGui::SameLine(0.0f, gap);
+    if (PhotonUi::button("RT_SpeedUp", "+", {28.0f, 28.0f}, palette)) {
+      s_speed = std::min(10.0f, s_speed + 0.25f);
+      replayController.setSpeed(s_speed);
+    }
+
+    ImGui::Spacing();
+
+    // ── Row 2: time label centred, then full-width slider ────────────────
+    const double recStart = status.startTime;
+    double el             = status.playheadTime - recStart;
+    double dur            = status.duration > 0.0 ? status.duration : 1.0;
+    double elMin          = 0.0;
+
+    auto fmtEl = [](char* b, int n, double s) {
+      if (s < 0.0) s = 0.0;
+      int m = static_cast<int>(s) / 60;
+      double sec = s - m * 60.0;
+      std::snprintf(b, n, "%d:%06.3f", m, sec);
+    };
+    char elBuf[16], durBuf[16], labelBuf[40];
+    fmtEl(elBuf,  sizeof(elBuf),  el);
+    fmtEl(durBuf, sizeof(durBuf), dur);
+    std::snprintf(labelBuf, sizeof(labelBuf), "%s / %s", elBuf, durBuf);
+
+    // Slider — empty format so grab is clean; label drawn separately above
+    const float availW = ImGui::GetContentRegionAvail().x;
+    const ImVec2 tSz   = ImGui::CalcTextSize(labelBuf);
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availW - tSz.x) * 0.5f);
+    ImGui::TextUnformatted(labelBuf);
+
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::SliderScalar("##RT_seek", ImGuiDataType_Double,
+                            &el, &elMin, &dur, ""))
+      replayController.seek(recStart + el);
+
+    // Fault markers
+    const auto& faults = replayController.faultTimestamps();
+    if (!faults.empty() && dur > 0.0) {
+      const ImVec2 sMin = ImGui::GetItemRectMin();
+      const ImVec2 sMax = ImGui::GetItemRectMax();
+      ImDrawList*  dl   = ImGui::GetWindowDrawList();
+      for (double ft : faults) {
+        const double t = ft - recStart;
+        if (t < 0.0 || t > dur) continue;
+        const float frac = static_cast<float>(t / dur);
+        const float x    = sMin.x + frac * (sMax.x - sMin.x);
+        dl->AddLine({x, sMin.y}, {x, sMax.y}, IM_COL32(220, 40, 40, 220), 2.0f);
+      }
+    }
+  }
+  ImGui::End();
+
+  if (!open)
+    replayController.stop();
+}
+
+void GUI::replayPage(ImGuiWindowFlags flags) {
+  if (ImGui::Begin("Replay", nullptr, flags)) {
+    gui::drawReplayPanel(replayController, *arena, network, gpu->window, recorder);
+  }
+  ImGui::End();
+};
+
 void GUI::setTabs() {
   tabs.list.clear();
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "Plots"));
@@ -274,6 +407,7 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
   tabs.list.push_back(
       Tab::bind<ui::DashboardTab, &ui::DashboardTab::draw>(ui::dashboardTab(), "Dashboard"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::replayPage>(*this, "Replay"));
 };
 
 void GUI::buildUI() {
@@ -290,11 +424,14 @@ void GUI::buildUI() {
   titleBar.activePage = "Navigation";
   if (!tabs.list.empty() && tabs.index < tabs.list.size())
     titleBar.activePage = tabs.list[tabs.index].name;
+  titleBar.recorder          = recorder;
+  titleBar.replayController  = &replayController;
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
 
   /* stateful UI building */
+  replayTransportWindow();
   ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
   ImGui::Render();
   render();

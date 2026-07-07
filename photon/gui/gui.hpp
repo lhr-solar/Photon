@@ -1,6 +1,7 @@
 #pragma once
 #include "../gpu/gpu.hpp"
 #include "../gpu/shader.hpp"
+#include "../io/replay_controller.hpp"
 #include "../network/network.hpp"
 #include "../parse/arena.hpp"
 #include "../parse/spmc.hpp"
@@ -11,6 +12,9 @@
 #include "tabs.hpp"
 #include "titlebar.hpp"
 #include "updater.hpp"
+
+// Forward-declare only — keeps the pointer-only dependency out of the full header
+namespace io { class Pre_Fault_Recorder; }
 
 struct GUI {
   void init(GPU& gpu, Arena& arena, Network& network);
@@ -28,11 +32,14 @@ struct GUI {
   void testFunc(ImGuiWindowFlags flags);
   void plotTest(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
+  void replayPage(ImGuiWindowFlags flags);
+  void replayTransportWindow();   // floating transport — shown whenever replay is loaded
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
 
   GPU* gpu;
   Arena* arena;
   Network* network;
+  io::Pre_Fault_Recorder* recorder{nullptr};
 
   TitleBar titleBar{};
   Sidebar sideBar{};
@@ -45,6 +52,7 @@ struct GUI {
   bool updateAvailable = false;
   std::vector<Plots> plots;
   Updater updater;
+  io::Replay_Controller replayController{};
 };
 
 /* forward function handles */

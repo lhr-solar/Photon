@@ -31,6 +31,52 @@ void Photon::init() {
   logs("Initialized Network");
   gui.init(gpu, parse.arena, network);
   logs("Initialized GUI");
+  gui.recorder = &recorder;
+  // Init recorder — read persisted settings from gui.settings (populated by ImGui INI load)
+  io::Pre_Fault_Recorder::Config recCfg;
+  recCfg.enabled             = gui.settings.pfrEnabled;
+  recCfg.pre_fault_window_s  = (gui.settings.pfrWindowS > 0) ? gui.settings.pfrWindowS : 30;
+
+  // Log directory: use persisted setting, fall back to Documents/PhotonLogs
+  namespace fs = std::filesystem;
+  if (!gui.settings.pfrLogDir.empty()) {
+    recCfg.log_directory = gui.settings.pfrLogDir;
+  } else {
+#ifdef _WIN32
+    {
+      const char* userProfile = std::getenv("USERPROFILE");
+      if (userProfile)
+        recCfg.log_directory = std::string(userProfile) + "\\Documents\\PhotonLogs";
+      else
+        recCfg.log_directory = (fs::current_path() / "PhotonLogs").string();
+    }
+#else
+    {
+      const char* home = std::getenv("HOME");
+      if (home)
+        recCfg.log_directory = std::string(home) + "/Documents/PhotonLogs";
+      else
+        recCfg.log_directory = (fs::current_path() / "PhotonLogs").string();
+    }
+#endif
+    // Write the resolved default back so the Settings panel shows it
+    // and so it gets persisted to the INI on next save.
+    gui.settings.pfrLogDir = recCfg.log_directory;
+  }
+
+  // Auto-trigger on BPS fault (BPS_Fault > 0 = any fault code)
+  recCfg.autoTriggers.push_back({"BPS_Fault",              2, 0.0}); // > 0
+  // Auto-trigger on VCU fault signals (any == 1 = fault detected)
+  recCfg.autoTriggers.push_back({"VCU_BPS_FAULT_DETECTED",      3, 0.5}); // >= 1
+  recCfg.autoTriggers.push_back({"VCU_CONTROLS_FAULT_DETECTED", 3, 0.5});
+  recCfg.autoTriggers.push_back({"VCU_MTR_FAULT_DETECTED",      3, 0.5});
+  recCfg.autoTriggers.push_back({"VCU_PEDALS_FAULT_DETECTED",   3, 0.5});
+  recCfg.autoTriggers.push_back({"VCU_STEERING_FAULT_DETECTED", 3, 0.5});
+
+  recorder.setArena(&parse.arena);
+  recorder.init(recCfg);
+  network.recorder = &recorder;
+  logs("Initialized Pre-Fault Recorder");
 }
 
 void Photon::renderLoop() {
@@ -57,6 +103,7 @@ void Photon::renderLoop() {
 
 void Photon::destroy() {
   if (gpuAsyncDispatches.load(std::memory_order_relaxed) != 0) std::quick_exit(0);
+  recorder.destroy();
   gui.destroy();
   gpu.destroy();
   network.destroy();
@@ -245,6 +292,10 @@ bool Photon::reloadUI() {
 void Photon::appLogic() {
   ZoneScopedN("Photon::appLogic");
   handleInput();
+
+  // Advance replay playhead each frame
+  gui.replayController.tick(deltaTime / 1000.0, parse.arena);
+
 #if !defined(NDEBUG) && (defined(__linux__) || defined(_WIN32))
   if (!reloadUI()) {
     ImGui::NewFrame();

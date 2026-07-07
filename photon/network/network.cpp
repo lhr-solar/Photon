@@ -17,7 +17,7 @@ void Network::startTCP(TCPConfig config) {
   stopWriterUnlocked();
   activeTCPConfig = config;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, recorder);
   });
 }
 
@@ -37,7 +37,7 @@ void Network::restartWriterUnlocked() {
   if (!activeTCPConfig || !parse) return;
   const TCPConfig config = *activeTCPConfig;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, recorder);
   });
 }
 

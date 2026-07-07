@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cstdio>
 #include <string_view>
 
+#include "../io/pre_fault_recorder.hpp"
+#include "../io/replay_controller.hpp"
 #include "SDL3/SDL.h"
 #include "im_anim.h"
 #include "imgui.h"
@@ -172,7 +175,7 @@ void TitleBar::draw() {
         iam_tween_float(ImHashStr("TitleCollapsedSidebarHeader"), ImHashStr("alpha"),
                         showSidebar ? 0.0f : 1.0f, 0.18f, iam_ease_preset(iam_ease_out_quad),
                         iam_policy_crossfade, ImGui::GetIO().DeltaTime, showSidebar ? 0.0f : 1.0f);
-    drawCollapsedSidebarHeader(draw, {sidebarButton.max.x + 4.0f, 0.0f},
+    drawCollapsedSidebarHeader(draw, {sidebarButton.max.x + 80.0f, 0.0f},
                                {controlsX - 10.0f, barHeight}, activePage, collapsedHeaderAlpha);
 
     ImGui::SetCursorPos(ImVec2(controlsX, 0.0f));
@@ -200,6 +203,64 @@ void TitleBar::draw() {
     addInteract(closeButton.min, closeButton.max);
 
     ImGui::PopStyleVar();
+
+    // ── Left badge: Replay status (if active) or Recorder status ───────────
+    {
+      const bool replayActive = replayController && replayController->isLoaded();
+
+      const char* badgeText = nullptr;
+      ImU32       badgeCol  = IM_COL32(120, 120, 120, 200);
+
+      if (replayActive) {
+        const auto rpStatus = replayController->status();
+        switch (rpStatus.state) {
+          case io::ReplayState::Playing:
+            badgeText = "|| REPLAY";
+            badgeCol  = IM_COL32(220, 60, 60, 230);
+            break;
+          case io::ReplayState::Paused:
+            badgeText = ">> REPLAY";
+            badgeCol  = IM_COL32(210, 140, 40, 230);
+            break;
+          default:
+            badgeText = "REPLAY";
+            badgeCol  = IM_COL32(180, 60, 60, 200);
+            break;
+        }
+      } else if (recorder) {
+        const auto recState = recorder->state();
+        switch (recState) {
+          case io::Pre_Fault_Recorder::State::Recording:
+            badgeText = "● REC";
+            badgeCol  = IM_COL32(60, 210, 100, 230);
+            break;
+          case io::Pre_Fault_Recorder::State::Sealing:
+            badgeText = "SAVING...";
+            badgeCol  = IM_COL32(240, 195, 50, 230);
+            break;
+          case io::Pre_Fault_Recorder::State::Error:
+            badgeText = "REC ERR";
+            badgeCol  = IM_COL32(240, 80, 80, 230);
+            break;
+          default:
+            badgeText = "REC OFF";
+            badgeCol  = IM_COL32(120, 120, 120, 200);
+            break;
+        }
+      }
+
+      if (badgeText) {
+        const float fontSize = ImGui::GetFontSize();
+        const float textY    = (barHeight - fontSize) * 0.5f;
+        const float badgeX   = sidebarButton.max.x + 8.0f;
+
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const ImVec2 winPos = ImGui::GetWindowPos();
+        dl->AddText(nullptr, 0.0f,
+                    ImVec2(winPos.x + badgeX, winPos.y + textY),
+                    badgeCol, badgeText);
+      }
+    }
   }
   ImGui::End();
   ImGui::PopStyleColor();

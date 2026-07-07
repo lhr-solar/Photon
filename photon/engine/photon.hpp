@@ -1,4 +1,5 @@
 #pragma once
+#include "../io/pre_fault_recorder.hpp"
 #include "gpu.hpp"
 #include "gui.hpp"
 #include "include.hpp"
@@ -11,6 +12,7 @@ struct Photon {
   GUI gui{};
   Network network{};
   Parse parse{};
+  io::Pre_Fault_Recorder recorder{};
   bool running = true;
   double deltaTime = 16.67 * 1000;
   void init();

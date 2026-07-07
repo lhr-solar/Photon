@@ -41,6 +41,7 @@ add_subdirectory(network)
 add_subdirectory(parse)
 add_subdirectory(synth)
 add_subdirectory(gui)
+add_subdirectory(io)
 add_subdirectory(engine)
 
 add_executable(Photon engine/main.cpp)
@@ -72,3 +73,15 @@ if (PHOTON_UI_HOT_RELOAD)
         PHOTON_BUILD_DIR="${CMAKE_BINARY_DIR}"
     )
 endif()
+
+# DashboardOnly — standalone dashboard without network/synth stack.
+# Compiled with PHOTON_DASHBOARD_ONLY so network_suspender stubs are used
+# and no network/synth symbols are required at link time.
+add_executable(DashboardOnly gui/DDash/main_standalone.cpp)
+target_compile_definitions(DashboardOnly PRIVATE PHOTON_DASHBOARD_ONLY)
+target_link_libraries(DashboardOnly
+    PRIVATE
+    engine
+    io
+    $<$<PLATFORM_ID:Linux>:dl>
+)

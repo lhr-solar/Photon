@@ -150,6 +150,9 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
 
   drainNetworkLog(network, log);
 
+  // Disable connection controls while in Replay_Mode (Req 5.3, 5.4)
+  const bool replayActive = (replayController.status().state != io::ReplayState::Idle);
+
   if (ImGui::Begin("Network", nullptr, flags)) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -168,6 +171,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
     if (PhotonUi::beginPanel("##NetworkConfig", {rightWidth, std::max(180.0f, avail.y * 0.48f)},
                              palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
+      ImGui::BeginDisabled(replayActive);
       if (selected == 0) {
         if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 34.0f}, palette, true))
           submit(network, daqConfig);
@@ -197,6 +201,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
         if (PhotonUi::button("ApplyWlan", "Apply", {96.0f, 34.0f}, palette, true))
           submit(network, wlanConfig);
       }
+      ImGui::EndDisabled();
     }
     PhotonUi::endPanel();
 
