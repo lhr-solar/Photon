@@ -316,154 +316,295 @@ static std::string FaultDisplayText(const Fault& fault) {
 static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 14.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
 
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 1.0f));
     ImGui::BeginChild("##BatteryPanel", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
+    ImGui::SetWindowFontScale(1.35f);
     {
         float avW = ImGui::GetContentRegionAvail().x;
         float avH = ImGui::GetContentRegionAvail().y;
         ImDrawList* dl = ImGui::GetWindowDrawList();
 
+        // ── Battery section ──────────────────────────────────────────────
+        // SOC estimated from pack voltage using nonlinear 32S Li-ion equation:
+        //   SOC = 100 * ((V - 83.2) / 51.2) ^ 0.55   clamped [0, 100]
         {
-            char currentLabel[16];
-            snprintf(currentLabel, sizeof(currentLabel), "%.0fA",
-                 std::abs(state.get("Main_Battery_Current")));
-            ImGuiIO& io = ImGui::GetIO();
-            ImFont* medFont = (io.Fonts->Fonts.Size > 2)
-                      ? io.Fonts->Fonts[2] : nullptr;
-            float fs = 28.0f;
-            if (medFont) {
-            ImVec2 sz = medFont->CalcTextSizeA(fs, FLT_MAX, 0, currentLabel);
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            float centeredX = pos.x + (avW - sz.x) * 0.5f;
-            dl->AddText(medFont, fs, ImVec2(centeredX, pos.y), ColorToU32(Colors::Foreground()), currentLabel);
-            ImGui::Dummy(ImVec2(sz.x, sz.y));
-            } else {
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-            ImGui::Text("%s", currentLabel);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::TextUnformatted("BATTERY");
             ImGui::PopStyleColor();
-            }
         }
-        widgets::Space(12.0f);
 
-        // Helper lambda to draw a battery row
-        auto drawBatteryRow = [&](const char* rowLabel, float soc, float voltage, float currentStr = -999.0f) {
-            float boundedSoc = std::clamp(soc, 0.0f, 100.0f);
-            ImVec4 batColor = GetBatteryColor(boundedSoc);
-            float labelW = 32.0f;
-            float voltW = currentStr != -999.0f ? 110.0f : 52.0f;
-            float barW = avW - labelW - voltW - 16.0f;
-            if (barW < 40.0f) barW = 40.0f;
+        // Main battery — bar (smaller) + pack current to the right
+        {
+            const float mainVoltage  = (float)state.get("Main_Battery_Voltage");
+            const float packCurrent  = (float)state.get("Main_Battery_Current");
 
-            // Row label (M or AU)
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-            ImGui::SetWindowFontScale(1.3f);
-            ImGui::Text("%s", rowLabel);
-            ImGui::SetWindowFontScale(1.0f);
+            // Nonlinear SOC estimate for 32S Li-ion pack
+            float socEst = 0.0f;
+            {
+                float ratio = (mainVoltage - 83.2f) / 51.2f;
+                if (ratio > 0.0f)
+                    socEst = 100.0f * std::pow(ratio, 0.55f);
+                socEst = std::clamp(socEst, 0.0f, 100.0f);
+            }
+
+            const ImGuiIO& io2 = ImGui::GetIO();
+            ImFont* medFont = (io2.Fonts->Fonts.Size > 2) ? io2.Fonts->Fonts[2] : nullptr;
+
+            // Layout: [label] [bar] [voltage] [current (big)]
+            const float labelW   = 48.0f;
+            const float voltW    = 52.0f;
+            const float gap      = 6.0f;
+            const float currentW = 80.0f;
+            const float barW     = std::max(40.0f, avW - labelW - voltW - currentW - gap * 3.0f);
+            const float barH     = 22.0f;
+            const float rowH     = barH;
+
+            // "Main" label
+            ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Main");
             ImGui::PopStyleColor();
-            ImGui::SameLine(labelW + 4.0f);
+            ImGui::SameLine(labelW + gap);
 
-            // SOC bar with percentage overlay
+            // SOC bar
             {
                 ImVec2 barPos = ImGui::GetCursorScreenPos();
-                float barH = 36.0f; // Thinner battery bar
-                float rounding = 3.0f;
+                barPos.y += (rowH - barH) * 0.5f;
+                ImVec4 batColor  = GetBatteryColor(socEst);
+                float  rounding  = 3.0f;
 
-                // Background
-                ImVec4 bgCol = ColorWithAlpha(Colors::Muted(), 0.5f);
-                dl->AddRectFilled(barPos,
-                    ImVec2(barPos.x + barW, barPos.y + barH),
-                    ColorToU32(bgCol), rounding);
-                // Fill
-                float pct = boundedSoc / 100.0f;
-                float fillW = barW * pct;
-                if (pct > 0.0f && fillW < 2.0f) fillW = 2.0f;
-                if (fillW > 0.0f) {
-                    ImDrawFlags fillFlags = ImDrawFlags_RoundCornersLeft;
-                    if (fillW >= barW - 0.5f) fillFlags = ImDrawFlags_RoundCornersAll;
-                    float fillR = std::min(rounding, fillW * 0.5f);
-                    dl->AddRectFilled(barPos,
-                        ImVec2(barPos.x + fillW, barPos.y + barH),
-                        ColorToU32(batColor), fillR, fillFlags);
+                dl->AddRectFilled(barPos, ImVec2(barPos.x + barW, barPos.y + barH),
+                                  ColorToU32(ColorWithAlpha(Colors::Muted(), 0.5f)), rounding);
+
+                float fillW = barW * (socEst / 100.0f);
+                if (fillW > 1.0f) {
+                    ImDrawFlags ff = (fillW >= barW - 0.5f)
+                                   ? ImDrawFlags_RoundCornersAll : ImDrawFlags_RoundCornersLeft;
+                    dl->AddRectFilled(barPos, ImVec2(barPos.x + fillW, barPos.y + barH),
+                                      ColorToU32(batColor), std::min(rounding, fillW * 0.5f), ff);
                 }
+                dl->AddRect(barPos, ImVec2(barPos.x + barW, barPos.y + barH),
+                            ColorToU32(ColorWithAlpha(Colors::MutedForeground(), 0.42f)), rounding);
 
-                dl->AddRect(barPos,
-                    ImVec2(barPos.x + barW, barPos.y + barH),
-                    ColorToU32(ColorWithAlpha(Colors::MutedForeground(), 0.42f)),
-                    rounding, 0, 1.0f);
-
+                // SOC % centered in bar
                 char socTxt[8];
-                snprintf(socTxt, sizeof(socTxt), "%.0f%%", boundedSoc);
-                ImVec2 socSz = ImGui::CalcTextSize(socTxt);
-                ImVec2 socPos(
-                    barPos.x + (barW - socSz.x) * 0.5f,
-                    barPos.y + (barH - socSz.y) * 0.5f);
-
-                dl->AddText(socPos, ColorToU32(Colors::Foreground()), socTxt);
+                snprintf(socTxt, sizeof(socTxt), "%.0f%%", socEst);
+                ImVec2 sSz = ImGui::CalcTextSize(socTxt);
+                dl->AddText(ImVec2(barPos.x + (barW - sSz.x) * 0.5f,
+                                   barPos.y + (barH - sSz.y) * 0.5f),
+                            ColorToU32(Colors::Foreground()), socTxt);
                 if (fillW > 0.5f) {
                     dl->PushClipRect(barPos, ImVec2(barPos.x + fillW, barPos.y + barH), true);
-                    dl->AddText(socPos, ColorToU32(Colors::PrimaryForeground()), socTxt);
+                    dl->AddText(ImVec2(barPos.x + (barW - sSz.x) * 0.5f,
+                                       barPos.y + (barH - sSz.y) * 0.5f),
+                                ColorToU32(Colors::PrimaryForeground()), socTxt);
                     dl->PopClipRect();
                 }
-
-                ImGui::Dummy(ImVec2(barW, barH));
+                ImGui::Dummy(ImVec2(barW, rowH));
             }
 
-            ImGui::SameLine(0, 8.0f);
-
-            // Voltage and Optional Current
+            // Voltage
+            ImGui::SameLine(0, gap);
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::SetWindowFontScale(1.2f);
-            if (currentStr != -999.0f) {
-                ImGui::Text("%.0fV  %.0fA", voltage, currentStr);
-            } else {
-                ImGui::Text("%.0fV", voltage);
-            }
-            ImGui::SetWindowFontScale(1.0f);
+            ImGui::Text("%.0fV", mainVoltage);
             ImGui::PopStyleColor();
-        };
 
-        drawBatteryRow("M",  (float)state.get("BPS_SoC"), (float)state.get("Main_Battery_Voltage"));
-        widgets::Space(6);
-        drawBatteryRow("AU", (float)state.get("Supplemental_Battery_SOC"),
-                       (float)state.get("Supplemental_Battery_Voltage"),
-                       (float)(state.get("Supplemental_Battery_Current") * 0.001));
+            // Pack current — larger font to the right
+            ImGui::SameLine(0, gap);
+            {
+                char aTxt[16];
+                snprintf(aTxt, sizeof(aTxt), "%.0f A", std::abs(packCurrent));
+                float fs = 26.0f;
+                ImVec2 pos = ImGui::GetCursorScreenPos();
+                if (medFont) {
+                    ImVec2 sz = medFont->CalcTextSizeA(fs, FLT_MAX, 0, aTxt);
+                    pos.y += (rowH - sz.y) * 0.5f;
+                    dl->AddText(medFont, fs, pos, ColorToU32(Colors::Foreground()), aTxt);
+                    ImGui::Dummy(ImVec2(currentW, rowH));
+                } else {
+                    ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+                    ImGui::Text("%s", aTxt);
+                    ImGui::PopStyleColor();
+                }
+            }
+        }
 
-        widgets::Space(12);
+        widgets::Space(2);
 
-        // MoCo : Heatsink temp, Voltage, Current
+        // Aux battery — no bar, just label + voltage + current inline
         {
-            const float labelW = 56.0f;
-            const float colStart = labelW + 6.0f;
-            const float colW = std::max(40.0f, (avW - colStart) / 3.0f);
+            const float auxVoltage = (float)state.get("Supplemental_Battery_Voltage");
+            const float auxCurrent = (float)(state.get("Supplemental_Battery_Current") * 0.001);
+            const float auxSoc     = (float)state.get("Supplemental_Battery_SOC");
 
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-            ImGui::SetWindowFontScale(1.10f);
-            ImGui::TextUnformatted("MoCo");
-            ImGui::SetWindowFontScale(1.6f);
-            ImGui::PopStyleColor();
-
-            char hsTxt[24];
-            char vTxt[24];
-            char aTxt[24];
-            snprintf(hsTxt, sizeof(hsTxt), "%.0fC", state.get("MC_HeatsinkTemp"));
-            snprintf(vTxt,  sizeof(vTxt),  "%.0fV", state.get("MC_BusVoltage"));
-            snprintf(aTxt,  sizeof(aTxt),  "%.0fA", std::abs(state.get("MC_BusCurrent")));
-
-            ImGui::SameLine(colStart);
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::TextUnformatted(hsTxt);
-
-            ImGui::SameLine(colStart + colW);
-            ImGui::TextUnformatted(vTxt);
-
-            ImGui::SameLine(colStart + colW * 2.0f);
-            ImGui::TextUnformatted(aTxt);
-            ImGui::SetWindowFontScale(1.0f);
+            ImGui::Text("Aux");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(48.0f + 8.0f);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.0f V  %.0f A  %.0f%%", auxVoltage, auxCurrent, auxSoc);
             ImGui::PopStyleColor();
         }
 
-        widgets::Space(12);
+        widgets::Space(0);
+
+        // ── Motor Controller ─────────────────────────────────────────────
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::TextUnformatted("MOTOR CONTROLLER");
+            ImGui::PopStyleColor();
+        }
+
+        // Two-column labeled grid: label on left, value on right
+        // Columns: [label col] [value col] [label col] [value col]
+        {
+            const float valColW  = std::max(60.0f, avW * 0.22f);
+            const float lblColW  = std::max(70.0f, avW * 0.27f);
+            const float col0     = 0.0f;
+            const float col1     = col0 + lblColW;
+            const float col2     = col1 + valColW + 8.0f;
+            const float col3     = col2 + lblColW;
+
+            const float mcHeatsinkTemp = (float)state.get("MC_HeatsinkTemp");
+            const float mcMotorTemp    = (float)state.get("MC_MotorTemp");
+
+            ImVec4 mtCol = mcMotorTemp > 90.0f ? Colors::Destructive()
+                         : mcMotorTemp > 70.0f ? Colors::Warning()
+                                               : Colors::Foreground();
+
+            // Row 1: Heatsink Temp | Motor Temp
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Heatsink");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col1);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.0f \xC2\xB0""C", mcHeatsinkTemp);
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col2);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Motor Temp");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col3);
+            ImGui::PushStyleColor(ImGuiCol_Text, mtCol);
+            ImGui::Text("%.0f \xC2\xB0""C", mcMotorTemp);
+            ImGui::PopStyleColor();
+
+            // Row 2: Bus Voltage | Bus Current
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Bus Voltage");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col1);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.0f V", state.get("MC_BusVoltage"));
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col2);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Bus Current");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col3);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.0f A", std::abs(state.get("MC_BusCurrent")));
+            ImGui::PopStyleColor();
+        }
+
+        widgets::Space(4);
+
+        // ── Motor Commands ───────────────────────────────────────────────
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::TextUnformatted("MOTOR COMMANDS");
+            ImGui::PopStyleColor();
+        }
+        {
+            const float valColW  = std::max(60.0f, avW * 0.22f);
+            const float lblColW  = std::max(70.0f, avW * 0.27f);
+            const float col0     = 0.0f;
+            const float col1     = col0 + lblColW;
+            const float col2     = col1 + valColW + 8.0f;
+            const float col3     = col2 + lblColW;
+
+            const float driveVel = (float)state.get("MC_MotorVelocitySetpoint");
+            const float driveCur = (float)state.get("MC_MotorCurrentSetpoint") * 100.0f;
+            const float powerCmd = (float)state.get("MC_MotorPowerSetpoint") * 100.0f;
+            const float prechargeMotorV = (float)state.get("VCU_Precharge_Motor_Voltage");
+            const float prechargeBattV  = (float)state.get("VCU_Precharge_Battery_Voltage");
+
+            // Row 1: Drive Velocity | Drive Current
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Drive Vel");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col1);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.0f rpm", driveVel);
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col2);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Drive Cur");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col3);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.0f %%", driveCur);
+            ImGui::PopStyleColor();
+
+            // Row 2: Power Cmd | (empty)
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Power Cmd");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col1);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.0f %%", powerCmd);
+            ImGui::PopStyleColor();
+
+            widgets::Space(0);
+
+            // Row 3: Precharge Motor | Precharge Battery
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Pre Motor");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col1);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.1f V", prechargeMotorV);
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col2);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+            ImGui::Text("Pre Batt");
+            ImGui::PopStyleColor();
+            ImGui::SameLine(col3);
+            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+            ImGui::Text("%.1f V", prechargeBattV);
+            ImGui::PopStyleColor();
+        }
+
+        // ── Motor Limit Flags ────────────────────────────────────────────
+        {
+            const bool limitMotorCurrent     = state.getBool("MC_LIMIT_MotorCurrent");
+            const bool limitVelocity         = state.getBool("MC_LIMIT_Velocity");
+            const bool limitBusCurrent       = state.getBool("MC_LIMIT_BusCurrent");
+            const bool limitBusVoltageUpper  = state.getBool("MC_LIMIT_BusVoltageUpper");
+            const bool limitBusVoltageLower  = state.getBool("MC_LIMIT_BusVoltageLower");
+            const bool limitMotorTemp        = state.getBool("MC_LIMIT_MotorTemp");
+            const bool limitOutputVoltage    = state.getBool("MC_LIMIT_OutputVoltagePWM");
+            const bool anyLimit = limitMotorCurrent || limitVelocity || limitBusCurrent ||
+                                  limitBusVoltageUpper || limitBusVoltageLower ||
+                                  limitMotorTemp || limitOutputVoltage;
+            if (anyLimit) {
+                widgets::Space(4);
+                ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning());
+                ImGui::TextUnformatted("MOTOR LIMITS ACTIVE:");
+                if (limitMotorCurrent)    { ImGui::SameLine(); ImGui::TextUnformatted(" Motor A"); }
+                if (limitVelocity)        { ImGui::SameLine(); ImGui::TextUnformatted(" Velocity"); }
+                if (limitBusCurrent)      { ImGui::SameLine(); ImGui::TextUnformatted(" Bus A"); }
+                if (limitBusVoltageUpper) { ImGui::SameLine(); ImGui::TextUnformatted(" Bus Hi V"); }
+                if (limitBusVoltageLower) { ImGui::SameLine(); ImGui::TextUnformatted(" Bus Lo V"); }
+                if (limitMotorTemp)       { ImGui::SameLine(); ImGui::TextUnformatted(" Temp"); }
+                if (limitOutputVoltage)   { ImGui::SameLine(); ImGui::TextUnformatted(" PWM"); }
+                ImGui::PopStyleColor();
+            }
+        }
+
+        widgets::Space(4);
 
         // Faults already surfaced by the big banner (see RenderFaultBanner)
         // don't need to repeat in this list.
@@ -500,24 +641,64 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
                 ImGui::Text("+%zu more", listFaults.size() - static_cast<size_t>(visibleRows));
                 ImGui::PopStyleColor();
             }
-            widgets::Space(10);
+            widgets::Space(2);
         }
 
         const float mainBatteryAvgTemp = (float)state.get("Main_Battery_Avg_Temperature");
         if (mainBatteryAvgTemp > 0.0f) {
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning());
-            ImGui::Text("BPS AVG: %.1fC", mainBatteryAvgTemp);
+            ImGui::Text("Avg Batt Temp: %.1f \xC2\xB0""C", mainBatteryAvgTemp);
             ImGui::PopStyleColor();
-            widgets::Space(6);
+            widgets::Space(2);
         }
 
         {
-            char extremaTxt[96];
-            if (FormatBpsExtremaSummary(state, extremaTxt, sizeof(extremaTxt))) {
+            // Show extrema as labeled rows        {
+            // Show extrema as labeled rows rather than a packed single line
+            const BpsExtrema extrema = ComputeBpsExtrema(state);
+            if (extrema.minVoltIdx >= 0 || extrema.maxVoltIdx >= 0 || extrema.maxTempIdx >= 0) {
                 ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-                ImGui::TextUnformatted(extremaTxt);
+                ImGui::TextUnformatted("CELL EXTREMA");
                 ImGui::PopStyleColor();
-                widgets::Space(6);
+
+                const float valColW  = std::max(60.0f, avW * 0.22f);
+                const float lblColW  = std::max(70.0f, avW * 0.27f);
+                const float col1     = lblColW;
+                const float col2     = col1 + valColW + 8.0f;
+                const float col3     = col2 + lblColW;
+
+                if (extrema.minVoltIdx >= 0) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+                    ImGui::Text("Low Cell");
+                    ImGui::PopStyleColor();
+                    ImGui::SameLine(col1);
+                    ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+                    ImGui::Text("#%d  %.2f V", extrema.minVoltIdx, extrema.minVolt);
+                    ImGui::PopStyleColor();
+                }
+                if (extrema.maxVoltIdx >= 0) {
+                    ImGui::SameLine(col2);
+                    ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+                    ImGui::Text("High Cell");
+                    ImGui::PopStyleColor();
+                    ImGui::SameLine(col3);
+                    ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+                    ImGui::Text("#%d  %.2f V", extrema.maxVoltIdx, extrema.maxVolt);
+                    ImGui::PopStyleColor();
+                }
+                if (extrema.maxTempIdx >= 0) {
+                    ImVec4 hotCol = extrema.maxTemp > 50.0f ? Colors::Destructive()
+                                 : extrema.maxTemp > 35.0f ? Colors::Warning()
+                                                           : Colors::Foreground();
+                    ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+                    ImGui::Text("Hottest");
+                    ImGui::PopStyleColor();
+                    ImGui::SameLine(col1);
+                    ImGui::PushStyleColor(ImGuiCol_Text, hotCol);
+                    ImGui::Text("#%d  %.1f \xC2\xB0""C", extrema.maxTempIdx, extrema.maxTemp);
+                    ImGui::PopStyleColor();
+                }
+                widgets::Space(4);
             }
         }
 
@@ -559,6 +740,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         }
     }
     ImGui::EndChild();
+    ImGui::PopStyleVar(); // ItemSpacing
 
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor();
@@ -948,9 +1130,7 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                 ImVec4 pressureCol =
                     (state.getBool("Brake_Pressure_1_Fault") || state.getBool("Brake_Pressure_2_Fault"))
                         ? Colors::Warning()
-                        : ((std::max(brakePressure1, brakePressure2) > 25.0f)
-                               ? Colors::Destructive()
-                               : Colors::MutedForeground());
+                        : Colors::MutedForeground();
                 float pressureFs = std::min(42.0f, std::max(27.0f, iconSize * 0.87f));
                 float pressureY = pbY + pbH + 10.0f;
                 ImVec2 pSz = medFont
