@@ -41,6 +41,10 @@ void drawExportPanel(Arena& arena, SDL_Window* window,
 
         // Per-file recording exports (keyed by filename for stable identity)
         std::vector<FileExportState> fileStates;
+
+        // Browse-any-pog section
+        bool        pogBrowseActive{false};
+        FileExportState pogBrowsed{};
     };
     static State s;
 
@@ -91,6 +95,62 @@ void drawExportPanel(Arena& arena, SDL_Window* window,
         ImGui::Separator();
         ImGui::Dummy({0.0f, 4.0f});
         PhotonUi::label("Recordings", palette);
+        ImGui::Dummy({0.0f, 4.0f});
+
+        // ── Browse any .pog file ─────────────────────────────────────────
+        // Poll for a file picked via the open dialog
+        {
+            std::string picked = gui::pollPogOpenPath();
+            if (!picked.empty()) {
+                s.pogBrowseActive       = false;
+                s.pogBrowsed.path       = picked;
+                s.pogBrowsed.attempted  = false;
+                s.pogBrowsed.ok         = false;
+                s.pogBrowsed.message.clear();
+            }
+        }
+
+        if (PhotonUi::button("BrowsePog",
+                             s.pogBrowseActive ? "..." : "Browse .pog\xe2\x80\xa6",
+                             {140.0f, 28.0f}, palette)) {
+            if (!s.pogBrowseActive) {
+                s.pogBrowseActive = true;
+                gui::openPogOpenDialog(window);
+            }
+        }
+
+        if (!s.pogBrowsed.path.empty()) {
+            ImGui::SameLine(0.0f, gap);
+            namespace fs = std::filesystem;
+            ImGui::TextUnformatted(fs::path(s.pogBrowsed.path).filename().string().c_str());
+            ImGui::SameLine(0.0f, gap);
+            if (PhotonUi::button("ExportBrowsedCSV", "Export to CSV",
+                                 {120.0f, 24.0f}, palette,
+                                 /*disabled=*/false)) {
+                fs::path csvPath = fs::path(s.pogBrowsed.path);
+                csvPath.replace_extension(".csv");
+                const auto loadStats = replayCtrl->load(s.pogBrowsed.path, arena, nullptr);
+                if (!loadStats.ok) {
+                    s.pogBrowsed.ok       = false;
+                    s.pogBrowsed.message  = "Load failed: " + loadStats.message;
+                } else {
+                    const io::ExportResult result = io::exportArena(arena, csvPath.string());
+                    s.pogBrowsed.ok      = result.ok;
+                    s.pogBrowsed.message = result.ok ? result.outputPath : result.message;
+                }
+                s.pogBrowsed.attempted = true;
+            }
+            if (s.pogBrowsed.attempted) {
+                ImGui::PushStyleColor(ImGuiCol_Text,
+                    s.pogBrowsed.ok ? ImVec4(0.36f, 0.87f, 0.50f, 1.0f)
+                                    : ImVec4(0.95f, 0.35f, 0.35f, 1.0f));
+                ImGui::TextUnformatted(s.pogBrowsed.message.c_str());
+                ImGui::PopStyleColor();
+            }
+        }
+
+        ImGui::Dummy({0.0f, 4.0f});
+        ImGui::Separator();
         ImGui::Dummy({0.0f, 4.0f});
 
         const std::string logDir = recorder->logDirectory();

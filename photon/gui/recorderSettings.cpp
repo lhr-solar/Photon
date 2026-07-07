@@ -108,7 +108,7 @@ void drawRecorderSettings(io::Pre_Fault_Recorder& rec, Arena& /*arena*/, SDL_Win
 
     // Poll save dialog result — when user confirms, seal to that path
     {
-        std::string picked = gui::pollCsvSavePath();
+        std::string picked = gui::pollPhotonlogSavePath();
         if (!picked.empty()) {
             s.saveDialogActive = false;
             // Ensure .photonlog extension

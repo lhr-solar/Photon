@@ -6,7 +6,9 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cstdio>
 #include <cstdint>
+#include <ctime>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -47,6 +49,24 @@ static std::string serializeDouble(double v) {
                                    v, std::chars_format::general, 17);
     (void)ec; // errc::value_too_large cannot occur with a 32-byte buffer
     return std::string(buf, ptr);
+}
+
+/// Convert a Unix epoch seconds value to a local-time string.
+/// Format: YYYY-MM-DD HH:MM:SS.mmm CDT (or whatever the local TZ is).
+static std::string unixToLocalTime(double unix_s) {
+    if (unix_s <= 0.0) return {};
+    std::time_t t = static_cast<std::time_t>(unix_s);
+    int ms = static_cast<int>((unix_s - static_cast<double>(t)) * 1000.0);
+    std::tm* tm = std::localtime(&t);
+    if (!tm) return {};
+    char buf[64];
+    // e.g. "2026-07-06 14:32:07.123 CDT"
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
+    char full[80];
+    char tz[16]{};
+    std::strftime(tz, sizeof(tz), "%Z", tm);
+    std::snprintf(full, sizeof(full), "%s.%03d %s", buf, ms, tz);
+    return full;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +135,8 @@ ExportResult exportArena(const Arena& arena, const std::string& outputPath) {
     // Header row (Req 2.2, 2.4)
     // -----------------------------------------------------------------------
     WRITE_OR_ERR(writeStr("timestamp_s"));
+    WRITE_OR_ERR(writeCh(','));
+    WRITE_OR_ERR(writeStr("timestamp_local"));
     for (const auto& col : columns) {
         WRITE_OR_ERR(writeCh(','));
         WRITE_OR_ERR(writeStr(quotedField(col.header)));
@@ -204,6 +226,14 @@ ExportResult exportArena(const Arena& arena, const std::string& outputPath) {
         // the cell is written as empty but the row is still emitted.
 
         WRITE_OR_ERR(writeStr(tsStr));
+
+        // Local time column
+        WRITE_OR_ERR(writeCh(','));
+        if (!tsStr.empty()) {
+            double unix_s = 0.0;
+            std::from_chars(tsStr.data(), tsStr.data() + tsStr.size(), unix_s);
+            WRITE_OR_ERR(writeStr(quotedField(unixToLocalTime(unix_s))));
+        }
 
         for (size_t c = 0; c < columns.size(); ++c) {
             WRITE_OR_ERR(writeCh(','));

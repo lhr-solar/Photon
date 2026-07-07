@@ -17,5 +17,8 @@ void        openCsvSaveDialog(SDL_Window* window);    // CSV save picker (async)
 void        openPhotonlogSaveDialog(SDL_Window* window, const char* defaultName); // .photonlog save picker (async)
 std::string pollCsvOpenPath();  // drain the open result (empty = not ready yet)
 std::string pollCsvSavePath();  // drain the save result
+std::string pollPhotonlogSavePath(); // drain the .pog save result
+void        openPogOpenDialog(SDL_Window* window);   // open any .pog file (export panel)
+std::string pollPogOpenPath();       // drain the pog open result
 
 } // namespace gui

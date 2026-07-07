@@ -107,7 +107,7 @@ void GUI::settingsUI() {
 void GUI::updateUI() { updater.drawUI(updateAvailable); };
 
 void GUI::exportUI() {
-  const bool open = PhotonUi::beginModal("Export", {420.0f, 220.0f});
+  const bool open = PhotonUi::beginModal("Export", {480.0f, 520.0f});
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::label("Export", palette);
@@ -294,7 +294,7 @@ void GUI::replayTransportWindow() {
   if (nowLoaded && !s_wasLoaded) { s_bringToFront = true; }
   s_wasLoaded = nowLoaded;
   if (s_bringToFront) {
-    ImGui::SetNextWindowBringToDisplayFront();
+    ImGui::SetNextWindowFocus();
     s_bringToFront = false;
   }
 

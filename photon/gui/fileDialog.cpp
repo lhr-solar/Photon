@@ -23,6 +23,16 @@ static std::mutex  s_saveMtx;
 static std::string s_savePending;
 static bool        s_saveHasResult = false;
 
+// Separate slot for .pog save dialog (recorder settings "Save" button)
+static std::mutex  s_pogSaveMtx;
+static std::string s_pogSavePending;
+static bool        s_pogSaveHasResult = false;
+
+// Separate slot for .pog open dialog (export panel "Browse .pog" button)
+static std::mutex  s_pogOpenMtx;
+static std::string s_pogOpenPending;
+static bool        s_pogOpenHasResult = false;
+
 // ---------------------------------------------------------------------------
 // Helpers: strip the "file://" scheme that SDL sometimes prepends on Windows
 // ---------------------------------------------------------------------------
@@ -66,9 +76,31 @@ static void SDLCALL onSaveResult(void* /*userdata*/,
     }
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+static void SDLCALL onPogSaveResult(void* /*userdata*/,
+                                     const char* const* filelist,
+                                     int /*filter*/) {
+    std::lock_guard lock(s_pogSaveMtx);
+    if (filelist && filelist[0]) {
+        s_pogSavePending   = normalise(filelist[0]);
+        s_pogSaveHasResult = true;
+    } else {
+        s_pogSaveHasResult = false;
+    }
+}
+
+static void SDLCALL onPogOpenResult(void* /*userdata*/,
+                                     const char* const* filelist,
+                                     int /*filter*/) {
+    std::lock_guard lock(s_pogOpenMtx);
+    if (filelist && filelist[0]) {
+        s_pogOpenPending   = normalise(filelist[0]);
+        s_pogOpenHasResult = true;
+    } else {
+        s_pogOpenHasResult = false;
+    }
+}
+
+
 static const SDL_DialogFileFilter kCsvFilters[] = {
     {"CSV files", "csv"},
     {"All files", "*"},
@@ -103,8 +135,8 @@ static const SDL_DialogFileFilter kPhotonlogFilters[] = {
 static constexpr int kPhotonlogFilterCount = 2;
 
 void openPhotonlogSaveDialog(SDL_Window* window, const char* defaultName) {
-    { std::lock_guard lock(s_saveMtx); s_saveHasResult = false; s_savePending.clear(); }
-    SDL_ShowSaveFileDialog(onSaveResult, nullptr, window,
+    { std::lock_guard lock(s_pogSaveMtx); s_pogSaveHasResult = false; s_pogSavePending.clear(); }
+    SDL_ShowSaveFileDialog(onPogSaveResult, nullptr, window,
                            kPhotonlogFilters, kPhotonlogFilterCount,
                            defaultName ? defaultName : "recording.pog");
 }
@@ -121,6 +153,27 @@ std::string pollCsvSavePath() {
     if (!s_saveHasResult) return {};
     s_saveHasResult = false;
     return std::move(s_savePending);
+}
+
+std::string pollPhotonlogSavePath() {
+    std::lock_guard lock(s_pogSaveMtx);
+    if (!s_pogSaveHasResult) return {};
+    s_pogSaveHasResult = false;
+    return std::move(s_pogSavePending);
+}
+
+void openPogOpenDialog(SDL_Window* window) {
+    { std::lock_guard lock(s_pogOpenMtx); s_pogOpenHasResult = false; s_pogOpenPending.clear(); }
+    SDL_ShowOpenFileDialog(onPogOpenResult, nullptr, window,
+                           kPhotonlogFilters, kPhotonlogFilterCount,
+                           nullptr, false);
+}
+
+std::string pollPogOpenPath() {
+    std::lock_guard lock(s_pogOpenMtx);
+    if (!s_pogOpenHasResult) return {};
+    s_pogOpenHasResult = false;
+    return std::move(s_pogOpenPending);
 }
 
 } // namespace gui
