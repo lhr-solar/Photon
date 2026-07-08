@@ -95,7 +95,7 @@ struct GPU {
   bool queryPhysicalDeviceId();
 
   uint32_t width = 1280;
-  uint32_t height = 720;
+  uint32_t height = 800;
   bool resizePending = false;
   TitleBar* titleBar = nullptr;
   VkInstance instance{VK_NULL_HANDLE};
