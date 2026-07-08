@@ -2498,6 +2498,21 @@ void GPU::configureTransparentWindow() {
 
 #else
 SDL_Window* GPU::createWindow() {
+  // On kiosk/embedded builds query the display's native resolution so the
+  // window always matches the physical screen size (avoids clipping on
+  // displays like 1024x768 when the default 1280x720 is wider).
+  {
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    if (display != 0) {
+      const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+      if (!mode) mode = SDL_GetDesktopDisplayMode(display);
+      if (mode && mode->w > 0 && mode->h > 0) {
+        width  = static_cast<uint32_t>(mode->w);
+        height = static_cast<uint32_t>(mode->h);
+      }
+    }
+  }
+
   SDL_PropertiesID properties = SDL_CreateProperties();
   if (properties != 0) {
     SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Photon");
