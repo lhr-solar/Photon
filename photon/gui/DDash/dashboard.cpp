@@ -1475,8 +1475,8 @@ static void RenderDebugScreen(AppState& liveState) {
 
 void RenderDashboard(AppState& state) {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(io.DisplaySize);
+    // The canvas system already called SetNextWindowPos/Size with the correct
+    // content region (full screen minus sidebar and title bar). Don't override.
     ImGuiWindowFlags flags =
         ImGuiWindowFlags_NoTitleBar   |
         ImGuiWindowFlags_NoResize     |

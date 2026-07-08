@@ -61,6 +61,16 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
     titleBar.enabled = false;
     kioskMode = true;
 #if defined(PHOTON_DASHBOARD_ONLY) && defined(LINUX)
+    // Go fullscreen at the display's native resolution so the dashboard
+    // always fills the physical screen regardless of what resolution the
+    // CM5 is driving. Without this, the 1280×720 default window is wider
+    // than many embedded displays and the right side of the UI is clipped.
+    if (gpu.window) {
+      SDL_SetWindowFullscreen(gpu.window, true);
+      // Force a resize event so the swapchain and ImGui DisplaySize update
+      // immediately on the next frame rather than waiting for the OS.
+      gpu.resizePending = true;
+    }
     // Kiosk build has no Networks tab to start ingest from; read the local
     // CAN bus (candump, default channel can0) automatically. Started directly
     // rather than via guiRxCommandBuffer: the backend thread's queue reader
