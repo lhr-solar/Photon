@@ -2,20 +2,15 @@
 
 #include <algorithm>
 #include <cmath>
-#include <csignal>
 #include <cstddef>
 #include <cstdio>
-#include <locale>
 #include <string>
 #include <vector>
 
 #include "../gpu/shader.hpp"
 #include "DDash/dashboard_tab.h"
 #include "arena.hpp"
-#include "bits_frag_spv.hpp"
-#include "box_frag_spv.hpp"
 #include "config.hpp"
-#include "crude_json.h"
 #include "custom_shader_vert_spv.hpp"
 #include "glowButton_frag_spv.hpp"
 #include "gpuGui.hpp"
@@ -24,14 +19,12 @@
 #include "imgui_internal.h"
 #include "imnodes.h"
 #include "implot.h"
-#include "implot3d.h"
 #include "lens_frag_spv.hpp"
 #include "newCar_glb.hpp"
-#include "nodes.hpp"
-#include "nucleus_frag_spv.hpp"
 #include "plots.hpp"
 #include "uiComponents.hpp"
 #include "widget.hpp"
+#include "track_glb.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   this->gpu = &gpu;
@@ -45,6 +38,8 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
                           (uint32_t*)lens_frag_spv, lens_frag_spv_size);
   buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                             (uint32_t*)glowButton_frag_spv, glowButton_frag_spv_size);
+
+  scene.addModel("track_glb", track_glb, track_glb_size, false);
   scene.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
   scene.dispatchInit(gpu);
 }
@@ -142,24 +137,22 @@ void GUI::carMap(ImGuiWindowFlags flags) {
   SceneFrame fallbackFrame{};
   SceneFrame& frame = ready ? scene.frames[*scene.frameIndex] : fallbackFrame;
 
-  ImGui::SetNextWindowSize(ImVec2(frame.extent.width, frame.extent.height), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowBgAlpha(0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
   if (ImGui::Begin("scene", nullptr, flags)) {
+    ImVec2 drawSize = ImGui::GetContentRegionAvail();
+    drawSize.x = std::max(drawSize.x, 1.0f);
+    drawSize.y = std::max(drawSize.y, 1.0f);
     if (ready) {
-      const VkExtent2D nextExtent =
-          quantizeContentExtent(ImGui::GetContentRegionAvail(), frame.extent);
+      const VkExtent2D nextExtent = quantizeContentExtent(drawSize, frame.extent);
       if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
         frame.extent = nextExtent;
         scene.dirty = true;
       }
     }
 
-    ImVec2 drawSize(frame.extent.width, frame.extent.height);
-    drawSize.x = std::max(drawSize.x, 1.0f);
-    drawSize.y = std::max(drawSize.y, 1.0f);
     if (ready) {
       const bool sceneVisible = ImGui::IsRectVisible(drawSize);
       if (sceneVisible) scene.showing = true;

@@ -36,12 +36,20 @@ struct SceneObject {
   tinygltf::TinyGLTF loader{};
   tinygltf::Model model{};
   std::vector<GltfVertex> vertices{};
+  std::vector<uint32_t> indices{};
   std::vector<TextureResource> gltfTexturesSrgb{};
   std::vector<TextureResource> gltfTexturesLinear{};
   std::vector<MaterialRuntime> materials{};
+  struct DrawItem {
+    uint32_t firstIndex{0};
+    uint32_t indexCount{0};
+    uint32_t materialIndex{0};
+  };
   std::vector<DrawItem> drawItems{};
   VkBuffer vertexBuffer{VK_NULL_HANDLE};
   VkDeviceMemory vertexBufferMemory{VK_NULL_HANDLE};
+  VkBuffer indexBuffer{VK_NULL_HANDLE};
+  VkDeviceMemory indexBufferMemory{VK_NULL_HANDLE};
   std::vector<VkBuffer> materialUniformBuffers{};
   std::vector<VkDeviceMemory> materialUniformMemories{};
   std::vector<VkDescriptorSet> materialDescriptorSets{};

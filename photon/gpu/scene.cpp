@@ -19,6 +19,12 @@
 
 namespace {
 
+struct ScenePrimitiveRange {
+  uint32_t firstIndex{0};
+  uint32_t indexCount{0};
+  int materialIndex{-1};
+};
+
 bool hasStencilComponent(VkFormat format) {
   return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT ||
          format == VK_FORMAT_D16_UNORM_S8_UINT;
@@ -257,11 +263,9 @@ void loadObjectTextures(Scene& scene, SceneObject& object, GPU& gpu) {
   }
 }
 
-void createObjectVertexBuffer(SceneObject& object, GPU& gpu) {
-  if (object.vertices.empty()) return;
-  const VkDeviceSize bufferSize =
-      static_cast<VkDeviceSize>(object.vertices.size() * sizeof(GltfVertex));
-
+void uploadDeviceLocalBuffer(GPU& gpu, const void* data, VkDeviceSize bufferSize,
+                             VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& memory) {
+  if (data == nullptr || bufferSize == 0) return;
   VkBuffer stagingBuffer = VK_NULL_HANDLE;
   VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
   createBufferResource(gpu, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -270,12 +274,11 @@ void createObjectVertexBuffer(SceneObject& object, GPU& gpu) {
 
   void* mapped = nullptr;
   vkMapMemory(gpu.device, stagingMemory, 0, bufferSize, 0, &mapped);
-  std::memcpy(mapped, object.vertices.data(), static_cast<size_t>(bufferSize));
+  std::memcpy(mapped, data, static_cast<size_t>(bufferSize));
   vkUnmapMemory(gpu.device, stagingMemory);
 
-  createBufferResource(
-      gpu, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, object.vertexBuffer, object.vertexBufferMemory);
+  createBufferResource(gpu, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
+                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, memory);
 
   VkCommandBufferAllocateInfo allocInfo{};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -292,7 +295,7 @@ void createObjectVertexBuffer(SceneObject& object, GPU& gpu) {
 
   VkBufferCopy copy{};
   copy.size = bufferSize;
-  vkCmdCopyBuffer(commandBuffer, stagingBuffer, object.vertexBuffer, 1, &copy);
+  vkCmdCopyBuffer(commandBuffer, stagingBuffer, buffer, 1, &copy);
   vkEndCommandBuffer(commandBuffer);
 
   VkSubmitInfo submitInfo{};
@@ -305,6 +308,21 @@ void createObjectVertexBuffer(SceneObject& object, GPU& gpu) {
 
   gpu.destroyBuffer(stagingBuffer);
   gpu.freeMemory(stagingMemory);
+}
+
+void createObjectGeometryBuffers(SceneObject& object, GPU& gpu) {
+  if (object.vertices.empty() || object.indices.empty()) return;
+  const VkDeviceSize vertexBufferSize =
+      static_cast<VkDeviceSize>(object.vertices.size() * sizeof(GltfVertex));
+  const VkDeviceSize indexBufferSize =
+      static_cast<VkDeviceSize>(object.indices.size() * sizeof(uint32_t));
+
+  uploadDeviceLocalBuffer(gpu, object.vertices.data(), vertexBufferSize,
+                          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, object.vertexBuffer,
+                          object.vertexBufferMemory);
+  uploadDeviceLocalBuffer(gpu, object.indices.data(), indexBufferSize,
+                          VK_BUFFER_USAGE_INDEX_BUFFER_BIT, object.indexBuffer,
+                          object.indexBufferMemory);
 }
 
 void createObjectMaterialResources(Scene& scene, SceneObject& object, GPU& gpu) {
@@ -564,12 +582,12 @@ glm::vec3 readColorValue(const uint8_t* colorData, size_t colorStride, int color
   return color;
 }
 
-void emitPrimitiveVertex(const uint8_t* posData, size_t posStride, const uint8_t* normalData,
-                         size_t normalStride, bool hasNormals, const uint8_t* uvData,
-                         size_t uvStride, bool hasUV0, const uint8_t* colorData, size_t colorStride,
-                         int colorType, int colorComponentType, bool colorNormalized, bool hasColor,
-                         uint32_t vertexIndex, const glm::mat4& worldMatrix,
-                         std::vector<GltfVertex>& outVertices) {
+uint32_t emitPrimitiveVertex(const uint8_t* posData, size_t posStride, const uint8_t* normalData,
+                             size_t normalStride, bool hasNormals, const uint8_t* uvData,
+                             size_t uvStride, bool hasUV0, const uint8_t* colorData,
+                             size_t colorStride, int colorType, int colorComponentType,
+                             bool colorNormalized, bool hasColor, uint32_t vertexIndex,
+                             const glm::mat4& worldMatrix, std::vector<GltfVertex>& outVertices) {
   const float* p = reinterpret_cast<const float*>(posData + vertexIndex * posStride);
   const glm::vec4 worldPos = worldMatrix * glm::vec4(p[0], p[1], p[2], 1.0f);
   const glm::vec3 color = readColorValue(colorData, colorStride, colorType, colorComponentType,
@@ -600,6 +618,7 @@ void emitPrimitiveVertex(const uint8_t* posData, size_t posStride, const uint8_t
   vertex.normal[1] = normal.y;
   vertex.normal[2] = normal.z;
   outVertices.push_back(vertex);
+  return static_cast<uint32_t>(outVertices.size() - 1);
 }
 
 glm::mat4 nodeLocalMatrix(const tinygltf::Node& node) {
@@ -635,7 +654,8 @@ glm::mat4 nodeLocalMatrix(const tinygltf::Node& node) {
 
 void appendPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primitive& primitive,
                              const glm::mat4& worldMatrix, std::vector<GltfVertex>& outVertices,
-                             std::vector<PrimitiveRange>& outRanges) {
+                             std::vector<uint32_t>& outIndices,
+                             std::vector<ScenePrimitiveRange>& outRanges) {
   const auto posIt = primitive.attributes.find("POSITION");
   if (posIt == primitive.attributes.end()) return;
 
@@ -724,12 +744,14 @@ void appendPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primi
     }
   }
 
-  const uint32_t firstVertex = static_cast<uint32_t>(outVertices.size());
+  const uint32_t firstIndex = static_cast<uint32_t>(outIndices.size());
   if (primitive.indices < 0) {
     for (uint32_t i = 0; i < posAccessor.count; i++) {
-      emitPrimitiveVertex(posData, posStride, normalData, normalStride, hasNormals, uvData,
-                          uvStride, hasUV0, colorData, colorStride, colorType, colorComponentType,
-                          colorNormalized, hasColor, i, worldMatrix, outVertices);
+      const uint32_t vertex = emitPrimitiveVertex(
+          posData, posStride, normalData, normalStride, hasNormals, uvData, uvStride, hasUV0,
+          colorData, colorStride, colorType, colorComponentType, colorNormalized, hasColor, i,
+          worldMatrix, outVertices);
+      outIndices.push_back(vertex);
     }
   } else {
     const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
@@ -747,6 +769,7 @@ void appendPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primi
     const size_t indexStride = indexAccessor.ByteStride(indexView)
                                    ? indexAccessor.ByteStride(indexView)
                                    : tinygltf::GetComponentSizeInBytes(indexAccessor.componentType);
+    std::vector<uint32_t> remap(posAccessor.count, std::numeric_limits<uint32_t>::max());
 
     for (uint32_t i = 0; i < indexAccessor.count; i++) {
       const uint8_t* p = indexData + i * indexStride;
@@ -759,29 +782,36 @@ void appendPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primi
         index = *reinterpret_cast<const uint32_t*>(p);
       else
         continue;
+      if (index >= posAccessor.count) continue;
 
-      emitPrimitiveVertex(posData, posStride, normalData, normalStride, hasNormals, uvData,
-                          uvStride, hasUV0, colorData, colorStride, colorType, colorComponentType,
-                          colorNormalized, hasColor, index, worldMatrix, outVertices);
+      uint32_t& vertex = remap[index];
+      if (vertex == std::numeric_limits<uint32_t>::max()) {
+        vertex = emitPrimitiveVertex(posData, posStride, normalData, normalStride, hasNormals,
+                                     uvData, uvStride, hasUV0, colorData, colorStride, colorType,
+                                     colorComponentType, colorNormalized, hasColor, index,
+                                     worldMatrix, outVertices);
+      }
+      outIndices.push_back(vertex);
     }
   }
 
-  const uint32_t vertexCount = static_cast<uint32_t>(outVertices.size()) - firstVertex;
-  if (vertexCount > 0) outRanges.push_back({firstVertex, vertexCount, primitive.material});
+  const uint32_t indexCount = static_cast<uint32_t>(outIndices.size()) - firstIndex;
+  if (indexCount > 0) outRanges.push_back({firstIndex, indexCount, primitive.material});
 }
 
 void appendNodeMesh(const tinygltf::Model& model, int nodeIndex, const glm::mat4& parentMatrix,
-                    std::vector<GltfVertex>& outVertices, std::vector<PrimitiveRange>& outRanges) {
+                    std::vector<GltfVertex>& outVertices, std::vector<uint32_t>& outIndices,
+                    std::vector<ScenePrimitiveRange>& outRanges) {
   const tinygltf::Node& node = model.nodes[nodeIndex];
   const glm::mat4 world = parentMatrix * nodeLocalMatrix(node);
   if (node.mesh >= 0) {
     const tinygltf::Mesh& mesh = model.meshes[node.mesh];
     for (const tinygltf::Primitive& primitive : mesh.primitives) {
-      appendPrimitiveVertices(model, primitive, world, outVertices, outRanges);
+      appendPrimitiveVertices(model, primitive, world, outVertices, outIndices, outRanges);
     }
   }
   for (int child : node.children) {
-    appendNodeMesh(model, child, world, outVertices, outRanges);
+    appendNodeMesh(model, child, world, outVertices, outIndices, outRanges);
   }
 }
 
@@ -789,6 +819,7 @@ void loadObject(SceneObject& object) {
   object.loader = tinygltf::TinyGLTF{};
   object.model = tinygltf::Model{};
   object.vertices.clear();
+  object.indices.clear();
   object.drawItems.clear();
   object.materials.clear();
   object.loaded = false;
@@ -807,12 +838,13 @@ void loadObject(SceneObject& object) {
   const int sceneIndex = object.model.defaultScene >= 0 ? object.model.defaultScene : 0;
   if (sceneIndex < 0 || sceneIndex >= static_cast<int>(object.model.scenes.size())) return;
 
-  std::vector<PrimitiveRange> ranges;
+  std::vector<ScenePrimitiveRange> ranges;
   const tinygltf::Scene& scene = object.model.scenes[sceneIndex];
   for (int nodeIndex : scene.nodes) {
-    appendNodeMesh(object.model, nodeIndex, glm::mat4(1.0f), object.vertices, ranges);
+    appendNodeMesh(object.model, nodeIndex, glm::mat4(1.0f), object.vertices, object.indices,
+                   ranges);
   }
-  if (object.vertices.empty()) return;
+  if (object.vertices.empty() || object.indices.empty()) return;
 
   object.materials.reserve(object.model.materials.size() + 1);
   for (const tinygltf::Material& material : object.model.materials) {
@@ -881,10 +913,10 @@ void loadObject(SceneObject& object) {
   }
   if (object.materials.empty()) object.materials.push_back(MaterialRuntime{});
 
-  for (const PrimitiveRange& range : ranges) {
-    DrawItem item{};
-    item.firstVertex = range.firstVertex;
-    item.vertexCount = range.vertexCount;
+  for (const ScenePrimitiveRange& range : ranges) {
+    SceneObject::DrawItem item{};
+    item.firstIndex = range.firstIndex;
+    item.indexCount = range.indexCount;
     item.materialIndex =
         range.materialIndex >= 0 && range.materialIndex < static_cast<int>(object.materials.size())
             ? static_cast<uint32_t>(range.materialIndex)
@@ -892,7 +924,7 @@ void loadObject(SceneObject& object) {
     object.drawItems.push_back(item);
   }
   if (object.drawItems.empty()) {
-    object.drawItems.push_back({0u, static_cast<uint32_t>(object.vertices.size()), 0u});
+    object.drawItems.push_back({0u, static_cast<uint32_t>(object.indices.size()), 0u});
   }
 
   object.loaded = true;
@@ -1295,7 +1327,7 @@ void Scene::finishInit(GPU& gpu) {
   for (SceneObject& object : objects) {
     if (!object.loaded) continue;
     loadObjectTextures(*this, object, gpu);
-    createObjectVertexBuffer(object, gpu);
+    createObjectGeometryBuffers(object, gpu);
     createObjectMaterialResources(*this, object, gpu);
   }
 
@@ -1405,7 +1437,9 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
                           &frame.frameDescriptorSet, 0, nullptr);
 
   for (const SceneObject& object : objects) {
-    if (!object.loaded || object.vertexBuffer == VK_NULL_HANDLE) continue;
+    if (!object.loaded || object.vertexBuffer == VK_NULL_HANDLE ||
+        object.indexBuffer == VK_NULL_HANDLE)
+      continue;
 
     ScenePushConstants pushConstants{};
     pushConstants.resolution[0] = static_cast<float>(frame.extent.width);
@@ -1418,12 +1452,13 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &object.vertexBuffer, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, object.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    for (const DrawItem& item : object.drawItems) {
+    for (const SceneObject::DrawItem& item : object.drawItems) {
       if (item.materialIndex >= object.materialDescriptorSets.size()) continue;
       vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, scenePipelineLayout,
                               1, 1, &object.materialDescriptorSets[item.materialIndex], 0, nullptr);
-      vkCmdDraw(commandBuffer, item.vertexCount, 1, item.firstVertex, 0);
+      vkCmdDrawIndexed(commandBuffer, item.indexCount, 1, item.firstIndex, 0, 0);
     }
   }
   vkCmdEndRenderPass(commandBuffer);
@@ -1501,8 +1536,12 @@ void Scene::destroy() {
 
     if (object.vertexBuffer != VK_NULL_HANDLE) gpu->destroyBuffer(object.vertexBuffer);
     if (object.vertexBufferMemory != VK_NULL_HANDLE) gpu->freeMemory(object.vertexBufferMemory);
+    if (object.indexBuffer != VK_NULL_HANDLE) gpu->destroyBuffer(object.indexBuffer);
+    if (object.indexBufferMemory != VK_NULL_HANDLE) gpu->freeMemory(object.indexBufferMemory);
     object.vertexBuffer = VK_NULL_HANDLE;
     object.vertexBufferMemory = VK_NULL_HANDLE;
+    object.indexBuffer = VK_NULL_HANDLE;
+    object.indexBufferMemory = VK_NULL_HANDLE;
 
     for (TextureResource& texture : object.gltfTexturesSrgb) destroyTexture(*this, texture);
     for (TextureResource& texture : object.gltfTexturesLinear) destroyTexture(*this, texture);
