@@ -223,32 +223,37 @@ LoadStats Replay_Controller::loadPhotonLog(const std::string& path, Arena& arena
     const uint64_t capacity = header.record_capacity;
 
     // Guard against degenerate files
-    if (capacity == 0) {
+    if (capacity == 0 && header.write_cursor == 0) {
         std::fclose(fp);
         stats.ok      = true;
         stats.message = "Loaded 0 frames from '" + path + "' (empty recording)";
         return stats;
     }
 
-    // 4. Read all record_capacity records at once (Req 7.3, 7.4)
-    std::vector<PhotonLog_Record> records(static_cast<std::size_t>(capacity));
+    // Unbounded recording: record_capacity == 0, write_cursor == total frames written.
+    const bool unbounded  = (capacity == 0);
+    const uint64_t nSlots = unbounded ? header.write_cursor : capacity;
+
+    // 4. Read all record slots at once (Req 7.3, 7.4)
+    std::vector<PhotonLog_Record> records(static_cast<std::size_t>(nSlots));
     const std::size_t nRead = std::fread(records.data(),
                                          sizeof(PhotonLog_Record),
-                                         static_cast<std::size_t>(capacity),
+                                         static_cast<std::size_t>(nSlots),
                                          fp);
     std::fclose(fp);
 
-    if (nRead != static_cast<std::size_t>(capacity)) {
+    if (nRead != static_cast<std::size_t>(nSlots)) {
         stats.ok      = false;
         stats.message = "Unexpected end of .pog file '" + path
-                        + "': expected " + std::to_string(capacity)
+                        + "': expected " + std::to_string(nSlots)
                         + " records, got " + std::to_string(nRead);
         return stats;
     }
 
     // 5. Reconstruct chronological order from circular log (Req 7.3, 7.4, 7.5)
-    //    oldest_slot = write_cursor % record_capacity
-    const uint64_t oldest_slot = header.write_cursor % capacity;
+    // For unbounded files the records are already in order (linear append),
+    // so oldest_slot = 0.  For circular files oldest_slot = write_cursor % capacity.
+    const uint64_t oldest_slot = unbounded ? 0 : (header.write_cursor % capacity);
 
     uint32_t unmatchedColumns = 0;
     uint32_t malformedRows    = 0;
@@ -256,8 +261,8 @@ LoadStats Replay_Controller::loadPhotonLog(const std::string& path, Arena& arena
     std::vector<ReplayFrame> frames;
     frames.reserve(static_cast<std::size_t>(capacity));
 
-    for (uint64_t i = 0; i < capacity; ++i) {
-        const uint64_t slot_idx = (oldest_slot + i) % capacity;
+    for (uint64_t i = 0; i < nSlots; ++i) {
+        const uint64_t slot_idx = (oldest_slot + i) % nSlots;
         const PhotonLog_Record& rec = records[static_cast<std::size_t>(slot_idx)];
 
         // Skip malformed records (signal_count == 0) — Req 7.7

@@ -132,7 +132,8 @@ void drawRecorderSettings(io::Pre_Fault_Recorder& rec, Arena& /*arena*/, SDL_Win
 
         if (PhotonUi::button("RecOn", "ON", {toggleW, 28.0f}, palette, isOn)) {
             if (!isOn) {
-                s.cfg.enabled = true;
+                s.cfg.enabled   = true;
+                s.cfg.unbounded = true;   // record linearly until user saves/stops
                 rec.reconfigure(s.cfg);
             }
         }
@@ -140,7 +141,8 @@ void drawRecorderSettings(io::Pre_Fault_Recorder& rec, Arena& /*arena*/, SDL_Win
         if (PhotonUi::button("RecOff", "OFF", {toggleW, 28.0f}, palette, !isOn)) {
             if (isOn) {
                 rec.triggerSeal();
-                s.cfg.enabled = false;
+                s.cfg.enabled   = false;
+                s.cfg.unbounded = false;
                 rec.reconfigure(s.cfg);
             }
         }

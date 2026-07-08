@@ -26,6 +26,10 @@ public:
         bool        enabled{false};
         int         pre_fault_window_s{30};  // clamped to [5, 300]
         std::string log_directory;           // default: Documents/PhotonLogs
+        // When true: file grows linearly — no circular overwrite, no size cap.
+        // Intended for manual "record until I say stop" sessions.
+        // When false (default): circular rolling buffer of pre_fault_window_s seconds.
+        bool        unbounded{false};
         // Primary (user-configurable) threshold shown in settings panel
         std::string threshold_signal;        // empty = disabled
         int         threshold_comparator{0}; // 0=< 1=<= 2=> 3=>= 4=== 5=!=

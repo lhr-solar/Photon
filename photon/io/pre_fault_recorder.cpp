@@ -182,17 +182,21 @@ void Pre_Fault_Recorder::ioLoop() {
 void Pre_Fault_Recorder::flushBatch() {
     if (!fp_ || batch_size_ == 0) return;
 
-  
-    const uint64_t write_slot  = header_.write_cursor; // before this batch
-    const long     byte_offset = static_cast<long>(
-        sizeof(PhotonLog_Header) +
-        write_slot * sizeof(PhotonLog_Record));
+    // In bounded mode the file is a circular buffer: seek to the slot position.
+    // In unbounded mode the file pointer is already positioned at the end of the
+    // last write — just append sequentially without seeking.
+    if (!cfg_.unbounded) {
+        const uint64_t write_slot  = header_.write_cursor;
+        const long     byte_offset = static_cast<long>(
+            sizeof(PhotonLog_Header) +
+            write_slot * sizeof(PhotonLog_Record));
 
-    if (std::fseek(fp_, byte_offset, SEEK_SET) != 0) {
-        last_error_ = "fseek failed before fwrite";
-        state_.store(State::Error, std::memory_order_release);
-        batch_size_ = 0;
-        return;
+        if (std::fseek(fp_, byte_offset, SEEK_SET) != 0) {
+            last_error_ = "fseek failed before fwrite";
+            state_.store(State::Error, std::memory_order_release);
+            batch_size_ = 0;
+            return;
+        }
     }
 
     const size_t written = std::fwrite(write_batch_,
@@ -208,9 +212,16 @@ void Pre_Fault_Recorder::flushBatch() {
         return;
     }
 
-    header_.write_cursor =
-        (header_.write_cursor + batch_size_) % header_.record_capacity;
+    if (cfg_.unbounded) {
+        // In unbounded mode write_cursor is the total frame count (no wrap).
+        header_.write_cursor += batch_size_;
+    } else {
+        // In bounded mode wrap within record_capacity.
+        header_.write_cursor =
+            (header_.write_cursor + batch_size_) % header_.record_capacity;
+    }
 
+    // Update write_cursor in the on-disk header.
     if (std::fseek(fp_,
                    static_cast<long>(offsetof(PhotonLog_Header, write_cursor)),
                    SEEK_SET) != 0)
@@ -222,6 +233,12 @@ void Pre_Fault_Recorder::flushBatch() {
     }
 
     std::fwrite(&header_.write_cursor, sizeof(uint64_t), 1, fp_);
+
+    // In unbounded mode restore the file pointer to the end so the next
+    // fwrite appends correctly.
+    if (cfg_.unbounded) {
+        std::fseek(fp_, 0, SEEK_END);
+    }
 
     batch_size_ = 0;
 }
@@ -423,20 +440,27 @@ bool Pre_Fault_Recorder::openRollingFile() {
     }
 
     // ── Compute record capacity ────────────────────────────────────────────
-    const uint64_t raw_capacity =
-        static_cast<uint64_t>(cfg_.pre_fault_window_s) * 1000ULL;
-    uint64_t cap = nextPow2(raw_capacity);
-    // Clamp to RING_CAPACITY maximum (design constraint).
-    if (cap > RING_CAPACITY) cap = RING_CAPACITY;
-    if (cap == 0)            cap = 8192;  // minimum sane value
+    // In unbounded mode the file grows without limit; we store a sentinel
+    // capacity of 0 in the header (the reader uses write_cursor instead).
+    // In bounded mode we pre-allocate a fixed circular buffer.
+    uint64_t cap = 0;
+    if (!cfg_.unbounded) {
+        const uint64_t raw_capacity =
+            static_cast<uint64_t>(cfg_.pre_fault_window_s) * 1000ULL;
+        cap = nextPow2(raw_capacity);
+        // Clamp to RING_CAPACITY maximum (design constraint).
+        if (cap > RING_CAPACITY) cap = RING_CAPACITY;
+        if (cap == 0)            cap = 8192;  // minimum sane value
+    }
 
     // ── Build header ───────────────────────────────────────────────────────
     std::memset(&header_, 0, sizeof(header_));
     header_.magic               = PLOG_MAGIC;
     header_.version             = PLOG_VERSION;
     header_.write_cursor        = 0;
-    header_.record_capacity     = cap;
-    header_.pre_fault_window_s  = static_cast<double>(cfg_.pre_fault_window_s);
+    header_.record_capacity     = cap;  // 0 = unbounded
+    header_.pre_fault_window_s  = cfg_.unbounded ? 0.0
+                                : static_cast<double>(cfg_.pre_fault_window_s);
     header_.signals_per_record  = SIGNAL_MAX;
     header_.creation_time_unix_s = static_cast<int64_t>(std::time(nullptr));
 
@@ -450,42 +474,37 @@ bool Pre_Fault_Recorder::openRollingFile() {
     }
     std::fflush(fp_);
 
-    // ── Pre-allocate disk space ────────────────────────────────────────────
-    // Non-fatal: if pre-allocation fails we continue recording anyway.
-    const uint64_t total_bytes =
-        sizeof(PhotonLog_Header) + cap * sizeof(PhotonLog_Record);
+    // ── Pre-allocate disk space (bounded mode only) ────────────────────────
+    // In unbounded mode we skip pre-allocation — the file grows on demand.
+    if (!cfg_.unbounded) {
+        const uint64_t total_bytes =
+            sizeof(PhotonLog_Header) + cap * sizeof(PhotonLog_Record);
 
 #ifdef _WIN32
-    {
-        // Windows: use SetFilePointerEx + SetEndOfFile.
-        HANDLE h = reinterpret_cast<HANDLE>(
-            _get_osfhandle(_fileno(fp_)));
-        if (h != INVALID_HANDLE_VALUE) {
-            LARGE_INTEGER li;
-            li.QuadPart = static_cast<LONGLONG>(total_bytes);
-            if (SetFilePointerEx(h, li, nullptr, FILE_BEGIN)) {
-                SetEndOfFile(h);
-                // Seek back to after the header so subsequent writes land
-                // at the correct position.
-                li.QuadPart = static_cast<LONGLONG>(sizeof(PhotonLog_Header));
-                SetFilePointerEx(h, li, nullptr, FILE_BEGIN);
+        {
+            HANDLE h = reinterpret_cast<HANDLE>(
+                _get_osfhandle(_fileno(fp_)));
+            if (h != INVALID_HANDLE_VALUE) {
+                LARGE_INTEGER li;
+                li.QuadPart = static_cast<LONGLONG>(total_bytes);
+                if (SetFilePointerEx(h, li, nullptr, FILE_BEGIN)) {
+                    SetEndOfFile(h);
+                    li.QuadPart = static_cast<LONGLONG>(sizeof(PhotonLog_Header));
+                    SetFilePointerEx(h, li, nullptr, FILE_BEGIN);
+                }
             }
         }
-    }
 #else
-    {
-        // POSIX: posix_fallocate doesn't move the file offset.
-        int fd = fileno(fp_);
-        if (fd >= 0) {
-            // Ignore return value — non-fatal per design.
-            (void)posix_fallocate(fd, 0,
-                static_cast<off_t>(total_bytes));
+        {
+            int fd = fileno(fp_);
+            if (fd >= 0) {
+                (void)posix_fallocate(fd, 0, static_cast<off_t>(total_bytes));
+            }
         }
-    }
 #endif
+    }
 
-    // Ensure file pointer is positioned just after the header, ready for
-    // record writes.
+    // Ensure file pointer is positioned just after the header.
     std::fseek(fp_, static_cast<long>(sizeof(PhotonLog_Header)), SEEK_SET);
 
     return true;
