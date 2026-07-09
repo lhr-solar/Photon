@@ -214,10 +214,15 @@ static void RenderFaultBanner(const AppState& state) {
 
     ImGuiIO& io = ImGui::GetIO();
     ImFont* bigFont = (io.Fonts->Fonts.Size > 2) ? io.Fonts->Fonts[2] : ImGui::GetFont();
-    float fontSize = std::min(io.DisplaySize.x * 0.026f, bigFont->LegacySize * 1.15f);
+    float fontSize = std::min(io.DisplaySize.x * 0.052f, bigFont->LegacySize * 2.35f);
     ImVec2 textSz = bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, text);
 
-    float padX = 26.0f, padY = 14.0f;
+    float padX = 14.0f, padY = 7.0f;
+    const float maxPlateWidth = io.DisplaySize.x * 0.92f;
+    if (textSz.x + padX * 2.0f > maxPlateWidth) {
+        fontSize *= (maxPlateWidth - padX * 2.0f) / textSz.x;
+        textSz = bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, text);
+    }
     ImVec2 plateSz(textSz.x + padX * 2.0f, textSz.y + padY * 2.0f);
     ImVec2 plateMin((io.DisplaySize.x - plateSz.x) * 0.5f,
                      io.DisplaySize.y * 0.44f);
@@ -314,13 +319,16 @@ static std::string FaultDisplayText(const Fault& fault) {
 // Battery 
 
 static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
+    constexpr float kPanelFontScale = 1.55f;
+    constexpr float kPanelWarningFontScale = 1.75f;
+
     ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 1.0f));
     ImGui::BeginChild("##BatteryPanel", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-    ImGui::SetWindowFontScale(1.35f);
+    ImGui::SetWindowFontScale(kPanelFontScale);
     {
         float avW = ImGui::GetContentRegionAvail().x;
         float avH = ImGui::GetContentRegionAvail().y;
@@ -329,12 +337,6 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         // ── Battery section ──────────────────────────────────────────────
         // SOC estimated from pack voltage using nonlinear 32S Li-ion equation:
         //   SOC = 100 * ((V - 83.2) / 51.2) ^ 0.55   clamped [0, 100]
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::TextUnformatted("BATTERY");
-            ImGui::PopStyleColor();
-        }
-
         // Main battery — bar (smaller) + pack current to the right
         {
             const float mainVoltage  = (float)state.get("Main_Battery_Voltage");
@@ -416,7 +418,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             {
                 char aTxt[16];
                 snprintf(aTxt, sizeof(aTxt), "%.0f A", std::abs(packCurrent));
-                float fs = 26.0f;
+                float fs = 32.0f;
                 ImVec2 pos = ImGui::GetCursorScreenPos();
                 if (medFont) {
                     ImVec2 sz = medFont->CalcTextSizeA(fs, FLT_MAX, 0, aTxt);
@@ -449,13 +451,6 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         }
 
         widgets::Space(0);
-
-        // ── Motor Controller ─────────────────────────────────────────────
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::TextUnformatted("MOTOR CONTROLLER");
-            ImGui::PopStyleColor();
-        }
 
         // Two-column labeled grid: label on left, value on right
         // Columns: [label col] [value col] [label col] [value col]
@@ -511,12 +506,6 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
 
         widgets::Space(4);
 
-        // ── Motor Commands ───────────────────────────────────────────────
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::TextUnformatted("MOTOR COMMANDS");
-            ImGui::PopStyleColor();
-        }
         {
             const float valColW  = std::max(60.0f, avW * 0.22f);
             const float lblColW  = std::max(70.0f, avW * 0.27f);
@@ -620,12 +609,6 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         }
 
         if (!listFaults.empty()) {
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::SetWindowFontScale(0.95f);
-            ImGui::TextUnformatted("FAULTS");
-            ImGui::SetWindowFontScale(1.0f);
-            ImGui::PopStyleColor();
-
             int visibleRows = std::min<int>(static_cast<int>(listFaults.size()), 4);
             for (int i = 0; i < visibleRows; ++i) {
                 const Fault& fault = *listFaults[static_cast<size_t>(i)];
@@ -657,10 +640,6 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             // Show extrema as labeled rows rather than a packed single line
             const BpsExtrema extrema = ComputeBpsExtrema(state);
             if (extrema.minVoltIdx >= 0 || extrema.maxVoltIdx >= 0 || extrema.maxTempIdx >= 0) {
-                ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-                ImGui::TextUnformatted("CELL EXTREMA");
-                ImGui::PopStyleColor();
-
                 const float valColW  = std::max(60.0f, avW * 0.22f);
                 const float lblColW  = std::max(70.0f, avW * 0.27f);
                 const float col1     = lblColW;
@@ -706,12 +685,12 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             char detailTxt[96];
             const bool hasDetail = FormatBpsFaultDetail(state, detailTxt, sizeof(detailTxt));
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::Destructive());
-            ImGui::SetWindowFontScale(1.1f);
+            ImGui::SetWindowFontScale(kPanelWarningFontScale);
             if (hasDetail) {
                 ImGui::TextUnformatted(detailTxt);
                 widgets::Space(6);
             }
-            ImGui::SetWindowFontScale(1.0f);
+            ImGui::SetWindowFontScale(kPanelFontScale);
             ImGui::PopStyleColor();
         }
 
@@ -729,9 +708,9 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
                 float blink = 0.5f + 0.5f * sinf(static_cast<float>(ImGui::GetTime()) * 5.0f);
                 if (blink > 0.5f) {
                     ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning());
-                    ImGui::SetWindowFontScale(1.1f);
+                    ImGui::SetWindowFontScale(kPanelWarningFontScale);
                     ImGui::TextUnformatted(staleTxt);
-                    ImGui::SetWindowFontScale(1.0f);
+                    ImGui::SetWindowFontScale(kPanelFontScale);
                     ImGui::PopStyleColor();
                 } else {
                     widgets::Space(ImGui::GetTextLineHeight());
@@ -739,6 +718,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             }
         }
     }
+    ImGui::SetWindowFontScale(1.0f);
     ImGui::EndChild();
     ImGui::PopStyleVar(); // ItemSpacing
 

@@ -431,6 +431,31 @@ void GUI::setTabs() {
 
 void GUI::dashboardPage(ImGuiWindowFlags) {
   ui::UpdateDashboardState(*arena, dashboardState);
+  if (std::getenv("PHOTON_FAKE_DASHBOARD_FAULT") != nullptr) {
+    dashboardState.signals["BPS_Fault"] = 4.0;  // overtemp
+    dashboardState.signals["VCU_Fault"] = 0.0;
+    dashboardState.signals["MC_VehicleVelocity"] = 19.2;
+    dashboardState.signals["Gear_Forward"] = 1.0;
+    dashboardState.signals["Gear_Neutral"] = 0.0;
+    dashboardState.signals["Gear_Reverse"] = 0.0;
+    dashboardState.signals["Blinker_Left"] = 0.0;
+    dashboardState.signals["Blinker_Right"] = 0.0;
+    dashboardState.signals["BrakePedal_Main_Pos"] = 0.0;
+
+    dashboardState.speed = 43;
+    dashboardState.gear = ui::Gear::Forward;
+    dashboardState.turnSignal = ui::TurnSignal::None;
+    dashboardState.brakeEngaged = false;
+    dashboardState.moduleVoltages.assign({3.92f, 3.94f, 3.91f, 3.93f, 3.90f, 3.95f});
+    dashboardState.moduleTemps.assign({31.0f, 33.5f, 37.0f, 72.5f, 35.0f, 34.0f});
+    dashboardState.faults = {ui::Fault{"BPS", "BPS fault detected", ui::FaultSeverity::Critical, 0}};
+    dashboardState.canFault = true;
+    dashboardState.canFaultName = "BPS";
+    dashboardState.canFaultMessage = "BPS: overtemp";
+    dashboardState.canFaultRecoverable = false;
+    dashboardState.bpsMsgAgeSeconds = 0.0;
+    dashboardState.vcuMsgAgeSeconds = 0.0;
+  }
   ui::RenderDashboard(dashboardState);
 }
 
