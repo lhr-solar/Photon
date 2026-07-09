@@ -124,6 +124,8 @@ static size_t curlWriteToString(char* ptr, size_t size, size_t nmemb, void* user
   out->append(ptr, bytes);
   return bytes;
 }
+#else
+static constexpr bool kCanQueryReleases = false;
 #endif
 
 #ifdef PHOTON_HAS_CURL
@@ -247,6 +249,7 @@ void Updater::downloadSnapshot(std::string& appURL, std::string& updaterURL) con
 void Updater::queryReleaseInfoOnceAsync() {
   if (releaseQueryStarted.exchange(true)) return;
 
+#if defined(_WIN32) || defined(PHOTON_HAS_CURL)
   std::thread([this] {
     std::string response;
     if (!fetchLatestReleaseJson(response)) return;
@@ -256,6 +259,7 @@ void Updater::queryReleaseInfoOnceAsync() {
     const std::string nextUpdaterURL = releaseAssetUrl(response, kUpdaterAssetName);
     setReleaseInfo(nextVersion, nextPhotonURL, nextUpdaterURL);
   }).detach();
+#endif
 }
 
 void drawUpdateProgress(const char* id, int percentage, bool running,
@@ -561,7 +565,7 @@ bool Updater::launchInstaller() {
   return true;
 }
 
-#else
+#elif defined(PHOTON_HAS_CURL)
 
 void Updater::launchUpdater() {
   if (running.exchange(true)) return;
@@ -706,5 +710,24 @@ bool Updater::launchInstaller() {
         static_cast<char*>(nullptr));
   _exit(127);
 }
+
+#else
+
+void Updater::launchUpdater() {}
+
+void Updater::getOurInfo() {
+  ourPid = 0;
+  ourPath.clear();
+  photonPath.clear();
+  installerPath.clear();
+}
+
+void Updater::beginUpdate() { running = false; }
+
+bool Updater::downloadInstaller() { return false; }
+
+bool Updater::downloadNewPhoton() { return false; }
+
+bool Updater::launchInstaller() { return false; }
 
 #endif

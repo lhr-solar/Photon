@@ -1,12 +1,18 @@
 include_guard(GLOBAL)
 
 function(photon_setup_embedded_asset_platform)
-    if (DEFINED PHOTON_EMBED_OBJCOPY)
+    if (DEFINED PHOTON_EMBED_OBJCOPY AND NOT PHOTON_EMBED_OBJCOPY MATCHES "-NOTFOUND$")
         return()
     endif()
 
     if (WIN32)
-        set(PHOTON_EMBED_OBJCOPY "" CACHE INTERNAL "")
+        set(PHOTON_EMBED_OBJCOPY "" CACHE INTERNAL "" FORCE)
+        return()
+    endif()
+
+    if (APPLE)
+        set(PHOTON_EMBED_OBJCOPY "" CACHE INTERNAL "" FORCE)
+        set(PHOTON_EMBED_OBJ_EXT o CACHE INTERNAL "" FORCE)
         return()
     endif()
 
@@ -31,11 +37,6 @@ function(photon_setup_embedded_asset_platform)
             message(FATAL_ERROR "Unsupported Linux architecture for embedded asset objects: ${CMAKE_SYSTEM_PROCESSOR}")
         endif()
         set(PHOTON_EMBED_OBJ_EXT o CACHE INTERNAL "")
-    elseif (APPLE)
-        message(FATAL_ERROR
-            "Embedded asset objects are not implemented for macOS yet.\n"
-            "TODO: use `ld -r -sectcreate __DATA __photon_asset_<name> <file>` per asset to emit a relocatable Mach-O object,\n"
-            "then generate the same tiny declaration headers used on Linux/Windows so the C++ interface stays identical.")
     else()
         message(FATAL_ERROR "Unsupported platform for embedded asset objects: ${CMAKE_SYSTEM_NAME}")
     endif()
@@ -214,20 +215,41 @@ const std::size_t ${_photon_symbol}_size = photon_embedded_${_photon_symbol}_vie
                 VERBATIM
             )
 
-            add_custom_command(
-                OUTPUT ${_photon_object}
-                COMMAND ${PHOTON_EMBED_OBJCOPY}
-                    --input-target=binary
-                    --output-target=${PHOTON_EMBED_OBJ_FORMAT}
-                    --binary-architecture=${PHOTON_EMBED_OBJ_ARCH}
-                    --set-section-alignment .data=16
-                    ${_photon_symbol}
-                    ${_photon_object}
-                DEPENDS ${_photon_staged}
-                WORKING_DIRECTORY ${PEA_OBJECT_OUTPUT_DIR}
-                COMMENT "Embedding asset object ${_photon_object}"
-                VERBATIM
-            )
+            if (APPLE)
+                set(_photon_assembly ${PEA_OBJECT_OUTPUT_DIR}/${_photon_symbol}.S)
+                add_custom_command(
+                    OUTPUT ${_photon_object}
+                    BYPRODUCTS ${_photon_assembly}
+                    COMMAND ${CMAKE_COMMAND}
+                        "-DPHOTON_EMBED_ASSET_INPUT=${_photon_staged}"
+                        "-DPHOTON_EMBED_ASSET_OUTPUT=${_photon_assembly}"
+                        "-DPHOTON_EMBED_ASSET_SYMBOL=${_photon_symbol}"
+                        -P "${CMAKE_SOURCE_DIR}/find/generate_macho_asset_asm.cmake"
+                    COMMAND ${CMAKE_C_COMPILER}
+                        -x assembler-with-cpp
+                        -c ${_photon_assembly}
+                        -o ${_photon_object}
+                    DEPENDS ${_photon_staged} "${CMAKE_SOURCE_DIR}/find/generate_macho_asset_asm.cmake"
+                    WORKING_DIRECTORY ${PEA_OBJECT_OUTPUT_DIR}
+                    COMMENT "Embedding asset object ${_photon_object}"
+                    VERBATIM
+                )
+            else()
+                add_custom_command(
+                    OUTPUT ${_photon_object}
+                    COMMAND ${PHOTON_EMBED_OBJCOPY}
+                        --input-target=binary
+                        --output-target=${PHOTON_EMBED_OBJ_FORMAT}
+                        --binary-architecture=${PHOTON_EMBED_OBJ_ARCH}
+                        --set-section-alignment .data=16
+                        ${_photon_symbol}
+                        ${_photon_object}
+                    DEPENDS ${_photon_staged}
+                    WORKING_DIRECTORY ${PEA_OBJECT_OUTPUT_DIR}
+                    COMMENT "Embedding asset object ${_photon_object}"
+                    VERBATIM
+                )
+            endif()
 
             list(APPEND _photon_objects ${_photon_object})
         endif()

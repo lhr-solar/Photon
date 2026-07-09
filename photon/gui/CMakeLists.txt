@@ -1,5 +1,15 @@
 file(GLOB gui_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.cpp")
+
+if (APPLE)
+    list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/gpuGui.cpp")
+else()
+    list(REMOVE_ITEM gui_src
+        "${CMAKE_CURRENT_SOURCE_DIR}/gpuMetalGui.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/stb_image_impl.cpp"
+    )
+endif()
+
 file(GLOB ddash_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/DDash/*.cpp")
 list(APPEND gui_src ${ddash_src})
 

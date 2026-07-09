@@ -8,7 +8,7 @@
 #include "../parse/arena.hpp"
 #include "../parse/spmc.hpp"
 
-#ifdef LINUX
+#if defined(LINUX) || defined(APPLE) || defined(__APPLE__)
 
 enum Protocol {
   Protocol_None = 0x00,

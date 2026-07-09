@@ -7,9 +7,12 @@
 #include <string>
 #include <tracy/Tracy.hpp>
 
-#include "../gui/io.hpp"
 #include "imgui.h"
-#include "vulkan_core.h"
+#if defined(APPLE) || defined(__APPLE__)
+#include "imgui_impl_sdl3.h"
+#else
+#include "../gui/io.hpp"
+#endif
 
 #if !defined(NDEBUG)
 #if defined(__linux__)
@@ -56,7 +59,9 @@ void Photon::renderLoop() {
 };
 
 void Photon::destroy() {
+#if !defined(APPLE) && !defined(__APPLE__)
   if (gpuAsyncDispatches.load(std::memory_order_relaxed) != 0) std::quick_exit(0);
+#endif
   gui.destroy();
   gpu.destroy();
   network.destroy();
@@ -75,13 +80,18 @@ void Photon::handleInput() {
   }
   SDL_Event events{};
   while (SDL_PollEvent(&events)) {
+#if defined(APPLE) || defined(__APPLE__)
+    ImGui_ImplSDL3_ProcessEvent(&events);
+#endif
     if (events.type == SDL_EVENT_QUIT) running = false;
     if ((events.type == SDL_EVENT_WINDOW_RESIZED) ||
         (events.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) ||
         (events.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED) ||
         (events.type == SDL_EVENT_WINDOW_DISPLAY_CHANGED))
       gpu.resizePending = true;
+#if !defined(APPLE) && !defined(__APPLE__)
     IO::handleInput(&events);
+#endif
   }
 };
 

@@ -1,5 +1,7 @@
 #pragma once
-#ifndef APPLE
+#if defined(APPLE) || defined(__APPLE__)
+#include "gpuMetal.hpp"
+#else
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
 #include <vulkan/vulkan.h>

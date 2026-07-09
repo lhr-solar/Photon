@@ -5,10 +5,14 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "
     set(PHOTON_UI_HOT_RELOAD ON)
 endif()
 
-file(GLOB imgui_runtime_src
-    "../.external/imgui/*.cpp"
-    "../.external/imgui/backends/*.cpp"
-)
+file(GLOB imgui_runtime_src "../.external/imgui/*.cpp")
+
+if (APPLE)
+    list(APPEND imgui_runtime_src
+        "../.external/imgui/backends/imgui_impl_sdl3.cpp"
+        "../.external/imgui/backends/imgui_impl_metal4.mm"
+    )
+endif()
 
 set(_photon_imgui_runtime_kind STATIC)
 if (PHOTON_UI_HOT_RELOAD)
@@ -21,6 +25,14 @@ target_include_directories(imgui_runtime PUBLIC
     ${CMAKE_SOURCE_DIR}/.external/imgui
     ${CMAKE_SOURCE_DIR}/.external/imgui/backends
 )
+target_link_libraries(imgui_runtime PUBLIC ${PHOTON_SDL_TARGET})
+
+if (APPLE)
+    target_compile_options(imgui_runtime PRIVATE
+        $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>
+        $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-weak>
+    )
+endif()
 
 if (WIN32 AND PHOTON_UI_HOT_RELOAD)
     set_target_properties(imgui_runtime PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
