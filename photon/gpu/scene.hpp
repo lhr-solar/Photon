@@ -102,6 +102,8 @@ struct Scene {
   VkDescriptorSetLayout postDescriptorSetLayout{VK_NULL_HANDLE};
   VkRenderPass renderPass{VK_NULL_HANDLE};
   VkRenderPass postRenderPass{VK_NULL_HANDLE};
+  TextureResource environmentIrradianceTexture{};
+  TextureResource environmentSpecularTexture{};
   VkPipelineLayout scenePipelineLayout{VK_NULL_HANDLE};
   VkPipelineLayout postPipelineLayout{VK_NULL_HANDLE};
   VkPipeline scenePipeline{VK_NULL_HANDLE};

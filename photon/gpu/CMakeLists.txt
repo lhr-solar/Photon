@@ -15,6 +15,8 @@ target_link_libraries(gpu
     imgui_runtime
     KernelHeaders
     KernelAssets
+    EnvironmentHeaders
+    EnvironmentAssets
     FontHeaders
     FontAssets
     Tracy::TracyClient

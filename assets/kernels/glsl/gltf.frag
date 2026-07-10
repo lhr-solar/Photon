@@ -34,6 +34,13 @@ layout(set = 1, binding = 0) uniform MaterialParams {
     int hasNormalTexture;
     int hasOcclusionTexture;
     int hasEmissiveTexture;
+    float _extensionPadding0;
+    vec4 specularColorFactor;
+    vec4 sheenColorFactor;
+    float specularFactor;
+    float clearcoatFactor;
+    float clearcoatRoughnessFactor;
+    float transmissionFactor;
 } material;
 
 layout(set = 1, binding = 1) uniform sampler2D baseColorTex;
