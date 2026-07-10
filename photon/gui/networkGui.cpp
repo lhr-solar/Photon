@@ -78,30 +78,37 @@ void drawProtocolList(int& selected, const PhotonUi::Palette& palette) {
   }
 }
 
-void drawTcpFields(TCPConfig& config) {
+void drawTcpFields(TCPConfig& config, const PhotonUi::Palette& palette) {
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("IP", config.ip, sizeof(config.ip));
   ImGui::SetNextItemWidth(140.0f);
   ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
+  PhotonUi::popInputStyle();
 }
 
-void drawUdpFields(UDPConfig& config) {
+void drawUdpFields(UDPConfig& config, const PhotonUi::Palette& palette) {
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("IP", config.ip, sizeof(config.ip));
   ImGui::SetNextItemWidth(140.0f);
   ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("Subscription", config.subscribeMessage, sizeof(config.subscribeMessage));
+  PhotonUi::popInputStyle();
 }
 
-void drawUartFields(UARTConfig& config) {
+void drawUartFields(UARTConfig& config, const PhotonUi::Palette& palette) {
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("Device", config.device, sizeof(config.device));
   ImGui::SetNextItemWidth(180.0f);
   ImGui::InputScalar("Baud", ImGuiDataType_U32, &config.baudRate);
+  PhotonUi::popInputStyle();
 }
 
-void drawPcanFields(PCANConfig& config) {
+void drawPcanFields(PCANConfig& config, const PhotonUi::Palette& palette) {
+  PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("Channel", config.channel, sizeof(config.channel));
   ImGui::SetNextItemWidth(140.0f);
@@ -111,16 +118,19 @@ void drawPcanFields(PCANConfig& config) {
   ImGui::Checkbox("Listen only", &config.listenOnly);
   ImGui::SameLine();
   ImGui::Checkbox("Bus reset", &config.busoffReset);
+  PhotonUi::popInputStyle();
 }
 
 void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {
   if (PhotonUi::beginPanel("##NetworkLog", {-1.0f, -1.0f}, palette)) {
     PhotonUi::label("Output", palette);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, PhotonUi::withAlpha(palette.bg, 0.32f));
     ImGui::BeginChild("##NetworkLogText", {-1.0f, -1.0f}, ImGuiChildFlags_None,
                       ImGuiWindowFlags_HorizontalScrollbar);
     ImGui::TextUnformatted(log.empty() ? "" : log.c_str());
     if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
+    ImGui::PopStyleColor();
   }
   PhotonUi::endPanel();
 }
@@ -140,6 +150,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
 
   drainNetworkLog(network, log);
 
+  PhotonUi::pushContentStyle();
   if (ImGui::Begin("Network", nullptr, flags)) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -159,32 +170,32 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
                              palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
-        if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 34.0f}, palette, true))
+        if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true))
           submit(network, daqConfig);
         ImGui::SameLine(0.0f, 8.0f);
-        if (PhotonUi::button("DisconnectDaq", "Disconnect", {118.0f, 34.0f}, palette))
+        if (PhotonUi::button("DisconnectDaq", "Disconnect", {118.0f, 38.0f}, palette))
           disconnect(network);
       } else if (selected == 1) {
-        drawTcpFields(tcpConfig);
-        if (PhotonUi::button("ApplyTcp", "Apply", {96.0f, 34.0f}, palette, true))
+        drawTcpFields(tcpConfig, palette);
+        if (PhotonUi::button("ApplyTcp", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, tcpConfig);
       } else if (selected == 2) {
-        drawUdpFields(udpConfig);
-        if (PhotonUi::button("ApplyUdp", "Apply", {96.0f, 34.0f}, palette, true))
+        drawUdpFields(udpConfig, palette);
+        if (PhotonUi::button("ApplyUdp", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, udpConfig);
       } else if (selected == 3) {
-        drawUartFields(uartConfig);
-        if (PhotonUi::button("ApplyUart", "Apply", {96.0f, 34.0f}, palette, true))
+        drawUartFields(uartConfig, palette);
+        if (PhotonUi::button("ApplyUart", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, uartConfig);
       } else if (selected == 4) {
-        drawPcanFields(pcanConfig);
-        if (PhotonUi::button("ApplyPcan", "Apply", {96.0f, 34.0f}, palette, true))
+        drawPcanFields(pcanConfig, palette);
+        if (PhotonUi::button("ApplyPcan", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, pcanConfig);
       } else if (selected == 5) {
-        if (PhotonUi::button("ApplyBle", "Apply", {96.0f, 34.0f}, palette, true))
+        if (PhotonUi::button("ApplyBle", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, bleConfig);
       } else if (selected == 6) {
-        if (PhotonUi::button("ApplyWlan", "Apply", {96.0f, 34.0f}, palette, true))
+        if (PhotonUi::button("ApplyWlan", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, wlanConfig);
       }
     }
@@ -195,4 +206,5 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
     ImGui::EndGroup();
   }
   ImGui::End();
+  PhotonUi::popContentStyle();
 }

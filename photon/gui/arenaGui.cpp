@@ -19,7 +19,7 @@ using PhotonUi::colorU32;
 using PhotonUi::mixColor;
 using PhotonUi::withAlpha;
 
-constexpr float kArenaTableRowHeight = 32.0f;
+constexpr float kArenaTableRowHeight = 38.0f;
 constexpr double kArenaDisplaySmoothingSeconds = 0.65;
 
 inline void formatBytes(char* out, size_t outSize, uint64_t bytes) {
@@ -610,6 +610,7 @@ void drawSignalPlotPopup(Arena& arena, uint32_t id, uint32_t signal, const Arena
 }
 
 void Arena::statusUI(int flags) {
+  PhotonUi::pushContentStyle();
   if (ImGui::Begin("Arena Status", nullptr, flags)) {
     static std::array<MessageUiStats, MESSAGE_MAX> uiStats{};
     static UiRing netDataRateHistory{};
@@ -647,8 +648,10 @@ void Arena::statusUI(int flags) {
     ImGui::Spacing();
     PhotonUi::label("Messages", palette);
     static char query[128]{};
+    PhotonUi::pushInputStyle(palette);
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##arena_search", "Search name, id, or signal", query, sizeof(query));
+    PhotonUi::popInputStyle();
 
     char normalizedQuery[128];
     const size_t queryLen = normalizeQuery(query, normalizedQuery, sizeof(normalizedQuery));
@@ -669,6 +672,7 @@ void Arena::statusUI(int flags) {
 
       if (expandedMessages[id]) {
         ImGui::PushID(static_cast<int>(msg->id));
+        PhotonUi::pushTableStyle(palette);
         constexpr ImGuiTableFlags tableFlags =
             ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg |
             ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings |
@@ -754,6 +758,7 @@ void Arena::statusUI(int flags) {
           }
         }
         endArenaTablePanel();
+        PhotonUi::popTableStyle();
         ImGui::PopID();
       }
       ImGui::Dummy({contentWidth, style.ItemSpacing.y * 0.35f});
@@ -774,4 +779,5 @@ void Arena::statusUI(int flags) {
     drawSignalPlotPopup(*this, plotMessageId, plotSignalIndex, palette);
   }
   ImGui::End();
+  PhotonUi::popContentStyle();
 };

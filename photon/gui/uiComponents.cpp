@@ -11,6 +11,11 @@ namespace {
 constexpr int kModalStyleVarCount = 6;
 constexpr int kTooltipStyleVarCount = 4;
 constexpr int kTooltipStyleColorCount = 3;
+constexpr int kContentStyleVarCount = 5;
+constexpr int kInputStyleVarCount = 2;
+constexpr int kInputStyleColorCount = 3;
+constexpr int kTableStyleVarCount = 1;
+constexpr int kTableStyleColorCount = 5;
 
 void pushModalStyle() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kWindowPadding);
@@ -158,6 +163,43 @@ void tooltip(std::string_view text, ImGuiHoveredFlags flags) {
   ImGui::EndTooltip();
   ImGui::PopStyleColor(kTooltipStyleColorCount);
   ImGui::PopStyleVar(kTooltipStyleVarCount);
+}
+
+void pushContentStyle() {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, kContentWindowPadding);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, kContentFramePadding);
+  ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, kContentCellPadding);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, kContentItemSpacing);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2{9.0f, 7.0f});
+}
+
+void popContentStyle() { ImGui::PopStyleVar(kContentStyleVarCount); }
+
+void pushInputStyle(const Palette& palette) {
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, kFrameRounding);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, kContentFramePadding);
+  ImGui::PushStyleColor(ImGuiCol_FrameBg, withAlpha(palette.panel, 0.82f));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, withAlpha(palette.raised, 0.88f));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgActive, withAlpha(palette.raised, 0.96f));
+}
+
+void popInputStyle() {
+  ImGui::PopStyleColor(kInputStyleColorCount);
+  ImGui::PopStyleVar(kInputStyleVarCount);
+}
+
+void pushTableStyle(const Palette& palette) {
+  ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, kContentCellPadding);
+  ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, withAlpha(palette.raised, 0.76f));
+  ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, withAlpha(palette.border, 0.56f));
+  ImGui::PushStyleColor(ImGuiCol_TableBorderLight, withAlpha(palette.border, 0.42f));
+  ImGui::PushStyleColor(ImGuiCol_TableRowBg, withAlpha(palette.panel, 0.46f));
+  ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, withAlpha(palette.raised, 0.34f));
+}
+
+void popTableStyle() {
+  ImGui::PopStyleColor(kTableStyleColorCount);
+  ImGui::PopStyleVar(kTableStyleVarCount);
 }
 
 ControlState control(const char* id, ImVec2 size, bool selected, float hoverFocus,

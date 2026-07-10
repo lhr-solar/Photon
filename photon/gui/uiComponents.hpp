@@ -14,6 +14,10 @@ inline constexpr ImVec2 kWindowPadding{14.0f, 12.0f};
 inline constexpr ImVec2 kFramePadding{10.0f, 7.0f};
 inline constexpr ImVec2 kCellPadding{12.0f, 7.0f};
 inline constexpr ImVec2 kItemSpacing{10.0f, 8.0f};
+inline constexpr ImVec2 kContentWindowPadding{16.0f, 14.0f};
+inline constexpr ImVec2 kContentFramePadding{12.0f, 9.0f};
+inline constexpr ImVec2 kContentCellPadding{14.0f, 8.0f};
+inline constexpr ImVec2 kContentItemSpacing{12.0f, 10.0f};
 
 struct Palette {
   ImVec4 text;
@@ -59,6 +63,12 @@ bool beginPanel(const char* id, ImVec2 size, const Palette& palette,
 void endPanel();
 void label(std::string_view text, const Palette& palette);
 void tooltip(std::string_view text, ImGuiHoveredFlags flags = ImGuiHoveredFlags_DelayShort);
+void pushContentStyle();
+void popContentStyle();
+void pushInputStyle(const Palette& palette);
+void popInputStyle();
+void pushTableStyle(const Palette& palette);
+void popTableStyle();
 ControlState control(const char* id, ImVec2 size, bool selected = false, float hoverFocus = 0.58f,
                      float activeFocus = 0.88f, float focusSeconds = 0.14f,
                      float pressSeconds = 0.08f);
