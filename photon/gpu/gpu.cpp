@@ -2498,10 +2498,19 @@ void GPU::configureTransparentWindow() {
 
 #else
 SDL_Window* GPU::createWindow() {
-  // On Linux/kiosk use fullscreen so the window always matches the physical
-  // display resolution. SDL will pick the native mode; the swapchain then
-  // sizes to match. This avoids the 1280x720 default being wider than
-  // embedded displays like 1024x768.
+  // Match the X11 desktop without requesting exclusive fullscreen. On the CM5,
+  // switching modes while vc4/KMS is still settling can leave the Vulkan
+  // surface with no drawable image after a restart.
+  SDL_DisplayID display = SDL_GetPrimaryDisplay();
+  if (display != 0) {
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+    if (mode == NULL) mode = SDL_GetDesktopDisplayMode(display);
+    if (mode != NULL && mode->w > 0 && mode->h > 0) {
+      width = static_cast<uint32_t>(mode->w);
+      height = static_cast<uint32_t>(mode->h);
+    }
+  }
+
   SDL_PropertiesID properties = SDL_CreateProperties();
   if (properties != 0) {
     SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Photon");
@@ -2514,7 +2523,6 @@ SDL_Window* GPU::createWindow() {
     SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
     SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN, true);
     SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_MOUSE_GRABBED_BOOLEAN, false);
-    SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
     SDL_Window* created = SDL_CreateWindowWithProperties(properties);
     SDL_DestroyProperties(properties);
     if (created != NULL) {
@@ -2523,8 +2531,7 @@ SDL_Window* GPU::createWindow() {
   }
   return SDL_CreateWindow("Photon", width, height,
                           SDL_WINDOW_VULKAN | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS |
-                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY |
-                              SDL_WINDOW_FULLSCREEN);
+                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 }
 
 VkCompositeAlphaFlagBitsKHR GPU::pickCompositeAlpha(
