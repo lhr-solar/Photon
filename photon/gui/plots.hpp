@@ -81,10 +81,10 @@ struct PlotManager {
   void handleHotkeys(bool homeActive);
   void renderHome(ImGuiID dockspaceID, const ImVec2& contentMin, const ImVec2& contentMax);
   bool hasPlots() const { return !windows.empty(); }
+  void refreshForArena();
 
  private:
   static const PlotTypeSpec& specFor(int typeIndex);
-  void refreshForArena();
   void openCreator();
   void refreshSignalOptions();
   void refreshMatches();

@@ -1,0 +1,39 @@
+{
+  "$schema": "../docs/config/photon-view.schema.json",
+  "activePanel": 0,
+  "id": "custom-views",
+  "name": "Custom Views",
+  "panels": [
+    {
+      "id": "battery-cells",
+      "layout": {
+        "columns": 48,
+        "gap": 8.0,
+        "rowHeight": 48.0
+      },
+      "name": "Battery Cells",
+      "widgets": [
+        {
+          "cellGrid": {
+            "cols": 8,
+            "mode": "voltage",
+            "rows": 4,
+            "statusMessageId": 1,
+            "temperatureMessageId": 12,
+            "title": "Battery Cells",
+            "voltageMessageId": 11
+          },
+          "id": "pack-cells",
+          "kind": "cell-grid",
+          "rect": {
+            "h": 7,
+            "w": 23,
+            "x": 0,
+            "y": 0
+          }
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

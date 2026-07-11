@@ -378,6 +378,10 @@ void GUI::buildUI() {
     titleBar.activePage = tabs.list[tabs.index].name;
   titleBar.draw();
   sideBar.draw(*this);
+  // Keep Custom Views / plot bindings current even when those tabs are not open
+  // (DBC switches bump arena generation from the sidebar).
+  customViewTab().syncWithArena();
+  plotManager().refreshForArena();
   canvas.draw(titleBar, sideBar, tabs);
 
   /* stateful UI building */

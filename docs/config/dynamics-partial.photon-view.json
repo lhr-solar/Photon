@@ -1,0 +1,383 @@
+{
+  "$schema": "./photon-view.schema.json",
+  "schemaVersion": 1,
+  "id": "dynamics-partial",
+  "name": "Dynamics Partial",
+  "activePanel": 0,
+  "notes": [
+    "Partial Dynamics dashboard for Custom Views.",
+    "Driver/Pit panels: HighNoon CarCAN + SteeringCAN + MotorCAN signal names (AccelPedal_Main_Pos, Brake_Pressure, LWS_*, MC_*).",
+    "IMU/Suspension/Ride/Wheels/Aero: telem_rev1 message IDs (DAQ IDs are old daq.dbc + 0x800).",
+    "Load assets/dbc/highnoon_telemetry.dbc (merged CarCAN+Steering+Motor+telem_rev1) so all panels can resolve on one DBC.",
+    "HighNoon DAqCAN.dbc on Sharepoint is still an empty stub; telem_rev1 supplies the DAQ frames in the merge.",
+    "Skipped: video, track map, driver name, TPMS, rear wheel RPM, tipping/understeer compute."
+  ],
+  "panels": [
+    {
+      "id": "driver-display",
+      "name": "Driver Display",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "brake-pressure-watchdog",
+          "kind": "watchdog",
+          "rect": { "x": 0, "y": 0, "w": 48, "h": 6 },
+          "watchdog": {
+            "title": "Brake Pressure",
+            "message": "Brake pressure too low",
+            "unit": "PSI",
+            "comparison": "below",
+            "threshold": 200,
+            "hideWhenOk": true,
+            "source": {
+              "messageId": "0x650",
+              "messageName": "Brake_Pressure_1",
+              "signalName": "Brake_Pressure"
+            }
+          }
+        },
+        {
+          "id": "driver-inputs-list",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 6, "w": 48, "h": 8 },
+          "plot": {
+            "type": "list",
+            "title": "Driver Inputs (latest)",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x050", "messageName": "Pedal_Status", "signalName": "AccelPedal_Main_Pos" },
+              { "messageId": "0x050", "messageName": "Pedal_Status", "signalName": "BrakePedal_Main_Pos" },
+              { "messageId": "0x650", "messageName": "Brake_Pressure_1", "signalName": "Brake_Pressure" },
+              { "messageId": "0x2B0", "messageName": "LWS_Standard", "signalName": "LWS_Angle" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "pit-driver-input",
+      "name": "Pit · Driver Input",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "throttle-brake-pct",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 0, "w": 24, "h": 10 },
+          "plot": {
+            "type": "line",
+            "title": "Throttle & Brake %",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x050", "messageName": "Pedal_Status", "signalName": "AccelPedal_Main_Pos" },
+              { "messageId": "0x050", "messageName": "Pedal_Status", "signalName": "BrakePedal_Main_Pos" }
+            ]
+          }
+        },
+        {
+          "id": "brake-pressure-time",
+          "kind": "plot",
+          "rect": { "x": 24, "y": 0, "w": 24, "h": 10 },
+          "plot": {
+            "type": "line",
+            "title": "Brake Pressure (PSI)",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x650", "messageName": "Brake_Pressure_1", "signalName": "Brake_Pressure" },
+              { "messageId": "0x651", "messageName": "Brake_Pressure_2", "signalName": "Brake_Pressure" }
+            ]
+          }
+        },
+        {
+          "id": "steering-angle",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 10, "w": 32, "h": 10 },
+          "plot": {
+            "type": "line",
+            "title": "Steering Angle",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x2B0", "messageName": "LWS_Standard", "signalName": "LWS_Angle" },
+              { "messageId": "0x2B0", "messageName": "LWS_Standard", "signalName": "LWS_Speed" }
+            ]
+          }
+        },
+        {
+          "id": "side-strip-inputs",
+          "kind": "plot",
+          "rect": { "x": 32, "y": 10, "w": 16, "h": 10 },
+          "plot": {
+            "type": "line",
+            "title": "Side · Throttle / Brake / Steer",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x050", "messageName": "Pedal_Status", "signalName": "AccelPedal_Main_Pos" },
+              { "messageId": "0x050", "messageName": "Pedal_Status", "signalName": "BrakePedal_Main_Pos" },
+              { "messageId": "0x2B0", "messageName": "LWS_Standard", "signalName": "LWS_Angle" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "pit-power",
+      "name": "Pit · Power vs Throttle",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "throttle-vs-motor-current",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 0, "w": 28, "h": 14 },
+          "plot": {
+            "type": "scatter",
+            "title": "Throttle % vs Motor Current Setpoint",
+            "useSource1TimeAsX": false,
+            "sources": [
+              { "messageId": "0x401", "messageName": "MC_DriveCommand", "signalName": "MC_MotorCurrentSetpoint" },
+              { "messageId": "0x050", "messageName": "Pedal_Status", "signalName": "AccelPedal_Main_Pos" }
+            ]
+          }
+        },
+        {
+          "id": "motor-velocity",
+          "kind": "plot",
+          "rect": { "x": 28, "y": 0, "w": 20, "h": 7 },
+          "plot": {
+            "type": "line",
+            "title": "Motor / Vehicle Velocity",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x423", "messageName": "MC_VelocityMeasurement", "signalName": "MC_MotorVelocity" },
+              { "messageId": "0x423", "messageName": "MC_VelocityMeasurement", "signalName": "MC_VehicleVelocity" }
+            ]
+          }
+        },
+        {
+          "id": "bus-power-proxy",
+          "kind": "plot",
+          "rect": { "x": 28, "y": 7, "w": 20, "h": 7 },
+          "plot": {
+            "type": "line",
+            "title": "Bus Voltage / Current",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x422", "messageName": "MC_BusMeasurement", "signalName": "MC_BusVoltage" },
+              { "messageId": "0x422", "messageName": "MC_BusMeasurement", "signalName": "MC_BusCurrent" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "imu-accel",
+      "name": "IMU · Accel",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "imu-accel-x",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 0, "w": 24, "h": 8 },
+          "plot": {
+            "type": "line",
+            "title": "Accel X · FL / FR / Back(CG)",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x9D0", "messageName": "IMU_Accel_FL", "signalName": "Accel_X" },
+              { "messageId": "0x9A0", "messageName": "IMU_Accel_FR", "signalName": "Accel_X" },
+              { "messageId": "0x9B0", "messageName": "IMU_Accel_Back", "signalName": "Accel_X" }
+            ]
+          }
+        },
+        {
+          "id": "imu-accel-y",
+          "kind": "plot",
+          "rect": { "x": 24, "y": 0, "w": 24, "h": 8 },
+          "plot": {
+            "type": "line",
+            "title": "Accel Y · FL / FR / Back(CG)",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x9D0", "messageName": "IMU_Accel_FL", "signalName": "Accel_Y" },
+              { "messageId": "0x9A0", "messageName": "IMU_Accel_FR", "signalName": "Accel_Y" },
+              { "messageId": "0x9B0", "messageName": "IMU_Accel_Back", "signalName": "Accel_Y" }
+            ]
+          }
+        },
+        {
+          "id": "imu-accel-z",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 8, "w": 24, "h": 8 },
+          "plot": {
+            "type": "line",
+            "title": "Accel Z · FL / FR / Back(CG)",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x9D0", "messageName": "IMU_Accel_FL", "signalName": "Accel_Z" },
+              { "messageId": "0x9A0", "messageName": "IMU_Accel_FR", "signalName": "Accel_Z" },
+              { "messageId": "0x9B0", "messageName": "IMU_Accel_Back", "signalName": "Accel_Z" }
+            ]
+          }
+        },
+        {
+          "id": "imu-accel-cg-3d",
+          "kind": "plot",
+          "rect": { "x": 24, "y": 8, "w": 24, "h": 8 },
+          "plot": {
+            "type": "scatter-3d",
+            "title": "Back(CG) Accel X/Y/Z",
+            "useSource1TimeAsX": false,
+            "sources": [
+              { "messageId": "0x9B0", "messageName": "IMU_Accel_Back", "signalName": "Accel_X" },
+              { "messageId": "0x9B0", "messageName": "IMU_Accel_Back", "signalName": "Accel_Y" },
+              { "messageId": "0x9B0", "messageName": "IMU_Accel_Back", "signalName": "Accel_Z" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "imu-gyro",
+      "name": "IMU · Gyro (RPY rates)",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "gyro-x-roll-rate",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 0, "w": 16, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Gyro X (roll rate) · FL / FR / Back",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x9D1", "messageName": "IMU_Gyro_FL", "signalName": "Gyro_X" },
+              { "messageId": "0x9A1", "messageName": "IMU_Gyro_FR", "signalName": "Gyro_X" },
+              { "messageId": "0x9B1", "messageName": "IMU_Gyro_Back", "signalName": "Gyro_X" }
+            ]
+          }
+        },
+        {
+          "id": "gyro-y-pitch-rate",
+          "kind": "plot",
+          "rect": { "x": 16, "y": 0, "w": 16, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Gyro Y (pitch rate) · FL / FR / Back",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x9D1", "messageName": "IMU_Gyro_FL", "signalName": "Gyro_Y" },
+              { "messageId": "0x9A1", "messageName": "IMU_Gyro_FR", "signalName": "Gyro_Y" },
+              { "messageId": "0x9B1", "messageName": "IMU_Gyro_Back", "signalName": "Gyro_Y" }
+            ]
+          }
+        },
+        {
+          "id": "gyro-z-yaw-rate",
+          "kind": "plot",
+          "rect": { "x": 32, "y": 0, "w": 16, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Gyro Z (yaw rate) · FL / FR / Back",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0x9D1", "messageName": "IMU_Gyro_FL", "signalName": "Gyro_Z" },
+              { "messageId": "0x9A1", "messageName": "IMU_Gyro_FR", "signalName": "Gyro_Z" },
+              { "messageId": "0x9B1", "messageName": "IMU_Gyro_Back", "signalName": "Gyro_Z" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "suspension-ride",
+      "name": "Suspension · Ride Height",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "suspension-travel",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 0, "w": 24, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Suspension (SUS_Data1) · FL / FR / Back",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0xAD0", "messageName": "Suspension_FL", "signalName": "SUS_Data1" },
+              { "messageId": "0xAA0", "messageName": "Suspension_FR", "signalName": "SUS_Data1" },
+              { "messageId": "0xAB0", "messageName": "Suspension_Back", "signalName": "SUS_Data1" }
+            ]
+          }
+        },
+        {
+          "id": "ride-height",
+          "kind": "plot",
+          "rect": { "x": 24, "y": 0, "w": 24, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Ride Height (RH_Data1) · FL / FR / Back",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0xDD0", "messageName": "RideHeight_FL", "signalName": "RH_Data1" },
+              { "messageId": "0xDA0", "messageName": "RideHeight_FR", "signalName": "RH_Data1" },
+              { "messageId": "0xDB0", "messageName": "RideHeight_Back", "signalName": "RH_Data1" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "wheels",
+      "name": "Wheels",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "wheel-rpm",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 0, "w": 48, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Wheel RPM · FL / FR",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0xCD0", "messageName": "WheelRPM_FL", "signalName": "RPM" },
+              { "messageId": "0xCA0", "messageName": "WheelRPM_FR", "signalName": "RPM" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "aero",
+      "name": "Aero",
+      "layout": { "columns": 48, "rowHeight": 48, "gap": 8 },
+      "widgets": [
+        {
+          "id": "pitot",
+          "kind": "plot",
+          "rect": { "x": 0, "y": 0, "w": 28, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Pitot · FL / FR (Data1)",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0xBD0", "messageName": "Pitot_FL", "signalName": "Pitot_Data1" },
+              { "messageId": "0xBA0", "messageName": "Pitot_FR", "signalName": "Pitot_Data1" }
+            ]
+          }
+        },
+        {
+          "id": "air-temp-humidity",
+          "kind": "plot",
+          "rect": { "x": 28, "y": 0, "w": 20, "h": 12 },
+          "plot": {
+            "type": "line",
+            "title": "Air Temp / Humidity",
+            "useSource1TimeAsX": true,
+            "sources": [
+              { "messageId": "0xFC0", "messageName": "Temp_1_Center", "signalName": "Temperature" },
+              { "messageId": "0xFC0", "messageName": "Temp_1_Center", "signalName": "Humidity" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

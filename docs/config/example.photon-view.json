@@ -1,43 +1,64 @@
 {
-  "$schema": "./photon-view.schema.json",
-  "schemaVersion": 1,
-  "id": "telemetry-overview",
-  "name": "Telemetry Overview",
-  "layout": {
-    "columns": 12,
-    "rowHeight": 160,
-    "gap": 12
-  },
-  "widgets": [
+  "$schema": "../docs/config/photon-view.schema.json",
+  "activePanel": 0,
+  "id": "custom-views",
+  "name": "Custom Views",
+  "panels": [
     {
-      "id": "primary-signal",
-      "kind": "plot",
-      "rect": { "x": 0, "y": 0, "w": 8, "h": 2 },
-      "plot": {
-        "type": "line",
-        "title": "Primary Signal",
-        "sources": [
-          {
-            "messageId": "0x000",
-            "signalName": "ReplaceWithSignalName"
+      "id": "telemetry-overview",
+      "layout": {
+        "columns": 48,
+        "gap": 12.0,
+        "rowHeight": 48.0
+      },
+      "name": "Telemetry Overview",
+      "widgets": [
+        {
+          "id": "primary-signal",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 0,
+                "signalIndex": 32,
+                "signalName": "ReplaceWithSignalName"
+              }
+            ],
+            "title": "Primary Signal",
+            "type": "line",
+            "useSource1TimeAsX": true
+          },
+          "rect": {
+            "h": 6,
+            "w": 21,
+            "x": 0,
+            "y": 0
           }
-        ]
-      }
-    },
-    {
-      "id": "latest-values",
-      "kind": "plot",
-      "rect": { "x": 8, "y": 0, "w": 4, "h": 2 },
-      "plot": {
-        "type": "list",
-        "title": "Latest Values",
-        "sources": [
-          {
-            "messageId": "0x000",
-            "signalName": "ReplaceWithSignalName"
+        },
+        {
+          "id": "latest-values",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 0,
+                "signalIndex": 32,
+                "signalName": "ReplaceWithSignalName"
+              }
+            ],
+            "title": "Latest Values",
+            "type": "list",
+            "useSource1TimeAsX": true
+          },
+          "rect": {
+            "h": 8,
+            "w": 16,
+            "x": 21,
+            "y": 0
           }
-        ]
-      }
+        }
+      ]
     }
-  ]
+  ],
+  "schemaVersion": 1
 }
