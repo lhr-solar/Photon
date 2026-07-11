@@ -14,8 +14,8 @@ enum class DBCType : uint32_t {
 
 struct Parse {
   Arena arena{};
-  DBCType activeDBC = DBCType::Lonestar;
-  std::string activeDBCLabel = "Lonestar";
+  DBCType activeDBC = DBCType::CarCAN;
+  std::string activeDBCLabel = "CarCAN";
   std::string activeDBCPath = {};
   void init();
   bool loadDBC(DBCType kind);

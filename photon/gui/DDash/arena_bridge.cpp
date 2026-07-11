@@ -74,6 +74,22 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
     }
   }
 
+  // Embedded-Sharepoint CarCAN uses the newer *_Pos_* names while the
+  // dashboard still consumes the original pedal names. Keep the raw names
+  // and expose compatibility aliases until the UI is migrated wholesale.
+  const auto aliasSignal = [&](const char* alias, const char* source) {
+    const auto it = state.signals.find(source);
+    if (it != state.signals.end()) state.signals[alias] = it->second;
+  };
+  aliasSignal("AccelPedal_Main_Pos", "Accel_Pos_Main");
+  aliasSignal("AccelPedal_Redundant_Pos", "Accel_Pos_Redundant");
+  aliasSignal("BrakePedal_Main_Pos", "Brake_Pos_Main");
+  aliasSignal("BrakePedal_Redundant_Pos", "Brake_Pos_Redundant");
+  aliasSignal("AccelPedal_Main_Fault", "Accel_Pos_Main_Fault");
+  aliasSignal("AccelPedal_Redundant_Fault", "Accel_Pos_Redundant_Fault");
+  aliasSignal("BrakePedal_Main_Fault", "Brake_Pos_Main_Fault");
+  aliasSignal("BrakePedal_Redundant_Fault", "Brake_Pos_Redundant_Fault");
+
   // Everything below needs more than one signal at once, or isn't a raw
   // signal at all — can't be a generic name lookup.
 
@@ -113,13 +129,16 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
   };
 
   state.bpsMsgAgeSeconds = MessageAgeSecondsForSignal(arena, "BPS_Fault");
-  state.vcuMsgAgeSeconds = MessageAgeSecondsForSignal(arena, kVcuFaultSignals[0]);
+  const bool hasConsolidatedVcuFault = state.signals.count("VCU_Fault") != 0;
+  state.vcuMsgAgeSeconds = MessageAgeSecondsForSignal(
+      arena, hasConsolidatedVcuFault ? "VCU_Fault" : kVcuFaultSignals[0]);
 
   bool hasBps = state.signals.count("BPS_Fault") != 0;
-  bool hasVcu = state.signals.count(kVcuFaultSignals[0]) != 0;
+  bool hasVcu = hasConsolidatedVcuFault || state.signals.count(kVcuFaultSignals[0]) != 0;
   double bpsF = state.get("BPS_Fault");
-  double vcuF = 0.0;
-  for (const char* sig : kVcuFaultSignals) vcuF += state.get(sig) != 0.0 ? 1.0 : 0.0;
+  double vcuF = state.get("VCU_Fault");
+  if (!hasConsolidatedVcuFault)
+    for (const char* sig : kVcuFaultSignals) vcuF += state.get(sig) != 0.0 ? 1.0 : 0.0;
   if (hasBps && bpsF != 0) addFault(state, "BPS", FaultSeverity::Critical, "BPS fault detected");
   if (hasVcu && vcuF != 0) addFault(state, "VCU", FaultSeverity::Critical, "VCU fault detected");
   std::stable_sort(state.faults.begin(), state.faults.end(), [](const Fault& a, const Fault& b) {
