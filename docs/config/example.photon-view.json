@@ -1,0 +1,43 @@
+{
+  "$schema": "./photon-view.schema.json",
+  "schemaVersion": 1,
+  "id": "telemetry-overview",
+  "name": "Telemetry Overview",
+  "layout": {
+    "columns": 12,
+    "rowHeight": 160,
+    "gap": 12
+  },
+  "widgets": [
+    {
+      "id": "primary-signal",
+      "kind": "plot",
+      "rect": { "x": 0, "y": 0, "w": 8, "h": 2 },
+      "plot": {
+        "type": "line",
+        "title": "Primary Signal",
+        "sources": [
+          {
+            "messageId": "0x000",
+            "signalName": "ReplaceWithSignalName"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latest-values",
+      "kind": "plot",
+      "rect": { "x": 8, "y": 0, "w": 4, "h": 2 },
+      "plot": {
+        "type": "list",
+        "title": "Latest Values",
+        "sources": [
+          {
+            "messageId": "0x000",
+            "signalName": "ReplaceWithSignalName"
+          }
+        ]
+      }
+    }
+  ]
+}

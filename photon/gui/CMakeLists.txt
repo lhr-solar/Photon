@@ -21,6 +21,8 @@ target_link_libraries(gui
     ${PHOTON_SDL_TARGET}
     EnvironmentHeaders
     EnvironmentAssets
+    ModelHeaders
+    ModelAssets
     imgui_runtime
     gpu
     network
@@ -42,6 +44,8 @@ if (PHOTON_UI_HOT_RELOAD)
         ${PHOTON_SDL_TARGET}
         EnvironmentHeaders
         EnvironmentAssets
+        ModelHeaders
+        ModelAssets
         imgui_runtime
         gpu
         network

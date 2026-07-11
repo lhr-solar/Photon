@@ -53,6 +53,7 @@ ImFont* iconFont() {
 
 const char* tabIcon(std::string_view name) {
   if (name.find("Plot") != std::string_view::npos) return "\uea5c";
+  if (name.find("Custom View") != std::string_view::npos) return "\uea7f";
   if (name.find("Arena") != std::string_view::npos) return "\uea88";
   if (name.find("Network") != std::string_view::npos) return "\uf09f";
   if (name.find("Dashboard") != std::string_view::npos) return "\ueab1";

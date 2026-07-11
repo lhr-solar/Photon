@@ -31,7 +31,6 @@ struct GUI {
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
   void carMap(ImGuiWindowFlags flags);
 
-
   GPU* gpu;
   Arena* arena;
   Network* network;
@@ -45,7 +44,6 @@ struct GUI {
   GuiSettings settings{};
   GuiFlags flags{};
   bool updateAvailable = false;
-  std::vector<Plots> plots;
   Updater updater;
   Scene scene;
 };

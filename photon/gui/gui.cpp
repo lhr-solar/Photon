@@ -11,6 +11,7 @@
 #include "DDash/dashboard_tab.h"
 #include "arena.hpp"
 #include "config.hpp"
+#include "customView.hpp"
 #include "custom_shader_vert_spv.hpp"
 #include "glowButton_frag_spv.hpp"
 #include "gpuGui.hpp"
@@ -22,14 +23,16 @@
 #include "lens_frag_spv.hpp"
 #include "newCar_glb.hpp"
 #include "plots.hpp"
+#include "track_glb.hpp"
 #include "uiComponents.hpp"
 #include "widget.hpp"
-#include "track_glb.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   this->gpu = &gpu;
   this->arena = &arena;
   this->network = &network;
+  plotManager().init(&arena);
+  customViewTab().init(&arena, gpu.window);
   GuiSettings::regster(&settings);
   settings.setStyle();
   setTabs();
@@ -117,14 +120,14 @@ void GUI::exportUI() {
 };
 
 void GUI::plotTest(ImGuiWindowFlags flags) {
-  if (ImGui::Begin("Page 1", NULL, flags)) {
-    auto dim = ImGui::GetContentRegionAvail();
-    dim.y = 0;
-    ImPlotSpec spec = settings.plotLineSpec;
+  if (ImGui::Begin("Plots", nullptr, flags)) {
+    ImVec2 size = ImGui::GetContentRegionAvail();
+    size.y = 0.0f;
+    const ImPlotSpec spec = settings.plotLineSpec;
     for (const uint32_t id : arena->validIds) {
       if (id >= arena->messages.size() || !arena->messages[id]) continue;
-      for (uint32_t signal = 0; signal < arena->messages[id]->signalCount; signal++)
-        Plots::signal(*arena, id, signal, dim, spec);
+      for (uint32_t signal = 0; signal < arena->messages[id]->signalCount; ++signal)
+        Plots::signal(*arena, id, signal, size, spec);
     }
   }
   ImGui::End();
@@ -344,8 +347,13 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 };
 
 void GUI::setTabs() {
+  // Hot-reloaded UI modules own separate function-local singletons, so bind them lazily.
+  plotManager().init(arena);
+  customViewTab().init(arena, gpu ? gpu->window : nullptr);
   tabs.list.clear();
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "Plots"));
+  tabs.list.push_back(
+      Tab::bind<CustomViewTab, &CustomViewTab::draw>(customViewTab(), "Custom Views"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
