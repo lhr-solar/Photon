@@ -858,7 +858,10 @@ void PlotManager::drawCreatedPlots() {
   if (!windows.empty()) renderPlotWindows();
 }
 
-void PlotManager::drawCreator() { renderCreator(); }
+void PlotManager::drawCreator() {
+  refreshForArena();
+  renderCreator();
+}
 
 std::vector<PlotManager::PlotWindow> PlotManager::takeWindows() {
   std::vector<PlotWindow> taken = std::move(windows);
@@ -886,6 +889,7 @@ void PlotManager::renderHome(ImGuiID dockspaceID, const ImVec2& contentMin,
 }
 
 void PlotManager::openCreator() {
+  refreshForArena();
   creatorOpen = true;
   creatorFocusSearch = true;
   typeIndex = PlotType_Line;
