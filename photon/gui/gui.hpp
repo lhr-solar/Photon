@@ -12,6 +12,7 @@
 #include "../parse/spmc.hpp"
 #include "canvas.hpp"
 #include "config.hpp"
+#include "exporter.hpp"
 #include "plots.hpp"
 #include "sideBar.hpp"
 #include "tabs.hpp"
@@ -53,6 +54,7 @@ struct GUI {
   bool updateAvailable = false;
   std::vector<Plots> plots;
   Updater updater;
+  Exporter exporter;
 #if PHOTON_GUI_RENDER_ITEMS
   Scene scene;
 #endif

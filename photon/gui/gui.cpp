@@ -124,6 +124,15 @@ void GUI::exportUI() {
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::label("Export", palette);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 18.0f);
+    const float actionWidth = ImGui::GetContentRegionAvail().x;
+    const bool exporting = exporter.running.load();
+    if (PhotonUi::rowButton("ExportCsv", "\uede9",
+                            exporting ? "Exporting output.csv" : "Export output.csv",
+                            {actionWidth, 42.0f}, palette, false, exporting)) {
+      std::thread t(&Exporter::toFile, &exporter, std::ref(*arena), "output.csv");
+      t.detach();
+    }
     if (PhotonUi::modalCloseButton("CloseExport", palette)) ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
