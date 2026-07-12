@@ -193,14 +193,7 @@ SocketWaitResult waitForReadable(SocketHandle sock, std::stop_token stoken, std:
   return SocketWaitResult::Stopped;
 }
 
-bool finishTcpConnect(SocketHandle& sock, std::string& error) {
-  if (setBlocking(sock)) return true;
-
-  error = socketError("TCP blocking setup");
-  closeSocket(sock);
-  sock = INVALID_SOCKET;
-  return false;
-}
+#include "printFailure.hpp"
 
 bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token stoken,
                 std::string& error) {
@@ -231,8 +224,12 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     return false;
   }
 
-  if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0)
-    return finishTcpConnect(sock, error);
+  if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0) {
+    if (printFailure(sock, config.tag, error)) return true;
+    closeSocket(sock);
+    sock = INVALID_SOCKET;
+    return false;
+  }
   if (!wouldBlock()) {
     error = socketError("TCP connect");
     closeSocket(sock);
@@ -240,7 +237,12 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     return false;
   }
 
-  if (waitForConnect(sock, stoken, error)) return finishTcpConnect(sock, error);
+  if (waitForConnect(sock, stoken, error)) {
+    if (printFailure(sock, config.tag, error)) return true;
+    closeSocket(sock);
+    sock = INVALID_SOCKET;
+    return false;
+  }
 
   closeSocket(sock);
   sock = INVALID_SOCKET;

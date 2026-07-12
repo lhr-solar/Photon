@@ -1,0 +1,22 @@
+if (NOT PHOTON_PACK_INPUT OR NOT PHOTON_PACK_OUTPUT OR NOT PHOTON_PACK_SEED)
+    message(FATAL_ERROR "missing input")
+endif()
+
+file(READ "${PHOTON_PACK_INPUT}" _photon_pack_hex HEX)
+string(LENGTH "${_photon_pack_hex}" _photon_pack_hex_len)
+math(EXPR _photon_pack_len "${_photon_pack_hex_len} / 2")
+
+set(_photon_pack_out "")
+math(EXPR _photon_pack_last "${_photon_pack_len} - 1")
+foreach(_photon_pack_i RANGE 0 ${_photon_pack_last})
+    math(EXPR _photon_pack_offset "${_photon_pack_i} * 2")
+    string(SUBSTRING "${_photon_pack_hex}" ${_photon_pack_offset} 2 _photon_pack_pair)
+    math(EXPR _photon_pack_mask "(${PHOTON_PACK_SEED} + ${_photon_pack_i} * 73 + 41) & 255")
+    math(EXPR _photon_pack_byte "(0x${_photon_pack_pair} ^ ${_photon_pack_mask}) & 255")
+    string(ASCII ${_photon_pack_byte} _photon_pack_char)
+    string(APPEND _photon_pack_out "${_photon_pack_char}")
+endforeach()
+
+get_filename_component(_photon_pack_dir "${PHOTON_PACK_OUTPUT}" DIRECTORY)
+file(MAKE_DIRECTORY "${_photon_pack_dir}")
+file(WRITE "${PHOTON_PACK_OUTPUT}" "${_photon_pack_out}")

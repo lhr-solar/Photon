@@ -140,7 +140,11 @@ void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {
 void GUI::networkPage(ImGuiWindowFlags flags) {
   static int selected = 0;
   static std::string log;
-  static TCPConfig daqConfig{.port = 6500, .ip = "3.141.38.115"};
+  static TCPConfig daqConfig{
+      .port = 6500,
+      .ip = "127.0.0.1",
+      .tag = 1,
+  };
   static TCPConfig tcpConfig{};
   static UDPConfig udpConfig{};
   static UARTConfig uartConfig{};

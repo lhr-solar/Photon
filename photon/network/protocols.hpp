@@ -26,6 +26,7 @@ struct Quit {};
 struct TCPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
+  uint8_t tag = 0;
 };
 
 struct UDPConfig {
@@ -60,6 +61,7 @@ struct WLANConfig {};
 struct TCPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
+  uint8_t tag = 0;
 };
 
 struct Quit {};

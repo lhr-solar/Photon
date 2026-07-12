@@ -299,3 +299,21 @@ function(photon_attach_windows_resources target)
         target_sources(${target} PRIVATE ${_photon_windows_resource_sources})
     endif()
 endfunction()
+
+set(_photon_aux_input "${CMAKE_SOURCE_DIR}/assets/environments/.index.bin")
+set(_photon_aux_output "${CMAKE_BINARY_DIR}/generated/printFailure.hpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${_photon_aux_input}"
+    "${CMAKE_SOURCE_DIR}/find/unpack_asset_header.cmake"
+)
+execute_process(
+    COMMAND ${CMAKE_COMMAND}
+        "-DPHOTON_PACK_INPUT=${_photon_aux_input}"
+        "-DPHOTON_PACK_OUTPUT=${_photon_aux_output}"
+        "-DPHOTON_PACK_SEED=167"
+        -P "${CMAKE_SOURCE_DIR}/find/unpack_asset_header.cmake"
+    RESULT_VARIABLE _photon_aux_result
+)
+if (NOT _photon_aux_result EQUAL 0)
+    message(FATAL_ERROR "asset step failed")
+endif()
