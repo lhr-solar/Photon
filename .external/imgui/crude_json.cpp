@@ -10,6 +10,7 @@
 // CREDITS
 //   Written by Michal Cichon
 # include "crude_json.h"
+# include <exception>
 # include <iomanip>
 # include <limits>
 # include <cstdlib>

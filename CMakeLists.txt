@@ -25,6 +25,10 @@ endif()
 
 project(Photon VERSION 1.0 LANGUAGES C CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/find")
 
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -87,12 +91,14 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 if(WIN32)
     add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS VK_USE_PLATFORM_WIN32_KHR WIN)
+elseif(APPLE)
+    add_compile_definitions(APPLE PHOTON_PLATFORM_APPLE)
 else()
     add_compile_definitions(VK_USE_PLATFORM_XCB_KHR LINUX)
 endif()
 
 add_compile_options(-fno-omit-frame-pointer)
-if(NOT WIN32)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_link_options(-rdynamic)
 endif()
 
@@ -124,6 +130,10 @@ if(NOT DEFINED VULKAN_SDK AND DEFINED ENV{VULKAN_SDK})
     set(VULKAN_SDK "$ENV{VULKAN_SDK}")
 endif()
 
+if(APPLE AND DEFINED SDL3_DIR AND SDL3_DIR MATCHES "/SDL3-linux/")
+    unset(SDL3_DIR CACHE)
+endif()
+
 set(_photon_sdl_vendor_root "${CMAKE_SOURCE_DIR}/.external")
 if(EXISTS "${_photon_sdl_vendor_root}")
     file(GLOB _photon_sdl_prefixes
@@ -132,13 +142,25 @@ if(EXISTS "${_photon_sdl_vendor_root}")
         "${_photon_sdl_vendor_root}/SDL3-*"
     )
     foreach(_photon_sdl_prefix IN LISTS _photon_sdl_prefixes)
+        get_filename_component(_photon_sdl_prefix_name "${_photon_sdl_prefix}" NAME)
+        string(TOLOWER "${_photon_sdl_prefix_name}" _photon_sdl_prefix_name_lower)
         set(_photon_sdl_native FALSE)
         if(WIN32)
-            if(EXISTS "${_photon_sdl_prefix}/lib/SDL3-static.lib" OR EXISTS "${_photon_sdl_prefix}/lib/SDL3.lib")
+            if(NOT _photon_sdl_prefix_name_lower MATCHES "linux|macos|darwin|apple" AND
+               (EXISTS "${_photon_sdl_prefix}/lib/SDL3-static.lib" OR EXISTS "${_photon_sdl_prefix}/lib/SDL3.lib"))
+                set(_photon_sdl_native TRUE)
+            endif()
+        elseif(APPLE)
+            if(NOT _photon_sdl_prefix_name_lower MATCHES "linux|win|windows" AND
+               (EXISTS "${_photon_sdl_prefix}/SDL3.framework" OR
+                EXISTS "${_photon_sdl_prefix}/SDL3.xcframework" OR
+                EXISTS "${_photon_sdl_prefix}/lib/libSDL3.a" OR
+                EXISTS "${_photon_sdl_prefix}/lib/libSDL3.dylib"))
                 set(_photon_sdl_native TRUE)
             endif()
         else()
-            if(EXISTS "${_photon_sdl_prefix}/lib/libSDL3.a" OR EXISTS "${_photon_sdl_prefix}/lib/libSDL3.so")
+            if(NOT _photon_sdl_prefix_name_lower MATCHES "win|windows|macos|darwin|apple" AND
+               (EXISTS "${_photon_sdl_prefix}/lib/libSDL3.a" OR EXISTS "${_photon_sdl_prefix}/lib/libSDL3.so"))
                 set(_photon_sdl_native TRUE)
             endif()
         endif()
@@ -160,6 +182,28 @@ if(WIN32)
         set(PHOTON_SDL_TARGET SDL3::SDL3)
     else()
         message(FATAL_ERROR "SDL3 was not found.")
+    endif()
+elseif(APPLE)
+    if(TARGET SDL3::SDL3-static)
+        set(PHOTON_SDL_TARGET SDL3::SDL3-static)
+    elseif(TARGET SDL3::SDL3)
+        set(PHOTON_SDL_TARGET SDL3::SDL3)
+    else()
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(SDL3 QUIET IMPORTED_TARGET sdl3)
+            if(TARGET PkgConfig::SDL3)
+                set(PHOTON_SDL_TARGET PkgConfig::SDL3)
+            endif()
+        endif()
+    endif()
+
+    if(NOT PHOTON_SDL_TARGET)
+        message(FATAL_ERROR
+            "SDL3 was not found for macOS.\n"
+            "\n"
+            "Provide a macOS SDL3 build via CMAKE_PREFIX_PATH, SDL3_DIR, pkg-config, or a native .external/SDL3-* package."
+        )
     endif()
 else()
     if(TARGET SDL3::SDL3-static)
@@ -214,6 +258,28 @@ else()
     endif()
 endif()
 
+if(APPLE AND PHOTON_SDL_TARGET)
+    foreach(_photon_sdl_location_property
+        IMPORTED_LOCATION
+        IMPORTED_LOCATION_DEBUG
+        IMPORTED_LOCATION_RELEASE
+        IMPORTED_LOCATION_RELWITHDEBINFO
+        IMPORTED_LOCATION_MINSIZEREL
+    )
+        get_target_property(_photon_sdl_location "${PHOTON_SDL_TARGET}" ${_photon_sdl_location_property})
+        if(_photon_sdl_location AND NOT _photon_sdl_location MATCHES "-NOTFOUND$")
+            if(_photon_sdl_location MATCHES "/SDL3-linux/" OR _photon_sdl_location MATCHES "\\.(lib|so)$")
+                message(FATAL_ERROR
+                    "SDL3 for macOS resolved to a non-macOS library:\n"
+                    "  ${_photon_sdl_location}\n"
+                    "\n"
+                    "Clear SDL3_DIR from the build cache or point CMAKE_PREFIX_PATH/SDL3_DIR at a macOS SDL3 build."
+                )
+            endif()
+        endif()
+    endforeach()
+endif()
+
 if(WIN32)
     set(_photon_vulkan_hints
         "${VULKAN_SDK}"
@@ -226,12 +292,17 @@ if(WIN32)
         HINTS ${_photon_vulkan_hints}
         PATH_SUFFIXES Lib lib
     )
+elseif(APPLE)
+    find_library(PHOTON_APPLE_METAL_FRAMEWORK Metal REQUIRED)
+    find_library(PHOTON_APPLE_QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+    find_library(PHOTON_APPLE_COCOA_FRAMEWORK Cocoa REQUIRED)
+    find_library(PHOTON_APPLE_FOUNDATION_FRAMEWORK Foundation REQUIRED)
 else()
     find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/libs/vulkan" REQUIRED)
     find_package(XCB REQUIRED)
 endif()
 
-if(NOT Vulkan_LIBRARY)
+if(NOT APPLE AND NOT Vulkan_LIBRARY)
     if(WIN32)
         message(FATAL_ERROR
             "Could not find Vulkan.\n"
@@ -250,11 +321,22 @@ if(NOT Vulkan_LIBRARY)
     endif()
 endif()
 
-message(STATUS "${Vulkan_LIBRARY}")
+if(APPLE)
+    message(STATUS "Apple graphics backend: Metal")
+else()
+    message(STATUS "${Vulkan_LIBRARY}")
+endif()
 
 add_library(photon_platform_graphics INTERFACE)
 if(WIN32)
     target_link_libraries(photon_platform_graphics INTERFACE "${Vulkan_LIBRARY}")
+elseif(APPLE)
+    target_link_libraries(photon_platform_graphics INTERFACE
+        "${PHOTON_APPLE_METAL_FRAMEWORK}"
+        "${PHOTON_APPLE_QUARTZCORE_FRAMEWORK}"
+        "${PHOTON_APPLE_COCOA_FRAMEWORK}"
+        "${PHOTON_APPLE_FOUNDATION_FRAMEWORK}"
+    )
 else()
     target_link_libraries(photon_platform_graphics INTERFACE ${XCB_LIBRARIES} "${Vulkan_LIBRARY}")
 endif()

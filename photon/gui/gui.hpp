@@ -1,13 +1,19 @@
 #pragma once
 #include "../gpu/gpu.hpp"
+#if !defined(APPLE) && !defined(__APPLE__)
+#define PHOTON_GUI_RENDER_ITEMS 1
 #include "../gpu/shader.hpp"
+#include "scene.hpp"
+#else
+#define PHOTON_GUI_RENDER_ITEMS 0
+#endif
 #include "../network/network.hpp"
 #include "../parse/arena.hpp"
 #include "../parse/spmc.hpp"
 #include "canvas.hpp"
 #include "config.hpp"
+#include "exporter.hpp"
 #include "plots.hpp"
-#include "scene.hpp"
 #include "sideBar.hpp"
 #include "tabs.hpp"
 #include "titlebar.hpp"
@@ -39,13 +45,18 @@ struct GUI {
   Sidebar sideBar{};
   Tabs tabs{};
   Canvas canvas{};
+#if PHOTON_GUI_RENDER_ITEMS
   Shader testShader{};
   Shader buttonShader{};
+#endif
   GuiSettings settings{};
   GuiFlags flags{};
   bool updateAvailable = false;
   Updater updater;
+  Exporter exporter;
+#if PHOTON_GUI_RENDER_ITEMS
   Scene scene;
+#endif
 };
 
 /* forward function handles */
@@ -69,9 +80,11 @@ void TextRightAligned(const char* fmt, Args... args) {
   ImGui::TextUnformatted(buf);
 }
 
+#if PHOTON_GUI_RENDER_ITEMS
 inline VkExtent2D quantizeContentExtent(ImVec2 contentSize, VkExtent2D fallback) {
   if (contentSize.x <= 1.0f || contentSize.y <= 1.0f) return fallback;
   const uint32_t width = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.x)));
   const uint32_t height = std::max(1u, static_cast<uint32_t>(std::lround(contentSize.y)));
   return {width, height};
 }
+#endif

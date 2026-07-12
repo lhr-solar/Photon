@@ -6,6 +6,7 @@ set(ENVIRONMENT_OBJECT_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated/environment_obje
 
 set(ENVIRONMENT_FILES
     ${ENVIRONMENT_DIR}/background.jpg
+    ${ENVIRONMENT_DIR}/studio.hdr
 )
 
 photon_embed_assets(

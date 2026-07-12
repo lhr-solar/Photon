@@ -7,23 +7,30 @@
 #include <string>
 #include <vector>
 
+#if PHOTON_GUI_RENDER_ITEMS
 #include "../gpu/shader.hpp"
+#include "custom_shader_vert_spv.hpp"
+#include "glowButton_frag_spv.hpp"
+#include "lens_frag_spv.hpp"
+#include "newCar_glb.hpp"
+#include "track_glb.hpp"
+#endif
 #include "DDash/dashboard_tab.h"
 #include "arena.hpp"
 #include "config.hpp"
 #include "customView.hpp"
-#include "custom_shader_vert_spv.hpp"
-#include "glowButton_frag_spv.hpp"
+#if defined(APPLE) || defined(__APPLE__)
+#include "gpuMetalGui.hpp"
+#include "imgui_impl_sdl3.h"
+#else
 #include "gpuGui.hpp"
+#endif
 #include "im_anim.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imnodes.h"
 #include "implot.h"
-#include "lens_frag_spv.hpp"
-#include "newCar_glb.hpp"
 #include "plots.hpp"
-#include "track_glb.hpp"
 #include "uiComponents.hpp"
 #include "widget.hpp"
 
@@ -37,6 +44,7 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   settings.setStyle();
   setTabs();
   updater.queryReleaseInfoOnceAsync();
+#if PHOTON_GUI_RENDER_ITEMS
   testShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
                           (uint32_t*)lens_frag_spv, lens_frag_spv_size);
   buttonShader.dispatchInit(gpu, (uint32_t*)custom_shader_vert_spv, custom_shader_vert_spv_size,
@@ -45,9 +53,11 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   scene.addModel("track_glb", track_glb, track_glb_size, false);
   scene.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
   scene.dispatchInit(gpu);
+#endif
 }
 
 void GUI::render() {
+#if PHOTON_GUI_RENDER_ITEMS
   if (!testShader.initialized.load() && testShader.partInitialized.load())
     testShader.finishInit(*gpu);
   if (testShader.showing) {
@@ -67,6 +77,7 @@ void GUI::render() {
     scene.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
     scene.showing = false;
   }
+#endif
 };
 
 void GUI::destroy() {
@@ -75,9 +86,11 @@ void GUI::destroy() {
     sideBar.backgroundTexture->SetStatus(ImTextureStatus_WantDestroy);
     sideBar.backgroundTexture = nullptr;
   }
+#if PHOTON_GUI_RENDER_ITEMS
   testShader.destroy();
   buttonShader.destroy();
   scene.destroy();
+#endif
 };
 
 void GUI::setFont() {
@@ -114,6 +127,15 @@ void GUI::exportUI() {
   if (open) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::label("Export", palette);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 18.0f);
+    const float actionWidth = ImGui::GetContentRegionAvail().x;
+    const bool exporting = exporter.running.load();
+    if (PhotonUi::rowButton("ExportCsv", "\uede9",
+                            exporting ? "Exporting output.csv" : "Export output.csv",
+                            {actionWidth, 42.0f}, palette, false, exporting)) {
+      std::thread t(&Exporter::toFile, &exporter, std::ref(*arena), "output.csv");
+      t.detach();
+    }
     if (PhotonUi::modalCloseButton("CloseExport", palette)) ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
@@ -134,6 +156,7 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
 };
 
 void GUI::carMap(ImGuiWindowFlags flags) {
+#if PHOTON_GUI_RENDER_ITEMS
   scene.showing = false;
   const bool ready =
       scene.initialized.load() && !scene.frames.empty() && scene.frameIndex != nullptr;
@@ -241,9 +264,13 @@ void GUI::carMap(ImGuiWindowFlags flags) {
   }
   ImGui::End();
   ImGui::PopStyleColor(2);
+#else
+  (void)flags;
+#endif
 };
 
 void GUI::shaderTest(ImGuiWindowFlags flags) {
+#if PHOTON_GUI_RENDER_ITEMS
   testShader.showing = false;
   flags |= ImGuiWindowFlags_NoBackground;
   ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -278,9 +305,13 @@ void GUI::shaderTest(ImGuiWindowFlags flags) {
   ImGui::End();
   ImGui::PopStyleVar();
   ImGui::PopStyleColor();
+#else
+  (void)flags;
+#endif
 };
 
 void GUI::drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax) {
+#if PHOTON_GUI_RENDER_ITEMS
   if (!updateAvailable) return;
   const bool ready = buttonShader.initialized.load() && !buttonShader.frames.empty() &&
                      buttonShader.frameIndex != nullptr;
@@ -303,6 +334,10 @@ void GUI::drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax) {
     buttonShader.showing = true;
     ImGui::GetWindowDrawList()->AddImage(frame.texture, overlayMin, overlayMax);
   }
+#else
+  (void)buttonMin;
+  (void)buttonMax;
+#endif
 }
 
 void GUI::testFunc(ImGuiWindowFlags flags) {
@@ -356,10 +391,14 @@ void GUI::setTabs() {
       Tab::bind<CustomViewTab, &CustomViewTab::draw>(customViewTab(), "Custom Views"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
+#if PHOTON_GUI_RENDER_ITEMS
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
+#endif
   tabs.list.push_back(
       Tab::bind<ui::DashboardTab, &ui::DashboardTab::draw>(ui::dashboardTab(), "Dashboard"));
+#if PHOTON_GUI_RENDER_ITEMS
   tabs.list.push_back(Tab::bind<GUI, &GUI::carMap>(*this, "Map"));
+#endif
 };
 
 void GUI::buildUI() {
@@ -368,6 +407,9 @@ void GUI::buildUI() {
   settings.setStyle();
   setFont();
   setTabs();
+#if defined(APPLE) || defined(__APPLE__)
+  ImGui_ImplSDL3_NewFrame();
+#endif
   ImGui::NewFrame();
   iam_update_begin_frame();
   iam_clip_update(ImGui::GetIO().DeltaTime);
@@ -385,7 +427,8 @@ void GUI::buildUI() {
   canvas.draw(titleBar, sideBar, tabs);
 
   /* stateful UI building */
-  ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
+  // Disabled until the GPU info window crash is fixed.
+  // ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
   ImGui::Render();
   render();
 };

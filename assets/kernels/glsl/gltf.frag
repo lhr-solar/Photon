@@ -7,14 +7,14 @@ layout(location = 3) in vec3 vertWorldPos;
 
 layout(location = 0) out vec4 fragColor;
 
-layout(push_constant) uniform ScenePushConstants {
-    vec2 resolution;
+layout(push_constant) uniform PushConstants {
+    vec2  resolution;
     float u_time;
     float _pad;
-    mat4 model;
 } pc;
 
-layout(set = 0, binding = 0) uniform SceneViewProjection {
+layout(set = 0, binding = 0) uniform MVP {
+    mat4 model;
     mat4 view;
     mat4 proj;
     vec4 camPos;
@@ -34,6 +34,13 @@ layout(set = 1, binding = 0) uniform MaterialParams {
     int hasNormalTexture;
     int hasOcclusionTexture;
     int hasEmissiveTexture;
+    float _extensionPadding0;
+    vec4 specularColorFactor;
+    vec4 sheenColorFactor;
+    float specularFactor;
+    float clearcoatFactor;
+    float clearcoatRoughnessFactor;
+    float transmissionFactor;
 } material;
 
 layout(set = 1, binding = 1) uniform sampler2D baseColorTex;
@@ -75,12 +82,6 @@ vec3 FresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-vec3 toneAwareBoost(vec3 color, float amount) {
-    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    float mask = smoothstep(0.08, 0.85, luma);
-    return mix(color, color * amount, mask);
-}
-
 vec3 getNormalFromMap(vec3 N, vec2 uv) {
     vec3 tangentNormal = texture(normalTex, uv).xyz * 2.0 - 1.0;
     tangentNormal.xy *= material.normalScale;
@@ -110,12 +111,25 @@ void main() {
     }
 
     vec3 V = normalize(ubo.camPos.xyz - vertWorldPos);
-
-    float sunAngle = pc.u_time * 0.18 + 0.65;
-    vec3 sunDir = normalize(vec3(cos(sunAngle) * 0.65, sin(sunAngle) * 0.35, 1.45));
-    vec3 fillDir = normalize(vec3(-0.55, 0.25, 0.65));
-    vec3 rimDir = normalize(vec3(-0.25, -0.85, 0.55));
-    vec3 H = normalize(V + sunDir);
+    float angle = pc.u_time * 1.0;
+    vec3 L = normalize(vec3(cos(angle), sin(angle), 0.8));
+    /*
+    float angleZ = pc.u_time * 0.7;
+    float angleY = pc.u_time * 0.45;
+    vec3 L0 = normalize(vec3(1.0, 0.0, 0.8));
+    mat3 rotZ = mat3(
+        cos(angleZ), -sin(angleZ), 0.0,
+        sin(angleZ),  cos(angleZ), 0.0,
+        0.0,          0.0,         1.0
+    );
+    mat3 rotY = mat3(
+         cos(angleY), 0.0, sin(angleY),
+         0.0,         1.0, 0.0,
+        -sin(angleY), 0.0, cos(angleY)
+    );
+    vec3 L = normalize(rotY * (rotZ * L0));
+    */
+    vec3 H = normalize(V + L);
 
     float metallic = clamp(material.metallicFactor, 0.0, 1.0);
     float roughness = clamp(material.roughnessFactor, 0.04, 1.0);
@@ -129,29 +143,18 @@ void main() {
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
     float D = DistributionGGX(N, H, roughness);
-    float G = GeometrySmith(N, V, sunDir, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
     vec3 numerator = D * G * F;
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, sunDir), 0.0);
-    float denominator = 4.0 * NdotV * NdotL;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
     vec3 specular = numerator / max(denominator, 1e-4);
 
     vec3 kS = F;
     vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+    float NdotL = max(dot(N, L), 0.0);
 
-    float NdotFill = max(dot(N, fillDir), 0.0);
-    float sky = 0.5 + 0.5 * N.z;
-    float ground = 0.5 + 0.5 * (-N.z);
-    float rim = pow(clamp(1.0 - NdotV, 0.0, 1.0), 2.2) * max(dot(N, rimDir), 0.0);
-
-    vec3 sunRadiance = vec3(3.85, 4.15, 4.7);
-    vec3 fillRadiance = vec3(0.72, 0.82, 0.96);
-    vec3 skyAmbient = vec3(0.16, 0.19, 0.27) * sky;
-    vec3 groundAmbient = vec3(0.045, 0.05, 0.06) * ground;
-    vec3 ambient = (skyAmbient + groundAmbient + vec3(0.035)) * albedo;
-    vec3 directSun = (kD * albedo / PI + specular) * sunRadiance * NdotL;
-    vec3 directFill = (kD * albedo / PI) * fillRadiance * NdotFill * 0.5;
-    vec3 rimLight = mix(vec3(0.0), vec3(0.16, 0.20, 0.26), rim) * (1.0 - roughness * 0.45);
+    vec3 radiance = vec3(2.5);
+    vec3 Lo = (kD * albedo / PI + specular) * radiance * NdotL;
+    vec3 ambient = vec3(0.02) * albedo;
 
     if (material.hasOcclusionTexture != 0) {
         float ao = texture(occlusionTex, vertUV).r;
@@ -163,8 +166,9 @@ void main() {
         emissive *= texture(emissiveTex, vertUV).rgb;
     }
 
-    vec3 color = ambient + directSun + directFill + rimLight + emissive;
-    color = toneAwareBoost(color, 1.03);
+    vec3 color = ambient + Lo + emissive;
     color = pow(color, vec3(1.0 / 2.2));
+
+
     fragColor = vec4(color, base.a);
 }

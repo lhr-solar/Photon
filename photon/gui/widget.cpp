@@ -1,5 +1,7 @@
 #include "widget.hpp"
 
+#include <algorithm>
+
 #include "im_anim.h"
 #include "imgui.h"
 

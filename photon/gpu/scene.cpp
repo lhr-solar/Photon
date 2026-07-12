@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -15,6 +17,8 @@
 #include "scenePostProcess_frag_spv.hpp"
 #include "scene_frag_spv.hpp"
 #include "scene_vert_spv.hpp"
+#include "stb_image.h"
+#include "studio_hdr.hpp"
 #include "vulkan_core.h"
 
 namespace {
@@ -24,6 +28,20 @@ struct ScenePrimitiveRange {
   uint32_t indexCount{0};
   int materialIndex{-1};
 };
+
+struct FloatImageMip {
+  uint32_t width{0};
+  uint32_t height{0};
+  std::vector<glm::vec4> pixels{};
+};
+
+struct HdrEnvironment {
+  uint32_t width{0};
+  uint32_t height{0};
+  std::vector<glm::vec3> pixels{};
+};
+
+constexpr float kPi = 3.14159265358979323846f;
 
 bool hasStencilComponent(VkFormat format) {
   return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT ||
@@ -118,6 +136,7 @@ TextureResource createTexture2DFromRGBA(Scene& scene, GPU& gpu, const unsigned c
                                         uint32_t width, uint32_t height, VkFormat format) {
   TextureResource texture{};
   if (rgba == nullptr || width == 0 || height == 0) return texture;
+  texture.mipLevels = 1;
 
   const VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * 4;
   VkBuffer stagingBuffer = VK_NULL_HANDLE;
@@ -198,6 +217,330 @@ TextureResource createTexture2DFromRGBA(Scene& scene, GPU& gpu, const unsigned c
   samplerInfo.maxAnisotropy = 1.0f;
   vkCreateSampler(gpu.device, &samplerInfo, nullptr, &texture.sampler);
   return texture;
+}
+
+TextureResource createTexture2DFromFloatMips(Scene& scene, GPU& gpu,
+                                             const std::vector<FloatImageMip>& mips) {
+  TextureResource texture{};
+  if (mips.empty() || mips[0].pixels.empty() || mips[0].width == 0 || mips[0].height == 0)
+    return texture;
+
+  texture.mipLevels = static_cast<uint32_t>(mips.size());
+  VkDeviceSize imageSize = 0;
+  for (const FloatImageMip& mip : mips) {
+    imageSize += static_cast<VkDeviceSize>(mip.pixels.size() * sizeof(glm::vec4));
+  }
+
+  VkBuffer stagingBuffer = VK_NULL_HANDLE;
+  VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
+  createBufferResource(gpu, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       stagingBuffer, stagingMemory);
+
+  void* mapped = nullptr;
+  vkMapMemory(gpu.device, stagingMemory, 0, imageSize, 0, &mapped);
+  auto* dst = static_cast<std::byte*>(mapped);
+  for (const FloatImageMip& mip : mips) {
+    const size_t mipBytes = mip.pixels.size() * sizeof(glm::vec4);
+    std::memcpy(dst, mip.pixels.data(), mipBytes);
+    dst += mipBytes;
+  }
+  vkUnmapMemory(gpu.device, stagingMemory);
+
+  VkImageCreateInfo imageInfo{};
+  imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+  imageInfo.extent = {mips[0].width, mips[0].height, 1};
+  imageInfo.mipLevels = texture.mipLevels;
+  imageInfo.arrayLayers = 1;
+  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  gpu.createImage(imageInfo, &texture.image);
+
+  VkMemoryRequirements requirements{};
+  vkGetImageMemoryRequirements(gpu.device, texture.image, &requirements);
+  VkMemoryAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocInfo.allocationSize = requirements.size;
+  allocInfo.memoryTypeIndex =
+      gpu.getMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  gpu.allocateMemory(allocInfo, &texture.memory);
+  vkBindImageMemory(gpu.device, texture.image, texture.memory, 0);
+
+  VkCommandBufferAllocateInfo commandAllocInfo{};
+  commandAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  commandAllocInfo.commandPool = gpu.commandPool;
+  commandAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  commandAllocInfo.commandBufferCount = 1;
+  VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+  gpu.allocateCommandBuffers(commandAllocInfo, &commandBuffer);
+
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  VkImageSubresourceRange range{};
+  range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  range.baseMipLevel = 0;
+  range.levelCount = texture.mipLevels;
+  range.baseArrayLayer = 0;
+  range.layerCount = 1;
+  gpu.setImageLayout(commandBuffer, texture.image, VK_IMAGE_LAYOUT_UNDEFINED,
+                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                     VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+  std::vector<VkBufferImageCopy> copyRegions{};
+  copyRegions.reserve(mips.size());
+  VkDeviceSize offset = 0;
+  for (uint32_t mipIndex = 0; mipIndex < texture.mipLevels; ++mipIndex) {
+    const FloatImageMip& mip = mips[mipIndex];
+    VkBufferImageCopy copy{};
+    copy.bufferOffset = offset;
+    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.imageSubresource.mipLevel = mipIndex;
+    copy.imageSubresource.baseArrayLayer = 0;
+    copy.imageSubresource.layerCount = 1;
+    copy.imageExtent = {mip.width, mip.height, 1};
+    copyRegions.push_back(copy);
+    offset += static_cast<VkDeviceSize>(mip.pixels.size() * sizeof(glm::vec4));
+  }
+  vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, texture.image,
+                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                         static_cast<uint32_t>(copyRegions.size()), copyRegions.data());
+
+  gpu.setImageLayout(commandBuffer, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range,
+                     VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+  vkEndCommandBuffer(commandBuffer);
+
+  VkSubmitInfo submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+  vkQueueSubmit(gpu.queue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(gpu.queue);
+  gpu.freeCommandBuffers(gpu.commandPool, 1, &commandBuffer);
+
+  gpu.destroyBuffer(stagingBuffer);
+  gpu.freeMemory(stagingMemory);
+
+  VkImageViewCreateInfo viewInfo{};
+  viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  viewInfo.image = texture.image;
+  viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  viewInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+  viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  viewInfo.subresourceRange.baseMipLevel = 0;
+  viewInfo.subresourceRange.levelCount = texture.mipLevels;
+  viewInfo.subresourceRange.baseArrayLayer = 0;
+  viewInfo.subresourceRange.layerCount = 1;
+  vkCreateImageView(gpu.device, &viewInfo, nullptr, &texture.view);
+
+  VkSamplerCreateInfo samplerInfo{};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter = VK_FILTER_LINEAR;
+  samplerInfo.minFilter = VK_FILTER_LINEAR;
+  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.minLod = 0.0f;
+  samplerInfo.maxLod = static_cast<float>(std::max(1u, texture.mipLevels) - 1u);
+  samplerInfo.maxAnisotropy = 1.0f;
+  vkCreateSampler(gpu.device, &samplerInfo, nullptr, &texture.sampler);
+  return texture;
+}
+
+glm::vec3 directionFromEquirectTexel(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+  const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(width);
+  const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(height);
+  const float phi = (u - 0.5f) * 2.0f * kPi;
+  const float theta = v * kPi;
+  const float sinTheta = std::sin(theta);
+  return glm::normalize(
+      glm::vec3(std::cos(phi) * sinTheta, std::sin(phi) * sinTheta, std::cos(theta)));
+}
+
+glm::vec3 sampleHdrEnvironment(const HdrEnvironment& environment, glm::vec3 direction) {
+  direction = glm::normalize(direction);
+  float u = std::atan2(direction.y, direction.x) / (2.0f * kPi) + 0.5f;
+  u -= std::floor(u);
+  const float v = std::acos(glm::clamp(direction.z, -1.0f, 1.0f)) / kPi;
+
+  const float x = u * static_cast<float>(environment.width) - 0.5f;
+  const float y = v * static_cast<float>(environment.height) - 0.5f;
+  const int x0 = static_cast<int>(std::floor(x));
+  const int y0 = static_cast<int>(std::floor(y));
+  const float tx = x - static_cast<float>(x0);
+  const float ty = y - static_cast<float>(y0);
+
+  auto pixel = [&](int px, int py) {
+    px %= static_cast<int>(environment.width);
+    if (px < 0) px += static_cast<int>(environment.width);
+    py = std::clamp(py, 0, static_cast<int>(environment.height) - 1);
+    return environment.pixels[static_cast<size_t>(py) * environment.width + px];
+  };
+
+  const glm::vec3 a = glm::mix(pixel(x0, y0), pixel(x0 + 1, y0), tx);
+  const glm::vec3 b = glm::mix(pixel(x0, y0 + 1), pixel(x0 + 1, y0 + 1), tx);
+  return glm::max(glm::mix(a, b, ty), glm::vec3(0.0f));
+}
+
+void tangentBasis(glm::vec3 normal, glm::vec3& tangent, glm::vec3& bitangent) {
+  const glm::vec3 up =
+      std::abs(normal.z) < 0.999f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+  tangent = glm::normalize(glm::cross(up, normal));
+  bitangent = glm::cross(normal, tangent);
+}
+
+float radicalInverseVdc(uint32_t bits) {
+  bits = (bits << 16u) | (bits >> 16u);
+  bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+  bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+  bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+  bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+  return static_cast<float>(bits) * 2.3283064365386963e-10f;
+}
+
+glm::vec2 hammersley(uint32_t i, uint32_t sampleCount) {
+  return {static_cast<float>(i) / static_cast<float>(sampleCount), radicalInverseVdc(i)};
+}
+
+glm::vec3 importanceSampleGgx(glm::vec2 xi, float roughness, glm::vec3 normal) {
+  const float a = roughness * roughness;
+  const float phi = 2.0f * kPi * xi.x;
+  const float cosTheta = std::sqrt((1.0f - xi.y) / (1.0f + (a * a - 1.0f) * xi.y));
+  const float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
+
+  glm::vec3 tangent{};
+  glm::vec3 bitangent{};
+  tangentBasis(normal, tangent, bitangent);
+  return glm::normalize(tangent * (std::cos(phi) * sinTheta) +
+                        bitangent * (std::sin(phi) * sinTheta) + normal * cosTheta);
+}
+
+FloatImageMip buildIrradianceMap(const HdrEnvironment& environment) {
+  constexpr uint32_t width = 64;
+  constexpr uint32_t height = 32;
+  constexpr uint32_t thetaSamples = 16;
+  constexpr uint32_t phiSamples = 32;
+  FloatImageMip mip{width, height, std::vector<glm::vec4>(width * height)};
+
+  const float dTheta = (0.5f * kPi) / static_cast<float>(thetaSamples);
+  const float dPhi = (2.0f * kPi) / static_cast<float>(phiSamples);
+  for (uint32_t y = 0; y < height; ++y) {
+    for (uint32_t x = 0; x < width; ++x) {
+      const glm::vec3 normal = directionFromEquirectTexel(x, y, width, height);
+      glm::vec3 tangent{};
+      glm::vec3 bitangent{};
+      tangentBasis(normal, tangent, bitangent);
+
+      glm::vec3 irradiance(0.0f);
+      for (uint32_t thetaIndex = 0; thetaIndex < thetaSamples; ++thetaIndex) {
+        const float theta = (static_cast<float>(thetaIndex) + 0.5f) * dTheta;
+        const float sinTheta = std::sin(theta);
+        const float cosTheta = std::cos(theta);
+        for (uint32_t phiIndex = 0; phiIndex < phiSamples; ++phiIndex) {
+          const float phi = (static_cast<float>(phiIndex) + 0.5f) * dPhi;
+          const glm::vec3 sampleDirection =
+              glm::normalize(tangent * (std::cos(phi) * sinTheta) +
+                             bitangent * (std::sin(phi) * sinTheta) + normal * cosTheta);
+          irradiance += sampleHdrEnvironment(environment, sampleDirection) * cosTheta * sinTheta;
+        }
+      }
+      irradiance *= dTheta * dPhi;
+      mip.pixels[static_cast<size_t>(y) * width + x] = glm::vec4(irradiance, 1.0f);
+    }
+  }
+  return mip;
+}
+
+std::vector<FloatImageMip> buildSpecularMap(const HdrEnvironment& environment) {
+  constexpr uint32_t baseWidth = 256;
+  constexpr uint32_t baseHeight = 128;
+  constexpr uint32_t mipLevels = 6;
+  constexpr uint32_t sampleCount = 128;
+  std::vector<FloatImageMip> mips{};
+  mips.reserve(mipLevels);
+
+  for (uint32_t mipIndex = 0; mipIndex < mipLevels; ++mipIndex) {
+    const uint32_t width = std::max(1u, baseWidth >> mipIndex);
+    const uint32_t height = std::max(1u, baseHeight >> mipIndex);
+    const float roughness =
+        mipLevels > 1 ? static_cast<float>(mipIndex) / static_cast<float>(mipLevels - 1) : 0.0f;
+    FloatImageMip mip{width, height, std::vector<glm::vec4>(width * height)};
+
+    for (uint32_t y = 0; y < height; ++y) {
+      for (uint32_t x = 0; x < width; ++x) {
+        const glm::vec3 reflection = directionFromEquirectTexel(x, y, width, height);
+        glm::vec3 color(0.0f);
+        float totalWeight = 0.0f;
+
+        if (mipIndex == 0) {
+          color = sampleHdrEnvironment(environment, reflection);
+          totalWeight = 1.0f;
+        } else {
+          for (uint32_t sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+            const glm::vec3 halfVector =
+                importanceSampleGgx(hammersley(sampleIndex, sampleCount), roughness, reflection);
+            const glm::vec3 light =
+                glm::normalize(2.0f * glm::dot(reflection, halfVector) * halfVector - reflection);
+            const float ndotl = std::max(glm::dot(reflection, light), 0.0f);
+            if (ndotl > 0.0f) {
+              color += sampleHdrEnvironment(environment, light) * ndotl;
+              totalWeight += ndotl;
+            }
+          }
+        }
+
+        mip.pixels[static_cast<size_t>(y) * width + x] =
+            glm::vec4(color / std::max(totalWeight, 1e-4f), 1.0f);
+      }
+    }
+    mips.push_back(std::move(mip));
+  }
+  return mips;
+}
+
+HdrEnvironment loadStudioEnvironment() {
+  int width = 0;
+  int height = 0;
+  int componentCount = 0;
+  float* loaded = stbi_loadf_from_memory(studio_hdr, static_cast<int>(studio_hdr_size), &width,
+                                         &height, &componentCount, 3);
+  if (loaded == nullptr || width <= 0 || height <= 0) {
+    if (loaded != nullptr) stbi_image_free(loaded);
+    return {1, 1, {glm::vec3(1.0f)}};
+  }
+
+  HdrEnvironment environment{};
+  environment.width = static_cast<uint32_t>(width);
+  environment.height = static_cast<uint32_t>(height);
+  environment.pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
+  for (size_t i = 0; i < environment.pixels.size(); ++i) {
+    environment.pixels[i] = glm::vec3(loaded[i * 3 + 0], loaded[i * 3 + 1], loaded[i * 3 + 2]);
+  }
+  stbi_image_free(loaded);
+  return environment;
+}
+
+void createEnvironmentLighting(Scene& scene, GPU& gpu) {
+  if (scene.environmentIrradianceTexture.image != VK_NULL_HANDLE &&
+      scene.environmentSpecularTexture.image != VK_NULL_HANDLE) {
+    return;
+  }
+
+  const HdrEnvironment environment = loadStudioEnvironment();
+  std::vector<FloatImageMip> irradianceMips{};
+  irradianceMips.push_back(buildIrradianceMap(environment));
+  scene.environmentIrradianceTexture = createTexture2DFromFloatMips(scene, gpu, irradianceMips);
+  scene.environmentSpecularTexture =
+      createTexture2DFromFloatMips(scene, gpu, buildSpecularMap(environment));
 }
 
 void createFallbackTexture(Scene& scene, GPU& gpu) {
@@ -516,14 +859,30 @@ void initFrame(Scene& scene, GPU& gpu, uint32_t index) {
   VkDescriptorBufferInfo frameBufferInfo{};
   frameBufferInfo.buffer = frame.uniformBuffer;
   frameBufferInfo.range = sizeof(SceneViewProjection);
-  VkWriteDescriptorSet frameWrite{};
-  frameWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  frameWrite.dstSet = frame.frameDescriptorSet;
-  frameWrite.dstBinding = 0;
-  frameWrite.descriptorCount = 1;
-  frameWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  frameWrite.pBufferInfo = &frameBufferInfo;
-  vkUpdateDescriptorSets(gpu.device, 1, &frameWrite, 0, nullptr);
+  VkDescriptorImageInfo environmentImageInfos[2]{};
+  environmentImageInfos[0] = {scene.environmentIrradianceTexture.sampler,
+                              scene.environmentIrradianceTexture.view,
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+  environmentImageInfos[1] = {scene.environmentSpecularTexture.sampler,
+                              scene.environmentSpecularTexture.view,
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+
+  VkWriteDescriptorSet frameWrites[3]{};
+  frameWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  frameWrites[0].dstSet = frame.frameDescriptorSet;
+  frameWrites[0].dstBinding = 0;
+  frameWrites[0].descriptorCount = 1;
+  frameWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  frameWrites[0].pBufferInfo = &frameBufferInfo;
+  for (uint32_t binding = 1; binding <= 2; ++binding) {
+    frameWrites[binding].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    frameWrites[binding].dstSet = frame.frameDescriptorSet;
+    frameWrites[binding].dstBinding = binding;
+    frameWrites[binding].descriptorCount = 1;
+    frameWrites[binding].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    frameWrites[binding].pImageInfo = &environmentImageInfos[binding - 1];
+  }
+  vkUpdateDescriptorSets(gpu.device, 3, frameWrites, 0, nullptr);
 
   VkDescriptorImageInfo postImageInfo{};
   postImageInfo.sampler = scene.offscreenColorSampler;
@@ -580,6 +939,33 @@ glm::vec3 readColorValue(const uint8_t* colorData, size_t colorStride, int color
     color.b = colorNormalized ? values[2] / 65535.0f : static_cast<float>(values[2]);
   }
   return color;
+}
+
+const tinygltf::Value* extensionObject(const tinygltf::Material& material, const char* name) {
+  const auto it = material.extensions.find(name);
+  if (it == material.extensions.end() || !it->second.IsObject()) return nullptr;
+  return &it->second;
+}
+
+float extensionNumber(const tinygltf::Value* extension, const char* key, float fallback) {
+  if (!extension) return fallback;
+  const tinygltf::Value& value = extension->Get(key);
+  return value.IsNumber() ? static_cast<float>(value.GetNumberAsDouble()) : fallback;
+}
+
+glm::vec4 extensionVec4(const tinygltf::Value* extension, const char* key, glm::vec4 fallback) {
+  if (!extension) return fallback;
+  const tinygltf::Value& value = extension->Get(key);
+  if (!value.IsArray()) return fallback;
+
+  glm::vec4 result = fallback;
+  const size_t count = std::min<size_t>(value.ArrayLen(), 4);
+  for (size_t i = 0; i < count; ++i) {
+    const tinygltf::Value& component = value.Get(static_cast<int>(i));
+    if (component.IsNumber())
+      result[static_cast<int>(i)] = static_cast<float>(component.GetNumberAsDouble());
+  }
+  return result;
 }
 
 uint32_t emitPrimitiveVertex(const uint8_t* posData, size_t posStride, const uint8_t* normalData,
@@ -909,6 +1295,23 @@ void loadObject(SceneObject& object) {
       const std::string mode = material.additionalValues.at("alphaMode").string_value;
       runtime.params.alphaMode = mode == "MASK" ? 1 : mode == "BLEND" ? 2 : 0;
     }
+
+    const tinygltf::Value* specular = extensionObject(material, "KHR_materials_specular");
+    runtime.params.specularFactor = extensionNumber(specular, "specularFactor", 1.0f);
+    runtime.params.specularColorFactor =
+        extensionVec4(specular, "specularColorFactor", glm::vec4(1.0f));
+
+    const tinygltf::Value* sheen = extensionObject(material, "KHR_materials_sheen");
+    runtime.params.sheenColorFactor =
+        extensionVec4(sheen, "sheenColorFactor", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+    const tinygltf::Value* clearcoat = extensionObject(material, "KHR_materials_clearcoat");
+    runtime.params.clearcoatFactor = extensionNumber(clearcoat, "clearcoatFactor", 0.0f);
+    runtime.params.clearcoatRoughnessFactor =
+        extensionNumber(clearcoat, "clearcoatRoughnessFactor", 0.0f);
+
+    const tinygltf::Value* transmission = extensionObject(material, "KHR_materials_transmission");
+    runtime.params.transmissionFactor = extensionNumber(transmission, "transmissionFactor", 0.0f);
     object.materials.push_back(runtime);
   }
   if (object.materials.empty()) object.materials.push_back(MaterialRuntime{});
@@ -1047,13 +1450,13 @@ void Scene::prepareInit(GPU& gpu) {
   vertexAttributeDescriptions[3] = {3, 0, VK_FORMAT_R32G32B32_SFLOAT,
                                     static_cast<uint32_t>(offsetof(GltfVertex, normal))};
 
-  sceneColorFormat = VK_FORMAT_R8G8B8A8_UNORM;
+  sceneColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
   sceneDepthFormat = pickDepthFormat(physicalDevice);
   if (sceneDepthFormat == VK_FORMAT_UNDEFINED) return;
 
   const uint32_t requiredSetCount = fif * 2 + totalMaterials;
   const uint32_t requiredUniformCount = fif + totalMaterials;
-  const uint32_t requiredSamplerCount = fif + totalMaterials * 5;
+  const uint32_t requiredSamplerCount = fif * 3 + totalMaterials * 5;
   const uint32_t setSlack = std::max(32u, requiredSetCount / 8u);
   const uint32_t uniformSlack = std::max(32u, requiredUniformCount / 8u);
   const uint32_t samplerSlack = std::max(64u, requiredSamplerCount / 8u);
@@ -1071,15 +1474,23 @@ void Scene::prepareInit(GPU& gpu) {
   poolInfo.pPoolSizes = poolSizes;
   gpu.createDescriptorPool(poolInfo, &internalDescriptorPool);
 
-  VkDescriptorSetLayoutBinding frameBinding{};
-  frameBinding.binding = 0;
-  frameBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  frameBinding.descriptorCount = 1;
-  frameBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+  VkDescriptorSetLayoutBinding frameBindings[3]{};
+  frameBindings[0].binding = 0;
+  frameBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  frameBindings[0].descriptorCount = 1;
+  frameBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+  frameBindings[1].binding = 1;
+  frameBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  frameBindings[1].descriptorCount = 1;
+  frameBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  frameBindings[2].binding = 2;
+  frameBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  frameBindings[2].descriptorCount = 1;
+  frameBindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
   VkDescriptorSetLayoutCreateInfo frameLayoutInfo{};
   frameLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  frameLayoutInfo.bindingCount = 1;
-  frameLayoutInfo.pBindings = &frameBinding;
+  frameLayoutInfo.bindingCount = 3;
+  frameLayoutInfo.pBindings = frameBindings;
   gpu.createDescriptorSetLayout(frameLayoutInfo, &uniformDescriptorSetLayout);
 
   VkDescriptorSetLayoutBinding materialBindings[6]{};
@@ -1300,16 +1711,28 @@ void Scene::prepareInit(GPU& gpu) {
   computeSceneBounds(*this, minBounds, maxBounds, hasBounds);
   const glm::vec3 center = hasBounds ? (minBounds + maxBounds) * 0.5f : glm::vec3(0.0f);
   const glm::vec3 extents = hasBounds ? (maxBounds - minBounds) : glm::vec3(1.0f);
-  const float radius = std::max({extents.x, extents.y, extents.z, 1.0f}) * 0.5f;
+  const float maxDimension = std::max({extents.x, extents.y, extents.z, 1.0f});
+  const float radius = maxDimension * 0.5f;
+  const float fovYRadians = glm::radians(45.0f);
+  const float cameraDistance =
+      std::abs(maxDimension / (2.0f * std::tan(fovYRadians * 0.5f))) * 1.35f;
+  const glm::vec3 cameraDirection = glm::normalize(glm::vec3(0.85f, 0.48f, 0.85f));
+  const glm::vec3 initialPosition = center + cameraDirection * cameraDistance;
 
   camera.target =
       trackedObjectIndex >= 0 ? positionToVec3(objects[trackedObjectIndex].position) : center;
-  camera.position = camera.target + glm::vec3(radius * 1.75f, 0.0f, 0.0f);
-  camera.yaw = 180.0f;
-  camera.pitch = -15.0f;
-  camera.distance = std::max(radius * 1.75f, 1.0f);
+  camera.position =
+      trackedObjectIndex >= 0 ? camera.target + cameraDirection * cameraDistance : initialPosition;
+  const glm::vec3 orbitOffset = camera.position - camera.target;
+  camera.yaw = glm::degrees(std::atan2(orbitOffset.y, orbitOffset.x));
+  camera.pitch = glm::degrees(
+      std::asin(glm::clamp(orbitOffset.z / std::max(cameraDistance, 0.001f), -1.0f, 1.0f)));
+  camera.distance = std::max(cameraDistance, 1.0f);
   camera.minDistance = std::max(radius * 0.01f, 0.01f);
   camera.maxDistance = std::max(radius * 24.0f, 32.0f);
+  camera.fovYDegrees = 45.0f;
+  camera.nearPlane = 0.001f;
+  camera.farPlane = std::max(cameraDistance * 1000.0f, 4096.0f);
   camera.orbitSensitivity = 0.35f;
   camera.panSensitivity = 1.0f;
   camera.zoomSensitivity = 0.050f;
@@ -1324,6 +1747,7 @@ void Scene::finishInit(GPU& gpu) {
   if (!partInitialized.compare_exchange_strong(expected, false)) return;
 
   createFallbackTexture(*this, gpu);
+  createEnvironmentLighting(*this, gpu);
   for (SceneObject& object : objects) {
     if (!object.loaded) continue;
     loadObjectTextures(*this, object, gpu);
@@ -1362,10 +1786,10 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
 
   SceneViewProjection vp{};
   vp.view = glm::lookAt(camera.position, camera.target, camera.up);
-  vp.proj = glm::perspective(glm::radians(93.0f),
+  vp.proj = glm::perspective(glm::radians(camera.fovYDegrees),
                              static_cast<float>(frame.extent.width) /
                                  static_cast<float>(std::max(1u, frame.extent.height)),
-                             0.001f, 4096.0f);
+                             camera.nearPlane, camera.farPlane);
   vp.proj[1][1] *= -1.0f;
   vp.camPos = glm::vec4(camera.position, 1.0f);
   std::memcpy(frame.uniformMapped, &vp, sizeof(SceneViewProjection));
@@ -1550,6 +1974,8 @@ void Scene::destroy() {
     object.loaded = false;
   }
 
+  destroyTexture(*this, environmentIrradianceTexture);
+  destroyTexture(*this, environmentSpecularTexture);
   destroyTexture(*this, fallbackWhiteTexture);
 
   if (offscreenColorSampler != VK_NULL_HANDLE)

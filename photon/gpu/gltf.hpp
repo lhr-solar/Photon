@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <atomic>
+#include <cstddef>
 
 #include "gpu.hpp"
 #include "tiny_gltf.h"
@@ -39,7 +40,19 @@ struct alignas(16) MaterialParams {
   int hasNormalTexture{0};
   int hasOcclusionTexture{0};
   int hasEmissiveTexture{0};
+  float _extensionPadding0{0.0f};
+  glm::vec4 specularColorFactor{1.0f};
+  glm::vec4 sheenColorFactor{0.0f, 0.0f, 0.0f, 1.0f};
+  float specularFactor{1.0f};
+  float clearcoatFactor{0.0f};
+  float clearcoatRoughnessFactor{0.0f};
+  float transmissionFactor{0.0f};
 };
+
+static_assert(offsetof(MaterialParams, specularColorFactor) == 80);
+static_assert(offsetof(MaterialParams, sheenColorFactor) == 96);
+static_assert(offsetof(MaterialParams, specularFactor) == 112);
+static_assert(sizeof(MaterialParams) == 128);
 
 struct PrimitiveRange {
   uint32_t firstVertex{0};
@@ -52,6 +65,7 @@ struct TextureResource {
   VkDeviceMemory memory{VK_NULL_HANDLE};
   VkImageView view{VK_NULL_HANDLE};
   VkSampler sampler{VK_NULL_HANDLE};
+  uint32_t mipLevels{1};
 };
 
 struct MaterialRuntime {
@@ -79,6 +93,9 @@ struct Camera {
   float distance = 2.5f;
   float minDistance = 0.05f;
   float maxDistance = 8.0f;
+  float fovYDegrees = 93.0f;
+  float nearPlane = 0.001f;
+  float farPlane = 4096.0f;
   float orbitSensitivity = 0.35f;
   float panSensitivity = 1.0f;
   float zoomSensitivity = 0.08f;

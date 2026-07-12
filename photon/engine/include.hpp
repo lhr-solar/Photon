@@ -29,7 +29,7 @@ inline void ensure_console() {
 #endif
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #ifdef NDEBUG
 #define logs(x) \
   do {          \
@@ -42,7 +42,4 @@ inline void ensure_console() {
   }
 #endif
 
-#endif
-
-#ifdef __APPLE__
 #endif
