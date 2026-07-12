@@ -415,7 +415,8 @@ void GUI::buildUI() {
   canvas.draw(titleBar, sideBar, tabs);
 
   /* stateful UI building */
-  ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
+  // Disabled until the GPU info window crash is fixed.
+  // ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
   ImGui::Render();
   render();
 };

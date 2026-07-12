@@ -110,6 +110,47 @@ void drawCollapsedSidebarHeader(ImDrawList* draw, ImVec2 min, ImVec2 max, std::s
                 colorU32(headerText), page.data(), page.data() + page.size());
   draw->PopClipRect();
 }
+
+void drawConnectionStatus(ImDrawList* draw, ImVec2 min, ImVec2 max, std::string_view protocol,
+                          bool active, bool connected, ImVec4 textColor, ImVec4 accent) {
+  const ImGuiStyle& style = ImGui::GetStyle();
+  const ImVec4 bg = style.Colors[ImGuiCol_WindowBg];
+  const ImVec4 button = style.Colors[ImGuiCol_Button];
+  const ImVec4 border = mixColor(button, textColor, 0.22f);
+  const float height = max.y - min.y;
+  const float rounding = std::max(1.0f, height * 0.28f);
+  const float padY = std::max(1.0f, height * 0.17f);
+  const ImVec2 frameMin{min.x, min.y + padY};
+  const ImVec2 frameMax{max.x, max.y - padY};
+
+  draw->AddRectFilled(frameMin, frameMax, colorU32(withAlpha(mixColor(bg, button, 0.42f), 0.72f)),
+                      rounding);
+  draw->AddRect(frameMin, frameMax, colorU32(withAlpha(border, 0.38f)), rounding);
+
+  const ImVec4 connectedColor{0.22f, 0.86f, 0.46f, 1.0f};
+  const ImVec4 pendingColor{1.0f, 0.68f, 0.25f, 1.0f};
+  const ImVec4 dotColor = connected ? connectedColor
+                          : active  ? pendingColor
+                                    : withAlpha(textColor, 0.34f);
+  const ImVec4 labelColor = connected ? mixColor(textColor, accent, 0.18f)
+                            : active  ? mixColor(textColor, pendingColor, 0.24f)
+                                      : withAlpha(textColor, 0.58f);
+  const std::string_view label =
+      (active && !protocol.empty()) ? protocol : std::string_view{"Offline"};
+  const float dotRadius = std::max(2.0f, height * 0.115f);
+  const float textSize = std::min(ImGui::GetFontSize(), height * 0.42f);
+  const float dotX = frameMin.x + 12.0f;
+  const float centerY = (frameMin.y + frameMax.y) * 0.5f;
+  draw->AddCircleFilled({dotX, centerY}, dotRadius, colorU32(dotColor), 16);
+
+  const float textX = dotX + dotRadius + 7.0f;
+  draw->PushClipRect({textX, frameMin.y}, {frameMax.x - 8.0f, frameMax.y}, true);
+  const ImVec2 labelSize = ImGui::GetFont()->CalcTextSizeA(textSize, FLT_MAX, 0.0f, label.data(),
+                                                           label.data() + label.size());
+  draw->AddText(ImGui::GetFont(), textSize, {textX, centerY - labelSize.y * 0.5f},
+                colorU32(labelColor), label.data(), label.data() + label.size());
+  draw->PopClipRect();
+}
 }  // namespace
 
 void TitleBar::clearInteract() {
@@ -168,12 +209,21 @@ void TitleBar::draw() {
 
     const float controlsWidth = buttonWidth * 3.0f;
     const float controlsX = ImGui::GetWindowWidth() - controlsWidth - 6.0f;
+    const float statusWidth = 104.0f;
+    const float statusX = controlsX - statusWidth - 8.0f;
+    const float headerRight = statusX > sidebarButton.max.x + 24.0f ? statusX : controlsX;
     const float collapsedHeaderAlpha =
         iam_tween_float(ImHashStr("TitleCollapsedSidebarHeader"), ImHashStr("alpha"),
                         showSidebar ? 0.0f : 1.0f, 0.18f, iam_ease_preset(iam_ease_out_quad),
                         iam_policy_crossfade, ImGui::GetIO().DeltaTime, showSidebar ? 0.0f : 1.0f);
     drawCollapsedSidebarHeader(draw, {sidebarButton.max.x + 4.0f, 0.0f},
-                               {controlsX - 10.0f, barHeight}, activePage, collapsedHeaderAlpha);
+                               {headerRight - 10.0f, barHeight}, activePage, collapsedHeaderAlpha);
+
+    if (statusX > sidebarButton.max.x + 24.0f) {
+      drawConnectionStatus(draw, {statusX, 0.0f}, {statusX + statusWidth, barHeight},
+                           connectionProtocol, connectionActive, connectionConnected, textColor,
+                           accentColor);
+    }
 
     ImGui::SetCursorPos(ImVec2(controlsX, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, style.ItemSpacing.y));

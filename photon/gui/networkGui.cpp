@@ -170,15 +170,27 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
                              palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
-        if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true))
+        if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true)) {
+          titleBar.connectionActive = true;
+          titleBar.connectionConnected = true;
+          titleBar.connectionProtocol = "DAQ Server";
           submit(network, daqConfig);
+        }
         ImGui::SameLine(0.0f, 8.0f);
-        if (PhotonUi::button("DisconnectDaq", "Disconnect", {118.0f, 38.0f}, palette))
+        if (PhotonUi::button("DisconnectDaq", "Disconnect", {118.0f, 38.0f}, palette)) {
+          titleBar.connectionActive = false;
+          titleBar.connectionConnected = false;
+          titleBar.connectionProtocol = "Offline";
           disconnect(network);
+        }
       } else if (selected == 1) {
         drawTcpFields(tcpConfig, palette);
-        if (PhotonUi::button("ApplyTcp", "Apply", {96.0f, 38.0f}, palette, true))
+        if (PhotonUi::button("ApplyTcp", "Apply", {96.0f, 38.0f}, palette, true)) {
+          titleBar.connectionActive = true;
+          titleBar.connectionConnected = true;
+          titleBar.connectionProtocol = "TCP";
           submit(network, tcpConfig);
+        }
       } else if (selected == 2) {
         drawUdpFields(udpConfig, palette);
         if (PhotonUi::button("ApplyUdp", "Apply", {96.0f, 38.0f}, palette, true))

@@ -19,6 +19,9 @@ struct TitleBar {
   bool enabled = true;
   bool showSidebar = true;
   std::string activePage = "Navigation";
+  std::string connectionProtocol = "Offline";
+  bool connectionActive = false;
+  bool connectionConnected = false;
   int interactiveRectCount = 0;
   WindowAction pendingAction = WindowAction::None;
   static constexpr int buttonCount = 4;
