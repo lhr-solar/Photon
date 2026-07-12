@@ -35,160 +35,160 @@ BS_:
 
 BU_: Vector__XXX
 
-BO_ 2240 TelemLeader_Center: 8 Vector__XXX
+BO_ 4096 TelemLeader_Center: 2 Vector__XXX
 	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2240 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4096 "ExtendedCAN";
 
-BO_ 2464 IMU_Accel_FR: 8 Vector__XXX
+BO_ 4512 IMU_Accel_FR: 8 Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2464 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4512 "ExtendedCAN";
 
-BO_ 2465 IMU_Gyro_FR: 8 Vector__XXX
+BO_ 4513 IMU_Gyro_FR: 8 Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2465 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4513 "ExtendedCAN";
 
-BO_ 2480 IMU_Accel_Back: 8 Vector__XXX
+BO_ 4528 IMU_Accel_Back: 8 Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2480 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4528 "ExtendedCAN";
 
-BO_ 2481 IMU_Gyro_Back: 8 Vector__XXX
+BO_ 4529 IMU_Gyro_Back: 8 Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2481 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4529 "ExtendedCAN";
 
-BO_ 2512 IMU_Accel_FL: 8 Vector__XXX
+BO_ 4560 IMU_Accel_FL: 8 Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2512 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4560 "ExtendedCAN";
 
-BO_ 2513 IMU_Gyro_FL: 8 Vector__XXX
+BO_ 4561 IMU_Gyro_FL: 8 Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2513 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4561 "ExtendedCAN";
 
-BO_ 2720 Suspension_FR: 8 Vector__XXX
+BO_ 4768 Suspension_FR: 8 Vector__XXX
 	SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2720 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4768 "ExtendedCAN";
 
-BO_ 2736 Suspension_Back: 8 Vector__XXX
+BO_ 4784 Suspension_Back: 8 Vector__XXX
 	SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2736 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4784 "ExtendedCAN";
 
-BO_ 2768 Suspension_FL: 8 Vector__XXX
+BO_ 4816 Suspension_FL: 8 Vector__XXX
 	SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2768 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 4816 "ExtendedCAN";
 
-BO_ 3076 Suspension_Specials: 8 Vector__XXX
+BO_ 5124 Suspension_Specials: 8 Vector__XXX
 	SG_ SUS_Sepcial_1 : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ SUS_Sepcial_2 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ SUS_Sepcial_3 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ SUS_Sepcial_4 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 3076 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5124 "ExtendedCAN";
 
-BO_ 2976 Pitot_FR: 8 Vector__XXX
+BO_ 5024 Pitot_FR: 8 Vector__XXX
 	SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 2976 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5024 "ExtendedCAN";
 
-BO_ 3024 Pitot_FL: 8 Vector__XXX
+BO_ 5072 Pitot_FL: 8 Vector__XXX
 	SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
 	SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 3024 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5072 "ExtendedCAN";
 
-BO_ 3232 WheelRPM_FR: 8 Vector__XXX
+BO_ 5280 WheelRPM_FR: 8 Vector__XXX
 	SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 3232 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5280 "ExtendedCAN";
 
-BO_ 3280 WheelRPM_FL: 8 Vector__XXX
+BO_ 5328 WheelRPM_FL: 8 Vector__XXX
 	SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 3280 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5328 "ExtendedCAN";
 
-BO_ 3488 RideHeight_FR: 8 Vector__XXX
+BO_ 5536 RideHeight_FR: 8 Vector__XXX
 	SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 3488 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5536 "ExtendedCAN";
 
-BO_ 3504 RideHeight_Back: 8 Vector__XXX
+BO_ 5552 RideHeight_Back: 8 Vector__XXX
 	SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 3504 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5552 "ExtendedCAN";
 
-BO_ 3536 RideHeight_FL: 8 Vector__XXX
+BO_ 5584 RideHeight_FL: 8 Vector__XXX
 	SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 3536 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 5584 "ExtendedCAN";
 
-BO_ 4032 Temp_1_Center: 8 Vector__XXX
+BO_ 6080 Temp_1_Center: 8 Vector__XXX
 	SG_ Temperature : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Humidity : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Timestamp : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 4032 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 6080 "ExtendedCAN";
 
-BO_ 4033 Temp_2_Center: 8 Vector__XXX
+BO_ 6081 Temp_2_Center: 8 Vector__XXX
 	SG_ Temperature : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Humidity : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 	SG_ Timestamp : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 4033 "ExtendedCAN";
+BA_ "VFrameFormat" BO_ 6081 "ExtendedCAN";
 
-BO_ 1792 GPS_Latitude: 4 Vector__XXX
+BO_ 5888 GPS_Latitude: 4 Vector__XXX
 	SG_ GPS_Latitude : 0|32@1+ (1,0) [0|4294967295] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 1792 "StandardCAN";
+BA_ "VFrameFormat" BO_ 5888 "ExtendedCAN";
 
-BO_ 1793 GPS_Longitude: 4 Vector__XXX
+BO_ 5889 GPS_Longitude: 4 Vector__XXX
 	SG_ GPS_Longitude : 0|32@1+ (1,0) [0|4294967295] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 1793 "StandardCAN";
+BA_ "VFrameFormat" BO_ 5889 "ExtendedCAN";
 
-BO_ 1794 GPS_Speed: 2 Vector__XXX
+BO_ 5890 GPS_Speed: 2 Vector__XXX
 	SG_ GPS_Speed : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 1794 "StandardCAN";
+BA_ "VFrameFormat" BO_ 5890 "ExtendedCAN";
 
-BO_ 1795 GPS_Status: 1 Vector__XXX
+BO_ 5891 GPS_Status: 1 Vector__XXX
 	SG_ GPS_Status : 0|8@1+ (1,0) [0|255] "" Vector__XXX
-BA_ "VFrameFormat" BO_ 1795 "StandardCAN";
+BA_ "VFrameFormat" BO_ 5891 "ExtendedCAN";
 
-CM_ BO_ 2240 "Telem Leader Node";
-CM_ SG_ 2240 Timestamp "Wheel-Based Vehicle Speed: Speed of the vehicle as calculated from wheel or tailshaft speed.";
+CM_ BO_ 4096 "Telem Leader Node";
+CM_ SG_ 4096 Timestamp "Wheel-Based Vehicle Speed: Speed of the vehicle as calculated from wheel or tailshaft speed.";
 
 BA_DEF_ SG_  "SPN" INT 0 524287;
 BA_DEF_ BO_  "VFrameFormat" ENUM  "StandardCAN","ExtendedCAN","reserved","J1939PG";

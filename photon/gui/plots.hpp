@@ -16,6 +16,10 @@ struct Plots {
 };
 
 struct PlotManager {
+  static constexpr double kDefaultTimeWindowSeconds = 60.0;
+  static constexpr double kMinTimeWindowSeconds = 0.1;
+  static constexpr double kMaxTimeWindowSeconds = 24.0 * 60.0 * 60.0;
+
   struct PlotSourceRef {
     uint32_t messageId = 0;
     uint32_t signalIndex = 0;
@@ -46,6 +50,7 @@ struct PlotManager {
     bool useSource1TimeAsX = true;
     bool followLatest = true;
     bool hasView = false;
+    double timeWindowSeconds = kDefaultTimeWindowSeconds;
     double xMin = 0.0;
     double xMax = 0.0;
   };

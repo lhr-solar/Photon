@@ -184,6 +184,17 @@ bool readSource(Arena* arena, const PlotManager::PlotSourceRef& ref, const doubl
   return true;
 }
 
+bool readFirstLiveSource(Arena* arena, const std::vector<PlotManager::PlotSourceRef>& sources,
+                         const double*& times, const double*& values, int& count) {
+  for (const auto& source : sources) {
+    if (readSource(arena, source, times, values, count) && count >= 2) return true;
+  }
+  times = nullptr;
+  values = nullptr;
+  count = 0;
+  return false;
+}
+
 double paddedMin(double minValue, double maxValue) {
   if (std::abs(maxValue - minValue) < 1e-9) {
     const double span = std::max(1.0, std::abs(minValue));
@@ -215,27 +226,67 @@ bool sharesMessageClock(const std::vector<PlotManager::PlotSourceRef>& sources) 
   });
 }
 
+std::string formatTimeWindow(double seconds) {
+  char label[32]{};
+  if (seconds < 1.0)
+    std::snprintf(label, sizeof(label), "%.1f s", seconds);
+  else if (seconds < 60.0)
+    std::snprintf(label, sizeof(label), "%.0f s", seconds);
+  else if (seconds < 3600.0)
+    std::snprintf(label, sizeof(label), "%.1f min", seconds / 60.0);
+  else
+    std::snprintf(label, sizeof(label), "%.1f h", seconds / 3600.0);
+  return label;
+}
+
+void drawTimeWindowStatus(const PlotManager::PlotWindow& plot) {
+  const std::string label = plot.followLatest ? "AUTO  " + formatTimeWindow(plot.timeWindowSeconds)
+                                               : "MANUAL";
+  const ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+  const float rightAlignedX =
+      ImGui::GetCursorPosX() + std::max(0.0f, ImGui::GetContentRegionAvail().x - textSize.x);
+  ImGui::SetCursorPosX(rightAlignedX);
+  ImGui::TextDisabled("%s", label.c_str());
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("Scroll over the plot to change the autofit window (0.1 s to 24 h)");
+}
+
 void updateFollowState(PlotManager::PlotWindow& plot) {
   const ImGuiIO& io = ImGui::GetIO();
-  const bool isNavigating =
+  const bool isDragging =
       ImPlot::IsPlotHovered() && (ImGui::IsMouseDragging(ImGuiMouseButton_Left) ||
                                   ImGui::IsMouseDragging(ImGuiMouseButton_Right) ||
-                                  ImGui::IsMouseDragging(ImGuiMouseButton_Middle) ||
-                                  io.MouseWheel != 0.0f || io.MouseWheelH != 0.0f);
+                                  ImGui::IsMouseDragging(ImGuiMouseButton_Middle));
+  const bool isScrolling =
+      ImPlot::IsPlotHovered() && (io.MouseWheel != 0.0f || io.MouseWheelH != 0.0f);
   const bool recenterToLive =
       ImPlot::IsPlotHovered() && io.KeyCtrl && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+
+  const ImPlotRect limits = ImPlot::GetPlotLimits(ImAxis_X1, ImAxis_Y1);
   if (recenterToLive) {
     plot.followLatest = true;
     plot.hasView = false;
   }
-  if (isNavigating) {
+  if (isDragging) {
     plot.followLatest = false;
   }
 
-  const ImPlotRect limits = ImPlot::GetPlotLimits(ImAxis_X1, ImAxis_Y1);
+  // While live autofit is active, the wheel controls the amount of recent
+  // history shown instead of silently dropping the plot into manual mode.
+  // ImPlot has already applied its zoom by this point, so retain that span and
+  // anchor it back to the latest sample on the next frame.
+  if (isScrolling && plot.followLatest) {
+    plot.timeWindowSeconds =
+        std::clamp(limits.X.Max - limits.X.Min, PlotManager::kMinTimeWindowSeconds,
+                   PlotManager::kMaxTimeWindowSeconds);
+    plot.hasView = false;
+    const std::string duration = formatTimeWindow(plot.timeWindowSeconds);
+    ImGui::SetTooltip("Autofit window: %s\nScroll to change (0.1 s to 24 h)", duration.c_str());
+  }
+
   plot.xMin = limits.X.Min;
   plot.xMax = limits.X.Max;
-  plot.hasView = true;
+  if (!plot.followLatest) plot.hasView = true;
 }
 
 std::string signalDisplayName(Arena* arena, const PlotManager::PlotSourceRef& ref) {
@@ -276,18 +327,19 @@ bool setupTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, const char
   const double* primaryTimes = nullptr;
   const double* primaryValues = nullptr;
   int primaryCount = 0;
-  if (!readSource(arena, plot.sources[0], primaryTimes, primaryValues, primaryCount) ||
-      primaryCount < 2) {
+  if (!readFirstLiveSource(arena, plot.sources, primaryTimes, primaryValues, primaryCount)) {
     ImPlot::SetNextAxisLimits(ImAxis_X1, 0.0, 1.0, ImGuiCond_Always);
     ImPlot::SetNextAxisLimits(ImAxis_Y1, 0.0, 1.0, ImGuiCond_Always);
     overlayText = "Need live samples for the selected sources.";
     return false;
   }
 
-  constexpr double maxTime = 5.0;
   const double dataStart = primaryTimes[0];
   const double latestTime = primaryTimes[primaryCount - 1];
-  const double liveWindowStart = std::max(dataStart, latestTime - maxTime);
+  plot.timeWindowSeconds =
+      std::clamp(plot.timeWindowSeconds, PlotManager::kMinTimeWindowSeconds,
+                 PlotManager::kMaxTimeWindowSeconds);
+  const double liveWindowStart = latestTime - plot.timeWindowSeconds;
   double rangeStart = liveWindowStart;
   double rangeEnd = latestTime;
   if (!plot.followLatest && plot.hasView) {
@@ -358,14 +410,12 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
   const double* primaryTimes = nullptr;
   const double* primaryValues = nullptr;
   int primaryCount = 0;
-  if (!readSource(arena, plot.sources[0], primaryTimes, primaryValues, primaryCount) ||
-      primaryCount < 2)
+  if (!readFirstLiveSource(arena, plot.sources, primaryTimes, primaryValues, primaryCount))
     return;
 
-  constexpr double maxTime = 5.0;
   const double dataStart = primaryTimes[0];
   const double latestTime = primaryTimes[primaryCount - 1];
-  const double liveWindowStart = std::max(dataStart, latestTime - maxTime);
+  const double liveWindowStart = latestTime - plot.timeWindowSeconds;
   double rangeStart = plot.followLatest ? liveWindowStart : std::max(dataStart, plot.xMin);
   double rangeEnd = plot.followLatest ? latestTime : std::max(rangeStart, plot.xMax);
   if (rangeEnd > latestTime) {
@@ -726,11 +776,13 @@ void renderPlotBody(Arena* arena, PlotManager::PlotWindow& plot) {
 
   const char* overlayText = nullptr;
   if (kPlotSpecs[static_cast<size_t>(plot.typeIndex)].usesTimeAxis) {
+    drawTimeWindowStatus(plot);
     setupTimeSeriesPlot(arena, plot, overlayText);
   }
   if (ImPlot::BeginPlot(plotId, ImVec2(-1.0f, -1.0f))) {
     if (kPlotSpecs[static_cast<size_t>(plot.typeIndex)].usesTimeAxis) {
       ImPlot::SetupAxes("time", nullptr, ImPlotAxisFlags_None, ImPlotAxisFlags_None);
+      ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
       if (overlayText)
         ImPlot::PlotText(overlayText, 0.5, 0.5);
       else

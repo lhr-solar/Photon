@@ -126,6 +126,7 @@ Json plotToJson(const PlotManager::PlotWindow& plot) {
   return {{"type", PlotManager::typeKey(plot.typeIndex)},
           {"title", plot.title},
           {"useSource1TimeAsX", plot.useSource1TimeAsX},
+          {"timeWindowSeconds", plot.timeWindowSeconds},
           {"sources", std::move(sources)}};
 }
 
@@ -352,6 +353,10 @@ CustomViewDefinition parsePanelJson(const Json& root, int& plotId) {
     widget.plot.id = plotId++;
     widget.plot.title = plotJson.value("title", widget.id);
     widget.plot.useSource1TimeAsX = plotJson.value("useSource1TimeAsX", true);
+    widget.plot.timeWindowSeconds =
+        std::clamp(plotJson.value("timeWindowSeconds",
+                                  PlotManager::kDefaultTimeWindowSeconds),
+                   PlotManager::kMinTimeWindowSeconds, PlotManager::kMaxTimeWindowSeconds);
     for (const Json& sourceJson : plotJson.value("sources", Json::array())) {
       PlotManager::PlotSourceRef source{};
       source.messageId = parseMessageId(sourceJson.at("messageId"));

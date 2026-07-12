@@ -9,6 +9,7 @@
 #include "arena.hpp"
 #include "assettoCorsa_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
+#include "highnoon_telemetry_dbc.hpp"
 #include "lonestar_dbc.hpp"
 #include "test_dbc.hpp"
 
@@ -30,6 +31,9 @@ DBCAsset dbcAsset(DBCType kind) {
       return {DBCType::Test, "test", test_dbc, test_dbc_size};
     case DBCType::AssettoCorsa:
       return {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size};
+    case DBCType::HighNoonTelemetry:
+      return {DBCType::HighNoonTelemetry, "High Noon Telemetry", highnoon_telemetry_dbc,
+              highnoon_telemetry_dbc_size};
     case DBCType::File:
       return {DBCType::File, "selected-file", nullptr, 0};
   }
