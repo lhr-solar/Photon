@@ -1135,24 +1135,29 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
 
 static const char* BpsFaultName(uint8_t code) {
     switch (code) {
-        case 0:  return "No Fault";
+        case 0:  return "OK";
         case 1:  return "Overvoltage";
         case 2:  return "Undervoltage";
         case 3:  return "Regen";
         case 4:  return "Overtemperature";
         case 5:  return "Elcon";
-        case 6:  return "Array Pchg Timeout";
-        case 7:  return "Watchdog";
-        case 8:  return "HV+ Ctr Sense";
-        case 9:  return "HV- Ctr Sense";
-        case 10: return "Array Ctr Sense";
-        case 11: return "Array Pchg Ctr Sense";
-        case 12: return "Estop 1";
-        case 13: return "Estop 2";
-        case 14: return "Estop 3";
-        case 15: return "Charging Overcurrent";
-        case 16: return "Discharging Overcurrent";
-        default: return "Unknown";
+        case 6:  return "Array Precharge Timeout";
+        case 7:  return "Internal Watchdog";
+        case 8:  return "Segment Watchdog";
+        case 9:  return "HV Plus Contactor Sense";
+        case 10: return "HV Minus Contactor Sense";
+        case 11: return "Array Contactor Sense";
+        case 12: return "Array Pchg Contactor Sense";
+        case 13: return "Estop 1";
+        case 14: return "Estop 2";
+        case 15: return "Estop 3";
+        case 16: return "Charging Overcurrent";
+        case 17: return "Discharging Overcurrent";
+        case 18: return "Amperes Watchdog";
+        default:
+            static thread_local char unknown[32];
+            snprintf(unknown, sizeof(unknown), "Unknown %u", static_cast<unsigned>(code));
+            return unknown;
     }
 }
 
