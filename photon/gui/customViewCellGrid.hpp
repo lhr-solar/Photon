@@ -1,0 +1,8 @@
+#pragma once
+
+#include "../parse/arena.hpp"
+#include "customViewTypes.hpp"
+
+struct CustomViewCellGridWidget {
+  static void draw(Arena* arena, CustomViewWidget& widget);
+};

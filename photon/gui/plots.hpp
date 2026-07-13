@@ -15,6 +15,29 @@ struct Plots {
                      const ImPlotSpec& spec = ImPlotSpec());
 };
 
+enum PlotTypeIndex : int {
+  PlotType_Line = 0,
+  PlotType_FilledLine,
+  PlotType_Shaded,
+  PlotType_Scatter,
+  PlotType_Stairstep,
+  PlotType_Bar,
+  PlotType_BarGroups,
+  PlotType_BarStacks,
+  PlotType_ErrorBars,
+  PlotType_Stem,
+  PlotType_Pie,
+  PlotType_Heatmap,
+  PlotType_Histogram,
+  PlotType_Histogram2D,
+  PlotType_Digital,
+  PlotType_3DLine,
+  PlotType_3DScatter,
+  PlotType_3DSurface,
+  PlotType_List,
+  PlotType_Count
+};
+
 struct PlotManager {
   static constexpr double kDefaultTimeWindowSeconds = 60.0;
   static constexpr double kMinTimeWindowSeconds = 0.1;

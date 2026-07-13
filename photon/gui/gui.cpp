@@ -38,8 +38,6 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   this->gpu = &gpu;
   this->arena = &arena;
   this->network = &network;
-  plotManager().init(&arena);
-  customViewTab().init(&arena, gpu.window);
   GuiSettings::regster(&settings);
   settings.setStyle();
   setTabs();
@@ -139,20 +137,6 @@ void GUI::exportUI() {
     if (PhotonUi::modalCloseButton("CloseExport", palette)) ImGui::CloseCurrentPopup();
   }
   PhotonUi::endModal(open);
-};
-
-void GUI::plotTest(ImGuiWindowFlags flags) {
-  if (ImGui::Begin("Plots", nullptr, flags)) {
-    ImVec2 size = ImGui::GetContentRegionAvail();
-    size.y = 0.0f;
-    const ImPlotSpec spec = settings.plotLineSpec;
-    for (const uint32_t id : arena->validIds) {
-      if (id >= arena->messages.size() || !arena->messages[id]) continue;
-      for (uint32_t signal = 0; signal < arena->messages[id]->signalCount; ++signal)
-        Plots::signal(*arena, id, signal, size, spec);
-    }
-  }
-  ImGui::End();
 };
 
 void GUI::carMap(ImGuiWindowFlags flags) {
@@ -383,10 +367,11 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 
 void GUI::setTabs() {
   // Hot-reloaded UI modules own separate function-local singletons, so bind them lazily.
-  plotManager().init(arena);
+  PlotManager& plots = plotManager();
+  plots.init(arena);
   customViewTab().init(arena, gpu ? gpu->window : nullptr);
   tabs.list.clear();
-  tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "Plots"));
+  tabs.list.push_back(Tab::bind<PlotManager, &PlotManager::draw>(plots, "Plots"));
   tabs.list.push_back(
       Tab::bind<CustomViewTab, &CustomViewTab::draw>(customViewTab(), "Custom Views"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
@@ -420,10 +405,6 @@ void GUI::buildUI() {
     titleBar.activePage = tabs.list[tabs.index].name;
   titleBar.draw();
   sideBar.draw(*this);
-  // Keep Custom Views / plot bindings current even when those tabs are not open
-  // (DBC switches bump arena generation from the sidebar).
-  customViewTab().syncWithArena();
-  plotManager().refreshForArena();
   canvas.draw(titleBar, sideBar, tabs);
 
   /* stateful UI building */

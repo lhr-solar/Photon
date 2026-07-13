@@ -32,7 +32,6 @@ struct GUI {
 
   void shaderTest(ImGuiWindowFlags flags);
   void testFunc(ImGuiWindowFlags flags);
-  void plotTest(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
   void carMap(ImGuiWindowFlags flags);
