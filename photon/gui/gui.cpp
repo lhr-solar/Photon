@@ -146,7 +146,7 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
     for (const uint32_t id : arena->validIds) {
       if (id >= arena->messages.size() || !arena->messages[id]) continue;
       for (uint32_t signal = 0; signal < arena->messages[id]->signalCount; signal++)
-        Plots::signal(*arena, id, signal, dim, spec);
+        plots.signal(*arena, id, signal, dim, spec);
     }
   }
   ImGui::End();
@@ -413,6 +413,7 @@ void GUI::buildUI() {
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
+  plots.timeline();
 
   /* stateful UI building */
   // Disabled until the GPU info window crash is fixed.

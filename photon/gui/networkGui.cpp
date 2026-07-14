@@ -52,13 +52,34 @@ void disconnect(Network* network) {
   network->guiRxCommandBuffer.write([](ProtocolTransmitVariant& cmd) { cmd = Quit{}; });
 }
 
-void drainNetworkLog(Network* network, std::string& log) {
+void setConnectionPending(TitleBar& titleBar, const char* protocol) {
+  titleBar.connectionActive = true;
+  titleBar.connectionConnected = false;
+  titleBar.connectionProtocol = protocol;
+}
+
+void setConnectionOffline(TitleBar& titleBar) {
+  titleBar.connectionActive = false;
+  titleBar.connectionConnected = false;
+  titleBar.connectionProtocol = "Offline";
+}
+
+void drainNetworkLog(Network* network, std::string& log, TitleBar& titleBar) {
   static auto reader = network->guiTxCommandBuffer.getReader();
   while (ProtocolReceiveVariant* msg = reader.read()) {
     if (auto* error = std::get_if<ProtocolError>(msg)) {
       log += "[error] " + error->error + "\n";
+      setConnectionOffline(titleBar);
     } else if (auto* message = std::get_if<ProtocolMessage>(msg)) {
       log += message->message + "\n";
+      if (message->message.find("TCP connected") != std::string::npos) {
+        titleBar.connectionActive = true;
+        titleBar.connectionConnected = true;
+      } else if (message->message.find("TCP peer closed connection") != std::string::npos ||
+                 (titleBar.connectionConnected &&
+                  message->message.find("TCP stopped") != std::string::npos)) {
+        setConnectionOffline(titleBar);
+      }
     } else if (auto* deviceList = std::get_if<ProtocolDeviceList>(msg)) {
       log += "[devices]\n";
       for (const auto& device : deviceList->devices) log += "  " + device + "\n";
@@ -152,7 +173,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
   static BLEConfig bleConfig{};
   static WLANConfig wlanConfig{};
 
-  drainNetworkLog(network, log);
+  drainNetworkLog(network, log, titleBar);
 
   PhotonUi::pushContentStyle();
   if (ImGui::Begin("Network", nullptr, flags)) {
@@ -175,24 +196,18 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
         if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true)) {
-          titleBar.connectionActive = true;
-          titleBar.connectionConnected = true;
-          titleBar.connectionProtocol = "DAQ Server";
+          setConnectionPending(titleBar, "DAQ Server");
           submit(network, daqConfig);
         }
         ImGui::SameLine(0.0f, 8.0f);
         if (PhotonUi::button("DisconnectDaq", "Disconnect", {118.0f, 38.0f}, palette)) {
-          titleBar.connectionActive = false;
-          titleBar.connectionConnected = false;
-          titleBar.connectionProtocol = "Offline";
+          setConnectionOffline(titleBar);
           disconnect(network);
         }
       } else if (selected == 1) {
         drawTcpFields(tcpConfig, palette);
         if (PhotonUi::button("ApplyTcp", "Apply", {96.0f, 38.0f}, palette, true)) {
-          titleBar.connectionActive = true;
-          titleBar.connectionConnected = true;
-          titleBar.connectionProtocol = "TCP";
+          setConnectionPending(titleBar, "TCP");
           submit(network, tcpConfig);
         }
       } else if (selected == 2) {

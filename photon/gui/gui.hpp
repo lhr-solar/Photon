@@ -52,8 +52,8 @@ struct GUI {
   GuiSettings settings{};
   GuiFlags flags{};
   bool updateAvailable = false;
-  std::vector<Plots> plots;
   Updater updater;
+  Plots plots;
   Exporter exporter;
 #if PHOTON_GUI_RENDER_ITEMS
   Scene scene;
