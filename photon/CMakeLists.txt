@@ -77,6 +77,17 @@ target_link_libraries(Photon
     $<$<PLATFORM_ID:Linux>:dl>
 )
 
+# Custom Views are user-facing runtime configuration.  Ship the repository's
+# default workbench beside the executable so launching from the build output
+# cannot silently pick up an old copied view.
+add_custom_command(TARGET Photon POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Photon>/views"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/views/custom.photon-view.json"
+        "$<TARGET_FILE_DIR:Photon>/views/custom.photon-view.json"
+    VERBATIM
+)
+
 if (PHOTON_UI_HOT_RELOAD)
     target_compile_definitions(engine PRIVATE
         PHOTON_UI_SO_PATH="$<TARGET_FILE:photonUI>"
