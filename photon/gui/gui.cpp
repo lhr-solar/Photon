@@ -371,9 +371,9 @@ void GUI::setTabs() {
   plots.init(arena, network);
   customViewTab().init(arena, gpu ? gpu->window : nullptr);
   tabs.list.clear();
-  tabs.list.push_back(Tab::bind<PlotManager, &PlotManager::draw>(plots, "Plots"));
   tabs.list.push_back(
       Tab::bind<CustomViewTab, &CustomViewTab::draw>(customViewTab(), "Custom Views"));
+  tabs.list.push_back(Tab::bind<PlotManager, &PlotManager::draw>(plots, "Plots"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
 #if PHOTON_GUI_RENDER_ITEMS
