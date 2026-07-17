@@ -80,12 +80,21 @@ Json watchdogToJson(const CustomViewWatchdog& watchdog) {
           {"source", sourceToJson(watchdog.source)}};
 }
 
+Json canMonitorToJson(const CustomViewCanMonitor& monitor) {
+  return {{"title", monitor.title},
+          {"filter", monitor.filter},
+          {"recordPath", monitor.recordPath},
+          {"sort", monitor.sort}};
+}
+
 const char* widgetKindKey(CustomViewWidgetKind kind) {
   switch (kind) {
     case CustomViewWidgetKind::CellGrid:
       return "cell-grid";
     case CustomViewWidgetKind::Watchdog:
       return "watchdog";
+    case CustomViewWidgetKind::CanMonitor:
+      return "can-monitor";
     case CustomViewWidgetKind::Plot:
     default:
       return "plot";
@@ -104,6 +113,8 @@ Json widgetToJson(const CustomViewWidget& widget) {
     value["cellGrid"] = cellGridToJson(widget.cellGrid);
   else if (widget.kind == CustomViewWidgetKind::Watchdog)
     value["watchdog"] = watchdogToJson(widget.watchdog);
+  else if (widget.kind == CustomViewWidgetKind::CanMonitor)
+    value["canMonitor"] = canMonitorToJson(widget.canMonitor);
   else
     value["plot"] = plotToJson(widget.plot);
   return value;
@@ -160,7 +171,8 @@ CustomViewDefinition parsePanel(const Json& root, int& plotId) {
   std::unordered_set<std::string> ids{};
   for (const Json& widgetJson : root.value("widgets", Json::array())) {
     const std::string kind = widgetJson.value("kind", "");
-    if (kind != "plot" && kind != "cell-grid" && kind != "watchdog") continue;
+    if (kind != "plot" && kind != "cell-grid" && kind != "watchdog" && kind != "can-monitor")
+      continue;
 
     CustomViewWidget widget{};
     widget.id = widgetJson.value("id", "widget-" + std::to_string(plotId));
@@ -210,6 +222,17 @@ CustomViewDefinition parsePanel(const Json& root, int& plotId) {
       widget.watchdog.source.signalName = sourceJson.value("signalName", "");
       widget.watchdog.source.signalIndex = sourceJson.value("signalIndex", SIGNAL_MAX);
       widget.watchdog.source.assigned = true;
+      panel.widgets.push_back(std::move(widget));
+      continue;
+    }
+
+    if (kind == "can-monitor") {
+      widget.kind = CustomViewWidgetKind::CanMonitor;
+      const Json monitorJson = widgetJson.value("canMonitor", Json::object());
+      widget.canMonitor.title = monitorJson.value("title", widget.id);
+      widget.canMonitor.filter = monitorJson.value("filter", "");
+      widget.canMonitor.recordPath = monitorJson.value("recordPath", "views/can-capture.log");
+      widget.canMonitor.sort = std::clamp(monitorJson.value("sort", 0), 0, 3);
       panel.widgets.push_back(std::move(widget));
       continue;
     }

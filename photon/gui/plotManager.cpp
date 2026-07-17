@@ -130,7 +130,8 @@ int PlotManager::typeFromKey(std::string_view key) {
   return -1;
 }
 
-void PlotManager::init(Arena* arenaTarget) {
+void PlotManager::init(Arena* arenaTarget, Network* networkTarget) {
+  network = networkTarget;
   if (arena == arenaTarget) return;
   arena = arenaTarget;
   arenaGeneration = arena ? arena->generation : 0;
@@ -212,6 +213,28 @@ void PlotManager::draw(ImGuiWindowFlags flags) {
 
 void PlotManager::requestCreate() { openCreator(); }
 
+void PlotManager::requestEdit(PlotWindow& plot) {
+  refreshForArena();
+  creatorOpen = true;
+  creatorFocusSearch = true;
+  editingPlotId = plot.id;
+  editTarget = &plot;
+  typeIndex = plot.typeIndex;
+  useSource1TimeAsX = plot.useSource1TimeAsX;
+  pendingSources = plot.sources;
+  std::snprintf(pendingTitle, sizeof(pendingTitle), "%s", plot.title.c_str());
+  search[0] = '\0';
+  activeSourceIndex = 0;
+  selectedMatch = -1;
+  refreshMatches();
+}
+
+bool PlotManager::consumeEditApplied() {
+  const bool applied = editApplied;
+  editApplied = false;
+  return applied;
+}
+
 void PlotManager::drawCreatedPlots() {
   refreshForArena();
   if (!windows.empty()) renderPlotWindows();
@@ -228,7 +251,7 @@ std::vector<PlotManager::PlotWindow> PlotManager::takeWindows() {
   return taken;
 }
 
-void PlotManager::renderEmbedded(PlotWindow& plot) { PlotRenderer::render(arena, plot); }
+void PlotManager::renderEmbedded(PlotWindow& plot) { PlotRenderer::render(arena, network, plot); }
 
 void PlotManager::renderHome(ImGuiID dockspaceID, const ImVec2& contentMin,
                              const ImVec2& contentMax) {
@@ -251,12 +274,34 @@ void PlotManager::openCreator() {
   refreshForArena();
   creatorOpen = true;
   creatorFocusSearch = true;
+  editingPlotId = 0;
+  editTarget = nullptr;
   typeIndex = PlotType_Line;
   useSource1TimeAsX = true;
   search[0] = '\0';
+  pendingTitle[0] = '\0';
   activeSourceIndex = 0;
   selectedMatch = -1;
   resetPendingSourcesForType();
+  refreshMatches();
+}
+
+void PlotManager::openEditor(int plotId) {
+  const auto found = std::find_if(windows.begin(), windows.end(),
+                                  [plotId](const PlotWindow& plot) { return plot.id == plotId; });
+  if (found == windows.end()) return;
+  refreshForArena();
+  creatorOpen = true;
+  creatorFocusSearch = true;
+  editingPlotId = plotId;
+  editTarget = &*found;
+  typeIndex = found->typeIndex;
+  useSource1TimeAsX = found->useSource1TimeAsX;
+  pendingSources = found->sources;
+  std::snprintf(pendingTitle, sizeof(pendingTitle), "%s", found->title.c_str());
+  search[0] = '\0';
+  activeSourceIndex = 0;
+  selectedMatch = -1;
   refreshMatches();
 }
 
@@ -336,7 +381,7 @@ void PlotManager::renderCreator() {
   ImGui::PushStyleColor(ImGuiCol_FrameBg, theme.Colors[ImGuiCol_FrameBg]);
   ImGui::PushStyleColor(ImGuiCol_Border, theme.Colors[ImGuiCol_Border]);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-  if (!ImGui::Begin("Create Plot", nullptr,
+  if (!ImGui::Begin(editingPlotId == 0 ? "Create Plot" : "Edit Plot", nullptr,
                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
                         ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking)) {
@@ -357,6 +402,9 @@ void PlotManager::renderCreator() {
     ImGui::TableNextRow();
 
     ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Title");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##plot_title", "Automatic title", pendingTitle, sizeof(pendingTitle));
     ImGui::TextUnformatted("Plot Type");
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::BeginCombo("##plot_type", spec.label)) {
@@ -396,7 +444,7 @@ void PlotManager::renderCreator() {
       preview.typeIndex = typeIndex;
       preview.sources = pendingSources;
       preview.useSource1TimeAsX = useSource1TimeAsX;
-      PlotRenderer::render(arena, preview);
+      PlotRenderer::render(arena, network, preview);
     }
     ImGui::EndChild();
 
@@ -446,17 +494,21 @@ void PlotManager::renderCreator() {
     ImGui::EndTable();
   }
 
-  const bool canCreate = hasAllSources(pendingSources);
-  if (!canCreate) ImGui::BeginDisabled();
-  if (ImGui::Button("Create")) {
-    createPlot();
+  const bool canSave = hasAllSources(pendingSources);
+  if (!canSave) ImGui::BeginDisabled();
+  if (ImGui::Button(editingPlotId == 0 ? "Create" : "Save Changes")) {
+    if (editingPlotId == 0)
+      createPlot();
+    else
+      applyPlotEdits();
     keepOpen = false;
   }
-  if (!canCreate) ImGui::EndDisabled();
+  if (!canSave) ImGui::EndDisabled();
   ImGui::SameLine();
   if (ImGui::Button("Cancel")) keepOpen = false;
 
   creatorOpen = keepOpen;
+  if (!keepOpen) editTarget = nullptr;
   ImGui::End();
   ImGui::PopStyleVar();
   ImGui::PopStyleColor(3);
@@ -469,10 +521,12 @@ void PlotManager::renderPlotWindows() {
   for (PlotWindow& window : windows) {
     ImGui::PushID(window.id);
     ImGui::TextUnformatted(window.title.c_str());
-    ImGui::SameLine(ImGui::GetContentRegionMax().x - 52.0f);
+    ImGui::SameLine(ImGui::GetContentRegionMax().x - 104.0f);
+    if (ImGui::SmallButton("Edit")) openEditor(window.id);
+    ImGui::SameLine();
     if (ImGui::SmallButton("Close")) window.open = false;
     if (ImGui::BeginChild("##plot_body", ImVec2(-1.0f, 340.0f), ImGuiChildFlags_Borders)) {
-      PlotRenderer::render(arena, window);
+      PlotRenderer::render(arena, network, window);
     }
     ImGui::EndChild();
     ImGui::PopID();
@@ -487,8 +541,33 @@ void PlotManager::createPlot() {
   window.typeIndex = typeIndex;
   window.sources = pendingSources;
   window.useSource1TimeAsX = useSource1TimeAsX;
-  window.title = makePlotTitle(arena, typeIndex, pendingSources);
+  window.title =
+      pendingTitle[0] != '\0' ? pendingTitle : makePlotTitle(arena, typeIndex, pendingSources);
   windows.push_back(std::move(window));
+}
+
+void PlotManager::applyPlotEdits() {
+  if (!hasAllSources(pendingSources)) return;
+  PlotWindow* target = editTarget;
+  if (!target) {
+    const auto found = std::find_if(windows.begin(), windows.end(), [this](const PlotWindow& plot) {
+      return plot.id == editingPlotId;
+    });
+    if (found == windows.end()) return;
+    target = &*found;
+  }
+  const bool changedShape = target->typeIndex != typeIndex || target->sources != pendingSources ||
+                            target->useSource1TimeAsX != useSource1TimeAsX;
+  target->typeIndex = typeIndex;
+  target->sources = pendingSources;
+  target->useSource1TimeAsX = useSource1TimeAsX;
+  target->title =
+      pendingTitle[0] != '\0' ? pendingTitle : makePlotTitle(arena, typeIndex, pendingSources);
+  if (changedShape) {
+    target->followLatest = true;
+    target->hasView = false;
+  }
+  editApplied = true;
 }
 
 PlotManager& plotManager() {

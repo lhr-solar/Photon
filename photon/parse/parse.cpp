@@ -9,7 +9,8 @@
 #include "arena.hpp"
 #include "assettoCorsa_dbc.hpp"
 #include "daybreak_master_dbc.hpp"
-#include "highnoon_telemetry_dbc.hpp"
+#include "highnoon_aws_dbc.hpp"
+#include "highnoon_team_dbc.hpp"
 #include "lonestar_dbc.hpp"
 #include "test_dbc.hpp"
 
@@ -32,8 +33,11 @@ DBCAsset dbcAsset(DBCType kind) {
     case DBCType::AssettoCorsa:
       return {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size};
     case DBCType::HighNoonTelemetry:
-      return {DBCType::HighNoonTelemetry, "High Noon Telemetry", highnoon_telemetry_dbc,
-              highnoon_telemetry_dbc_size};
+      return {DBCType::HighNoonTelemetry, "High Noon (Embedded Sharepoint)", highnoon_team_dbc,
+              highnoon_team_dbc_size};
+    case DBCType::HighNoonAWS:
+      return {DBCType::HighNoonAWS, "High Noon AWS Telemetry", highnoon_aws_dbc,
+              highnoon_aws_dbc_size};
     case DBCType::File:
       return {DBCType::File, "selected-file", nullptr, 0};
   }
@@ -181,6 +185,31 @@ void populateArena(Arena& arena, std::istream& stream) {
           msg->signals[i]->type = type;
           break;
         }
+    } else if (line.rfind("VAL_ ", 0) == 0) {
+      std::istringstream iss(line);
+      std::string tag{};
+      std::string sigName{};
+      uint32_t canId = 0;
+      iss >> tag >> canId >> sigName;
+      if (canId >= MESSAGE_MAX || !arena.messages[canId]) continue;
+
+      Signal* signal = nullptr;
+      Message* msg = arena.messages[canId];
+      for (size_t i = 0; i < msg->signalCount; ++i) {
+        if (msg->signals[i] && msg->signals[i]->name == sigName) {
+          signal = msg->signals[i];
+          break;
+        }
+      }
+      if (!signal) continue;
+
+      while (iss >> std::ws && iss.peek() != ';' && iss.good()) {
+        int64_t rawValue = 0;
+        if (!(iss >> rawValue >> std::ws) || iss.get() != '"') break;
+        std::string label{};
+        std::getline(iss, label, '"');
+        signal->valueDescriptions.push_back({rawValue, std::move(label)});
+      }
     }
   }
 }

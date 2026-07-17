@@ -76,7 +76,7 @@ void Arena::init(const arenaConfig& config) {
   uint32_t nextTotalTimeBuffers = 0;
   for (const auto& idx : nextValidIds) {
     uint32_t count = config.signalCounts[idx];
-    if (count > 32) count = 32;
+    if (count > SIGNAL_MAX) count = SIGNAL_MAX;
     nextTotalSignals += count;
     nextTotalTimeBuffers += 1;
   }
@@ -122,7 +122,7 @@ void Arena::init(const arenaConfig& config) {
     msg.id = idx;
     msg.signalCount = config.signalCounts[idx];
     msg.signalSize.value.store(0, std::memory_order_relaxed);
-    if (msg.signalCount > 32) msg.signalCount = 32;
+    if (msg.signalCount > SIGNAL_MAX) msg.signalCount = SIGNAL_MAX;
     msg.timeData = alloc(bytesPerBuffer, PAGE_SIZE);
     for (auto i{0uz}; i < msg.signalCount; i++) {
       msg.signals[i] = new (Signal);

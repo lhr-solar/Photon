@@ -4,10 +4,13 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <format>
 #include <limits>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "../network/network.hpp"
 #include "../parse/arena.hpp"
 #include "imgui.h"
 #include "implot.h"
@@ -475,7 +478,117 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
   updateFollowState(plot);
 }
 
-void renderNonTimePlot(Arena* arena, const PlotManager::PlotWindow& plot) {
+double physicalStateValue(const Signal& signal, int64_t rawValue) {
+  return static_cast<double>(rawValue) * signal.scale + signal.offset;
+}
+
+const SignalValueDescription* currentState(const Signal& signal, double physicalValue) {
+  if (signal.scale == 0.0) return nullptr;
+  const int64_t rawValue =
+      static_cast<int64_t>(std::llround((physicalValue - signal.offset) / signal.scale));
+  for (const auto& description : signal.valueDescriptions)
+    if (description.rawValue == rawValue) return &description;
+  return nullptr;
+}
+
+void renderListPlot(Arena* arena, Network* network, const PlotManager::PlotWindow& plot) {
+  static std::unordered_map<ImGuiID, double> editValues{};
+  if (!ImGui::BeginTable("##plot_list", 3,
+                         ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                             ImGuiTableFlags_SizingStretchProp))
+    return;
+
+  ImGui::TableSetupColumn("Signal", ImGuiTableColumnFlags_WidthStretch, 1.3f);
+  ImGui::TableSetupColumn("Latest", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+  ImGui::TableSetupColumn("Set via CAN", ImGuiTableColumnFlags_WidthStretch, 1.4f);
+  ImGui::TableHeadersRow();
+  const bool canTransmit = network && network->canSendCAN();
+
+  for (const auto& source : plot.sources) {
+    Message* message = findMessage(arena, source.messageId);
+    Signal* signal = findSignal(arena, source);
+    const uint32_t signalIndex = resolvedSignalIndex(arena, source);
+    if (!message || !signal || signalIndex == SIGNAL_MAX) continue;
+
+    const double* timeValues = nullptr;
+    const double* signalValues = nullptr;
+    int count = 0;
+    const bool hasValue = readSource(arena, source, timeValues, signalValues, count) && count > 0;
+    const double latest = hasValue ? signalValues[count - 1] : 0.0;
+    ImGui::PushID(static_cast<int>(source.messageId));
+    ImGui::PushID(static_cast<int>(signalIndex));
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted(signal->name.c_str());
+    if (!signal->unit.empty() && signal->unit != "NULL") {
+      ImGui::SameLine();
+      ImGui::TextDisabled("(%s)", signal->unit.c_str());
+    }
+
+    ImGui::TableSetColumnIndex(1);
+    if (!hasValue) {
+      ImGui::TextDisabled("No samples");
+    } else if (const auto* state = currentState(*signal, latest)) {
+      ImGui::TextUnformatted(state->label.c_str());
+    } else {
+      ImGui::Text("%.3f", latest);
+    }
+
+    ImGui::TableSetColumnIndex(2);
+    if (!canTransmit) ImGui::BeginDisabled();
+    if (!signal->valueDescriptions.empty()) {
+      const SignalValueDescription* selected = hasValue ? currentState(*signal, latest) : nullptr;
+      const char* preview = selected ? selected->label.c_str() : "Select state";
+      ImGui::SetNextItemWidth(-1.0f);
+      if (ImGui::BeginCombo("##state", preview)) {
+        for (const auto& description : signal->valueDescriptions) {
+          const bool isSelected = selected && selected->rawValue == description.rawValue;
+          if (ImGui::Selectable(description.label.c_str(), isSelected)) {
+            network->sendDBCSignal(message->name, signal->name,
+                                   physicalStateValue(*signal, description.rawValue));
+          }
+          if (isSelected) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+      }
+    } else if (signal->length == 1 && signal->scale == 1.0 && signal->offset == 0.0) {
+      // A DBC bit with no named VAL_ table is still a semantic on/off control;
+      // do not expose its encoded 0/1 value to the user.
+      const bool enabled = hasValue && latest >= 0.5;
+      const char* action = enabled ? "Turn off" : "Turn on";
+      if (ImGui::Button(action, {-1.0f, 0.0f}))
+        network->sendDBCSignal(message->name, signal->name, enabled ? 0.0 : 1.0);
+    } else {
+      const ImGuiID editId = ImGui::GetID("##value");
+      auto [edit, inserted] = editValues.try_emplace(editId, hasValue ? latest : signal->min);
+      const double step = std::abs(signal->scale) > 0.0 ? std::abs(signal->scale) : 0.0;
+      const float buttonWidth = 48.0f;
+      ImGui::SetNextItemWidth(std::max(
+          40.0f, ImGui::GetContentRegionAvail().x - buttonWidth - ImGui::GetStyle().ItemSpacing.x));
+      ImGui::InputDouble("##value", &edit->second, step, step * 10.0, "%.6g");
+      ImGui::SameLine();
+      if (ImGui::Button("Set", {buttonWidth, 0.0f}))
+        network->sendDBCSignal(message->name, signal->name, edit->second);
+      if (signal->max > signal->min && ImGui::IsItemHovered())
+        ImGui::SetTooltip("DBC range: %.6g to %.6g", signal->min, signal->max);
+    }
+    if (!canTransmit) {
+      ImGui::EndDisabled();
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("Connect PCAN with Listen only disabled, then choose Arm CAN writes in Network.");
+    }
+    ImGui::PopID();
+    ImGui::PopID();
+  }
+  ImGui::EndTable();
+}
+
+void renderNonTimePlot(Arena* arena, Network* network, const PlotManager::PlotWindow& plot) {
+  if (plot.typeIndex == PlotType_List) {
+    renderListPlot(arena, network, plot);
+    return;
+  }
+
   std::vector<ResolvedSeries> series{};
   series.reserve(plot.sources.size());
 
@@ -488,31 +601,6 @@ void renderNonTimePlot(Arena* arena, const PlotManager::PlotWindow& plot) {
   }
   if (series.empty()) {
     ImGui::TextUnformatted("Need live samples for the selected sources.");
-    return;
-  }
-
-  if (plot.typeIndex == PlotType_List) {
-    if (ImGui::BeginTable("##plot_list", 2,
-                          ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
-                              ImGuiTableFlags_SizingStretchProp)) {
-      ImGui::TableSetupColumn("Signal");
-      ImGui::TableSetupColumn("Latest");
-      ImGui::TableHeadersRow();
-      for (const auto& source : plot.sources) {
-        const double* timeValues = nullptr;
-        const double* signalValues = nullptr;
-        int count = 0;
-        Signal* sig = findSignal(arena, source);
-        if (!sig || !readSource(arena, source, timeValues, signalValues, count) || count <= 0)
-          continue;
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted(sig->name.c_str());
-        ImGui::TableSetColumnIndex(1);
-        ImGui::Text("%.3f", signalValues[count - 1]);
-      }
-      ImGui::EndTable();
-    }
     return;
   }
 
@@ -636,7 +724,7 @@ void render3DPlot(Arena* arena, const PlotManager::PlotWindow& plot) {
   }
 }
 
-void renderPlotBody(Arena* arena, PlotManager::PlotWindow& plot) {
+void renderPlotBody(Arena* arena, Network* network, PlotManager::PlotWindow& plot) {
   char plotId[64]{};
   std::snprintf(plotId, sizeof(plotId), "##generated_plot_%d", plot.id);
 
@@ -649,7 +737,7 @@ void renderPlotBody(Arena* arena, PlotManager::PlotWindow& plot) {
   }
 
   if (plot.typeIndex == PlotType_List) {
-    renderNonTimePlot(arena, plot);
+    renderNonTimePlot(arena, network, plot);
     return;
   }
 
@@ -667,7 +755,7 @@ void renderPlotBody(Arena* arena, PlotManager::PlotWindow& plot) {
       else
         drawTimeSeriesPlot(arena, plot);
     } else {
-      renderNonTimePlot(arena, plot);
+      renderNonTimePlot(arena, network, plot);
     }
     ImPlot::EndPlot();
   }
@@ -675,6 +763,6 @@ void renderPlotBody(Arena* arena, PlotManager::PlotWindow& plot) {
 
 }  // namespace
 
-void PlotRenderer::render(Arena* arena, PlotManager::PlotWindow& plot) {
-  renderPlotBody(arena, plot);
+void PlotRenderer::render(Arena* arena, Network* network, PlotManager::PlotWindow& plot) {
+  renderPlotBody(arena, network, plot);
 }

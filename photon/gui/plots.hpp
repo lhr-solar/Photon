@@ -10,6 +10,8 @@
 #include "imgui.h"
 #include "implot.h"
 
+struct Network;
+
 struct Plots {
   static bool signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
                      const ImPlotSpec& spec = ImPlotSpec());
@@ -49,6 +51,7 @@ struct PlotManager {
     std::string messageName{};
     std::string signalName{};
     bool assigned = false;
+    bool operator==(const PlotSourceRef&) const = default;
   };
 
   struct SignalOption {
@@ -79,13 +82,18 @@ struct PlotManager {
   };
 
   Arena* arena = nullptr;
+  Network* network = nullptr;
   uint64_t arenaGeneration = 0;
   ImGuiID homeDockspaceID = 0;
   bool creatorOpen = false;
   bool creatorFocusSearch = false;
+  int editingPlotId = 0;
+  PlotWindow* editTarget = nullptr;
+  bool editApplied = false;
   int typeIndex = 0;
   std::vector<PlotSourceRef> pendingSources{};
   char search[128]{};
+  char pendingTitle[128]{};
   std::vector<SignalOption> signalOptions{};
   std::vector<int> sourceMatches{};
   int selectedMatch = -1;
@@ -94,9 +102,11 @@ struct PlotManager {
   int nextPlotId = 1;
   std::vector<PlotWindow> windows{};
 
-  void init(Arena* arenaTarget);
+  void init(Arena* arenaTarget, Network* networkTarget = nullptr);
   void draw(ImGuiWindowFlags flags);
   void requestCreate();
+  void requestEdit(PlotWindow& plot);
+  bool consumeEditApplied();
   void drawCreatedPlots();
   void drawCreator();
   void renderEmbedded(PlotWindow& plot);
@@ -114,12 +124,14 @@ struct PlotManager {
  private:
   static const PlotTypeSpec& specFor(int typeIndex);
   void openCreator();
+  void openEditor(int plotId);
   void refreshSignalOptions();
   void refreshMatches();
   void resetPendingSourcesForType();
   void renderCreator();
   void renderPlotWindows();
   void createPlot();
+  void applyPlotEdits();
 };
 
 PlotManager& plotManager();

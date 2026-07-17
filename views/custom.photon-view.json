@@ -1,0 +1,227 @@
+{
+  "$schema": "../docs/config/photon-view.schema.json",
+  "activePanel": 1,
+  "id": "custom-views",
+  "name": "Custom Views",
+  "panels": [
+    {
+      "id": "live-can",
+      "layout": {
+        "columns": 48,
+        "gap": 8.0,
+        "rowHeight": 48.0
+      },
+      "name": "Live CAN",
+      "widgets": [
+        {
+          "canMonitor": {
+            "filter": "",
+            "recordPath": "views/highnoon-can.log",
+            "sort": 0,
+            "title": "Live CAN Monitor"
+          },
+          "id": "can-monitor",
+          "kind": "can-monitor",
+          "rect": {
+            "h": 12,
+            "w": 48,
+            "x": 0,
+            "y": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "signal-controls",
+      "layout": {
+        "columns": 48,
+        "gap": 8.0,
+        "rowHeight": 48.0
+      },
+      "name": "Signal Controls",
+      "widgets": [
+        {
+          "id": "driver-inputs",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 2,
+                "signalName": "BPS_Regen_OK"
+              },
+              {
+                "messageId": 96,
+                "messageName": "Driver_Input_Status",
+                "signalIndex": 0,
+                "signalName": "Ignition_Array"
+              },
+              {
+                "messageId": 96,
+                "messageName": "Driver_Input_Status",
+                "signalIndex": 1,
+                "signalName": "Ignition_Motor"
+              },
+              {
+                "messageId": 96,
+                "messageName": "Driver_Input_Status",
+                "signalIndex": 5,
+                "signalName": "Gear_Forward"
+              },
+              {
+                "messageId": 96,
+                "messageName": "Driver_Input_Status",
+                "signalIndex": 6,
+                "signalName": "Gear_Neutral"
+              },
+              {
+                "messageId": 96,
+                "messageName": "Driver_Input_Status",
+                "signalIndex": 7,
+                "signalName": "Gear_Reverse"
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "Driver Inputs",
+            "type": "list",
+            "useSource1TimeAsX": true
+          },
+          "rect": {
+            "h": 7,
+            "w": 23,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "id": "pedals-brakes",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 80,
+                "messageName": "Pedal_Status",
+                "signalIndex": 0,
+                "signalName": "AccelPedal_Main_Pos"
+              },
+              {
+                "messageId": 80,
+                "messageName": "Pedal_Status",
+                "signalIndex": 2,
+                "signalName": "BrakePedal_Main_Pos"
+              },
+              {
+                "messageId": 1616,
+                "messageName": "Brake_Pressure_1",
+                "signalIndex": 0,
+                "signalName": "Brake_Pressure"
+              },
+              {
+                "messageId": 1617,
+                "messageName": "Brake_Pressure_2",
+                "signalIndex": 0,
+                "signalName": "Brake_Pressure"
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "Pedals and Brake Sensors",
+            "type": "list",
+            "useSource1TimeAsX": true
+          },
+          "rect": {
+            "h": 5,
+            "w": 24,
+            "x": 24,
+            "y": 0
+          }
+        },
+        {
+          "id": "bps-status",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 0,
+                "signalName": "BPS_Fault"
+              },
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 3,
+                "signalName": "HV_Plus_Contactor_State"
+              },
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 4,
+                "signalName": "HV_Minus_Contactor_State"
+              },
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 5,
+                "signalName": "Array_Contactor_State"
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "BPS Status",
+            "type": "list",
+            "useSource1TimeAsX": true
+          },
+          "rect": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 6
+          }
+        },
+        {
+          "id": "motor-controller",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 1057,
+                "messageName": "MC_Status",
+                "signalIndex": 8,
+                "signalName": "MC_FAULT_HardwareOverCurrent"
+              },
+              {
+                "messageId": 1059,
+                "messageName": "MC_VelocityMeasurement",
+                "signalIndex": 1,
+                "signalName": "MC_VehicleVelocity"
+              },
+              {
+                "messageId": 1059,
+                "messageName": "MC_VelocityMeasurement",
+                "signalIndex": 0,
+                "signalName": "MC_MotorVelocity"
+              },
+              {
+                "messageId": 688,
+                "messageName": "LWS_Standard",
+                "signalIndex": 0,
+                "signalName": "LWS_Angle"
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "Motor Controller and Steering",
+            "type": "list",
+            "useSource1TimeAsX": true
+          },
+          "rect": {
+            "h": 8,
+            "w": 24,
+            "x": 24,
+            "y": 5
+          }
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

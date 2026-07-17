@@ -1,0 +1,4 @@
+[submodule "assets/dbc/Embedded-Sharepoint"]
+	path = assets/dbc/Embedded-Sharepoint
+	url = https://github.com/lhr-solar/Embedded-Sharepoint.git
+	branch = main

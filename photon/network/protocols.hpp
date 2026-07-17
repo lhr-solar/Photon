@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <array>
 #include <stop_token>
 #include <string>
 #include <variant>
@@ -26,6 +27,7 @@ struct Quit {};
 struct TCPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
+  bool useAwsExtendedTelemetryDBC = false;
 };
 
 struct UDPConfig {
@@ -40,7 +42,7 @@ struct UARTConfig {
 };
 
 struct PCANConfig {
-  uint32_t bitrateKbps = 500;
+  uint32_t bitrateKbps = 250;
   uint32_t prescaler = 1;
   uint32_t btr0 = 0x00;
   uint32_t btr1 = 0x1C;
@@ -60,6 +62,7 @@ struct WLANConfig {};
 struct TCPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
+  bool useAwsExtendedTelemetryDBC = false;
 };
 
 struct Quit {};
@@ -76,7 +79,7 @@ struct UARTConfig {
 };
 
 struct PCANConfig {
-  uint32_t bitrateKbps = 500;
+  uint32_t bitrateKbps = 250;
   uint32_t prescaler = 1;
   uint32_t btr0 = 0x00;
   uint32_t btr1 = 0x1C;
@@ -84,7 +87,7 @@ struct PCANConfig {
   bool listenOnly = false;
   bool busoffReset = false;
   float samplePointPercent = 87.5f;
-  char channel[1024] = "can0";
+  char channel[1024] = "PCAN_USBBUS1";
 };
 
 struct BLEConfig {};
@@ -107,7 +110,38 @@ using ProtocolTransmitVariant =
     std::variant<TCPConfig, UDPConfig, UARTConfig, PCANConfig, BLEConfig, WLANConfig, Quit>;
 using ProtocolReceiveVariant = std::variant<ProtocolError, ProtocolMessage, ProtocolDeviceList>;
 
+struct CANSignalValue {
+  std::string signalName{};
+  double physicalValue = 0.0;
+};
+
+// A complete DBC-backed frame update.  `allowUnseenFrame` is reserved for
+// deliberately configured test presets; ordinary List edits retain the safer
+// requirement that a multi-signal frame has first been observed on the bus.
+struct CANFrameWrite {
+  std::string messageName{};
+  std::vector<CANSignalValue> values{};
+  bool allowUnseenFrame = false;
+};
+
+struct CANFrameEvent {
+  uint32_t id = 0;
+  uint8_t dlc = 0;
+  std::array<uint8_t, 8> data{};
+  uint64_t timestampMs = 0;
+  bool transmitted = false;
+};
+
+namespace CANCodec {
+bool decodeSignal(const uint8_t data[8], uint8_t dlc, const Signal& signal, double& value);
+bool encodeSignal(uint8_t data[8], uint8_t dlc, const Signal& signal, double physicalValue,
+                  std::string& error);
+}  // namespace CANCodec
+
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
                   TCPConfig config, Arena& arena);
+  static void PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
+                   SPMCQueue<CANFrameWrite, 64>& writeBuffer,
+                   SPMCQueue<CANFrameEvent, 512>& frameEvents, PCANConfig config, Arena& arena);
 };

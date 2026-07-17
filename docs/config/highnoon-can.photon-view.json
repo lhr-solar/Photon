@@ -1,0 +1,27 @@
+{
+  "$schema": "./photon-view.schema.json",
+  "schemaVersion": 1,
+  "id": "highnoon-can",
+  "name": "HighNoon CAN",
+  "activePanel": 0,
+  "panels": [
+    {
+      "id": "can-live",
+      "name": "Live CAN",
+      "layout": { "columns": 48, "rowHeight": 48.0, "gap": 8.0 },
+      "widgets": [
+        {
+          "id": "can-monitor",
+          "kind": "can-monitor",
+          "rect": { "x": 0, "y": 0, "w": 48, "h": 12 },
+          "canMonitor": {
+            "title": "Live CAN Monitor",
+            "filter": "",
+            "recordPath": "views/highnoon-can.log",
+            "sort": 0
+          }
+        }
+      ]
+    }
+  ]
+}

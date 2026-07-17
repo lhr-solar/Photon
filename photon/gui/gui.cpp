@@ -368,7 +368,7 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 void GUI::setTabs() {
   // Hot-reloaded UI modules own separate function-local singletons, so bind them lazily.
   PlotManager& plots = plotManager();
-  plots.init(arena);
+  plots.init(arena, network);
   customViewTab().init(arena, gpu ? gpu->window : nullptr);
   tabs.list.clear();
   tabs.list.push_back(Tab::bind<PlotManager, &PlotManager::draw>(plots, "Plots"));

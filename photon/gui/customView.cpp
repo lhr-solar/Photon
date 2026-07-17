@@ -14,6 +14,7 @@
 #include <string_view>
 
 #include "customViewCellGrid.hpp"
+#include "customViewCan.hpp"
 #include "customViewDocument.hpp"
 #include "customViewTelemetry.hpp"
 #include "customViewWatchdog.hpp"
@@ -102,6 +103,7 @@ void copyDocument(std::array<char, 65536>& target, const std::string& text) {
 const char* widgetTitle(const CustomViewWidget& widget) {
   if (widget.kind == CustomViewWidgetKind::CellGrid) return widget.cellGrid.title.c_str();
   if (widget.kind == CustomViewWidgetKind::Watchdog) return widget.watchdog.title.c_str();
+  if (widget.kind == CustomViewWidgetKind::CanMonitor) return widget.canMonitor.title.c_str();
   return widget.plot.title.c_str();
 }
 
@@ -559,6 +561,16 @@ void CustomViewTab::renderWatchdog(CustomViewWidget& widget) {
   CustomViewWatchdogWidget::draw(arena, widget);
 }
 
+void CustomViewTab::addCanMonitor() {
+  CustomViewDefinition& view = activeView();
+  CustomViewWidget widget{};
+  widget.kind = CustomViewWidgetKind::CanMonitor;
+  widget.id = "can-monitor-" + std::to_string(nextWidgetPlotId++);
+  widget.rect = clampRect({0, findNextRow(), view.columns, 9});
+  view.widgets.push_back(std::move(widget));
+  syncDocumentFromView("Added CAN monitor widget.", pathLoaded || path[0] != '\0');
+}
+
 void CustomViewTab::resolveSources() {
   if (!arena) return;
   int unresolved = 0;
@@ -788,6 +800,9 @@ void CustomViewTab::renderPreview() {
         if (titleHovered || titleActive) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
 
         ImGui::SameLine(0.0f, 0.0f);
+        if (widget.kind == CustomViewWidgetKind::Plot && ImGui::SmallButton("Edit##edit"))
+          plotManager().requestEdit(widget.plot);
+        ImGui::SameLine(0.0f, 0.0f);
         if (ImGui::SmallButton("X##close")) pendingDelete = widget.id;
 
         if (titleActive && interactMode == CustomViewInteractMode::None &&
@@ -809,6 +824,8 @@ void CustomViewTab::renderPreview() {
             renderCellGrid(widget);
           else if (widget.kind == CustomViewWidgetKind::Watchdog)
             renderWatchdog(widget);
+          else if (widget.kind == CustomViewWidgetKind::CanMonitor)
+            CustomViewCan::drawMonitor(arena, plotManager().network, widget);
           else
             plotManager().renderEmbedded(widget.plot);
         }
@@ -1039,13 +1056,15 @@ void CustomViewTab::draw(ImGuiWindowFlags flags) {
     renderPanelBar();
     ImGui::Separator();
 
-    if (ImGui::Button("Add Plot")) {
+    if (ImGui::Button("Add Plot / Signals")) {
       absorbBaseline = plotManager().windows.size();
       absorbArmed = true;
       plotManager().requestCreate();
     }
     ImGui::SameLine();
     if (ImGui::Button("Add Watchdog")) openWatchdogCreator();
+    ImGui::SameLine();
+    if (ImGui::Button("Add CAN Monitor")) addCanMonitor();
     ImGui::SameLine();
     if (dialogBusy) ImGui::BeginDisabled();
     if (ImGui::Button(dialogBusy ? "Opening Explorer...##import" : "Import View...##import"))
@@ -1082,6 +1101,8 @@ void CustomViewTab::draw(ImGuiWindowFlags flags) {
   }
   ImGui::End();
   plotManager().drawCreator();
+  if (plotManager().consumeEditApplied())
+    syncDocumentFromView("Updated plot component.", pathLoaded || path[0] != '\0');
   renderWatchdogCreator();
   absorbCreatedPlots();
 }

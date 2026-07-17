@@ -8,7 +8,7 @@
 #include "../parse/arena.hpp"
 #include "plots.hpp"
 
-enum class CustomViewWidgetKind { Plot, CellGrid, Watchdog };
+enum class CustomViewWidgetKind { Plot, CellGrid, Watchdog, CanMonitor };
 
 enum class CustomViewCellGridMode { Voltage, Temperature };
 
@@ -78,6 +78,14 @@ struct CustomViewWatchdog {
   bool tripped = false;
 };
 
+struct CustomViewCanMonitor {
+  std::string title = "CAN Monitor";
+  std::string filter{};
+  std::string recordPath = "views/can-capture.log";
+  int sort = 0;
+  uint32_t selectedId = UINT32_MAX;
+};
+
 struct CustomViewWidget {
   std::string id{};
   CustomViewWidgetKind kind = CustomViewWidgetKind::Plot;
@@ -85,6 +93,7 @@ struct CustomViewWidget {
   PlotManager::PlotWindow plot{};
   CustomViewCellGrid cellGrid{};
   CustomViewWatchdog watchdog{};
+  CustomViewCanMonitor canMonitor{};
 };
 
 struct CustomViewDefinition {

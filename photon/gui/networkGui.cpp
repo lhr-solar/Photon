@@ -78,12 +78,16 @@ void drawProtocolList(int& selected, const PhotonUi::Palette& palette) {
   }
 }
 
-void drawTcpFields(TCPConfig& config, const PhotonUi::Palette& palette) {
+void drawTcpFields(TCPConfig& config, const PhotonUi::Palette& palette, bool isAwsTelemetry = false) {
   PhotonUi::pushInputStyle(palette);
   ImGui::SetNextItemWidth(-1.0f);
   ImGui::InputText("IP", config.ip, sizeof(config.ip));
   ImGui::SetNextItemWidth(140.0f);
   ImGui::InputScalar("Port", ImGuiDataType_U16, &config.port);
+  if (isAwsTelemetry) {
+    ImGui::Checkbox("Use AWS extended telemetry DBC", &config.useAwsExtendedTelemetryDBC);
+    ImGui::TextDisabled("Includes AWS-only IDs such as 0x11D0; PCAN never uses them.");
+  }
   PhotonUi::popInputStyle();
 }
 
@@ -140,7 +144,9 @@ void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {
 void GUI::networkPage(ImGuiWindowFlags flags) {
   static int selected = 0;
   static std::string log;
-  static TCPConfig daqConfig{.port = 6500, .ip = "3.141.38.115"};
+  static TCPConfig daqConfig{.port = 6500,
+                             .ip = "3.141.38.115",
+                             .useAwsExtendedTelemetryDBC = true};
   static TCPConfig tcpConfig{};
   static UDPConfig udpConfig{};
   static UARTConfig uartConfig{};
@@ -170,6 +176,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
                              palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
+        drawTcpFields(daqConfig, palette, true);
         if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true)) {
           titleBar.connectionActive = true;
           titleBar.connectionConnected = true;
@@ -201,8 +208,35 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
           submit(network, uartConfig);
       } else if (selected == 4) {
         drawPcanFields(pcanConfig, palette);
-        if (PhotonUi::button("ApplyPcan", "Apply", {96.0f, 38.0f}, palette, true))
+        if (PhotonUi::button("ApplyPcan", "Connect", {104.0f, 38.0f}, palette, true)) {
+          titleBar.connectionActive = true;
+          titleBar.connectionConnected = true;
+          titleBar.connectionProtocol = "PCAN";
           submit(network, pcanConfig);
+        }
+        ImGui::SameLine(0.0f, 8.0f);
+        if (PhotonUi::button("DisconnectPcan", "Disconnect", {118.0f, 38.0f}, palette)) {
+          titleBar.connectionActive = false;
+          titleBar.connectionConnected = false;
+          titleBar.connectionProtocol = "Offline";
+          disconnect(network);
+        }
+        ImGui::SeparatorText("CAN write safety");
+        const bool canWrite = network && network->canTransmitCAN();
+        const bool armed = network && network->canControlsArmed();
+        if (!canWrite) ImGui::BeginDisabled();
+        if (armed) {
+          if (PhotonUi::button("DisarmCanWrites", "Disarm CAN writes", {152.0f, 34.0f}, palette))
+            network->armCanControls(false);
+          ImGui::SameLine();
+          ImGui::TextColored(palette.accent, "Writes enabled");
+        } else if (PhotonUi::button("ArmCanWrites", "Arm CAN writes", {142.0f, 34.0f}, palette)) {
+          network->armCanControls(true);
+        }
+        if (!canWrite) ImGui::EndDisabled();
+        ImGui::TextDisabled(
+            "Required before List 'Set via CAN' commands can transmit. It enables single DBC-based "
+            "writes only; it does not start periodic messages.");
       } else if (selected == 5) {
         if (PhotonUi::button("ApplyBle", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, bleConfig);

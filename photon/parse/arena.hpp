@@ -7,8 +7,12 @@
 
 constexpr uint32_t PAGE_SIZE = 4096;
 constexpr uint32_t MESSAGE_MAX = 0x2000;
-constexpr uint32_t SIGNAL_MAX = 32;
-constexpr uint32_t MINIMUM_ARENA_SIZE = PAGE_SIZE * MESSAGE_MAX * SIGNAL_MAX;
+// HighNoon VCU_Status contains 39 signals.  Keep the storage capacity above
+// that while leaving the existing one-gigabyte minimum arena reservation
+// unchanged (capacity is divided across the signals actually loaded).
+constexpr uint32_t SIGNAL_MAX = 64;
+constexpr uint32_t MINIMUM_ARENA_SIGNAL_BUDGET = 32;
+constexpr uint32_t MINIMUM_ARENA_SIZE = PAGE_SIZE * MESSAGE_MAX * MINIMUM_ARENA_SIGNAL_BUDGET;
 
 enum datatype { vINT = 0, vFLOAT = 1, vDOUBLE = 2 };
 
@@ -16,6 +20,11 @@ struct arenaConfig {
   size_t arenaSize{};
   std::array<uint32_t, MESSAGE_MAX> signalCounts{};
   std::vector<uint32_t> validIds{};
+};
+
+struct SignalValueDescription {
+  int64_t rawValue = 0;
+  std::string label{};
 };
 
 struct Signal {
@@ -31,6 +40,7 @@ struct Signal {
   std::string name = "NULL";
   std::string unit = "NULL";
   std::string receiver = "NULL";
+  std::vector<SignalValueDescription> valueDescriptions{};
   void* data{};
 };
 

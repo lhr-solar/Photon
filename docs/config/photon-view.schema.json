@@ -67,7 +67,7 @@
         },
         "messageName": { "type": "string" },
         "signalName": { "type": "string" },
-        "signalIndex": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "signalIndex": { "type": "integer", "minimum": 0, "maximum": 63 },
         "label": { "type": "string" }
       },
       "additionalProperties": true
@@ -144,6 +144,16 @@
       },
       "additionalProperties": true
     },
+    "canMonitor": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "filter": { "type": "string" },
+        "recordPath": { "type": "string" },
+        "sort": { "type": "integer", "minimum": 0, "maximum": 3 }
+      },
+      "additionalProperties": true
+    },
     "widget": {
       "oneOf": [
         {
@@ -176,6 +186,17 @@
             "kind": { "const": "watchdog" },
             "rect": { "$ref": "#/$defs/rect" },
             "watchdog": { "$ref": "#/$defs/watchdog" }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "rect", "canMonitor"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "kind": { "const": "can-monitor" },
+            "rect": { "$ref": "#/$defs/rect" },
+            "canMonitor": { "$ref": "#/$defs/canMonitor" }
           },
           "additionalProperties": true
         }
