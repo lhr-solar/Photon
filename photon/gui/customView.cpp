@@ -781,14 +781,14 @@ void CustomViewTab::renderPreview() {
       if (ImGui::BeginChild("##widget", size, ImGuiChildFlags_Borders,
                             ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         ImDrawList* widgetDraw = ImGui::GetWindowDrawList();
-        const float closeWidth = 28.0f;
-        const float titleWidth = std::max(8.0f, ImGui::GetContentRegionAvail().x - closeWidth);
+        const float actionWidth = 56.0f;
+        const float titleWidth = std::max(8.0f, ImGui::GetContentRegionAvail().x - actionWidth);
         ImGui::InvisibleButton("##drag", ImVec2(titleWidth, kTitleBarHeight));
         const bool titleHovered = ImGui::IsItemHovered();
         const bool titleActive = ImGui::IsItemActive();
         const ImVec2 titleMin = ImGui::GetItemRectMin();
         const ImVec2 titleMax = ImGui::GetItemRectMax();
-        const ImVec2 barMax(titleMax.x + closeWidth, titleMax.y);
+        const ImVec2 barMax(titleMax.x + actionWidth, titleMax.y);
         widgetDraw->AddRectFilled(
             titleMin, barMax, PhotonUi::colorU32(PhotonUi::withAlpha(palette.raised, 0.95f)), 4.0f);
         widgetDraw->AddText(
@@ -800,8 +800,10 @@ void CustomViewTab::renderPreview() {
         if (titleHovered || titleActive) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
 
         ImGui::SameLine(0.0f, 0.0f);
-        if (widget.kind == CustomViewWidgetKind::Plot && ImGui::SmallButton("Edit##edit"))
+        if (widget.kind == CustomViewWidgetKind::Plot && ImGui::SmallButton("\ue8b8##edit"))
           plotManager().requestEdit(widget.plot);
+        if (widget.kind == CustomViewWidgetKind::Plot && ImGui::IsItemHovered())
+          ImGui::SetTooltip("Edit signals and settings");
         ImGui::SameLine(0.0f, 0.0f);
         if (ImGui::SmallButton("X##close")) pendingDelete = widget.id;
 
