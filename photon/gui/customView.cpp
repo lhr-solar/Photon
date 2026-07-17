@@ -800,10 +800,30 @@ void CustomViewTab::renderPreview() {
         if (titleHovered || titleActive) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
 
         ImGui::SameLine(0.0f, 0.0f);
-        if (widget.kind == CustomViewWidgetKind::Plot && ImGui::SmallButton("\ue8b8##edit"))
-          plotManager().requestEdit(widget.plot);
-        if (widget.kind == CustomViewWidgetKind::Plot && ImGui::IsItemHovered())
-          ImGui::SetTooltip("Edit signals and settings");
+        if (widget.kind == CustomViewWidgetKind::Plot) {
+          ImGui::InvisibleButton("##edit", {28.0f, kTitleBarHeight});
+          const bool editHovered = ImGui::IsItemHovered();
+          const ImVec2 editMin = ImGui::GetItemRectMin();
+          const ImVec2 editMax = ImGui::GetItemRectMax();
+          const ImVec2 center((editMin.x + editMax.x) * 0.5f, (editMin.y + editMax.y) * 0.5f);
+          if (editHovered)
+            widgetDraw->AddRectFilled(editMin, editMax,
+                                      PhotonUi::colorU32(PhotonUi::withAlpha(palette.active, 0.5f)),
+                                      3.0f);
+          const ImU32 gearColor = PhotonUi::colorU32(editHovered ? palette.text : palette.muted);
+          for (int tooth = 0; tooth < 8; ++tooth) {
+            const float angle = static_cast<float>(tooth) * 3.14159265f / 4.0f;
+            const ImVec2 inner(center.x + std::cos(angle) * 5.0f,
+                               center.y + std::sin(angle) * 5.0f);
+            const ImVec2 outer(center.x + std::cos(angle) * 8.0f,
+                               center.y + std::sin(angle) * 8.0f);
+            widgetDraw->AddLine(inner, outer, gearColor, 3.0f);
+          }
+          widgetDraw->AddCircle(center, 5.5f, gearColor, 12, 2.0f);
+          widgetDraw->AddCircleFilled(center, 1.8f, gearColor, 8);
+          if (ImGui::IsItemClicked()) plotManager().requestEdit(widget.plot);
+          if (editHovered) ImGui::SetTooltip("Edit signals and settings");
+        }
         ImGui::SameLine(0.0f, 0.0f);
         if (ImGui::SmallButton("X##close")) pendingDelete = widget.id;
 
