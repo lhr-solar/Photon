@@ -127,6 +127,14 @@ using ProtocolTransmitVariant =
     std::variant<TCPConfig, UDPConfig, UARTConfig, PCANConfig, BLEConfig, WLANConfig, Quit>;
 using ProtocolReceiveVariant = std::variant<ProtocolError, ProtocolMessage, ProtocolDeviceList>;
 
+struct CANFrameEvent {
+  uint32_t id = 0;
+  uint8_t dlc = 0;
+  std::array<uint8_t, 8> data{};
+  uint64_t timestampMs = 0;
+  bool transmitted = false;
+};
+
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
                   TCPConfig config, Arena& arena);
@@ -140,12 +148,4 @@ struct Protocols {
                              SPMCQueue<CANFrameEvent, 512>& frameEvents,
                              DashboardConfig config);
 #endif
-};
-
-struct CANFrameEvent {
-  uint32_t id = 0;
-  uint8_t dlc = 0;
-  std::array<uint8_t, 8> data{};
-  uint64_t timestampMs = 0;
-  bool transmitted = false;
 };
