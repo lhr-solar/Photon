@@ -12,6 +12,7 @@
 #include "tabs.hpp"
 #include "titlebar.hpp"
 #include "updater.hpp"
+#include "webcam.hpp"
 
 struct GUI {
   void init(GPU& gpu, Arena& arena, Network& network);
@@ -31,9 +32,17 @@ struct GUI {
   void networkPage(ImGuiWindowFlags flags);
   void dashboardPage(ImGuiWindowFlags flags);
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
+  void initDashboardCameras();
+  void updateDashboardCameras();
+  void destroyDashboardCameras();
 
   ui::AppState dashboardState = ui::CreateDefaultState();
   bool kioskMode = false;
+
+  static constexpr int dashboardCameraCount = 3;
+  WebcamCapture dashboardCameras[dashboardCameraCount];
+  ImTextureData* dashboardCameraTextures[dashboardCameraCount]{};
+  std::vector<uint8_t> dashboardCameraFrames[dashboardCameraCount];
 
   GPU* gpu;
   Arena* arena;

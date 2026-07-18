@@ -248,9 +248,10 @@ static void RenderFaultBanner(const AppState& state) {
 }
 
 
-//Camera placeholder (used for LEFT / RIGHT / REAR views)
+// Camera tile shared by the left, right, and rear live feeds.
 
-static void RenderCameraView(const AppState& state, const char* label, void* texture, const ImVec2& size) {
+static void RenderCameraView(const AppState& state, const char* label, ImTextureData* texture,
+                             const ImVec2& size) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
 
@@ -258,7 +259,10 @@ static void RenderCameraView(const AppState& state, const char* label, void* tex
     {
         ImVec2 avail = ImGui::GetContentRegionAvail();
         if (texture) {
-            ImGui::Image(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(texture)), avail);
+            // The dashboard cameras are mounted inverted. Flip their UVs so
+            // each physical view is upright without a second frame copy.
+            ImGui::Image(texture->GetTexRef(), avail,
+                         ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
         } else {
             // Center the label text, split at space for two-line display
             const char* space = strchr(label, ' ');

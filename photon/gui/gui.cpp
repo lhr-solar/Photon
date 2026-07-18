@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <csignal>
 #include <cstddef>
+#include <cstring>
 #include <cstdlib>
 #include <locale>
 #include <string>
@@ -61,6 +62,7 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
     titleBar.showSidebar = false;
     titleBar.enabled = false;
     kioskMode = true;
+    initDashboardCameras();
 #if defined(PHOTON_DASHBOARD_ONLY) && defined(LINUX)
     // Kiosk build has no Networks tab to start ingest from; read the local
     // CAN bus (candump, default channel can0) automatically. Started directly
@@ -95,6 +97,7 @@ void GUI::render() {
 };
 
 void GUI::destroy() {
+  destroyDashboardCameras();
   if (sideBar.backgroundTexture) {
     ImGui::UnregisterUserTexture(sideBar.backgroundTexture);
     sideBar.backgroundTexture->SetStatus(ImTextureStatus_WantDestroy);
@@ -213,6 +216,51 @@ void drawUpdateMeta(const char* id, const char* label, const char* value, float 
 }
 
 }  // namespace
+
+void GUI::initDashboardCameras() {
+  static constexpr const char* paths[dashboardCameraCount] = {
+      "/dev/cam-left", "/dev/cam-right", "/dev/cam-rear"};
+  for (int index = 0; index < dashboardCameraCount; ++index) {
+    dashboardCameras[index].initialize(paths[index], 320, 240);
+    auto* texture = IM_NEW(ImTextureData)();
+    texture->Create(ImTextureFormat_RGBA32, 320, 240);
+    texture->UseColors = true;
+    ImGui::RegisterUserTexture(texture);
+    dashboardCameraTextures[index] = texture;
+  }
+}
+
+void GUI::updateDashboardCameras() {
+  for (int index = 0; index < dashboardCameraCount; ++index) {
+    ImTextureData* texture = dashboardCameraTextures[index];
+    if (!texture) continue;
+    if (dashboardCameras[index].captureFrame(dashboardCameraFrames[index]) &&
+        dashboardCameraFrames[index].size() == static_cast<size_t>(texture->GetSizeInBytes())) {
+      std::memcpy(texture->Pixels, dashboardCameraFrames[index].data(),
+                  dashboardCameraFrames[index].size());
+      texture->SetStatus(ImTextureStatus_WantUpdates);
+    }
+  }
+
+  dashboardState.leftCameraTexture = dashboardCameraTextures[0];
+  dashboardState.rightCameraTexture = dashboardCameraTextures[1];
+  dashboardState.rearCameraTexture = dashboardCameraTextures[2];
+}
+
+void GUI::destroyDashboardCameras() {
+  for (int index = 0; index < dashboardCameraCount; ++index) {
+    dashboardCameras[index].shutdown();
+    if (dashboardCameraTextures[index]) {
+      ImGui::UnregisterUserTexture(dashboardCameraTextures[index]);
+      dashboardCameraTextures[index]->SetStatus(ImTextureStatus_WantDestroy);
+      dashboardCameraTextures[index] = nullptr;
+    }
+    dashboardCameraFrames[index].clear();
+  }
+  dashboardState.leftCameraTexture = nullptr;
+  dashboardState.rightCameraTexture = nullptr;
+  dashboardState.rearCameraTexture = nullptr;
+}
 
 void GUI::updateUI() {
   const bool open = PhotonUi::beginModal("Update", {540.0f, 350.0f});
@@ -437,6 +485,7 @@ void GUI::setTabs() {
 };
 
 void GUI::dashboardPage(ImGuiWindowFlags) {
+  updateDashboardCameras();
   ui::UpdateDashboardState(*arena, dashboardState);
   if (std::getenv("PHOTON_FAKE_DASHBOARD_FAULT") != nullptr) {
     dashboardState.signals["BPS_Fault"] = 4.0;  // overtemp

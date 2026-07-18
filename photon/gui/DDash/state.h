@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
+struct ImTextureData;
+
 namespace ui {
 
 enum class FaultSeverity {
@@ -87,9 +89,9 @@ struct AppState {
     // UI-only state, not CAN data.
     uint8_t heartbeat = 0;
     bool showDebugScreen = false;
-    void* leftCameraTexture = nullptr;
-    void* rightCameraTexture = nullptr;
-    void* rearCameraTexture = nullptr;
+    ImTextureData* leftCameraTexture = nullptr;
+    ImTextureData* rightCameraTexture = nullptr;
+    ImTextureData* rearCameraTexture = nullptr;
 };
 
 inline AppState CreateDefaultState() { return AppState{}; }
