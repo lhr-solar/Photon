@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <atomic>
+#include <array>
 #include <stop_token>
 #include <string>
 #include <variant>
@@ -52,6 +54,14 @@ struct PCANConfig {
   char channel[1024] = "can0";
 };
 
+struct DashboardConfig {
+  uint16_t port = 39002;
+  uint16_t discoveryPort = 39001;
+  char bindAddress[256] = "192.168.4.1";
+  char channel[1024] = "can0";
+  bool remoteWritesEnabled = false;
+};
+
 struct BLEConfig {};
 
 struct WLANConfig {};
@@ -89,6 +99,14 @@ struct PCANConfig {
   char channel[1024] = "can0";
 };
 
+struct DashboardConfig {
+  uint16_t port = 39002;
+  uint16_t discoveryPort = 39001;
+  char bindAddress[256] = "192.168.4.1";
+  char channel[1024] = "can0";
+  bool remoteWritesEnabled = false;
+};
+
 struct BLEConfig {};
 
 struct WLANConfig {};
@@ -116,6 +134,18 @@ struct Protocols {
   // Reads the local CAN bus by spawning `candump -L <channel>` (can-utils),
   // the same approach the old driver-dash used on the kart.
   static void Candump(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                      PCANConfig config, Arena& arena);
+                      SPMCQueue<CANFrameEvent, 512>& frameEvents, PCANConfig config, Arena& arena);
+  static void DashboardRelay(std::stop_token stoken,
+                             SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
+                             SPMCQueue<CANFrameEvent, 512>& frameEvents,
+                             DashboardConfig config);
 #endif
+};
+
+struct CANFrameEvent {
+  uint32_t id = 0;
+  uint8_t dlc = 0;
+  std::array<uint8_t, 8> data{};
+  uint64_t timestampMs = 0;
+  bool transmitted = false;
 };

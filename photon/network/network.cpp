@@ -28,7 +28,22 @@ void Network::startCandump(PCANConfig config) {
   activeTCPConfig.reset();
   activePCANConfig = config;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::Candump(stoken, guiTxCommandBuffer, config, parse->arena);
+    Protocols::Candump(stoken, guiTxCommandBuffer, canFrameBuffer, config, parse->arena);
+  });
+#else
+  (void)config;
+#endif
+}
+
+void Network::startDashboardRelay(DashboardConfig config) {
+#ifdef LINUX
+  if (dashboardThread.joinable()) {
+    dashboardThread.request_stop();
+    dashboardThread.join();
+  }
+  activeDashboardConfig = config;
+  dashboardThread = std::jthread([this, config](std::stop_token stoken) {
+    Protocols::DashboardRelay(stoken, guiTxCommandBuffer, canFrameBuffer, config);
   });
 #else
   (void)config;
@@ -37,9 +52,14 @@ void Network::startCandump(PCANConfig config) {
 
 void Network::stopWriter() {
   std::lock_guard lock(writerMutex);
+  if (dashboardThread.joinable()) {
+    dashboardThread.request_stop();
+    dashboardThread.join();
+  }
   stopWriterUnlocked();
   activeTCPConfig.reset();
   activePCANConfig.reset();
+  activeDashboardConfig.reset();
 }
 
 void Network::stopWriterUnlocked() {
@@ -61,7 +81,7 @@ void Network::restartWriterUnlocked() {
   if (activePCANConfig) {
     const PCANConfig config = *activePCANConfig;
     writerThread = std::jthread([this, config](std::stop_token stoken) {
-      Protocols::Candump(stoken, guiTxCommandBuffer, config, parse->arena);
+      Protocols::Candump(stoken, guiTxCommandBuffer, canFrameBuffer, config, parse->arena);
     });
   }
 #endif
@@ -113,5 +133,9 @@ void Network::destroy() {
   if (backendThread.joinable()) {
     backendThread.request_stop();
     backendThread.join();
+  }
+  if (dashboardThread.joinable()) {
+    dashboardThread.request_stop();
+    dashboardThread.join();
   }
 };

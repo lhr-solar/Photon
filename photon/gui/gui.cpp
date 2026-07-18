@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <locale>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "../gpu/shader.hpp"
@@ -67,6 +68,12 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
     // only sees writes made after it exists, so a command written this early
     // in startup would be missed.
     network.startCandump(PCANConfig{});
+    DashboardConfig relay{};
+    relay.remoteWritesEnabled = [] {
+      const char* value = std::getenv("PHOTON_REMOTE_CAN_WRITES");
+      return value && std::string_view(value) == "1";
+    }();
+    network.startDashboardRelay(relay);
 #endif
   }
 }
