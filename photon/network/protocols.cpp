@@ -18,6 +18,7 @@
 
 #include "../parse/arena.hpp"
 #include "canp.h"
+#include "dashboardLink.hpp"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -258,6 +259,82 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
   closeSocket(sock);
   sock = INVALID_SOCKET;
   return false;
+}
+
+uint64_t hostToNetwork64(uint64_t value) {
+#if defined(_WIN32) || __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  return (static_cast<uint64_t>(htonl(static_cast<uint32_t>(value))) << 32) |
+         htonl(static_cast<uint32_t>(value >> 32));
+#else
+  return value;
+#endif
+}
+
+uint64_t networkToHost64(uint64_t value) {
+#if defined(_WIN32) || __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  return (static_cast<uint64_t>(ntohl(static_cast<uint32_t>(value))) << 32) |
+         ntohl(static_cast<uint32_t>(value >> 32));
+#else
+  return value;
+#endif
+}
+
+bool writeDashboardMessage(SocketHandle socket, DashboardLink::MessageType type, uint32_t sequence,
+                           const void* payload, uint32_t payloadBytes) {
+  if (payloadBytes > DashboardLink::kMaxPayload) return false;
+  DashboardLink::Header header{.magic = htonl(DashboardLink::kMagic),
+                               .version = htons(DashboardLink::kVersion),
+                               .type = htons(static_cast<uint16_t>(type)),
+                               .payloadBytes = htonl(payloadBytes),
+                               .sequence = htonl(sequence)};
+  iovec parts[2]{{.iov_base = &header, .iov_len = sizeof(header)},
+                 {.iov_base = const_cast<void*>(payload), .iov_len = payloadBytes}};
+  return canpWrite(socket, parts, payloadBytes ? 2 : 1) > 0;
+}
+
+bool readDashboardMessage(SocketHandle socket, DashboardLink::Header& header,
+                          std::vector<uint8_t>& payload) {
+  if (canpRead(socket, &header, sizeof(header)) != CANP_READ_OK) return false;
+  header.magic = ntohl(header.magic);
+  header.version = ntohs(header.version);
+  header.type = ntohs(header.type);
+  header.payloadBytes = ntohl(header.payloadBytes);
+  header.sequence = ntohl(header.sequence);
+  if (header.magic != DashboardLink::kMagic || header.version != DashboardLink::kVersion ||
+      header.payloadBytes > DashboardLink::kMaxPayload)
+    return false;
+  payload.resize(header.payloadBytes);
+  return header.payloadBytes == 0 ||
+         canpRead(socket, payload.data(), header.payloadBytes) == CANP_READ_OK;
+}
+
+bool decodeDashboardBatch(const std::vector<uint8_t>& payload, canpBatch_t& batch) {
+  if (payload.size() < sizeof(DashboardLink::BatchHeader)) return false;
+  DashboardLink::BatchHeader header{};
+  std::memcpy(&header, payload.data(), sizeof(header));
+  const uint16_t count = ntohs(header.count);
+  const size_t expected = sizeof(header) + static_cast<size_t>(count) * sizeof(canpPacket_t);
+  if (count == 0 || count > CANP_MAX_BATCH || payload.size() != expected) return false;
+  batch.timestamp = networkToHost64(header.timestampMs);
+  batch.seq = ntohl(header.sequence);
+  batch.count = count;
+  std::memcpy(batch.packets, payload.data() + sizeof(header),
+              static_cast<size_t>(count) * sizeof(canpPacket_t));
+  return true;
+}
+
+std::vector<uint8_t> encodeDashboardBatch(const canpPacket_t* packets, uint16_t count,
+                                          uint64_t timestampMs, uint32_t sequence) {
+  std::vector<uint8_t> payload(sizeof(DashboardLink::BatchHeader) +
+                               static_cast<size_t>(count) * sizeof(canpPacket_t));
+  DashboardLink::BatchHeader header{.timestampMs = hostToNetwork64(timestampMs),
+                                    .sequence = htonl(sequence),
+                                    .count = htons(count),
+                                    .reserved = 0};
+  std::memcpy(payload.data(), &header, sizeof(header));
+  std::memcpy(payload.data() + sizeof(header), packets,
+              static_cast<size_t>(count) * sizeof(canpPacket_t));
+  return payload;
 }
 
 bool extractSignalRaw(const uint8_t data[8], uint8_t dlc, const Signal& sig, uint64_t& raw) {
@@ -842,4 +919,195 @@ void Protocols::PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 3
   publishError(txBuffer, "PCAN is not supported on this platform");
 #endif
   publishMessage(txBuffer, timeNow() + "PCAN stopped");
+}
+
+void Protocols::Dashboard(std::stop_token stoken,
+                          SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
+                          SPMCQueue<CANFrameWrite, 64>& writeBuffer,
+                          SPMCQueue<CANFrameEvent, 512>& frameEvents,
+                          DashboardConfig config, Arena& arena,
+                          std::atomic<bool>& armRequested,
+                          std::atomic<bool>& transmitAvailable,
+                          std::atomic<bool>& controlsArmed) {
+  TCPConfig endpoint{};
+  endpoint.port = config.port;
+  std::snprintf(endpoint.ip, sizeof(endpoint.ip), "%s", config.ip);
+  SocketHandle socket = INVALID_SOCKET;
+  std::string error{};
+  if (!connectTcp(socket, endpoint, stoken, error)) {
+    if (!stoken.stop_requested()) publishError(txBuffer, "Photon Dashboard: " + error);
+    return;
+  }
+
+  uint32_t sequence = 1;
+  if (!writeDashboardMessage(socket, DashboardLink::MessageType::Hello, sequence++, nullptr, 0)) {
+    closeSocket(socket);
+    publishError(txBuffer, "Photon Dashboard: hello failed");
+    return;
+  }
+  publishMessage(txBuffer, timeNow() + "Photon Dashboard connected");
+
+  CANFrameCache cache{};
+  auto writeReader = writeBuffer.getReader();
+  bool lastRequested = false;
+  auto nextHeartbeat = std::chrono::steady_clock::now();
+  while (!stoken.stop_requested()) {
+    const bool requested = armRequested.load(std::memory_order_acquire);
+    if (requested != lastRequested) {
+      const auto type = requested ? DashboardLink::MessageType::ArmRequest
+                                  : DashboardLink::MessageType::ArmRelease;
+      if (!writeDashboardMessage(socket, type, sequence++, nullptr, 0)) break;
+      lastRequested = requested;
+      if (!requested) controlsArmed.store(false, std::memory_order_release);
+    }
+    if (requested && std::chrono::steady_clock::now() >= nextHeartbeat) {
+      if (!writeDashboardMessage(socket, DashboardLink::MessageType::Heartbeat, sequence++, nullptr, 0))
+        break;
+      nextHeartbeat = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    }
+
+    while (CANFrameWrite* request = writeReader.read()) {
+      if (!controlsArmed.load(std::memory_order_acquire)) continue;
+      uint32_t messageId = 0;
+      uint8_t dlc = 0;
+      std::array<uint8_t, 8> data{};
+      std::string writeError{};
+      if (!prepareCANWrite(*request, arena, cache, messageId, dlc, data, writeError)) {
+        publishError(txBuffer, "Dashboard CAN send rejected: " + writeError);
+        continue;
+      }
+      const uint16_t zeroDt[8]{};
+      const canpPacket_t packet = canpMakePacket(messageId, dlc, data.data(), zeroDt);
+      const auto payload = encodeDashboardBatch(&packet, 1, steadyTimestampMs(), sequence);
+      if (!writeDashboardMessage(socket, DashboardLink::MessageType::CanWrite, sequence++,
+                                 payload.data(), static_cast<uint32_t>(payload.size()))) {
+        publishError(txBuffer, "Photon Dashboard: CAN write transport failed");
+        break;
+      }
+      // Preserve the PCAN behavior: Lists and monitors reflect an accepted local
+      // DBC write immediately, even if the physical bus does not echo it.
+      receiveCANFrame(messageId, dlc, data.data(), steadyTimestampMs(), cache, arena, frameEvents,
+                      true);
+    }
+
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(socket, &readSet);
+    timeval timeout{};
+    timeout.tv_usec = 10000;
+    const int ready = select(selectSocketCount(socket), &readSet, nullptr, nullptr, &timeout);
+    if (ready == SOCKET_ERROR) {
+      publishError(txBuffer, "Photon Dashboard: " + socketError("TCP recv select"));
+      break;
+    }
+    if (ready == 0 || !FD_ISSET(socket, &readSet)) continue;
+
+    DashboardLink::Header header{};
+    std::vector<uint8_t> payload{};
+    if (!readDashboardMessage(socket, header, payload)) {
+      publishError(txBuffer, "Photon Dashboard: invalid or closed relay connection");
+      break;
+    }
+    const auto type = static_cast<DashboardLink::MessageType>(header.type);
+    if (type == DashboardLink::MessageType::Telemetry) {
+      canpBatch_t batch{};
+      if (!decodeDashboardBatch(payload, batch)) {
+        publishError(txBuffer, "Photon Dashboard: malformed telemetry batch");
+        break;
+      }
+      for (uint16_t index = 0; index < batch.count; ++index) {
+        const canpPacket_t& packet = batch.packets[index];
+        receiveCANFrame(canpGetId(&packet), packet.dlc, packet.data, batch.timestamp, cache, arena,
+                        frameEvents, false);
+      }
+    } else if (type == DashboardLink::MessageType::Status && payload.size() == 1) {
+      const bool available = (payload[0] & DashboardLink::RemoteWritesEnabled) != 0;
+      const bool granted = (payload[0] & DashboardLink::ControllerLeaseHeld) != 0;
+      transmitAvailable.store(available, std::memory_order_release);
+      controlsArmed.store(granted, std::memory_order_release);
+      if (!available) armRequested.store(false, std::memory_order_release);
+    } else if (type == DashboardLink::MessageType::ArmGranted) {
+      controlsArmed.store(true, std::memory_order_release);
+      transmitAvailable.store(true, std::memory_order_release);
+      publishMessage(txBuffer, "Photon Dashboard: remote CAN controller armed");
+    } else if (type == DashboardLink::MessageType::ArmDenied) {
+      controlsArmed.store(false, std::memory_order_release);
+      publishError(txBuffer, "Photon Dashboard: remote CAN controller unavailable");
+    }
+  }
+  transmitAvailable.store(false, std::memory_order_release);
+  controlsArmed.store(false, std::memory_order_release);
+  closeSocket(socket);
+  publishMessage(txBuffer, timeNow() + "Photon Dashboard stopped");
+}
+
+void Protocols::discoverDashboards(std::stop_token stoken,
+                                   SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer) {
+  std::string error{};
+#ifdef _WIN32
+  if (!ensureWinsock(error)) {
+    publishError(txBuffer, "Photon Dashboard discovery: " + error);
+    return;
+  }
+#endif
+  SocketHandle socket = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (socket == INVALID_SOCKET) {
+    publishError(txBuffer, "Photon Dashboard discovery: " + socketError("UDP socket"));
+    return;
+  }
+  int broadcast = 1;
+#ifdef _WIN32
+  if (setsockopt(socket, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&broadcast),
+                 sizeof(broadcast)) == SOCKET_ERROR) {
+#else
+  if (setsockopt(socket, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == SOCKET_ERROR) {
+#endif
+    closeSocket(socket);
+    publishError(txBuffer, "Photon Dashboard discovery: cannot enable broadcast");
+    return;
+  }
+  sockaddr_in destination{};
+  destination.sin_family = AF_INET;
+  destination.sin_port = htons(DashboardLink::kDiscoveryPort);
+  destination.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+  DashboardLink::DiscoveryRequest request{.magic = htonl(DashboardLink::kMagic),
+                                           .version = htons(DashboardLink::kVersion),
+                                           .reserved = 0};
+  sendto(socket, reinterpret_cast<const char*>(&request), sizeof(request), 0,
+         reinterpret_cast<const sockaddr*>(&destination), sizeof(destination));
+
+  std::vector<std::string> devices{};
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(900);
+  while (!stoken.stop_requested() && std::chrono::steady_clock::now() < deadline) {
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(socket, &readSet);
+    timeval timeout{};
+    timeout.tv_usec = 100000;
+    const int ready = select(selectSocketCount(socket), &readSet, nullptr, nullptr, &timeout);
+    if (ready <= 0 || !FD_ISSET(socket, &readSet)) continue;
+    DashboardLink::DiscoveryResponse response{};
+    sockaddr_in source{};
+#ifdef _WIN32
+    int sourceBytes = sizeof(source);
+#else
+    socklen_t sourceBytes = sizeof(source);
+#endif
+    const int bytes = recvfrom(socket, reinterpret_cast<char*>(&response), sizeof(response), 0,
+                               reinterpret_cast<sockaddr*>(&source), &sourceBytes);
+    if (bytes != sizeof(response) || ntohl(response.magic) != DashboardLink::kMagic ||
+        ntohs(response.version) != DashboardLink::kVersion)
+      continue;
+    char address[INET_ADDRSTRLEN]{};
+    if (!inet_ntop(AF_INET, &source.sin_addr, address, sizeof(address))) continue;
+    const std::string name(response.name.data(), strnlen(response.name.data(), response.name.size()));
+    const std::string entry = name + "|" + address + "|" +
+                              std::to_string(ntohs(response.streamPort)) + "|" +
+                              std::to_string(response.statusFlags);
+    if (std::find(devices.begin(), devices.end(), entry) == devices.end()) devices.push_back(entry);
+  }
+  closeSocket(socket);
+  txBuffer.write([devices = std::move(devices)](ProtocolReceiveVariant& out) {
+    out = ProtocolDeviceList{.devices = std::move(devices)};
+  });
 }

@@ -19,6 +19,8 @@ struct Network {
   void backend(std::stop_token stoken);
   void startTCP(TCPConfig config);
   void startPCAN(PCANConfig config);
+  void startDashboard(DashboardConfig config);
+  void discoverDashboards();
   void stopWriter();
   bool sendDBCSignal(std::string_view messageName, std::string_view signalName,
                      double physicalValue);
@@ -37,8 +39,11 @@ struct Network {
   std::mutex writerMutex{};
   std::optional<TCPConfig> activeTCPConfig{};
   std::optional<PCANConfig> activePCANConfig{};
+  std::optional<DashboardConfig> activeDashboardConfig{};
   std::atomic<bool> pcanTransmitEnabled{false};
   std::atomic<bool> canControlsEnabled{false};
+  std::atomic<bool> dashboardArmRequested{false};
+  std::jthread discoveryThread{};
 
   /* GUI Sends here, Network Reads here */
   SPMCQueue<ProtocolTransmitVariant, 32> guiRxCommandBuffer{};

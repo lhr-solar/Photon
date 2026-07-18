@@ -23,6 +23,8 @@ void Network::startTCP(TCPConfig config) {
     return;
   }
   activePCANConfig.reset();
+  activeDashboardConfig.reset();
+  dashboardArmRequested.store(false, std::memory_order_release);
   activeTCPConfig = config;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
     Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
@@ -33,12 +35,45 @@ void Network::startPCAN(PCANConfig config) {
   std::lock_guard lock(writerMutex);
   stopWriterUnlocked();
   activeTCPConfig.reset();
+  activeDashboardConfig.reset();
   activePCANConfig = config;
   pcanTransmitEnabled.store(!config.listenOnly, std::memory_order_release);
   canControlsEnabled.store(false, std::memory_order_release);
   writerThread = std::jthread([this, config](std::stop_token stoken) {
     Protocols::PCAN(stoken, guiTxCommandBuffer, canWriteBuffer, canFrameBuffer, config,
                     parse->arena);
+  });
+}
+
+void Network::startDashboard(DashboardConfig config) {
+  std::lock_guard lock(writerMutex);
+  stopWriterUnlocked();
+  if (!parse || !parse->loadDBC(DBCType::HighNoonTelemetry)) {
+    guiTxCommandBuffer.write([](ProtocolReceiveVariant& message) {
+      message = ProtocolError{.error = "Cannot load the normal car DBC for Photon Dashboard"};
+    });
+    return;
+  }
+  activeTCPConfig.reset();
+  activePCANConfig.reset();
+  activeDashboardConfig = config;
+  pcanTransmitEnabled.store(false, std::memory_order_release);
+  canControlsEnabled.store(false, std::memory_order_release);
+  dashboardArmRequested.store(false, std::memory_order_release);
+  writerThread = std::jthread([this, config](std::stop_token stoken) {
+    Protocols::Dashboard(stoken, guiTxCommandBuffer, canWriteBuffer, canFrameBuffer, config,
+                         parse->arena, dashboardArmRequested, pcanTransmitEnabled,
+                         canControlsEnabled);
+  });
+}
+
+void Network::discoverDashboards() {
+  if (discoveryThread.joinable()) {
+    discoveryThread.request_stop();
+    discoveryThread.join();
+  }
+  discoveryThread = std::jthread([this](std::stop_token stoken) {
+    Protocols::discoverDashboards(stoken, guiTxCommandBuffer);
   });
 }
 
@@ -61,6 +96,11 @@ bool Network::sendDBCFrame(std::string_view messageName, std::vector<CANSignalVa
 }
 
 void Network::armCanControls(bool armed) {
+  if (activeDashboardConfig) {
+    dashboardArmRequested.store(armed, std::memory_order_release);
+    if (!armed) canControlsEnabled.store(false, std::memory_order_release);
+    return;
+  }
   canControlsEnabled.store(armed && pcanTransmitEnabled.load(std::memory_order_acquire),
                            std::memory_order_release);
 }
@@ -70,6 +110,8 @@ void Network::stopWriter() {
   stopWriterUnlocked();
   activeTCPConfig.reset();
   activePCANConfig.reset();
+  activeDashboardConfig.reset();
+  dashboardArmRequested.store(false, std::memory_order_release);
   pcanTransmitEnabled.store(false, std::memory_order_release);
   canControlsEnabled.store(false, std::memory_order_release);
 }
@@ -95,6 +137,14 @@ void Network::restartWriterUnlocked() {
     writerThread = std::jthread([this, config](std::stop_token stoken) {
       Protocols::PCAN(stoken, guiTxCommandBuffer, canWriteBuffer, canFrameBuffer, config,
                       parse->arena);
+    });
+  }
+  else if (activeDashboardConfig) {
+    const DashboardConfig config = *activeDashboardConfig;
+    writerThread = std::jthread([this, config](std::stop_token stoken) {
+      Protocols::Dashboard(stoken, guiTxCommandBuffer, canWriteBuffer, canFrameBuffer, config,
+                           parse->arena, dashboardArmRequested, pcanTransmitEnabled,
+                           canControlsEnabled);
     });
   }
 }
@@ -130,6 +180,8 @@ void Network::backend(std::stop_token stoken) {
       } else if (auto* uart = std::get_if<UARTConfig>(cmd)) {
       } else if (auto* pcan = std::get_if<PCANConfig>(cmd)) {
         startPCAN(*pcan);
+      } else if (auto* dashboard = std::get_if<DashboardConfig>(cmd)) {
+        startDashboard(*dashboard);
       } else if (std::get_if<BLEConfig>(cmd)) {
       } else if (std::get_if<WLANConfig>(cmd)) {
       } else if (std::get_if<Quit>(cmd))
@@ -142,6 +194,10 @@ void Network::backend(std::stop_token stoken) {
 };
 
 void Network::destroy() {
+  if (discoveryThread.joinable()) {
+    discoveryThread.request_stop();
+    discoveryThread.join();
+  }
   if (backendThread.joinable()) {
     backendThread.request_stop();
     backendThread.join();

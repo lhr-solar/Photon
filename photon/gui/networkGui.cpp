@@ -14,7 +14,8 @@ struct ProtocolOption {
   const char* icon;
 };
 
-constexpr std::array<ProtocolOption, 7> kProtocols{{
+constexpr std::array<ProtocolOption, 8> kProtocols{{
+    {"Photon Dashboard (Wi-Fi)", "\ueb52"},
     {"DAQ Server", "\ueb1f"},
     {"TCP", "\uf09f"},
     {"UDP", "\ueb17"},
@@ -23,6 +24,13 @@ constexpr std::array<ProtocolOption, 7> kProtocols{{
     {"BLE", "\uea37"},
     {"WLAN", "\ueb52"},
 }};
+
+struct DashboardEndpoint {
+  std::string name;
+  std::string ip;
+  uint16_t port = 39002;
+  bool remoteWrites = false;
+};
 
 void submit(Network* network, TCPConfig config) {
   network->guiRxCommandBuffer.write([config](ProtocolTransmitVariant& cmd) { cmd = config; });
@@ -40,6 +48,10 @@ void submit(Network* network, PCANConfig config) {
   network->guiRxCommandBuffer.write([config](ProtocolTransmitVariant& cmd) { cmd = config; });
 }
 
+void submit(Network* network, DashboardConfig config) {
+  network->guiRxCommandBuffer.write([config](ProtocolTransmitVariant& cmd) { cmd = config; });
+}
+
 void submit(Network* network, BLEConfig config) {
   network->guiRxCommandBuffer.write([config](ProtocolTransmitVariant& cmd) { cmd = config; });
 }
@@ -52,7 +64,7 @@ void disconnect(Network* network) {
   network->guiRxCommandBuffer.write([](ProtocolTransmitVariant& cmd) { cmd = Quit{}; });
 }
 
-void drainNetworkLog(Network* network, std::string& log) {
+void drainNetworkLog(Network* network, std::string& log, std::vector<DashboardEndpoint>& dashboards) {
   static auto reader = network->guiTxCommandBuffer.getReader();
   while (ProtocolReceiveVariant* msg = reader.read()) {
     if (auto* error = std::get_if<ProtocolError>(msg)) {
@@ -61,11 +73,51 @@ void drainNetworkLog(Network* network, std::string& log) {
       log += message->message + "\n";
     } else if (auto* deviceList = std::get_if<ProtocolDeviceList>(msg)) {
       log += "[devices]\n";
+      dashboards.clear();
       for (const auto& device : deviceList->devices) log += "  " + device + "\n";
+      for (const auto& device : deviceList->devices) {
+        const size_t first = device.find('|');
+        const size_t second = first == std::string::npos ? first : device.find('|', first + 1);
+        const size_t third = second == std::string::npos ? second : device.find('|', second + 1);
+        if (third == std::string::npos) continue;
+        try {
+          dashboards.push_back({.name = device.substr(0, first),
+                                .ip = device.substr(first + 1, second - first - 1),
+                                .port = static_cast<uint16_t>(std::stoul(device.substr(second + 1, third - second - 1))),
+                                .remoteWrites = std::stoul(device.substr(third + 1)) != 0});
+        } catch (...) {
+        }
+      }
     }
   }
   constexpr size_t maxLogBytes = 24000;
   if (log.size() > maxLogBytes) log.erase(0, log.size() - maxLogBytes);
+}
+
+void drawDashboardFields(DashboardConfig& config, const std::vector<DashboardEndpoint>& dashboards,
+                         Network* network, const PhotonUi::Palette& palette) {
+  PhotonUi::pushInputStyle(palette);
+  ImGui::SetNextItemWidth(-1.0f);
+  ImGui::InputText("CM5 IP", config.ip, sizeof(config.ip));
+  ImGui::SetNextItemWidth(140.0f);
+  ImGui::InputScalar("Stream port", ImGuiDataType_U16, &config.port);
+  PhotonUi::popInputStyle();
+  if (PhotonUi::button("DiscoverDashboards", "Discover dashboards", {166.0f, 34.0f}, palette))
+    network->discoverDashboards();
+  if (dashboards.empty()) {
+    ImGui::TextDisabled("Searching the Photon CM5 Wi-Fi network...");
+    return;
+  }
+  ImGui::SameLine();
+  ImGui::TextDisabled("%zu found", dashboards.size());
+  for (size_t i = 0; i < dashboards.size(); ++i) {
+    const auto& endpoint = dashboards[i];
+    const std::string label = endpoint.name + " (" + endpoint.ip + ")##dashboard" + std::to_string(i);
+    if (ImGui::Selectable(label.c_str(), false)) {
+      std::snprintf(config.ip, sizeof(config.ip), "%s", endpoint.ip.c_str());
+      config.port = endpoint.port;
+    }
+  }
 }
 
 void drawProtocolList(int& selected, const PhotonUi::Palette& palette) {
@@ -144,6 +196,9 @@ void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {
 void GUI::networkPage(ImGuiWindowFlags flags) {
   static int selected = 0;
   static std::string log;
+  static std::vector<DashboardEndpoint> dashboards;
+  static bool dashboardDiscoveryStarted = false;
+  static DashboardConfig dashboardConfig{};
   static TCPConfig daqConfig{.port = 6500,
                              .ip = "3.141.38.115",
                              .useAwsExtendedTelemetryDBC = true};
@@ -154,7 +209,11 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
   static BLEConfig bleConfig{};
   static WLANConfig wlanConfig{};
 
-  drainNetworkLog(network, log);
+  drainNetworkLog(network, log, dashboards);
+  if (selected == 0 && !dashboardDiscoveryStarted) {
+    network->discoverDashboards();
+    dashboardDiscoveryStarted = true;
+  }
 
   PhotonUi::pushContentStyle();
   if (ImGui::Begin("Network", nullptr, flags)) {
@@ -176,6 +235,36 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
                              palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
+        drawDashboardFields(dashboardConfig, dashboards, network, palette);
+        if (PhotonUi::button("ConnectDashboard", "Connect", {104.0f, 38.0f}, palette, true)) {
+          titleBar.connectionActive = true;
+          titleBar.connectionConnected = true;
+          titleBar.connectionProtocol = "Photon Dashboard";
+          submit(network, dashboardConfig);
+        }
+        ImGui::SameLine(0.0f, 8.0f);
+        if (PhotonUi::button("DisconnectDashboard", "Disconnect", {118.0f, 38.0f}, palette)) {
+          titleBar.connectionActive = false;
+          titleBar.connectionConnected = false;
+          titleBar.connectionProtocol = "Offline";
+          disconnect(network);
+        }
+        ImGui::SeparatorText("Remote CAN write safety");
+        const bool available = network && network->canTransmitCAN();
+        const bool armed = network && network->canControlsArmed();
+        if (!available) ImGui::BeginDisabled();
+        if (armed) {
+          if (PhotonUi::button("DisarmDashboardCan", "Release CAN controller", {168.0f, 34.0f}, palette))
+            network->armCanControls(false);
+          ImGui::SameLine();
+          ImGui::TextColored(palette.accent, "Controller armed");
+        } else if (PhotonUi::button("ArmDashboardCan", "Arm remote CAN", {148.0f, 34.0f}, palette)) {
+          network->armCanControls(true);
+        }
+        if (!available) ImGui::EndDisabled();
+        ImGui::TextDisabled(available ? "One client at a time may control the kart."
+                                    : "CM5 remote writes are disabled or the relay is not connected.");
+      } else if (selected == 1) {
         drawTcpFields(daqConfig, palette, true);
         if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true)) {
           titleBar.connectionActive = true;
@@ -190,7 +279,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
           titleBar.connectionProtocol = "Offline";
           disconnect(network);
         }
-      } else if (selected == 1) {
+      } else if (selected == 2) {
         drawTcpFields(tcpConfig, palette);
         if (PhotonUi::button("ApplyTcp", "Apply", {96.0f, 38.0f}, palette, true)) {
           titleBar.connectionActive = true;
@@ -198,15 +287,15 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
           titleBar.connectionProtocol = "TCP";
           submit(network, tcpConfig);
         }
-      } else if (selected == 2) {
+      } else if (selected == 3) {
         drawUdpFields(udpConfig, palette);
         if (PhotonUi::button("ApplyUdp", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, udpConfig);
-      } else if (selected == 3) {
+      } else if (selected == 4) {
         drawUartFields(uartConfig, palette);
         if (PhotonUi::button("ApplyUart", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, uartConfig);
-      } else if (selected == 4) {
+      } else if (selected == 5) {
         drawPcanFields(pcanConfig, palette);
         if (PhotonUi::button("ApplyPcan", "Connect", {104.0f, 38.0f}, palette, true)) {
           titleBar.connectionActive = true;
@@ -237,10 +326,10 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
         ImGui::TextDisabled(
             "Required before List 'Set via CAN' commands can transmit. It enables single DBC-based "
             "writes only; it does not start periodic messages.");
-      } else if (selected == 5) {
+      } else if (selected == 6) {
         if (PhotonUi::button("ApplyBle", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, bleConfig);
-      } else if (selected == 6) {
+      } else if (selected == 7) {
         if (PhotonUi::button("ApplyWlan", "Apply", {96.0f, 38.0f}, palette, true))
           submit(network, wlanConfig);
       }

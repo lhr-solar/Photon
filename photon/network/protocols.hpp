@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <array>
 #include <stop_token>
@@ -53,6 +54,11 @@ struct PCANConfig {
   char channel[1024] = "can0";
 };
 
+struct DashboardConfig {
+  uint16_t port = 39002;
+  char ip[256] = "192.168.4.1";
+};
+
 struct BLEConfig {};
 
 struct WLANConfig {};
@@ -63,6 +69,11 @@ struct TCPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
   bool useAwsExtendedTelemetryDBC = false;
+};
+
+struct DashboardConfig {
+  uint16_t port = 39002;
+  char ip[256] = "192.168.4.1";
 };
 
 struct Quit {};
@@ -106,8 +117,8 @@ struct ProtocolMessage {
 struct ProtocolDeviceList {
   std::vector<std::string> devices;
 };
-using ProtocolTransmitVariant =
-    std::variant<TCPConfig, UDPConfig, UARTConfig, PCANConfig, BLEConfig, WLANConfig, Quit>;
+using ProtocolTransmitVariant = std::variant<TCPConfig, UDPConfig, UARTConfig, PCANConfig,
+                                             DashboardConfig, BLEConfig, WLANConfig, Quit>;
 using ProtocolReceiveVariant = std::variant<ProtocolError, ProtocolMessage, ProtocolDeviceList>;
 
 struct CANSignalValue {
@@ -144,4 +155,12 @@ struct Protocols {
   static void PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
                    SPMCQueue<CANFrameWrite, 64>& writeBuffer,
                    SPMCQueue<CANFrameEvent, 512>& frameEvents, PCANConfig config, Arena& arena);
+  static void Dashboard(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
+                        SPMCQueue<CANFrameWrite, 64>& writeBuffer,
+                        SPMCQueue<CANFrameEvent, 512>& frameEvents, DashboardConfig config,
+                        Arena& arena, std::atomic<bool>& armRequested,
+                        std::atomic<bool>& transmitAvailable,
+                        std::atomic<bool>& controlsArmed);
+  static void discoverDashboards(std::stop_token stoken,
+                                 SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer);
 };
