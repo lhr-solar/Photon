@@ -23,7 +23,7 @@ add_dependencies(photon_ffmpeg photon_ffmpeg_build)
 target_include_directories(photon_ffmpeg INTERFACE ${FFMPEG_BUILD} ${CMAKE_SOURCE_DIR}/.external/ffmpeg)
 target_link_libraries(photon_ffmpeg INTERFACE ${FFMPEG_ARCHIVES} Threads::Threads $<$<PLATFORM_ID:Linux>:m>)
 
-file(GLOB gui_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+file(GLOB gui_src "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(REMOVE_ITEM gui_src "${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.cpp")
 
 if (APPLE)
