@@ -2,7 +2,7 @@ if(APPLE)
     set(src "${CMAKE_CURRENT_SOURCE_DIR}/gpuMetal.cpp")
     set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/gpuMetal.cpp" PROPERTIES LANGUAGE OBJCXX)
 else()
-    file(GLOB src "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+    file(GLOB src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
     list(REMOVE_ITEM src "${CMAKE_CURRENT_SOURCE_DIR}/gpuMetal.cpp")
 endif()
 
