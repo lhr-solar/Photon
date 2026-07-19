@@ -35,7 +35,7 @@ else()
     )
 endif()
 
-file(GLOB ddash_src CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/DDash/*.cpp")
+file(GLOB ddash_src "${CMAKE_CURRENT_SOURCE_DIR}/DDash/*.cpp")
 list(APPEND gui_src ${ddash_src})
 
 add_library(photon_http INTERFACE)
