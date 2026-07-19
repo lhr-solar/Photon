@@ -17,27 +17,38 @@ bool Plots::signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
   if (!sampleCount) return false;
   const auto* timeValues = static_cast<const double*>(msg.timeData);
   CursorIndex& index = indices[id];
-  if (index.generation != arena.generation || index.time != cursor || index.count != sampleCount) {
-    index = {arena.generation, cursor, sampleCount,
-             static_cast<uint32_t>(std::lower_bound(timeValues, timeValues + sampleCount, cursor) -
+  if (index.generation != arena.generation || index.time != cursor ||
+      index.window != windowSeconds || index.count != sampleCount) {
+    const double firstTime = cursor - windowSeconds / 2;
+    const double lastTime = cursor + windowSeconds / 2;
+    const auto* first = std::lower_bound(timeValues, timeValues + sampleCount, firstTime);
+    index = {arena.generation,
+             cursor,
+             windowSeconds,
+             sampleCount,
+             static_cast<uint32_t>(first - timeValues),
+             static_cast<uint32_t>(std::upper_bound(first, timeValues + sampleCount, lastTime) -
                                    timeValues)};
   }
 
   char name[64];
   std::snprintf(name, sizeof(name), "##%u_%u", id, signal);
   constexpr uint32_t maxPlotSamples = 100;
-  uint32_t firstSample = index.sample > maxPlotSamples / 2 ? index.sample - maxPlotSamples / 2 : 0;
-  if (sampleCount > maxPlotSamples)
-    firstSample = std::min(firstSample, sampleCount - maxPlotSamples);
-  const uint32_t visibleCount = std::min(sampleCount - firstSample, maxPlotSamples);
-  ImPlot::SetNextAxisToFit(ImAxis_X1);
+  const uint32_t samples = index.last - index.first;
+  const uint32_t stride = std::max(1u, (samples + maxPlotSamples - 1) / maxPlotSamples);
+  const uint32_t visibleCount = (samples + stride - 1) / stride;
+  ImPlotSpec plotSpec = spec;
+  plotSpec.Stride = stride * sizeof(double);
+  ImPlot::SetNextAxisLimits(ImAxis_X1, cursor - windowSeconds / 2, cursor + windowSeconds / 2,
+                            ImPlotCond_Always);
   ImPlot::SetNextAxisToFit(ImAxis_Y1);
   if (ImPlot::BeginPlot(name, size)) {
     ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_None, ImPlotAxisFlags_None);
     ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
-    ImPlot::PlotLine(msg.signals[signal]->name.c_str(), timeValues + firstSample,
-                     static_cast<const double*>(msg.signals[signal]->data) + firstSample,
-                     static_cast<int>(visibleCount), spec);
+    if (visibleCount)
+      ImPlot::PlotLine(msg.signals[signal]->name.c_str(), timeValues + index.first,
+                       static_cast<const double*>(msg.signals[signal]->data) + index.first,
+                       static_cast<int>(visibleCount), plotSpec);
     ImPlot::EndPlot();
   }
   return true;
@@ -95,6 +106,11 @@ void Plots::timeline(Arena& arena) {
     if (found) {
       if (cursor < first || cursor > last) cursor = last;
       ImGui::SliderScalar("Time", ImGuiDataType_Double, &cursor, &first, &last, "%.3f");
+      const double minWindow = 0.001;
+      const double maxWindow = std::max(minWindow, last - first);
+      windowSeconds = std::clamp(windowSeconds, minWindow, maxWindow);
+      ImGui::SliderScalar("Window", ImGuiDataType_Double, &windowSeconds, &minWindow, &maxWindow,
+                          "%.3f s", ImGuiSliderFlags_Logarithmic);
     } else {
       ImGui::TextUnformatted("No samples");
     }

@@ -18,8 +18,11 @@ struct Plots {
   struct CursorIndex {
     uint64_t generation = -1;
     double time{};
+    double window{};
     uint32_t count{};
-    uint32_t sample{};
+    uint32_t first{};
+    uint32_t last{};
   };
+  double windowSeconds = 10.0;
   std::array<CursorIndex, MESSAGE_MAX> indices{};
 };

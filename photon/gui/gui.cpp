@@ -33,6 +33,23 @@
 #include "uiComponents.hpp"
 #include "widget.hpp"
 
+namespace {
+void drawFpsOverlay() {
+  const ImGuiViewport* viewport = ImGui::GetMainViewport();
+  ImGui::SetNextWindowPos(
+      {viewport->WorkPos.x + viewport->WorkSize.x - 10, viewport->WorkPos.y + 10}, ImGuiCond_Always,
+      {1, 0});
+  constexpr ImGuiWindowFlags flags =
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoInputs |
+      ImGuiWindowFlags_NoBackground;
+  if (ImGui::Begin("FPS Overlay", nullptr, flags))
+    ImGui::Text("%.0f FPS", ImGui::GetIO().Framerate);
+  ImGui::End();
+}
+}  // namespace
+
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   videoUi.init();
   this->gpu = &gpu;
@@ -79,6 +96,7 @@ void GUI::render() {
 };
 
 void GUI::destroy() {
+  videoUi.stop();
   if (videoUi.videoTexture.Status != ImTextureStatus_Destroyed) {
     ImGui::UnregisterUserTexture(&videoUi.videoTexture);
     videoUi.videoTexture.SetStatus(ImTextureStatus_WantDestroy);
@@ -144,6 +162,8 @@ void GUI::exportUI() {
 };
 
 void GUI::plotTest(ImGuiWindowFlags flags) {
+  flags &= ~(ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+  flags |= ImGuiWindowFlags_AlwaysVerticalScrollbar;
   if (ImGui::Begin("Page 1", NULL, flags)) {
     auto dim = ImGui::GetContentRegionAvail();
     dim.y = 0;
@@ -422,8 +442,7 @@ void GUI::buildUI() {
   videoUi.videoController();
 
   /* stateful UI building */
-  // Disabled until the GPU info window crash is fixed.
-  // ifKey(ImGuiKey_F3, flags.showGPUInfo, gpuGUI::buildUI, *gpu);
+  ifKey(ImGuiKey_F3, flags.showFPS, drawFpsOverlay);
   ImGui::Render();
   render();
 };

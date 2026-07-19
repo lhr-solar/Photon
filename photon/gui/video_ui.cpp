@@ -9,6 +9,7 @@ extern "C" {
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -17,6 +18,7 @@ extern "C" {
 
 static constexpr char SERVER_IP[] = "3.141.38.115";
 static constexpr uint16_t SERVER_PORT = 6600;
+static constexpr int SOCKET_RECEIVE_BUFFER_SIZE = 4 * 1024 * 1024;
 static constexpr uint8_t RTP_PAYLOAD_TYPE = 96;
 static constexpr uint8_t START_CODE[] = {0, 0, 0, 1};
 
@@ -70,37 +72,62 @@ static int swsColorSpace(AVColorSpace colorSpace) {
   }
 }
 
-VideoUI::~VideoUI() {
+VideoUI::~VideoUI() { stop(); }
+
+bool VideoUI::init() {
+  if (backendThread.joinable()) return false;
+  stopRequested.store(false, std::memory_order_relaxed);
+  try {
+    backendThread = std::thread(&VideoUI::backendLoop, this);
+  } catch (...) {
+    return false;
+  }
+  return true;
+}
+
+void VideoUI::stop() {
+  stopRequested.store(true, std::memory_order_relaxed);
+  if (backendThread.joinable()) backendThread.join();
+}
+
+void VideoUI::shutdownBackend() {
   if (socketFd >= 0) {
     send(socketFd, "bye", 3, 0);
     close(socketFd);
+    socketFd = -1;
   }
   sws_freeContext(scaler);
+  scaler = nullptr;
   av_frame_free(&frame);
-  av_frame_free(&displayFrame);
   av_packet_free(&packet);
   avcodec_free_context(&decoderContext);
 }
 
-bool VideoUI::init() {
+bool VideoUI::initBackend() {
   av_log_set_level(AV_LOG_QUIET);
 
   const AVCodec* decoder = avcodec_find_decoder(AV_CODEC_ID_H264);
   if (!decoder) return false;
   decoderContext = avcodec_alloc_context3(decoder);
-  if (decoderContext) decoderContext->pkt_timebase = {1, 90000};
+  if (decoderContext) {
+    decoderContext->pkt_timebase = {1, 90000};
+    decoderContext->thread_count = 2;
+    decoderContext->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
+  }
   if (!decoderContext || avcodec_open2(decoderContext, decoder, nullptr) < 0) return false;
 
   frame = av_frame_alloc();
-  displayFrame = av_frame_alloc();
   packet = av_packet_alloc();
-  if (!frame || !displayFrame || !packet) return false;
+  if (!frame || !packet) return false;
 
   socketFd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (socketFd < 0) return false;
+  setsockopt(socketFd, SOL_SOCKET, SO_RCVBUF, &SOCKET_RECEIVE_BUFFER_SIZE,
+             sizeof(SOCKET_RECEIVE_BUFFER_SIZE));
   sockaddr_in server{};
   server.sin_family = AF_INET;
   server.sin_port = htons(SERVER_PORT);
-  if (socketFd < 0 || inet_pton(AF_INET, SERVER_IP, &server.sin_addr) != 1 ||
+  if (inet_pton(AF_INET, SERVER_IP, &server.sin_addr) != 1 ||
       connect(socketFd, reinterpret_cast<sockaddr*>(&server), sizeof(server)) < 0 ||
       fcntl(socketFd, F_SETFL, fcntl(socketFd, F_GETFL) | O_NONBLOCK) < 0)
     return false;
@@ -108,7 +135,28 @@ bool VideoUI::init() {
   accessUnit.reserve(1024 * 1024);
   send(socketFd, "videoClient keepalive", 21, 0);
   nextKeepalive = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-  return initialized = true;
+  return true;
+}
+
+void VideoUI::backendLoop() {
+  if (!initBackend()) {
+    shutdownBackend();
+    return;
+  }
+  while (!stopRequested.load(std::memory_order_relaxed)) {
+    const int result = decodeFrame();
+    if (result < 0) break;
+    if (result > 0) {
+      if (!publishFrame()) break;
+      av_frame_unref(frame);
+      continue;
+    }
+
+    pollfd socketPoll{socketFd, POLLIN, 0};
+    poll(&socketPoll, 1, 10);
+  }
+
+  shutdownBackend();
 }
 
 void VideoUI::clearAccessUnit() {
@@ -158,11 +206,12 @@ int VideoUI::receiveAccessUnit() {
     sequenceStarted = true;
 
     const uint32_t timestamp = readU32(datagram + 4);
+    const bool continuingAccessUnit = !accessUnit.empty() && timestamp == accessUnitTimestamp;
     if (!accessUnit.empty() && timestamp != accessUnitTimestamp) {
       clearAccessUnit();
     }
     if (accessUnit.empty()) accessUnitTimestamp = timestamp;
-    if (sequenceGap) accessUnitDamaged = true;
+    if (sequenceGap && continuingAccessUnit) accessUnitDamaged = true;
 
     const uint8_t* payload = datagram + headerSize;
     const size_t payloadSize = payloadEnd - headerSize;
@@ -219,10 +268,6 @@ int VideoUI::receiveAccessUnit() {
 
     if (accessUnit.empty() || inFragment || accessUnitDamaged) {
       clearAccessUnit();
-      if (decoderSynced) {
-        decoderSynced = false;
-        avcodec_flush_buffers(decoderContext);
-      }
       continue;
     }
 
@@ -266,54 +311,64 @@ int VideoUI::decodeFrame() {
   for (;;) {
     const int result = avcodec_receive_frame(decoderContext, frame);
     if (result == 0) return 1;
+    if (result == AVERROR_INVALIDDATA) continue;
     if (result != AVERROR(EAGAIN)) return -1;
 
     const int received = receiveAccessUnit();
     if (received <= 0) return received;
     const int sent = avcodec_send_packet(decoderContext, packet);
     av_packet_unref(packet);
+    if (sent == AVERROR_INVALIDDATA) continue;
     if (sent < 0 && sent != AVERROR(EAGAIN)) return -1;
   }
 }
 
-bool VideoUI::nextFrame() {
-  bool decoded = false;
-  for (int frameCount = 0; frameCount < 4; ++frameCount) {
-    const int result = decodeFrame();
-    if (result < 0) return false;
-    if (result == 0) break;
-    av_frame_unref(displayFrame);
-    av_frame_move_ref(displayFrame, frame);
-    decoded = true;
-  }
-  if (!decoded) return true;
-
-  if (videoTexture.Status == ImTextureStatus_Destroyed) {
-    videoTexture.Create(ImTextureFormat_RGBA32, displayFrame->width, displayFrame->height);
-    ImGui::RegisterUserTexture(&videoTexture);
-  } else if (videoTexture.Width != displayFrame->width ||
-             videoTexture.Height != displayFrame->height) {
-    return false;
-  }
-
-  const auto decodedFormat = static_cast<AVPixelFormat>(displayFrame->format);
+bool VideoUI::publishFrame() {
+  const auto decodedFormat = static_cast<AVPixelFormat>(frame->format);
   const AVPixelFormat sourceFormat = normalizePixelFormat(decodedFormat);
-  scaler = sws_getCachedContext(scaler, displayFrame->width, displayFrame->height, sourceFormat,
-                                displayFrame->width, displayFrame->height, AV_PIX_FMT_RGBA,
-                                SWS_BILINEAR, nullptr, nullptr, nullptr);
+  scaler =
+      sws_getCachedContext(scaler, frame->width, frame->height, sourceFormat, frame->width,
+                           frame->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr);
   if (!scaler) return false;
 
-  const int* coefficients = sws_getCoefficients(swsColorSpace(displayFrame->colorspace));
-  const int sourceRange =
-      decodedFormat != sourceFormat || displayFrame->color_range == AVCOL_RANGE_JPEG;
+  const int* coefficients = sws_getCoefficients(swsColorSpace(frame->colorspace));
+  const int sourceRange = decodedFormat != sourceFormat || frame->color_range == AVCOL_RANGE_JPEG;
   if (sws_setColorspaceDetails(scaler, coefficients, sourceRange, coefficients, 1, 0, 1 << 16,
                                1 << 16) < 0)
     return false;
 
-  uint8_t* pixels[] = {videoTexture.Pixels};
-  int pitches[] = {videoTexture.GetPitch()};
-  sws_scale(scaler, displayFrame->data, displayFrame->linesize, 0, displayFrame->height, pixels,
-            pitches);
+  const size_t pitch = static_cast<size_t>(frame->width) * 4;
+  const size_t frameSize = pitch * static_cast<size_t>(frame->height);
+  if (!frameBuffersInitialized) {
+    for (auto& buffer : frameBuffers) buffer.pixels.resize(frameSize);
+    frameBuffersInitialized = true;
+  }
+  VideoFrameBuffer& output = frameBuffers[backendFrame];
+  output.pixels.resize(frameSize);
+  output.width = frame->width;
+  output.height = frame->height;
+  uint8_t* pixels[] = {output.pixels.data()};
+  const int pitches[] = {static_cast<int>(pitch)};
+  sws_scale(scaler, frame->data, frame->linesize, 0, frame->height, pixels, pitches);
+
+  backendFrame = middleFrame.exchange(backendFrame, std::memory_order_acq_rel);
+  framePending.store(true, std::memory_order_release);
+  return true;
+}
+
+bool VideoUI::presentFrame() {
+  if (!framePending.exchange(false, std::memory_order_acquire)) return true;
+  presentationFrame = middleFrame.exchange(presentationFrame, std::memory_order_acq_rel);
+  const VideoFrameBuffer& input = frameBuffers[presentationFrame];
+
+  if (videoTexture.Status == ImTextureStatus_Destroyed) {
+    videoTexture.Create(ImTextureFormat_RGBA32, input.width, input.height);
+    ImGui::RegisterUserTexture(&videoTexture);
+  } else if (videoTexture.Width != input.width || videoTexture.Height != input.height) {
+    return false;
+  }
+
+  std::memcpy(videoTexture.Pixels, input.pixels.data(), input.pixels.size());
   if (videoTexture.Status == ImTextureStatus_OK) {
     const ImTextureRect update{0, 0, static_cast<unsigned short>(videoTexture.Width),
                                static_cast<unsigned short>(videoTexture.Height)};
@@ -326,10 +381,10 @@ bool VideoUI::nextFrame() {
 }
 
 void VideoUI::videoController() {
-  if (initialized) nextFrame();
   ImGui::SetNextWindowSize(ImVec2(640.0f, 400.0f), ImGuiCond_FirstUseEver);
   const bool visible = ImGui::Begin("Video Controller");
   if (visible) {
+    presentFrame();
     ImVec2 size = ImGui::GetContentRegionAvail();
     size.x = size.x > 1.0f ? size.x : 1.0f;
     size.y = size.y > 1.0f ? size.y : 1.0f;

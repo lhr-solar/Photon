@@ -9,6 +9,8 @@ namespace PhotonUi {
 inline constexpr float kFrameRounding = 8.0f;
 inline constexpr float kPanelRounding = 8.0f;
 inline constexpr float kPopupRounding = 10.0f;
+inline constexpr float kScrollbarRounding = 999.0f;
+inline constexpr float kScrollbarSize = 10.0f;
 inline constexpr float kBorderSize = 1.0f;
 inline constexpr ImVec2 kWindowPadding{14.0f, 12.0f};
 inline constexpr ImVec2 kFramePadding{10.0f, 7.0f};

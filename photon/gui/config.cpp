@@ -344,7 +344,7 @@ void GuiSettings::setStyle() {
   style.ChildRounding = PhotonUi::kPanelRounding;
   style.PopupRounding = PhotonUi::kPopupRounding;
   style.GrabRounding = PhotonUi::kFrameRounding;
-  style.ScrollbarRounding = PhotonUi::kFrameRounding;
+  style.ScrollbarRounding = PhotonUi::kScrollbarRounding;
   style.FrameRounding = PhotonUi::kFrameRounding;
   style.FrameBorderSize = 0.0f;
   style.WindowBorderSize = PhotonUi::kBorderSize;
@@ -357,7 +357,7 @@ void GuiSettings::setStyle() {
   style.ItemSpacing = PhotonUi::kItemSpacing;
   style.ItemInnerSpacing = ImVec2{8.0f, 6.0f};
   style.IndentSpacing = 18.0f;
-  style.ScrollbarSize = 12.0f;
+  style.ScrollbarSize = PhotonUi::kScrollbarSize;
   style.GrabMinSize = 10.0f;
   style.AntiAliasedLines = true;
   style.AntiAliasedLinesUseTex = true;
@@ -394,10 +394,10 @@ void GuiSettings::setStyle() {
   colors[ImGuiCol_TitleBgActive] = color5;
   colors[ImGuiCol_TitleBgCollapsed] = color7;
   colors[ImGuiCol_MenuBarBg] = color5;
-  colors[ImGuiCol_ScrollbarBg] = color2;
-  colors[ImGuiCol_ScrollbarGrab] = color3;
-  colors[ImGuiCol_ScrollbarGrabHovered] = color1;
-  colors[ImGuiCol_ScrollbarGrabActive] = color0;
+  colors[ImGuiCol_ScrollbarBg] = withAlpha(panel, 0.18f);
+  colors[ImGuiCol_ScrollbarGrab] = withAlpha(raised, 0.72f);
+  colors[ImGuiCol_ScrollbarGrabHovered] = withAlpha(mixColor(raised, active, 0.42f), 0.86f);
+  colors[ImGuiCol_ScrollbarGrabActive] = withAlpha(active, 0.94f);
   colors[ImGuiCol_CheckMark] = color1;
   colors[ImGuiCol_SliderGrab] = color2;
   colors[ImGuiCol_SliderGrabActive] = color1;
