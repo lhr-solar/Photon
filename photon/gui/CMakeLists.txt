@@ -17,9 +17,9 @@ add_custom_command(OUTPUT ${FFMPEG_ARCHIVES}
     DEPENDS ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure
             ${CMAKE_SOURCE_DIR}/.external/ffmpeg/Makefile
     WORKING_DIRECTORY ${FFMPEG_BUILD})
-add_custom_target(ffmpeg DEPENDS ${FFMPEG_ARCHIVES})
+add_custom_target(photon_ffmpeg_build DEPENDS ${FFMPEG_ARCHIVES})
 add_library(photon_ffmpeg INTERFACE)
-add_dependencies(photon_ffmpeg ffmpeg)
+add_dependencies(photon_ffmpeg photon_ffmpeg_build)
 target_include_directories(photon_ffmpeg INTERFACE ${FFMPEG_BUILD} ${CMAKE_SOURCE_DIR}/.external/ffmpeg)
 target_link_libraries(photon_ffmpeg INTERFACE ${FFMPEG_ARCHIVES} Threads::Threads $<$<PLATFORM_ID:Linux>:m>)
 
