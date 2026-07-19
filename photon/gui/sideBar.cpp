@@ -444,7 +444,7 @@ void Sidebar::draw(GUI& gui) {
       gui.exportUI();
     }
 
-    if (titleBar.showSidebar && drawResizeHandle(width, dim.y, palette)) {
+    if (titleBar.showSidebar && drawResizeHandle(width, timelineTop - windowMin.y, palette)) {
       storedWidth =
           std::clamp(storedWidth + ImGui::GetIO().MouseDelta.x, minSidebarWidth, maxSidebarWidth);
       width = storedWidth;
