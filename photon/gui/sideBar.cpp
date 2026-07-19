@@ -399,7 +399,8 @@ void Sidebar::draw(GUI& gui) {
     const SidebarPalette palette = sidebarPalette();
     const ImVec2 windowMin = ImGui::GetWindowPos();
     const ImVec2 windowMax = {windowMin.x + width, windowMin.y + sideBarHeight};
-    draw->AddLine({windowMax.x - 1.0f, windowMin.y}, {windowMax.x - 1.0f, windowMax.y},
+    const float timelineTop = viewportPos.y + viewportSize.y - titleBar.height;
+    draw->AddLine({windowMax.x - 1.0f, windowMin.y}, {windowMax.x - 1.0f, timelineTop},
                   colorU32(withAlpha(palette.border, 0.55f)));
     ImVec2 padding = ImGui::GetStyle().WindowPadding;
     const float contentWidth = std::max(0.0f, width - padding.x * 2.0f);

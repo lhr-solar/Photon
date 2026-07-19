@@ -211,6 +211,9 @@ void Plots::timeline(Arena& arena, ImVec2 pos, ImVec2 size) {
   ImGui::PushStyleVar(
       ImGuiStyleVar_WindowPadding,
       {ImGui::GetStyle().WindowPadding.x, std::max(0.0f, (size.y - ImGui::GetFrameHeight()) / 2)});
+  ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+  windowBg.w = 0.85f;
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, windowBg);
   constexpr ImGuiWindowFlags flags =
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
       ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
@@ -257,5 +260,6 @@ void Plots::timeline(Arena& arena, ImVec2 pos, ImVec2 size) {
     }
   }
   ImGui::End();
+  ImGui::PopStyleColor();
   ImGui::PopStyleVar(4);
 }
