@@ -23,6 +23,7 @@ struct Plots {
     uint32_t first{};
     uint32_t last{};
   };
+  bool followLatest = true;
   double windowSeconds = 10.0;
   std::array<CursorIndex, MESSAGE_MAX> indices{};
 };

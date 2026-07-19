@@ -89,23 +89,35 @@ bool Plots::signalStatic(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size
 }
 
 void Plots::timeline(Arena& arena) {
+  double first = 0;
+  double last = 0;
+  bool found = false;
+  for (uint32_t id : arena.validIds) {
+    if (id >= arena.messages.size() || !arena.messages[id]) continue;
+    Message* msg = arena.messages[id];
+    const uint32_t count = msg->signalSize.value.load(std::memory_order_acquire) / sizeof(double);
+    if (!count) continue;
+    const auto* time = static_cast<const double*>(msg->timeData);
+    first = found ? std::min(first, time[0]) : time[0];
+    last = found ? std::max(last, time[count - 1]) : time[count - 1];
+    found = true;
+  }
+  if (found && (followLatest || cursor < first || cursor > last)) cursor = last;
+
   if (ImGui::Begin("Timeline")) {
-    double first = 0;
-    double last = 0;
-    bool found = false;
-    for (uint32_t id : arena.validIds) {
-      if (id >= arena.messages.size() || !arena.messages[id]) continue;
-      Message* msg = arena.messages[id];
-      const uint32_t count = msg->signalSize.value.load(std::memory_order_acquire) / sizeof(double);
-      if (!count) continue;
-      const auto* time = static_cast<const double*>(msg->timeData);
-      first = found ? std::min(first, time[0]) : time[0];
-      last = found ? std::max(last, time[count - 1]) : time[count - 1];
-      found = true;
-    }
     if (found) {
-      if (cursor < first || cursor > last) cursor = last;
-      ImGui::SliderScalar("Time", ImGuiDataType_Double, &cursor, &first, &last, "%.3f");
+      double nextCursor = cursor;
+      if (ImGui::SliderScalar("Time", ImGuiDataType_Double, &nextCursor, &first, &last, "%.3f")) {
+        cursor = nextCursor;
+        followLatest = cursor >= last;
+      }
+      ImGui::SameLine();
+      if (followLatest)
+        ImGui::TextUnformatted("Live");
+      else if (ImGui::Button("Go Live")) {
+        cursor = last;
+        followLatest = true;
+      }
       const double minWindow = 0.001;
       const double maxWindow = std::max(minWindow, last - first);
       windowSeconds = std::clamp(windowSeconds, minWindow, maxWindow);

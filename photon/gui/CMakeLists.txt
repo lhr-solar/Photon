@@ -18,7 +18,7 @@ add_custom_command(OUTPUT ${FFMPEG_ARCHIVES}
     COMMAND ${FFMPEG_BASH} ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure --disable-everything
         --disable-autodetect --disable-iconv --disable-debug --disable-programs --disable-doc
         --disable-avdevice --disable-avformat --disable-avfilter
-        --disable-swresample --disable-network --disable-x86asm
+        --disable-swresample --disable-network --disable-asm
         --enable-static --disable-shared --enable-pic --enable-decoder=h264
         --cc=${CMAKE_C_COMPILER} --ar=${CMAKE_AR} --nm=${CMAKE_NM}
         --ranlib=${CMAKE_RANLIB} --strip=${CMAKE_STRIP}
