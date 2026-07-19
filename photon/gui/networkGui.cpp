@@ -163,7 +163,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
   static std::string log;
   static TCPConfig daqConfig{
       .port = 6500,
-      .ip = "127.0.0.1",
+      .ip = "3.141.38.115",
       .tag = 1,
   };
   static TCPConfig tcpConfig{};

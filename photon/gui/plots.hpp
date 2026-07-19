@@ -8,9 +8,18 @@
 
 struct Plots {
   static bool signalStatic(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
-                     const ImPlotSpec& spec = ImPlotSpec());
+                           const ImPlotSpec& spec = ImPlotSpec());
   bool signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
-                     const ImPlotSpec& spec = ImPlotSpec());
-  void timeline();
-  int cursor{};
+              const ImPlotSpec& spec = ImPlotSpec());
+  void timeline(Arena& arena);
+  double cursor{};
+
+ private:
+  struct CursorIndex {
+    uint64_t generation = -1;
+    double time{};
+    uint32_t count{};
+    uint32_t sample{};
+  };
+  std::array<CursorIndex, MESSAGE_MAX> indices{};
 };

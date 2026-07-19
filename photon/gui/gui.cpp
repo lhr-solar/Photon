@@ -34,6 +34,7 @@
 #include "widget.hpp"
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
+  videoUi.init();
   this->gpu = &gpu;
   this->arena = &arena;
   this->network = &network;
@@ -78,6 +79,10 @@ void GUI::render() {
 };
 
 void GUI::destroy() {
+  if (videoUi.videoTexture.Status != ImTextureStatus_Destroyed) {
+    ImGui::UnregisterUserTexture(&videoUi.videoTexture);
+    videoUi.videoTexture.SetStatus(ImTextureStatus_WantDestroy);
+  }
   if (sideBar.backgroundTexture) {
     ImGui::UnregisterUserTexture(sideBar.backgroundTexture);
     sideBar.backgroundTexture->SetStatus(ImTextureStatus_WantDestroy);
@@ -413,7 +418,8 @@ void GUI::buildUI() {
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
-  plots.timeline();
+  plots.timeline(*arena);
+  videoUi.videoController();
 
   /* stateful UI building */
   // Disabled until the GPU info window crash is fixed.
