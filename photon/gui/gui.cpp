@@ -438,8 +438,9 @@ void GUI::buildUI() {
     titleBar.activePage = tabs.list[tabs.index].name;
   titleBar.draw();
   sideBar.draw(*this);
-  canvas.draw(titleBar, sideBar, tabs);
-  plots.timeline(*arena);
+  canvas.draw(titleBar, sideBar, tabs, titleBar.height);
+  plots.timeline(*arena, {canvas.pos.x, canvas.pos.y + canvas.size.y},
+                 {canvas.size.x, titleBar.height});
 
   /* stateful UI building */
   ifKey(ImGuiKey_F3, flags.showFPS, drawFpsOverlay);
