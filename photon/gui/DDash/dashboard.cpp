@@ -214,7 +214,7 @@ static void RenderFaultBanner(const AppState& state) {
 
     ImGuiIO& io = ImGui::GetIO();
     ImFont* bigFont = (io.Fonts->Fonts.Size > 2) ? io.Fonts->Fonts[2] : ImGui::GetFont();
-    float fontSize = std::min(io.DisplaySize.x * 0.052f, bigFont->LegacySize * 2.35f);
+    float fontSize = std::min(io.DisplaySize.x * 0.052f, bigFont->LegacySize * 2.35f) * 2.0f;
     ImVec2 textSz = bigFont->CalcTextSizeA(fontSize, FLT_MAX, 0, text);
 
     float padX = 14.0f, padY = 7.0f;
@@ -225,7 +225,7 @@ static void RenderFaultBanner(const AppState& state) {
     }
     ImVec2 plateSz(textSz.x + padX * 2.0f, textSz.y + padY * 2.0f);
     ImVec2 plateMin((io.DisplaySize.x - plateSz.x) * 0.5f,
-                     io.DisplaySize.y * 0.44f);
+                     io.DisplaySize.y * 0.41f);
     ImVec2 plateMax(plateMin.x + plateSz.x, plateMin.y + plateSz.y);
 
     ImDrawList* dl = ImGui::GetForegroundDrawList();
@@ -900,6 +900,7 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
         ImDrawList* dl = ImGui::GetWindowDrawList();
         ImVec2 cs = ImGui::GetContentRegionAvail();
         ImVec2 origin = ImGui::GetCursorScreenPos();
+        origin.y -= 12.0f;
 
         float cX = origin.x + cs.x * 0.5f;   // horizontal center
 
@@ -913,7 +914,12 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
 
         float radius    = std::min(cs.x * 0.48f, arcSpace * 0.6f);
         float thickness = 14.0f;
-        float arcCenterY = origin.y + heartbeatH + 8.0f + radius;
+        // Keep the heartbeat lower than the main speedometer cluster. The
+        // cluster itself is anchored independently so the speed, status icons,
+        // and F/N/R controls can move upward together.
+        constexpr float kHeartbeatOffsetY = 42.0f;
+        constexpr float kSpeedometerOffsetY = 16.0f;
+        float arcCenterY = origin.y + kSpeedometerOffsetY + radius;
         ImVec2 center(cX, arcCenterY);
 
         //  hb
@@ -922,7 +928,7 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
             float pulse = 0.5f + 0.5f * sinf(t * 4.0f * static_cast<float>(M_PI));
             ImVec4 hbCol = ColorWithAlpha(Colors::Destructive(), 0.4f + 0.6f * pulse);
             // Move to the left so it doesn't overlap the arc/top area.
-            icons::DrawHeart(dl, ImVec2(origin.x + 28.0f, origin.y + 22.0f),
+            icons::DrawHeart(dl, ImVec2(origin.x + 28.0f, origin.y + kHeartbeatOffsetY),
                              30.0f, ColorToU32(hbCol));
         }
 
@@ -1115,8 +1121,8 @@ static void RenderSpeedGauge(AppState& state, const ImVec2& size) {
                     (state.getBool("Brake_Pressure_1_Fault") || state.getBool("Brake_Pressure_2_Fault"))
                         ? Colors::Warning()
                         : Colors::MutedForeground();
-                float pressureFs = std::min(42.0f, std::max(27.0f, iconSize * 0.87f));
-                float pressureY = pbY + pbH + 10.0f;
+                float pressureFs = std::min(26.0f, std::max(18.0f, iconSize * 0.55f));
+                float pressureY = pbY + pbH + 2.0f;
                 ImVec2 pSz = medFont
                     ? medFont->CalcTextSizeA(pressureFs, FLT_MAX, 0, pressureTxt)
                     : ImGui::CalcTextSize(pressureTxt);
