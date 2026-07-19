@@ -14,6 +14,7 @@
 #include <format>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include "../parse/arena.hpp"
@@ -216,6 +217,25 @@ bool finishTcpConnect(SocketHandle& sock, std::string& error) {
   return false;
 }
 
+bool sendRecordStartCommand(SocketHandle sock, bool recordOnConnect, std::string& error) {
+  if (!recordOnConnect) return true;
+
+  constexpr std::string_view recordCommand{"dLV8YO8%M#6v\n"};
+  const char* data = recordCommand.data();
+  size_t remaining = recordCommand.size();
+  while (remaining > 0) {
+    const int chunk = static_cast<int>(std::min<size_t>(remaining, 0x7fffffff));
+    const auto bytesSent = send(sock, data, chunk, 0);
+    if (bytesSent <= 0) {
+      error = socketError("record command");
+      return false;
+    }
+    data += bytesSent;
+    remaining -= static_cast<size_t>(bytesSent);
+  }
+  return true;
+}
+
 bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token stoken,
                 std::string& error) {
 #ifdef _WIN32
@@ -245,8 +265,13 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     return false;
   }
 
-  if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0)
-    return finishTcpConnect(sock, error);
+  if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0) {
+    if (finishTcpConnect(sock, error) && sendRecordStartCommand(sock, config.recordOnConnect, error))
+      return true;
+    closeSocket(sock);
+    sock = INVALID_SOCKET;
+    return false;
+  }
   if (!wouldBlock()) {
     error = socketError("TCP connect");
     closeSocket(sock);
@@ -254,7 +279,13 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     return false;
   }
 
-  if (waitForConnect(sock, stoken, error)) return finishTcpConnect(sock, error);
+  if (waitForConnect(sock, stoken, error)) {
+    if (finishTcpConnect(sock, error) && sendRecordStartCommand(sock, config.recordOnConnect, error))
+      return true;
+    closeSocket(sock);
+    sock = INVALID_SOCKET;
+    return false;
+  }
 
   closeSocket(sock);
   sock = INVALID_SOCKET;

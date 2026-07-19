@@ -29,6 +29,7 @@ struct TCPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
   bool useAwsExtendedTelemetryDBC = false;
+  bool recordOnConnect = false;
 };
 
 struct UDPConfig {
@@ -69,6 +70,7 @@ struct TCPConfig {
   uint16_t port = 9000;
   char ip[256] = "127.0.0.1";
   bool useAwsExtendedTelemetryDBC = false;
+  bool recordOnConnect = false;
 };
 
 struct DashboardConfig {

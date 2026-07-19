@@ -406,6 +406,7 @@ void GUI::buildUI() {
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
+  plots.timeline();
 
   /* stateful UI building */
   // Disabled until the GPU info window crash is fixed.

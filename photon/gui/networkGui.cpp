@@ -64,13 +64,35 @@ void disconnect(Network* network) {
   network->guiRxCommandBuffer.write([](ProtocolTransmitVariant& cmd) { cmd = Quit{}; });
 }
 
-void drainNetworkLog(Network* network, std::string& log, std::vector<DashboardEndpoint>& dashboards) {
+void setConnectionPending(TitleBar& titleBar, const char* protocol) {
+  titleBar.connectionActive = true;
+  titleBar.connectionConnected = false;
+  titleBar.connectionProtocol = protocol;
+}
+
+void setConnectionOffline(TitleBar& titleBar) {
+  titleBar.connectionActive = false;
+  titleBar.connectionConnected = false;
+  titleBar.connectionProtocol = "Offline";
+}
+
+void drainNetworkLog(Network* network, std::string& log, std::vector<DashboardEndpoint>& dashboards,
+                     TitleBar& titleBar) {
   static auto reader = network->guiTxCommandBuffer.getReader();
   while (ProtocolReceiveVariant* msg = reader.read()) {
     if (auto* error = std::get_if<ProtocolError>(msg)) {
       log += "[error] " + error->error + "\n";
+      setConnectionOffline(titleBar);
     } else if (auto* message = std::get_if<ProtocolMessage>(msg)) {
       log += message->message + "\n";
+      if (message->message.find("TCP connected") != std::string::npos) {
+        titleBar.connectionActive = true;
+        titleBar.connectionConnected = true;
+      } else if (message->message.find("TCP peer closed connection") != std::string::npos ||
+                 (titleBar.connectionConnected &&
+                  message->message.find("TCP stopped") != std::string::npos)) {
+        setConnectionOffline(titleBar);
+      }
     } else if (auto* deviceList = std::get_if<ProtocolDeviceList>(msg)) {
       log += "[devices]\n";
       dashboards.clear();
@@ -201,7 +223,8 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
   static DashboardConfig dashboardConfig{};
   static TCPConfig daqConfig{.port = 6500,
                              .ip = "3.141.38.115",
-                             .useAwsExtendedTelemetryDBC = true};
+                             .useAwsExtendedTelemetryDBC = true,
+                             .recordOnConnect = true};
   static TCPConfig tcpConfig{};
   static UDPConfig udpConfig{};
   static UARTConfig uartConfig{};
@@ -209,7 +232,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
   static BLEConfig bleConfig{};
   static WLANConfig wlanConfig{};
 
-  drainNetworkLog(network, log, dashboards);
+  drainNetworkLog(network, log, dashboards, titleBar);
   if (selected == 0 && !dashboardDiscoveryStarted) {
     network->discoverDashboards();
     dashboardDiscoveryStarted = true;
@@ -237,16 +260,12 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
       if (selected == 0) {
         drawDashboardFields(dashboardConfig, dashboards, network, palette);
         if (PhotonUi::button("ConnectDashboard", "Connect", {104.0f, 38.0f}, palette, true)) {
-          titleBar.connectionActive = true;
-          titleBar.connectionConnected = true;
-          titleBar.connectionProtocol = "Photon Dashboard";
+          setConnectionPending(titleBar, "Photon Dashboard");
           submit(network, dashboardConfig);
         }
         ImGui::SameLine(0.0f, 8.0f);
         if (PhotonUi::button("DisconnectDashboard", "Disconnect", {118.0f, 38.0f}, palette)) {
-          titleBar.connectionActive = false;
-          titleBar.connectionConnected = false;
-          titleBar.connectionProtocol = "Offline";
+          setConnectionOffline(titleBar);
           disconnect(network);
         }
         ImGui::SeparatorText("Remote CAN write safety");
@@ -267,24 +286,18 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
       } else if (selected == 1) {
         drawTcpFields(daqConfig, palette, true);
         if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true)) {
-          titleBar.connectionActive = true;
-          titleBar.connectionConnected = true;
-          titleBar.connectionProtocol = "DAQ Server";
+          setConnectionPending(titleBar, "DAQ Server");
           submit(network, daqConfig);
         }
         ImGui::SameLine(0.0f, 8.0f);
         if (PhotonUi::button("DisconnectDaq", "Disconnect", {118.0f, 38.0f}, palette)) {
-          titleBar.connectionActive = false;
-          titleBar.connectionConnected = false;
-          titleBar.connectionProtocol = "Offline";
+          setConnectionOffline(titleBar);
           disconnect(network);
         }
       } else if (selected == 2) {
         drawTcpFields(tcpConfig, palette);
         if (PhotonUi::button("ApplyTcp", "Apply", {96.0f, 38.0f}, palette, true)) {
-          titleBar.connectionActive = true;
-          titleBar.connectionConnected = true;
-          titleBar.connectionProtocol = "TCP";
+          setConnectionPending(titleBar, "TCP");
           submit(network, tcpConfig);
         }
       } else if (selected == 3) {
@@ -298,16 +311,12 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
       } else if (selected == 5) {
         drawPcanFields(pcanConfig, palette);
         if (PhotonUi::button("ApplyPcan", "Connect", {104.0f, 38.0f}, palette, true)) {
-          titleBar.connectionActive = true;
-          titleBar.connectionConnected = true;
-          titleBar.connectionProtocol = "PCAN";
+          setConnectionPending(titleBar, "PCAN");
           submit(network, pcanConfig);
         }
         ImGui::SameLine(0.0f, 8.0f);
         if (PhotonUi::button("DisconnectPcan", "Disconnect", {118.0f, 38.0f}, palette)) {
-          titleBar.connectionActive = false;
-          titleBar.connectionConnected = false;
-          titleBar.connectionProtocol = "Offline";
+          setConnectionOffline(titleBar);
           disconnect(network);
         }
         ImGui::SeparatorText("CAN write safety");

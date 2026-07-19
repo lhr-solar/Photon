@@ -52,6 +52,7 @@ struct GUI {
   GuiFlags flags{};
   bool updateAvailable = false;
   Updater updater;
+  Plots plots;
   Exporter exporter;
 #if PHOTON_GUI_RENDER_ITEMS
   Scene scene;

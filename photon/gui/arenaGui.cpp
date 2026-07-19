@@ -598,7 +598,7 @@ void drawSignalPlotPopup(Arena& arena, uint32_t id, uint32_t signal, const Arena
 
   const ImVec2 plotSize{-FLT_MIN, std::max(260.0f, ImGui::GetContentRegionAvail().y - 48.0f)};
   ImPlotSpec spec{ImPlotProp_LineWeight, 4.0f};
-  if (!Plots::signal(arena, id, signal, plotSize, spec)) {
+  if (!Plots::signalStatic(arena, id, signal, plotSize, spec)) {
     ImGui::Dummy(plotSize);
     const ImVec2 min = ImGui::GetItemRectMin();
     ImGui::GetWindowDrawList()->AddText({min.x + 14.0f, min.y + 14.0f}, colorU32(palette.muted),
