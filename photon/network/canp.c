@@ -10,6 +10,7 @@
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
 #endif
@@ -32,6 +33,27 @@ static uint64_t canpNtoh64(uint64_t value) {
 #else
   return value;
 #endif
+}
+
+static int canpSendBytes(canpSocket_t fd, const void* data, size_t size) {
+  const char* bytes = (const char*)data;
+  while (size > 0) {
+#ifdef _WIN32
+    int sent = send(fd, bytes, (int)size, 0);
+    if (sent < 0 && WSAGetLastError() == WSAEINTR) continue;
+#else
+    int flags = 0;
+#ifdef MSG_NOSIGNAL
+    flags = MSG_NOSIGNAL;
+#endif
+    ssize_t sent = send(fd, bytes, size, flags);
+    if (sent < 0 && errno == EINTR) continue;
+#endif
+    if (sent <= 0) return -1;
+    bytes += sent;
+    size -= (size_t)sent;
+  }
+  return 1;
 }
 
 canpPacket_t canpMakePacket(uint32_t canId, uint8_t dlc, const uint8_t data[8],
@@ -86,6 +108,14 @@ int canpWriteBatch(canpSocket_t fd, canpBatch_t* batch) {
       {.iov_base = &hdr, .iov_len = sizeof hdr},
       {.iov_base = (void*)batch->packets, .iov_len = batch->count * sizeof batch->packets[0]}};
   return canpWrite(fd, iov, 2);
+}
+
+int canpWriteTimelineSeek(canpSocket_t fd, uint64_t timestamp) {
+  const canpTimelineRequest_t request = {.magic = htonl(CANP_TIMELINE_MAGIC),
+                                         .version = htons(CANP_TIMELINE_VERSION),
+                                         .command = htons(CANP_TIMELINE_SEEK),
+                                         .timestamp = canpHton64(timestamp)};
+  return canpSendBytes(fd, &request, sizeof request);
 }
 
 int canpRead(canpSocket_t fd, void* buf, size_t len) {

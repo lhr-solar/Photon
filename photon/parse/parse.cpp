@@ -6,11 +6,9 @@
 #include <string>
 
 #include "../engine/include.hpp"
+#include "HighNoon_dbc.hpp"
 #include "arena.hpp"
 #include "assettoCorsa_dbc.hpp"
-#include "daybreak_master_dbc.hpp"
-#include "lonestar_dbc.hpp"
-#include "test_dbc.hpp"
 
 struct DBCAsset {
   DBCType kind;
@@ -21,13 +19,8 @@ struct DBCAsset {
 
 DBCAsset dbcAsset(DBCType kind) {
   switch (kind) {
-    case DBCType::Lonestar:
-      return {DBCType::Lonestar, "Lonestar", lonestar_dbc, lonestar_dbc_size};
-    case DBCType::DaybreakMaster:
-      return {DBCType::DaybreakMaster, "daybreak-master", daybreak_master_dbc,
-              daybreak_master_dbc_size};
-    case DBCType::Test:
-      return {DBCType::Test, "test", test_dbc, test_dbc_size};
+    case DBCType::HighNoon:
+      return {DBCType::HighNoon, "HighNoon", HighNoon_dbc, HighNoon_dbc_size};
     case DBCType::AssettoCorsa:
       return {DBCType::AssettoCorsa, "assettoCorsa", assettoCorsa_dbc, assettoCorsa_dbc_size};
     case DBCType::File:

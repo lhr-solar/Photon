@@ -1,6 +1,7 @@
 #include "network.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -17,8 +18,16 @@ void Network::startTCP(TCPConfig config) {
   stopWriterUnlocked();
   activeTCPConfig = config;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, timelineCursor);
   });
+}
+
+void Network::requestTimeline(double seconds) {
+  if (!std::isfinite(seconds) || seconds < 0.0) return;
+  timelineCursor.timestampMs.store(static_cast<uint64_t>(std::llround(seconds * 1000.0)),
+                                   std::memory_order_relaxed);
+  timelineCursor.sequence.fetch_add(1, std::memory_order_release);
+  timelineCursor.sequence.notify_one();
 }
 
 void Network::stopWriter() {
@@ -37,7 +46,7 @@ void Network::restartWriterUnlocked() {
   if (!activeTCPConfig || !parse) return;
   const TCPConfig config = *activeTCPConfig;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, timelineCursor);
   });
 }
 

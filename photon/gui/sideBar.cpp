@@ -259,6 +259,25 @@ bool drawResizeHandle(float sidebarWidth, float height, const SidebarPalette& pa
   return active;
 }
 
+bool drawServerConnect(GUI& gui, float width, float height, const SidebarPalette& palette) {
+  const TitleBar& status = gui.titleBar;
+  const bool daq = status.connectionProtocol == "DAQ Server";
+  const char* label = status.connectionFailed             ? "Connection failed"
+                      : daq && status.connectionConnected ? "Connected"
+                      : daq && status.connectionActive    ? "Connecting..."
+                                                          : "Connect to server";
+  SidebarPalette buttonPalette = palette;
+  if (status.connectionFailed) {
+    const ImVec4 red{0.90f, 0.24f, 0.28f, 1.0f};
+    buttonPalette.raised = mixColor(palette.raised, red, 0.24f);
+    buttonPalette.active = mixColor(palette.active, red, 0.52f);
+    buttonPalette.border = mixColor(palette.border, red, 0.48f);
+  }
+  const bool connected = daq && status.connectionConnected;
+  return PhotonUi::rowButton("ConnectDaqSidebar", "\ueb1f", label, {width, height}, buttonPalette,
+                             false, false, connected);
+}
+
 void SDLCALL dbcFileDialogCallback(void* userdata, const char* const* filelist, int filter) {
   (void)filter;
   auto* sidebar = static_cast<Sidebar*>(userdata);
@@ -415,12 +434,15 @@ void Sidebar::draw(GUI& gui) {
       }
       float buttonW = (contentWidth - ImGui::GetStyle().ItemSpacing.x * 3.0f) * 0.25f;
       float buttonH = 38.0f;
+      float connectH = 40.0f;
       ImVec2 framePadding = ImGui::GetStyle().FramePadding;
       float spacingY = ImGui::GetStyle().ItemSpacing.y;
       float selectorH = 54.0f + spacingY;
-      float rowH = selectorH + buttonH + spacingY + framePadding.y * 2.0f;
+      float rowH = connectH + spacingY + selectorH + buttonH + spacingY + framePadding.y * 2.0f;
       pos = {padding.x, sideBarHeight - rowH};
       ImGui::SetCursorPos(pos);
+      if (drawServerConnect(gui, contentWidth, connectH, palette)) gui.connectDaqServer();
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + spacingY);
       drawDBCSelector(gui);
       ImGui::SetCursorPosY(ImGui::GetCursorPosY() + spacingY * 0.25f);
       if (drawActionIcon("Theme", "\ueb01", "Theme", {buttonW, buttonH}, palette))

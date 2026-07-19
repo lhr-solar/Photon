@@ -62,6 +62,7 @@ const char* tabIcon(std::string_view name) {
   if (name.find("Network") != std::string_view::npos) return "\uf09f";
   if (name.find("Livestream") != std::string_view::npos) return "\uf1e9";
   if (name.find("Dashboard") != std::string_view::npos) return "\ueab1";
+  if (name.find("Map") != std::string_view::npos) return "\ueae9";
   if (name.find("WIP") != std::string_view::npos) return "\uea77";
   return "\ueada";
 }
@@ -266,7 +267,7 @@ bool iconButton(const char* id, const char* icon, std::string_view tooltipText, 
 }
 
 bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
-               const Palette& palette, bool selected, bool disabled) {
+               const Palette& palette, bool selected, bool disabled, bool transparent) {
   ImGui::PushID(id);
   if (disabled) ImGui::BeginDisabled();
   const ControlState state = control("row", size, selected, 0.62f, 1.0f);
@@ -279,9 +280,11 @@ bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 s
   const ImVec4 fg = disabled   ? withAlpha(palette.muted, 0.65f)
                     : selected ? palette.text
                                : mixColor(palette.muted, palette.text, 0.48f + state.focus * 0.52f);
-  draw->AddRectFilled(state.min, state.max, colorU32(fill), 8.0f);
-  draw->AddRect(state.min, state.max,
-                colorU32(withAlpha(palette.border, 0.40f + state.focus * 0.24f)), 8.0f);
+  if (!transparent) {
+    draw->AddRectFilled(state.min, state.max, colorU32(fill), 8.0f);
+    draw->AddRect(state.min, state.max,
+                  colorU32(withAlpha(palette.border, 0.40f + state.focus * 0.24f)), 8.0f);
+  }
   if (icon && icon[0] != '\0')
     drawIconCentered(draw, icon, {state.min.x + 8.0f, state.min.y},
                      {state.min.x + 32.0f, state.max.y}, 17.0f, colorU32(fg), 1.0f);

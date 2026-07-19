@@ -79,7 +79,8 @@ bool button(const char* id, std::string_view text, ImVec2 size, const Palette& p
 bool iconButton(const char* id, const char* icon, std::string_view tooltipText, ImVec2 size,
                 const Palette& palette, bool selected = false);
 bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
-               const Palette& palette, bool selected = false, bool disabled = false);
+               const Palette& palette, bool selected = false, bool disabled = false,
+               bool transparent = false);
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
                const Palette& palette);
 

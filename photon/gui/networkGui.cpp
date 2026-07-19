@@ -23,6 +23,12 @@ constexpr std::array<ProtocolOption, 7> kProtocols{{
     {"BLE", "\uea37"},
     {"WLAN", "\ueb52"},
 }};
+constexpr TCPConfig kDaqConfig{
+    .port = 6500,
+    .ip = "3.141.38.115",
+    .tag = 1,
+};
+std::string networkLog;
 
 void submit(Network* network, TCPConfig config) {
   network->guiRxCommandBuffer.write([config](ProtocolTransmitVariant& cmd) { cmd = config; });
@@ -55,12 +61,21 @@ void disconnect(Network* network) {
 void setConnectionPending(TitleBar& titleBar, const char* protocol) {
   titleBar.connectionActive = true;
   titleBar.connectionConnected = false;
+  titleBar.connectionFailed = false;
   titleBar.connectionProtocol = protocol;
 }
 
 void setConnectionOffline(TitleBar& titleBar) {
   titleBar.connectionActive = false;
   titleBar.connectionConnected = false;
+  titleBar.connectionFailed = false;
+  titleBar.connectionProtocol = "Offline";
+}
+
+void setConnectionFailed(TitleBar& titleBar) {
+  titleBar.connectionActive = false;
+  titleBar.connectionConnected = false;
+  titleBar.connectionFailed = true;
   titleBar.connectionProtocol = "Offline";
 }
 
@@ -69,12 +84,17 @@ void drainNetworkLog(Network* network, std::string& log, TitleBar& titleBar) {
   while (ProtocolReceiveVariant* msg = reader.read()) {
     if (auto* error = std::get_if<ProtocolError>(msg)) {
       log += "[error] " + error->error + "\n";
-      setConnectionOffline(titleBar);
+      if (titleBar.connectionActive && !titleBar.connectionConnected &&
+          titleBar.connectionProtocol == "DAQ Server")
+        setConnectionFailed(titleBar);
+      else
+        setConnectionOffline(titleBar);
     } else if (auto* message = std::get_if<ProtocolMessage>(msg)) {
       log += message->message + "\n";
       if (message->message.find("TCP connected") != std::string::npos) {
         titleBar.connectionActive = true;
         titleBar.connectionConnected = true;
+        titleBar.connectionFailed = false;
       } else if (message->message.find("TCP peer closed connection") != std::string::npos ||
                  (titleBar.connectionConnected &&
                   message->message.find("TCP stopped") != std::string::npos)) {
@@ -158,22 +178,24 @@ void drawLogPanel(std::string& log, const PhotonUi::Palette& palette) {
 
 }  // namespace
 
+void GUI::connectDaqServer() {
+  if (!network) return;
+  setConnectionPending(titleBar, "DAQ Server");
+  submit(network, kDaqConfig);
+}
+
+void GUI::updateNetworkStatus() {
+  if (network) drainNetworkLog(network, networkLog, titleBar);
+}
+
 void GUI::networkPage(ImGuiWindowFlags flags) {
   static int selected = 0;
-  static std::string log;
-  static TCPConfig daqConfig{
-      .port = 6500,
-      .ip = "3.141.38.115",
-      .tag = 1,
-  };
   static TCPConfig tcpConfig{};
   static UDPConfig udpConfig{};
   static UARTConfig uartConfig{};
   static PCANConfig pcanConfig{};
   static BLEConfig bleConfig{};
   static WLANConfig wlanConfig{};
-
-  drainNetworkLog(network, log, titleBar);
 
   PhotonUi::pushContentStyle();
   if (ImGui::Begin("Network", nullptr, flags)) {
@@ -195,10 +217,8 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
                              palette)) {
       PhotonUi::label(kProtocols[selected].name, palette);
       if (selected == 0) {
-        if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true)) {
-          setConnectionPending(titleBar, "DAQ Server");
-          submit(network, daqConfig);
-        }
+        if (PhotonUi::button("ConnectDaq", "Connect", {104.0f, 38.0f}, palette, true))
+          connectDaqServer();
         ImGui::SameLine(0.0f, 8.0f);
         if (PhotonUi::button("DisconnectDaq", "Disconnect", {118.0f, 38.0f}, palette)) {
           setConnectionOffline(titleBar);
@@ -233,7 +253,7 @@ void GUI::networkPage(ImGuiWindowFlags flags) {
     PhotonUi::endPanel();
 
     ImGui::Dummy({0.0f, gap});
-    drawLogPanel(log, palette);
+    drawLogPanel(networkLog, palette);
     ImGui::EndGroup();
   }
   ImGui::End();

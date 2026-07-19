@@ -22,6 +22,7 @@ struct TitleBar {
   std::string connectionProtocol = "Offline";
   bool connectionActive = false;
   bool connectionConnected = false;
+  bool connectionFailed = false;
   int interactiveRectCount = 0;
   WindowAction pendingAction = WindowAction::None;
   static constexpr int buttonCount = 4;

@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <stop_token>
 #include <string>
@@ -109,7 +110,14 @@ using ProtocolTransmitVariant =
     std::variant<TCPConfig, UDPConfig, UARTConfig, PCANConfig, BLEConfig, WLANConfig, Quit>;
 using ProtocolReceiveVariant = std::variant<ProtocolError, ProtocolMessage, ProtocolDeviceList>;
 
+struct alignas(64) TimelineCursorMailbox {
+  std::atomic<uint64_t> timestampMs{};
+  std::atomic<uint64_t> sequence{};
+};
+
+static_assert(sizeof(TimelineCursorMailbox) == 64);
+
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                  TCPConfig config, Arena& arena);
+                  TCPConfig config, Arena& arena, TimelineCursorMailbox& timelineCursor);
 };

@@ -180,10 +180,12 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
 void GUI::carMap(ImGuiWindowFlags flags) {
 #if PHOTON_GUI_RENDER_ITEMS
   scene.showing = false;
+  scene.cameraMode = SceneCameraMode::TrackModel;
   const bool ready =
       scene.initialized.load() && !scene.frames.empty() && scene.frameIndex != nullptr;
   SceneFrame fallbackFrame{};
   SceneFrame& frame = ready ? scene.frames[*scene.frameIndex] : fallbackFrame;
+  const PhotonUi::Palette palette = PhotonUi::palette();
 
   ImGui::SetNextWindowBgAlpha(0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -214,24 +216,6 @@ void GUI::carMap(ImGuiWindowFlags flags) {
       const Position trackedPosition =
           hasTrackedObject ? scene.objects[scene.trackedObjectIndex].position : Position{};
 
-      const char* cameraModes[] = {"Free", "Track"};
-      int cameraMode = scene.cameraMode == SceneCameraMode::TrackModel ? 1 : 0;
-      const float overlayWidth = 120.0f;
-      const ImVec2 comboPos(imageMin.x + 12.0f, imageMin.y + 12.0f);
-      ImGui::SetCursorScreenPos(comboPos);
-      ImGui::PushItemWidth(overlayWidth);
-      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-      ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.10f, 0.10f, 0.11f, 0.88f));
-      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.14f, 0.14f, 0.15f, 0.92f));
-      ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.16f, 0.16f, 0.17f, 0.94f));
-      ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.08f, 0.08f, 0.09f, 0.96f));
-      if (ImGui::Combo("##SceneCameraMode", &cameraMode, cameraModes, IM_ARRAYSIZE(cameraModes))) {
-        scene.cameraMode = cameraMode == 1 ? SceneCameraMode::TrackModel : SceneCameraMode::Free;
-      }
-      ImGui::PopStyleColor(4);
-      ImGui::PopStyleVar();
-      ImGui::PopItemWidth();
-
       char positionLabel[128]{};
       std::snprintf(positionLabel, sizeof(positionLabel), "x: %.3f | y: %.3f | z: %.3f",
                     trackedPosition.x, trackedPosition.y, trackedPosition.z);
@@ -243,9 +227,13 @@ void GUI::carMap(ImGuiWindowFlags flags) {
                            textMin.y + textSize.y + textPadding.y * 2.0f);
       ImDrawList* drawList = ImGui::GetWindowDrawList();
       drawList->AddRectFilled(textMin, textMax,
-                              ImGui::GetColorU32(ImVec4(0.10f, 0.10f, 0.11f, 0.88f)), 6.0f);
+                              PhotonUi::colorU32(PhotonUi::withAlpha(palette.panel, 0.88f)),
+                              PhotonUi::kFrameRounding);
+      drawList->AddRect(textMin, textMax,
+                        PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.42f)),
+                        PhotonUi::kFrameRounding);
       drawList->AddText(ImVec2(textMin.x + textPadding.x, textMin.y + textPadding.y),
-                        ImGui::GetColorU32(ImGuiCol_Text), positionLabel);
+                        PhotonUi::colorU32(palette.text), positionLabel);
 
       ImGuiIO& io = ImGui::GetIO();
       if (sceneHovered) {
@@ -253,24 +241,6 @@ void GUI::carMap(ImGuiWindowFlags flags) {
           scene.camera.yaw -= io.MouseDelta.x * scene.camera.orbitSensitivity;
           scene.camera.pitch += io.MouseDelta.y * scene.camera.orbitSensitivity;
           scene.camera.pitch = std::clamp(scene.camera.pitch, -89.0f, 89.0f);
-        }
-        if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
-          if (scene.cameraMode == SceneCameraMode::Free) {
-            const float yawRadians = glm::radians(scene.camera.yaw);
-            const float pitchRadians = glm::radians(scene.camera.pitch);
-            const glm::vec3 front = glm::normalize(
-                glm::vec3(-std::cos(pitchRadians) * std::cos(yawRadians),
-                          -std::cos(pitchRadians) * std::sin(yawRadians), -std::sin(pitchRadians)));
-            const glm::vec3 right = glm::normalize(glm::cross(front, scene.camera.up));
-            const glm::vec3 cameraUp = glm::normalize(glm::cross(right, front));
-            const float viewportHeight = std::max(drawSize.y, 1.0f);
-            const float worldUnitsPerPixel =
-                (2.0f * scene.camera.distance * std::tan(glm::radians(93.0f) * 0.5f)) /
-                viewportHeight;
-            const glm::vec3 panOffset = (-right * io.MouseDelta.x + cameraUp * io.MouseDelta.y) *
-                                        worldUnitsPerPixel * scene.camera.panSensitivity;
-            scene.camera.target += panOffset;
-          }
         }
         if (std::abs(io.MouseWheel) > 0.0f) {
           const float zoomScale =
@@ -408,15 +378,15 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<GUI, &GUI::plotTest>(*this, "Plots"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
-#if PHOTON_GUI_RENDER_ITEMS
-  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
-#endif
   tabs.list.push_back(
       Tab::bind<ui::DashboardTab, &ui::DashboardTab::draw>(ui::dashboardTab(), "Dashboard"));
 #if PHOTON_GUI_RENDER_ITEMS
   tabs.list.push_back(Tab::bind<GUI, &GUI::carMap>(*this, "Map"));
 #endif
   tabs.list.push_back(Tab::bind<VideoUI, &VideoUI::videoController>(videoUi, "Livestream"));
+#if PHOTON_GUI_RENDER_ITEMS
+  tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
+#endif
 };
 
 void GUI::buildUI() {
@@ -433,14 +403,16 @@ void GUI::buildUI() {
   iam_clip_update(ImGui::GetIO().DeltaTime);
 
   /* Per-Frame UI building */
+  updateNetworkStatus();
   titleBar.activePage = "Navigation";
   if (!tabs.list.empty() && tabs.index < tabs.list.size())
     titleBar.activePage = tabs.list[tabs.index].name;
   titleBar.draw();
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs, titleBar.height);
-  plots.timeline(*arena, {canvas.pos.x, canvas.pos.y + canvas.size.y},
-                 {canvas.size.x, titleBar.height});
+  plots.timeline(*arena, network,
+                 titleBar.connectionConnected && titleBar.connectionProtocol == "DAQ Server",
+                 {canvas.pos.x, canvas.pos.y + canvas.size.y}, {canvas.size.x, titleBar.height});
 
   /* stateful UI building */
   ifKey(ImGuiKey_F3, flags.showFPS, drawFpsOverlay);

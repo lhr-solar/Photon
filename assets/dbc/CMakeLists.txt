@@ -4,7 +4,12 @@ set(DBC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(DBC_HEADER_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated)
 set(DBC_OBJECT_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated/dbc_objects)
 
-file(GLOB DBC_FILES "${DBC_DIR}/*.dbc")
+file(GLOB DBC_FILES CONFIGURE_DEPENDS "${DBC_DIR}/*.dbc")
+list(REMOVE_ITEM DBC_FILES
+    "${DBC_DIR}/daybreak-master.dbc"
+    "${DBC_DIR}/lonestar.dbc"
+    "${DBC_DIR}/test.dbc"
+)
 
 photon_embed_assets(
     HEADER_OUTPUT_DIR ${DBC_HEADER_OUTPUT_DIR}

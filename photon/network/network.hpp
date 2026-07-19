@@ -15,6 +15,7 @@ struct Network {
   void destroy();
   void backend(std::stop_token stoken);
   void startTCP(TCPConfig config);
+  void requestTimeline(double seconds);
   void stopWriter();
   bool switchDBC(DBCType kind);
   bool switchDBCFile(const std::string& path);
@@ -24,6 +25,7 @@ struct Network {
   std::jthread writerThread{};
   std::mutex writerMutex{};
   std::optional<TCPConfig> activeTCPConfig{};
+  TimelineCursorMailbox timelineCursor{};
 
   /* GUI Sends here, Network Reads here */
   SPMCQueue<ProtocolTransmitVariant, 32> guiRxCommandBuffer{};

@@ -37,6 +37,17 @@ void publishError(SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer, std::string e
   txBuffer.write([&](ProtocolReceiveVariant& out) { out = ProtocolError{.error = error}; });
 }
 
+void sendTimelineRequests(std::stop_token stoken, SocketHandle sock,
+                          TimelineCursorMailbox& timelineCursor, uint64_t observed) {
+  while (!stoken.stop_requested()) {
+    timelineCursor.sequence.wait(observed, std::memory_order_acquire);
+    if (stoken.stop_requested()) break;
+    observed = timelineCursor.sequence.load(std::memory_order_acquire);
+    const uint64_t timestamp = timelineCursor.timestampMs.load(std::memory_order_relaxed);
+    if (canpWriteTimelineSeek(sock, timestamp) != 1) break;
+  }
+}
+
 #ifdef _WIN32
 bool ensureWinsock(std::string& error) {
   static bool started = false;
@@ -205,6 +216,11 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     error = socketError("TCP socket creation");
     return false;
   }
+#ifdef SO_NOSIGPIPE
+  int noSigPipe = 1;
+  setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<const char*>(&noSigPipe),
+             sizeof(noSigPipe));
+#endif
 
   if (!setNonBlocking(sock)) {
     error = socketError("TCP non-blocking setup");
@@ -348,7 +364,7 @@ std::string timeNow() {
 };
 
 void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                    TCPConfig config, Arena& arena) {
+                    TCPConfig config, Arena& arena, TimelineCursorMailbox& timelineCursor) {
   SocketHandle sock = INVALID_SOCKET;
   std::string error{};
   if (!connectTcp(sock, config, stoken, error)) {
@@ -356,8 +372,15 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
     return;
   }
   publishMessage(txBuffer, timeNow() + "TCP connected");
+  const uint64_t timelineSequence = timelineCursor.sequence.load(std::memory_order_acquire);
+  std::jthread timelineSender(
+      [sock, &timelineCursor, timelineSequence](std::stop_token senderToken) {
+        sendTimelineRequests(senderToken, sock, timelineCursor, timelineSequence);
+      });
 
   canpBatch_t batch{};
+  uint64_t previousTimestamp = 0;
+  bool haveTimestamp = false;
   while (!stoken.stop_requested()) {
     std::string waitError{};
     const SocketWaitResult waitResult = waitForReadable(sock, stoken, waitError);
@@ -369,6 +392,10 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
 
     int readStatus = canpReadBatch(sock, &batch);
     if (readStatus == CANP_READ_OK) {
+      if (haveTimestamp && batch.timestamp < previousTimestamp)
+        for (uint32_t id : arena.validIds) arena.clear(id);
+      previousTimestamp = batch.timestamp;
+      haveTimestamp = true;
       handleNetwork(batch, arena);
       continue;
     }
@@ -383,6 +410,10 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
     publishError(txBuffer, timeNow() + canpReadError(readStatus));
     break;
   }
+  timelineSender.request_stop();
+  timelineCursor.sequence.fetch_add(1, std::memory_order_release);
+  timelineCursor.sequence.notify_all();
+  timelineSender.join();
   closeSocket(sock);
   publishMessage(txBuffer, timeNow() + "TCP stopped");
 }
