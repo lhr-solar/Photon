@@ -416,7 +416,7 @@ void GUI::setTabs() {
 #if PHOTON_GUI_RENDER_ITEMS
   tabs.list.push_back(Tab::bind<GUI, &GUI::carMap>(*this, "Map"));
 #endif
-  tabs.list.push_back(Tab::bind<VideoUI, &VideoUI::videoController>(videoUi, "Video"));
+  tabs.list.push_back(Tab::bind<VideoUI, &VideoUI::videoController>(videoUi, "Livestream"));
 };
 
 void GUI::buildUI() {

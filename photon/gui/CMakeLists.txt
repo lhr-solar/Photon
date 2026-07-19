@@ -22,13 +22,12 @@ add_custom_command(OUTPUT ${FFMPEG_ARCHIVES}
         --enable-static --disable-shared --enable-pic --enable-decoder=h264
         --cc=${CMAKE_C_COMPILER} --ar=${CMAKE_AR} --nm=${CMAKE_NM}
         --ranlib=${CMAKE_RANLIB} --strip=${CMAKE_STRIP}
-    COMMAND ${MAKE} -f ${CMAKE_SOURCE_DIR}/.external/ffmpeg/Makefile
-        SHELL=${FFMPEG_BASH} SRC_PATH=${CMAKE_SOURCE_DIR}/.external/ffmpeg
-        SRC_LINK=${CMAKE_SOURCE_DIR}/.external/ffmpeg
-        -j${PHOTON_BUILD_JOBS}
+    COMMAND ${FFMPEG_BASH} -c
+        "PATH=/usr/bin:/bin:$PATH \"${MAKE}\" -f \"${CMAKE_SOURCE_DIR}/.external/ffmpeg/Makefile\" SRC_PATH=\"${CMAKE_SOURCE_DIR}/.external/ffmpeg\" SRC_LINK=\"${CMAKE_SOURCE_DIR}/.external/ffmpeg\" -j${PHOTON_BUILD_JOBS}"
     DEPENDS ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure
             ${CMAKE_SOURCE_DIR}/.external/ffmpeg/Makefile
-    WORKING_DIRECTORY ${FFMPEG_BUILD})
+    WORKING_DIRECTORY ${FFMPEG_BUILD}
+    VERBATIM)
 add_custom_target(ffmpeg DEPENDS ${FFMPEG_ARCHIVES})
 add_library(photon_ffmpeg INTERFACE)
 add_dependencies(photon_ffmpeg ffmpeg)
