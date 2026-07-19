@@ -422,7 +422,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             ImGui::SameLine(0, gap);
             {
                 char aTxt[16];
-                snprintf(aTxt, sizeof(aTxt), "%.0f A", std::abs(packCurrent));
+                snprintf(aTxt, sizeof(aTxt), "%.0f A", packCurrent);
                 float fs = 32.0f;
                 ImVec2 pos = ImGui::GetCursorScreenPos();
                 if (medFont) {
@@ -505,8 +505,9 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             ImGui::PopStyleColor();
             ImGui::SameLine(col3);
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-            ImGui::Text("%.0f A", std::abs(state.get("MC_BusCurrent")));
+            ImGui::Text("%.0f A", state.get("MC_BusCurrent"));
             ImGui::PopStyleColor();
+            
         }
 
         widgets::Space(4);

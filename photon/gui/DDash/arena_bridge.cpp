@@ -96,7 +96,7 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
   double velocityMps = state.get("MC_VehicleVelocity");
   if (std::isfinite(velocityMps) && std::abs(velocityMps) <= 200.0) {
     constexpr double mpsToMph = 2.2369362920544;
-    state.speed = static_cast<int>(std::lround(std::abs(velocityMps) * mpsToMph));
+    state.speed = static_cast<int>(std::lround(velocityMps * mpsToMph));
   }
 
   if (state.getBool("Gear_Forward")) state.gear = Gear::Forward;
