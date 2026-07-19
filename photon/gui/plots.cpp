@@ -43,14 +43,15 @@ void drawTimelineValue(const char* text, ImVec2 size, const PhotonUi::Palette& p
   draw->AddRect(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.42f)),
                 PhotonUi::kFrameRounding);
   const ImVec2 textSize = ImGui::CalcTextSize(text);
+  draw->PushClipRect(min, max, true);
   draw->AddText({min.x + (size.x - textSize.x) / 2, min.y + (size.y - textSize.y) / 2},
                 PhotonUi::colorU32(palette.text), text);
+  draw->PopClipRect();
 }
 
-void drawLiveIndicator(float height, const PhotonUi::Palette& palette) {
+void drawLiveIndicator(ImVec2 size, const PhotonUi::Palette& palette) {
   const char* label = "LIVE";
-  const float width = ImGui::CalcTextSize(label).x + height;
-  ImGui::Dummy({width, height});
+  ImGui::Dummy(size);
   const ImVec2 min = ImGui::GetItemRectMin();
   const ImVec2 max = ImGui::GetItemRectMax();
   ImDrawList* draw = ImGui::GetWindowDrawList();
@@ -60,10 +61,13 @@ void drawLiveIndicator(float height, const PhotonUi::Palette& palette) {
                 PhotonUi::kFrameRounding);
   const ImVec2 textSize = ImGui::CalcTextSize(label);
   const float centerY = (min.y + max.y) / 2;
-  draw->AddCircleFilled({min.x + height * 0.38f, centerY}, std::max(2.5f, height * 0.11f),
-                        IM_COL32(56, 220, 116, 255));
-  draw->AddText({min.x + height * 0.63f, centerY - textSize.y / 2},
-                PhotonUi::colorU32(palette.text), label);
+  const float radius = std::max(2.5f, size.y * 0.11f);
+  const float gap = size.y * 0.18f;
+  const float contentWidth = radius * 2 + gap + textSize.x;
+  const float dotX = min.x + (size.x - contentWidth) / 2 + radius;
+  draw->AddCircleFilled({dotX, centerY}, radius, IM_COL32(56, 220, 116, 255));
+  draw->AddText({dotX + radius + gap, centerY - textSize.y / 2}, PhotonUi::colorU32(palette.text),
+                label);
 }
 
 bool drawTimelineSlider(double& value, double first, double last, float width,
@@ -215,11 +219,10 @@ void Plots::timeline(Arena& arena, ImVec2 pos, ImVec2 size) {
     const PhotonUi::Palette palette = PhotonUi::palette();
     const float spacing = style.ItemSpacing.x;
     const float buttonWidth = ImGui::GetFrameHeight();
+    const float scaleValueWidth = buttonWidth * 4.25f;
+    const float statusWidth = buttonWidth * 3.5f;
     char scale[32];
     std::snprintf(scale, sizeof(scale), "SCALE %.3f s", windowSeconds);
-    const float scaleValueWidth = ImGui::CalcTextSize(scale).x + style.FramePadding.x * 2;
-    const float statusWidth = followLatest ? ImGui::CalcTextSize("LIVE").x + buttonWidth
-                                           : ImGui::CalcTextSize("Go live").x + 50.0f;
     const float timeWidth = std::max(2.0f, ImGui::GetContentRegionAvail().x - buttonWidth * 2 -
                                                scaleValueWidth - statusWidth - spacing * 4);
     double nextCursor = cursor;
@@ -239,7 +242,7 @@ void Plots::timeline(Arena& arena, ImVec2 pos, ImVec2 size) {
       windowSeconds *= 2;
     ImGui::SameLine();
     if (followLatest) {
-      drawLiveIndicator(buttonWidth, palette);
+      drawLiveIndicator({statusWidth, buttonWidth}, palette);
     } else if (PhotonUi::rowButton("TimelineGoLive", "\ued46", "Go live",
                                    {statusWidth, buttonWidth}, palette)) {
       cursor = last;
