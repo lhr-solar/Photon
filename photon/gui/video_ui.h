@@ -35,7 +35,7 @@ struct VideoUI {
   std::atomic<bool> stopRequested = false;
   std::atomic<bool> framePending = false;
   std::atomic<uint8_t> middleFrame = 1;
-  int socketFd = -1;
+  uintptr_t socketHandle = UINTPTR_MAX;
   uint8_t backendFrame = 2;
   uint8_t presentationFrame = 0;
   uint32_t accessUnitTimestamp = 0;
@@ -51,6 +51,7 @@ struct VideoUI {
   bool accessUnitHasIdr = false;
   bool decoderSynced = false;
   bool frameBuffersInitialized = false;
+  bool socketSubsystemInitialized = false;
 
   ~VideoUI();
   bool init();

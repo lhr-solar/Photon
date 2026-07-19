@@ -1,5 +1,26 @@
 #include "video_ui.h"
 
+#include <cerrno>
+#include <cstring>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+using SocketHandle = SOCKET;
+#else
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <unistd.h>
+using SocketHandle = int;
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR (-1)
+#endif
+
 #include "imgui_internal.h"
 
 extern "C" {
@@ -7,20 +28,86 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#include <cerrno>
-#include <cstring>
-
 static constexpr char SERVER_IP[] = "3.141.38.115";
 static constexpr uint16_t SERVER_PORT = 6600;
 static constexpr int SOCKET_RECEIVE_BUFFER_SIZE = 4 * 1024 * 1024;
 static constexpr uint8_t RTP_PAYLOAD_TYPE = 96;
 static constexpr uint8_t START_CODE[] = {0, 0, 0, 1};
+
+static SocketHandle nativeSocket(uintptr_t handle) { return static_cast<SocketHandle>(handle); }
+
+static bool initializeSockets() {
+#ifdef _WIN32
+  WSADATA data{};
+  return WSAStartup(MAKEWORD(2, 2), &data) == 0;
+#else
+  return true;
+#endif
+}
+
+static void shutdownSockets() {
+#ifdef _WIN32
+  WSACleanup();
+#endif
+}
+
+static void closeSocket(SocketHandle socket) {
+#ifdef _WIN32
+  closesocket(socket);
+#else
+  close(socket);
+#endif
+}
+
+static bool setNonBlocking(SocketHandle socket) {
+#ifdef _WIN32
+  u_long mode = 1;
+  return ioctlsocket(socket, FIONBIO, &mode) == 0;
+#else
+  const int flags = fcntl(socket, F_GETFL, 0);
+  return flags >= 0 && fcntl(socket, F_SETFL, flags | O_NONBLOCK) == 0;
+#endif
+}
+
+static bool socketWouldBlock() {
+#ifdef _WIN32
+  return WSAGetLastError() == WSAEWOULDBLOCK;
+#else
+  return errno == EAGAIN || errno == EWOULDBLOCK;
+#endif
+}
+
+static bool socketInterrupted() {
+#ifdef _WIN32
+  return WSAGetLastError() == WSAEINTR;
+#else
+  return errno == EINTR;
+#endif
+}
+
+static int sendSocket(SocketHandle socket, const char* data, int size) {
+  return send(socket, data, size, 0);
+}
+
+static int receiveSocket(SocketHandle socket, uint8_t* data, int capacity) {
+#ifdef _WIN32
+  return recv(socket, reinterpret_cast<char*>(data), capacity, 0);
+#else
+  return static_cast<int>(recv(socket, data, capacity, 0));
+#endif
+}
+
+static int waitForSocket(SocketHandle socket) {
+  fd_set readSet;
+  FD_ZERO(&readSet);
+  FD_SET(socket, &readSet);
+  timeval timeout{0, 10000};
+#ifdef _WIN32
+  return select(0, &readSet, nullptr, nullptr, &timeout);
+#else
+  return select(socket + 1, &readSet, nullptr, nullptr, &timeout);
+#endif
+}
 
 static uint16_t readU16(const uint8_t* data) {
   return static_cast<uint16_t>(data[0] << 8 | data[1]);
@@ -91,10 +178,14 @@ void VideoUI::stop() {
 }
 
 void VideoUI::shutdownBackend() {
-  if (socketFd >= 0) {
-    send(socketFd, "bye", 3, 0);
-    close(socketFd);
-    socketFd = -1;
+  if (socketHandle != UINTPTR_MAX) {
+    sendSocket(nativeSocket(socketHandle), "bye", 3);
+    closeSocket(nativeSocket(socketHandle));
+    socketHandle = UINTPTR_MAX;
+  }
+  if (socketSubsystemInitialized) {
+    shutdownSockets();
+    socketSubsystemInitialized = false;
   }
   sws_freeContext(scaler);
   scaler = nullptr;
@@ -105,6 +196,9 @@ void VideoUI::shutdownBackend() {
 
 bool VideoUI::initBackend() {
   av_log_set_level(AV_LOG_QUIET);
+
+  if (!initializeSockets()) return false;
+  socketSubsystemInitialized = true;
 
   const AVCodec* decoder = avcodec_find_decoder(AV_CODEC_ID_H264);
   if (!decoder) return false;
@@ -120,20 +214,27 @@ bool VideoUI::initBackend() {
   packet = av_packet_alloc();
   if (!frame || !packet) return false;
 
-  socketFd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (socketFd < 0) return false;
-  setsockopt(socketFd, SOL_SOCKET, SO_RCVBUF, &SOCKET_RECEIVE_BUFFER_SIZE,
+  const SocketHandle socket = ::socket(AF_INET, SOCK_DGRAM, 0);
+  if (socket == INVALID_SOCKET) return false;
+  socketHandle = static_cast<uintptr_t>(socket);
+#ifdef _WIN32
+  setsockopt(socket, SOL_SOCKET, SO_RCVBUF,
+             reinterpret_cast<const char*>(&SOCKET_RECEIVE_BUFFER_SIZE),
              sizeof(SOCKET_RECEIVE_BUFFER_SIZE));
+#else
+  setsockopt(socket, SOL_SOCKET, SO_RCVBUF, &SOCKET_RECEIVE_BUFFER_SIZE,
+             sizeof(SOCKET_RECEIVE_BUFFER_SIZE));
+#endif
   sockaddr_in server{};
   server.sin_family = AF_INET;
   server.sin_port = htons(SERVER_PORT);
   if (inet_pton(AF_INET, SERVER_IP, &server.sin_addr) != 1 ||
-      connect(socketFd, reinterpret_cast<sockaddr*>(&server), sizeof(server)) < 0 ||
-      fcntl(socketFd, F_SETFL, fcntl(socketFd, F_GETFL) | O_NONBLOCK) < 0)
+      connect(socket, reinterpret_cast<sockaddr*>(&server), sizeof(server)) == SOCKET_ERROR ||
+      !setNonBlocking(socket))
     return false;
 
   accessUnit.reserve(1024 * 1024);
-  send(socketFd, "videoClient keepalive", 21, 0);
+  sendSocket(socket, "videoClient keepalive", 21);
   nextKeepalive = std::chrono::steady_clock::now() + std::chrono::seconds(2);
   return true;
 }
@@ -152,8 +253,7 @@ void VideoUI::backendLoop() {
       continue;
     }
 
-    pollfd socketPoll{socketFd, POLLIN, 0};
-    poll(&socketPoll, 1, 10);
+    if (waitForSocket(nativeSocket(socketHandle)) == SOCKET_ERROR && !socketInterrupted()) break;
   }
 
   shutdownBackend();
@@ -171,16 +271,17 @@ void VideoUI::clearAccessUnit() {
 int VideoUI::receiveAccessUnit() {
   const auto now = std::chrono::steady_clock::now();
   if (now >= nextKeepalive) {
-    send(socketFd, "videoClient keepalive", 21, 0);
+    sendSocket(nativeSocket(socketHandle), "videoClient keepalive", 21);
     nextKeepalive = now + std::chrono::seconds(2);
   }
 
   uint8_t datagram[65535];
   for (int packetCount = 0; packetCount < 256; ++packetCount) {
-    const ssize_t size = recv(socketFd, datagram, sizeof(datagram), 0);
+    const int size =
+        receiveSocket(nativeSocket(socketHandle), datagram, static_cast<int>(sizeof(datagram)));
     if (size < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-      if (errno == EINTR) continue;
+      if (socketWouldBlock()) return 0;
+      if (socketInterrupted()) continue;
       return -1;
     }
     if (size < 12 || datagram[0] >> 6 != 2 || (datagram[1] & 0x7f) != RTP_PAYLOAD_TYPE) continue;

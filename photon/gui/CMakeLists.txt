@@ -1,22 +1,33 @@
 find_program(BASH bash REQUIRED)
-find_program(MAKE make REQUIRED)
+find_program(MAKE NAMES make gmake REQUIRED)
 find_package(Threads REQUIRED)
 set(FFMPEG_BUILD ${CMAKE_BINARY_DIR}/ffmpeg)
 file(MAKE_DIRECTORY ${FFMPEG_BUILD})
+set(FFMPEG_PLATFORM_ARGS --cc=${CMAKE_C_COMPILER})
+if(WIN32)
+    list(APPEND FFMPEG_PLATFORM_ARGS --target-os=win32 --ar=${CMAKE_AR}
+        --enable-w32threads --disable-bcrypt)
+    set(FFMPEG_LIBRARY_PREFIX "")
+    set(FFMPEG_LIBRARY_SUFFIX ".lib")
+else()
+    set(FFMPEG_LIBRARY_PREFIX "lib")
+    set(FFMPEG_LIBRARY_SUFFIX ".a")
+endif()
 set(FFMPEG_ARCHIVES
-    ${FFMPEG_BUILD}/libavcodec/libavcodec.a
-    ${FFMPEG_BUILD}/libswscale/libswscale.a
-    ${FFMPEG_BUILD}/libavutil/libavutil.a)
+    ${FFMPEG_BUILD}/libavcodec/${FFMPEG_LIBRARY_PREFIX}avcodec${FFMPEG_LIBRARY_SUFFIX}
+    ${FFMPEG_BUILD}/libswscale/${FFMPEG_LIBRARY_PREFIX}swscale${FFMPEG_LIBRARY_SUFFIX}
+    ${FFMPEG_BUILD}/libavutil/${FFMPEG_LIBRARY_PREFIX}avutil${FFMPEG_LIBRARY_SUFFIX})
 add_custom_command(OUTPUT ${FFMPEG_ARCHIVES}
     COMMAND ${BASH} ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure --disable-everything
         --disable-autodetect --disable-iconv --disable-debug --disable-programs --disable-doc
         --disable-avdevice --disable-avformat --disable-avfilter
         --disable-swresample --disable-network --enable-static --disable-shared --enable-pic
-        --enable-decoder=h264 --cc=${CMAKE_C_COMPILER}
+        --enable-decoder=h264 ${FFMPEG_PLATFORM_ARGS}
     COMMAND ${MAKE} -j${PHOTON_BUILD_JOBS}
     DEPENDS ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure
             ${CMAKE_SOURCE_DIR}/.external/ffmpeg/Makefile
-    WORKING_DIRECTORY ${FFMPEG_BUILD})
+    WORKING_DIRECTORY ${FFMPEG_BUILD}
+    VERBATIM)
 add_custom_target(ffmpeg DEPENDS ${FFMPEG_ARCHIVES})
 add_library(photon_ffmpeg INTERFACE)
 add_dependencies(photon_ffmpeg ffmpeg)
