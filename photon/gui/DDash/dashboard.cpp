@@ -251,7 +251,7 @@ static void RenderFaultBanner(const AppState& state) {
 // Camera tile shared by the left, right, and rear live feeds.
 
 static void RenderCameraView(const AppState& state, const char* label, ImTextureData* texture,
-                             const ImVec2& size) {
+                             const ImVec2& size, bool mirrorX = false) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, FaultAwareCardBg(state));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
 
@@ -259,10 +259,11 @@ static void RenderCameraView(const AppState& state, const char* label, ImTexture
     {
         ImVec2 avail = ImGui::GetContentRegionAvail();
         if (texture) {
-            // The dashboard cameras are mounted inverted. Flip their UVs so
-            // each physical view is upright without a second frame copy.
+            // Camera frames arrive with sky and floor inverted. Use the
+            // native vertical orientation for every camera feed.
             ImGui::Image(texture->GetTexRef(), avail,
-                         ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+                         mirrorX ? ImVec2(1.0f, 0.0f) : ImVec2(0.0f, 0.0f),
+                         mirrorX ? ImVec2(0.0f, 1.0f) : ImVec2(1.0f, 1.0f));
         } else {
             // Center the label text, split at space for two-line display
             const char* space = strchr(label, ' ');
@@ -1604,7 +1605,7 @@ void RenderDashboard(AppState& state) {
     // Top row -- explicit positions so ImGui's cursor tracking can't drift.
     ImGui::SetCursorPos(ImVec2(0.0f, topY));
     RenderCameraView(state, "LEFT VIEW",
-                     state.leftCameraTexture,
+                     state.rightCameraTexture,
                      ImVec2(topColLeft, rowTop));
 
     ImGui::SetCursorPos(ImVec2(colCenterX, topY));
@@ -1612,7 +1613,7 @@ void RenderDashboard(AppState& state) {
 
     ImGui::SetCursorPos(ImVec2(colRightX, topY));
     RenderCameraView(state, "RIGHT VIEW",
-                     state.rightCameraTexture,
+                     state.leftCameraTexture,
                      ImVec2(topColRight, rowTop));
 
     // Bottom row -- mirror of the top row at botY.
@@ -1622,7 +1623,8 @@ void RenderDashboard(AppState& state) {
     ImGui::SetCursorPos(ImVec2(colCenterX, botY));
     RenderCameraView(state, "REAR VIEW",
                      state.rearCameraTexture,
-                     ImVec2(rearBotW, rowBottom));
+                     ImVec2(rearBotW, rowBottom),
+                     true);
 
     ImGui::SetCursorPos(ImVec2(colRightX, botY));
     RenderButtonGrid(state, ImVec2(sideW, rowBottom));
