@@ -561,6 +561,16 @@ void CustomViewTab::renderWatchdog(CustomViewWidget& widget) {
   CustomViewWatchdogWidget::draw(arena, widget);
 }
 
+void CustomViewTab::addCellGrid() {
+  CustomViewDefinition& view = activeView();
+  CustomViewWidget widget{};
+  widget.kind = CustomViewWidgetKind::CellGrid;
+  widget.id = "battery-grid-" + std::to_string(nextWidgetPlotId++);
+  widget.rect = clampRect({0, findNextRow(), view.columns, 9});
+  view.widgets.push_back(std::move(widget));
+  syncDocumentFromView("Added battery grid widget.", pathLoaded || path[0] != '\0');
+}
+
 void CustomViewTab::addCanMonitor() {
   CustomViewDefinition& view = activeView();
   CustomViewWidget widget{};
@@ -1084,6 +1094,8 @@ void CustomViewTab::draw(ImGuiWindowFlags flags) {
       plotManager().requestCreate();
     }
     ImGui::SameLine();
+    if (ImGui::Button("Add Battery Grid")) addCellGrid();
+    ImGui::SameLine();
     if (ImGui::Button("Add Watchdog")) openWatchdogCreator();
     ImGui::SameLine();
     if (ImGui::Button("Add CAN Monitor")) addCanMonitor();
@@ -1101,7 +1113,7 @@ void CustomViewTab::draw(ImGuiWindowFlags flags) {
       showFileDialog(CustomViewDialogAction::SaveAs);
     if (dialogBusy || !hasExportableView) ImGui::EndDisabled();
     if (activeView().widgets.empty()) {
-      ImGui::TextDisabled("This panel is empty. Add a plot, or switch panels with the tabs above.");
+      ImGui::TextDisabled("This panel is empty. Add a component, or switch panels with the tabs above.");
     }
 
     if (ImGui::BeginPopupContextWindow("##custom_view_menu")) {

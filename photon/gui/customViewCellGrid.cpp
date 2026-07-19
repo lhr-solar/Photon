@@ -46,53 +46,15 @@ void drawPill(ImDrawList* draw, ImVec2 min, ImVec2 max, ImU32 fill, ImU32 border
 }
 
 void drawCellTile(ImDrawList* draw, ImVec2 min, ImVec2 max, ImVec4 base, bool hasValue,
-                  bool faulted, bool showVoltage, int index, double value, float pulse) {
-  const float rounding = 7.0f;
-  const ImVec4 empty = {0.12f, 0.14f, 0.18f, 0.85f};
-  ImVec4 fill = hasValue ? base : empty;
-  if (hasValue) {
-    fill.x = std::min(1.0f, fill.x * 1.15f + 0.05f);
-    fill.y = std::min(1.0f, fill.y * 1.10f + 0.04f);
-    fill.z = std::min(1.0f, fill.z * 1.10f + 0.04f);
-  }
+                  bool faulted, bool showVoltage, const char* address, double value) {
+  const ImVec4 empty = {0.105f, 0.12f, 0.15f, 1.0f};
+  ImVec4 fill = hasValue ? lerp4(base, {0.08f, 0.10f, 0.13f, 1.0f}, 0.72f) : empty;
+  if (faulted) fill = {0.42f, 0.10f, 0.13f, 1.0f};
+  draw->AddRectFilled(min, max, PhotonUi::colorU32(fill));
+  draw->AddRect(min, max, PhotonUi::colorU32(faulted ? ImVec4{1.0f, 0.28f, 0.32f, 1.0f}
+                                                       : ImVec4{0.32f, 0.36f, 0.42f, 1.0f}));
 
-  // Soft outer glow for live cells.
-  if (hasValue) {
-    ImVec4 glow = fill;
-    glow.w = 0.22f + 0.10f * pulse;
-    const float inflate = 2.5f + pulse * 1.5f;
-    draw->AddRectFilled({min.x - inflate, min.y - inflate}, {max.x + inflate, max.y + inflate},
-                        PhotonUi::colorU32(glow), rounding + 2.0f);
-  }
-
-  const ImVec4 top = hasValue ? lerp4(fill, {1.0f, 1.0f, 1.0f, 1.0f}, 0.22f) : empty;
-  draw->AddRectFilled(min, max, PhotonUi::colorU32(fill), rounding);
-  if (hasValue) {
-    const float midY = min.y + (max.y - min.y) * 0.55f;
-    draw->AddRectFilled(min, {max.x, midY}, PhotonUi::colorU32(PhotonUi::withAlpha(top, 0.55f)),
-                        rounding);
-  }
-
-  ImVec4 borderCol =
-      hasValue ? lerp4(fill, {1.0f, 1.0f, 1.0f, 1.0f}, 0.45f) : ImVec4{0.28f, 0.32f, 0.38f, 0.9f};
-  borderCol.w = 0.95f;
-  float borderThickness = 1.4f;
-  if (faulted) {
-    borderCol = {1.0f, 0.20f + 0.25f * pulse, 0.28f, 1.0f};
-    borderThickness = 2.4f + pulse;
-  }
-  draw->AddRect(min, max, PhotonUi::colorU32(borderCol), rounding, 0, borderThickness);
-
-  // Specular strip.
-  if (hasValue) {
-    const float stripH = std::max(3.0f, (max.y - min.y) * 0.18f);
-    draw->AddRectFilled({min.x + 3.0f, min.y + 3.0f}, {max.x - 3.0f, min.y + 3.0f + stripH},
-                        PhotonUi::colorU32({1.0f, 1.0f, 1.0f, 0.16f}), 3.0f);
-  }
-
-  char indexBuf[16]{};
   char valueBuf[32]{};
-  std::snprintf(indexBuf, sizeof(indexBuf), "#%02d", index);
   if (hasValue) {
     if (showVoltage)
       std::snprintf(valueBuf, sizeof(valueBuf), "%.3f V", value);
@@ -102,22 +64,24 @@ void drawCellTile(ImDrawList* draw, ImVec2 min, ImVec2 max, ImVec4 base, bool ha
     std::snprintf(valueBuf, sizeof(valueBuf), "--");
   }
 
-  const float pad = 5.0f;
-  draw->AddText({min.x + pad, min.y + pad},
-                PhotonUi::colorU32(hasValue ? ImVec4{1.0f, 1.0f, 1.0f, 0.72f}
-                                            : ImVec4{0.55f, 0.58f, 0.64f, 0.85f}),
-                indexBuf);
-
+  draw->AddText({min.x + 5.0f, min.y + 4.0f}, PhotonUi::colorU32({0.62f, 0.68f, 0.75f, 1.0f}),
+                address);
   const ImVec2 valueSize = ImGui::CalcTextSize(valueBuf);
   const ImVec2 valuePos{min.x + (max.x - min.x - valueSize.x) * 0.5f,
-                        min.y + (max.y - min.y - valueSize.y) * 0.55f};
-  // Soft text shadow for punch.
-  draw->AddText({valuePos.x + 1.0f, valuePos.y + 1.0f},
-                PhotonUi::colorU32({0.0f, 0.0f, 0.0f, 0.55f}), valueBuf);
-  draw->AddText(valuePos,
-                PhotonUi::colorU32(hasValue ? ImVec4{1.0f, 1.0f, 1.0f, 1.0f}
-                                            : ImVec4{0.62f, 0.66f, 0.72f, 0.9f}),
+                        min.y + (max.y - min.y - valueSize.y) * 0.60f};
+  draw->AddText(valuePos, PhotonUi::colorU32(hasValue ? ImVec4{0.96f, 0.98f, 1.0f, 1.0f}
+                                                       : ImVec4{0.55f, 0.60f, 0.67f, 1.0f}),
                 valueBuf);
+}
+
+void spreadsheetColumnName(int column, char (&buffer)[8]) {
+  int cursor = 0;
+  do {
+    buffer[cursor++] = static_cast<char>('A' + (column % 26));
+    column = column / 26 - 1;
+  } while (column >= 0 && cursor < static_cast<int>(sizeof(buffer) - 1));
+  std::reverse(buffer, buffer + cursor);
+  buffer[cursor] = '\0';
 }
 }  // namespace
 
@@ -215,12 +179,27 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
   ImGui::Dummy({availX, legendH + 8.0f});
 
   const ImVec2 avail = ImGui::GetContentRegionAvail();
-  const float gap = 6.0f;
-  const float cellW = std::max(
-      8.0f, (avail.x - gap * static_cast<float>(grid.cols - 1)) / static_cast<float>(grid.cols));
-  const float cellH = std::max(
-      8.0f, (avail.y - gap * static_cast<float>(grid.rows - 1)) / static_cast<float>(grid.rows));
+  constexpr float rowHeaderW = 28.0f;
+  constexpr float columnHeaderH = 22.0f;
+  const float cellW = std::max(8.0f, (avail.x - rowHeaderW) / static_cast<float>(grid.cols));
+  const float cellH = std::max(8.0f, (avail.y - columnHeaderH) / static_cast<float>(grid.rows));
   const ImVec2 origin = ImGui::GetCursorScreenPos();
+  const ImU32 headerFill = PhotonUi::colorU32({0.19f, 0.22f, 0.27f, 1.0f});
+  const ImU32 headerBorder = PhotonUi::colorU32({0.36f, 0.40f, 0.46f, 1.0f});
+  const ImU32 headerText = PhotonUi::colorU32({0.82f, 0.86f, 0.92f, 1.0f});
+  draw->AddRectFilled(origin, {origin.x + rowHeaderW, origin.y + columnHeaderH}, headerFill);
+  draw->AddRect(origin, {origin.x + rowHeaderW, origin.y + columnHeaderH}, headerBorder);
+  for (int col = 0; col < grid.cols; ++col) {
+    const ImVec2 min{origin.x + rowHeaderW + col * cellW, origin.y};
+    const ImVec2 max{min.x + cellW, min.y + columnHeaderH};
+    char label[8]{};
+    spreadsheetColumnName(col, label);
+    const ImVec2 textSize = ImGui::CalcTextSize(label);
+    draw->AddRectFilled(min, max, headerFill);
+    draw->AddRect(min, max, headerBorder);
+    draw->AddText({min.x + (cellW - textSize.x) * 0.5f, min.y + (columnHeaderH - textSize.y) * 0.5f},
+                  headerText, label);
+  }
 
   constexpr float kVoltageMin = 3.0f;
   constexpr float kVoltageMax = 4.2f;
@@ -228,11 +207,22 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
   constexpr float kTempMax = 60.0f;
 
   const int cellCount = std::min(kCellGridCapacity, grid.cols * grid.rows);
+  for (int row = 0; row < grid.rows; ++row) {
+    const ImVec2 min{origin.x, origin.y + columnHeaderH + row * cellH};
+    const ImVec2 max{min.x + rowHeaderW, min.y + cellH};
+    char label[8]{};
+    std::snprintf(label, sizeof(label), "%d", row + 1);
+    const ImVec2 textSize = ImGui::CalcTextSize(label);
+    draw->AddRectFilled(min, max, headerFill);
+    draw->AddRect(min, max, headerBorder);
+    draw->AddText({min.x + (rowHeaderW - textSize.x) * 0.5f, min.y + (cellH - textSize.y) * 0.5f},
+                  headerText, label);
+  }
   for (int index = 0; index < cellCount; ++index) {
     const int row = index / grid.cols;
     const int col = index % grid.cols;
-    const ImVec2 min(origin.x + static_cast<float>(col) * (cellW + gap),
-                     origin.y + static_cast<float>(row) * (cellH + gap));
+    const ImVec2 min(origin.x + rowHeaderW + static_cast<float>(col) * cellW,
+                     origin.y + columnHeaderH + static_cast<float>(row) * cellH);
     const ImVec2 max(min.x + cellW, min.y + cellH);
     const CustomViewCellSample& cell = grid.cells[static_cast<size_t>(index)];
     const bool hasValue = voltageMode ? cell.hasVoltage : cell.hasTemperature;
@@ -248,8 +238,11 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
         t = static_cast<float>((value - kTempMin) / (kTempMax - kTempMin));
     }
     const ImVec4 base = voltageMode ? voltageRamp(t) : temperatureRamp(t);
-    drawCellTile(draw, min, max, base, hasValue, faulted, voltageMode, index, value, pulse);
+    char address[16]{};
+    // The array is keyed directly by BPS_Tap_idx, so display that real tap ID.
+    std::snprintf(address, sizeof(address), "ID %02d", index);
+    drawCellTile(draw, min, max, base, hasValue, faulted, voltageMode, address, value);
   }
 
-  ImGui::Dummy(ImVec2(avail.x, static_cast<float>(grid.rows) * (cellH + gap) - gap));
+  ImGui::Dummy(ImVec2(avail.x, columnHeaderH + static_cast<float>(grid.rows) * cellH));
 }

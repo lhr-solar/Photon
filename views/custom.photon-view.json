@@ -221,6 +221,78 @@
           }
         }
       ]
+    },
+    {
+      "id": "bps-config",
+      "layout": {
+        "columns": 48,
+        "gap": 8.0,
+        "rowHeight": 48.0
+      },
+      "name": "BPS Config",
+      "widgets": [
+        {
+          "cellGrid": {
+            "cols": 8,
+            "mode": "voltage",
+            "rows": 4,
+            "statusMessageId": 1,
+            "temperatureMessageId": 12,
+            "title": "BPS Cell Taps",
+            "voltageMessageId": 11
+          },
+          "id": "bps-cell-taps",
+          "kind": "cell-grid",
+          "rect": {
+            "h": 12,
+            "w": 48,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "id": "bps-status-config",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 0,
+                "signalName": "BPS_Fault"
+              },
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 3,
+                "signalName": "HV_Plus_Contactor_State"
+              },
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 4,
+                "signalName": "HV_Minus_Contactor_State"
+              },
+              {
+                "messageId": 1,
+                "messageName": "BPS_Status",
+                "signalIndex": 5,
+                "signalName": "Array_Contactor_State"
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "BPS Status",
+            "type": "list",
+            "useSource1TimeAsX": true
+          },
+          "rect": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 12
+          }
+        }
+      ]
     }
   ],
   "schemaVersion": 1

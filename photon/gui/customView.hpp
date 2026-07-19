@@ -83,6 +83,7 @@ struct CustomViewTab {
   void resolveWatchdog(CustomViewWatchdog& watchdog);
   void updateWatchdog(CustomViewWatchdog& watchdog);
   void renderWatchdog(CustomViewWidget& widget);
+  void addCellGrid();
   void addCanMonitor();
   void openWatchdogCreator();
   void renderWatchdogCreator();
