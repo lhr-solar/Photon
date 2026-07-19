@@ -1,11 +1,4 @@
-if(WIN32)
-    find_program(FFMPEG_BASH bash.exe
-        PATHS "C:/msys64/usr/bin" "C:/Program Files/Git/bin"
-              "$ENV{LOCALAPPDATA}/Programs/Git/bin"
-        NO_DEFAULT_PATH REQUIRED)
-else()
-    find_program(FFMPEG_BASH bash REQUIRED)
-endif()
+find_program(FFMPEG_BASH bash REQUIRED)
 find_program(MAKE make REQUIRED)
 find_package(Threads REQUIRED)
 set(FFMPEG_BUILD ${CMAKE_BINARY_DIR}/ffmpeg)
@@ -18,8 +11,10 @@ add_custom_command(OUTPUT ${FFMPEG_ARCHIVES}
     COMMAND ${FFMPEG_BASH} ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure --disable-everything
         --disable-autodetect --disable-iconv --disable-debug --disable-programs --disable-doc
         --disable-avdevice --disable-avformat --disable-avfilter
-        --disable-swresample --disable-network --enable-static --disable-shared --enable-pic
-        --enable-decoder=h264 --cc=${CMAKE_C_COMPILER}
+        --disable-swresample --disable-network --disable-x86asm
+        --enable-static --disable-shared --enable-pic --enable-decoder=h264
+        --cc=${CMAKE_C_COMPILER} --ar=${CMAKE_AR} --nm=${CMAKE_NM}
+        --ranlib=${CMAKE_RANLIB} --strip=${CMAKE_STRIP}
     COMMAND ${MAKE} -j${PHOTON_BUILD_JOBS}
     DEPENDS ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure
             ${CMAKE_SOURCE_DIR}/.external/ffmpeg/Makefile
