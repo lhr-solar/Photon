@@ -416,6 +416,7 @@ void GUI::setTabs() {
 #if PHOTON_GUI_RENDER_ITEMS
   tabs.list.push_back(Tab::bind<GUI, &GUI::carMap>(*this, "Map"));
 #endif
+  tabs.list.push_back(Tab::bind<VideoUI, &VideoUI::videoController>(videoUi, "Video"));
 };
 
 void GUI::buildUI() {
@@ -439,7 +440,6 @@ void GUI::buildUI() {
   sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
   plots.timeline(*arena);
-  videoUi.videoController();
 
   /* stateful UI building */
   ifKey(ImGuiKey_F3, flags.showFPS, drawFpsOverlay);

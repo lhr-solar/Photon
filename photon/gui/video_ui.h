@@ -73,5 +73,5 @@ struct VideoUI {
   int decodeFrame();
   bool publishFrame();
   bool presentFrame();
-  void videoController();
+  void videoController(ImGuiWindowFlags flags);
 };

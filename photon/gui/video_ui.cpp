@@ -508,9 +508,8 @@ static const char* videoStatusText(VideoFeedStatus status) {
   return nullptr;
 }
 
-void VideoUI::videoController() {
-  ImGui::SetNextWindowSize(ImVec2(640.0f, 400.0f), ImGuiCond_FirstUseEver);
-  const bool visible = ImGui::Begin("Video Controller");
+void VideoUI::videoController(ImGuiWindowFlags flags) {
+  const bool visible = ImGui::Begin("Video Controller", nullptr, flags);
   if (visible) {
     presentFrame();
     ImVec2 size = ImGui::GetContentRegionAvail();
