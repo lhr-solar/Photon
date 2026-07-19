@@ -14,6 +14,14 @@ struct AVFrame;
 struct AVPacket;
 struct SwsContext;
 
+enum class VideoFeedStatus : uint8_t {
+  Connecting,
+  WaitingForStream,
+  Synchronizing,
+  Streaming,
+  Error,
+};
+
 struct VideoFrameBuffer {
   std::vector<uint8_t> pixels;
   int width = 0;
@@ -34,6 +42,7 @@ struct VideoUI {
   std::chrono::steady_clock::time_point nextKeepalive;
   std::atomic<bool> stopRequested = false;
   std::atomic<bool> framePending = false;
+  std::atomic<VideoFeedStatus> feedStatus = VideoFeedStatus::Connecting;
   std::atomic<uint8_t> middleFrame = 1;
   uintptr_t socketHandle = UINTPTR_MAX;
   uint8_t backendFrame = 2;

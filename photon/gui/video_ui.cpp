@@ -164,9 +164,11 @@ VideoUI::~VideoUI() { stop(); }
 bool VideoUI::init() {
   if (backendThread.joinable()) return false;
   stopRequested.store(false, std::memory_order_relaxed);
+  feedStatus.store(VideoFeedStatus::Connecting, std::memory_order_relaxed);
   try {
     backendThread = std::thread(&VideoUI::backendLoop, this);
   } catch (...) {
+    feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
     return false;
   }
   return true;
@@ -236,11 +238,13 @@ bool VideoUI::initBackend() {
   accessUnit.reserve(1024 * 1024);
   sendSocket(socket, "videoClient keepalive", 21);
   nextKeepalive = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  feedStatus.store(VideoFeedStatus::WaitingForStream, std::memory_order_relaxed);
   return true;
 }
 
 void VideoUI::backendLoop() {
   if (!initBackend()) {
+    feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
     shutdownBackend();
     return;
   }
@@ -256,6 +260,8 @@ void VideoUI::backendLoop() {
     if (waitForSocket(nativeSocket(socketHandle)) == SOCKET_ERROR && !socketInterrupted()) break;
   }
 
+  if (!stopRequested.load(std::memory_order_relaxed))
+    feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
   shutdownBackend();
 }
 
@@ -285,6 +291,9 @@ int VideoUI::receiveAccessUnit() {
       return -1;
     }
     if (size < 12 || datagram[0] >> 6 != 2 || (datagram[1] & 0x7f) != RTP_PAYLOAD_TYPE) continue;
+    VideoFeedStatus waiting = VideoFeedStatus::WaitingForStream;
+    feedStatus.compare_exchange_strong(waiting, VideoFeedStatus::Synchronizing,
+                                       std::memory_order_relaxed);
 
     size_t headerSize = 12 + (datagram[0] & 0x0f) * 4;
     if (headerSize > static_cast<size_t>(size)) continue;
@@ -466,6 +475,7 @@ bool VideoUI::presentFrame() {
     videoTexture.Create(ImTextureFormat_RGBA32, input.width, input.height);
     ImGui::RegisterUserTexture(&videoTexture);
   } else if (videoTexture.Width != input.width || videoTexture.Height != input.height) {
+    feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
     return false;
   }
 
@@ -478,7 +488,24 @@ bool VideoUI::presentFrame() {
     videoTexture.Updates.push_back(update);
     videoTexture.SetStatus(ImTextureStatus_WantUpdates);
   }
+  feedStatus.store(VideoFeedStatus::Streaming, std::memory_order_relaxed);
   return true;
+}
+
+static const char* videoStatusText(VideoFeedStatus status) {
+  switch (status) {
+    case VideoFeedStatus::Connecting:
+      return "Connecting to video server...";
+    case VideoFeedStatus::WaitingForStream:
+      return "Waiting for video stream...";
+    case VideoFeedStatus::Synchronizing:
+      return "Video loading...";
+    case VideoFeedStatus::Error:
+      return "Video feed unavailable";
+    case VideoFeedStatus::Streaming:
+      return nullptr;
+  }
+  return nullptr;
 }
 
 void VideoUI::videoController() {
@@ -493,6 +520,14 @@ void VideoUI::videoController() {
       ImGui::Image(videoTexture.GetTexRef(), size);
     else
       ImGui::Dummy(size);
+    if (const char* text = videoStatusText(feedStatus.load(std::memory_order_relaxed))) {
+      const ImVec2 min = ImGui::GetItemRectMin();
+      const ImVec2 max = ImGui::GetItemRectMax();
+      const ImVec2 textSize = ImGui::CalcTextSize(text);
+      ImGui::GetWindowDrawList()->AddText(
+          {(min.x + max.x - textSize.x) / 2, (min.y + max.y - textSize.y) / 2},
+          IM_COL32(220, 220, 220, 255), text);
+    }
   }
   ImGui::End();
 }
