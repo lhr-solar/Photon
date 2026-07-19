@@ -1,4 +1,11 @@
-find_program(FFMPEG_BASH bash REQUIRED)
+if(WIN32)
+    find_program(FFMPEG_GIT_BASH bash.exe
+        PATHS "C:/Program Files/Git/bin" "$ENV{LOCALAPPDATA}/Programs/Git/bin"
+        NO_DEFAULT_PATH REQUIRED)
+    set(FFMPEG_BASH ${FFMPEG_GIT_BASH})
+else()
+    find_program(FFMPEG_BASH bash REQUIRED)
+endif()
 find_program(MAKE make REQUIRED)
 find_package(Threads REQUIRED)
 set(FFMPEG_BUILD ${CMAKE_BINARY_DIR}/ffmpeg)
