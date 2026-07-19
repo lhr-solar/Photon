@@ -14,8 +14,10 @@ enum class DBCType : uint32_t {
 
 struct Parse {
   Arena arena{};
-  DBCType activeDBC = DBCType::CarCAN;
-  std::string activeDBCLabel = "CarCAN";
+  // The kart needs the complete car-facing bundle. CarCAN alone omits BPS,
+  // motor-controller, steering, and DAQ frames such as MC_VelocityMeasurement.
+  DBCType activeDBC = DBCType::Lonestar;
+  std::string activeDBCLabel = "Lonestar";
   std::string activeDBCPath = {};
   void init();
   bool loadDBC(DBCType kind);
