@@ -1,4 +1,11 @@
-find_program(BASH bash REQUIRED)
+if(WIN32)
+    find_program(FFMPEG_BASH bash.exe
+        PATHS "C:/msys64/usr/bin" "C:/Program Files/Git/bin"
+              "$ENV{LOCALAPPDATA}/Programs/Git/bin"
+        NO_DEFAULT_PATH REQUIRED)
+else()
+    find_program(FFMPEG_BASH bash REQUIRED)
+endif()
 find_program(MAKE make REQUIRED)
 find_package(Threads REQUIRED)
 set(FFMPEG_BUILD ${CMAKE_BINARY_DIR}/ffmpeg)
@@ -8,7 +15,7 @@ set(FFMPEG_ARCHIVES
     ${FFMPEG_BUILD}/libswscale/libswscale.a
     ${FFMPEG_BUILD}/libavutil/libavutil.a)
 add_custom_command(OUTPUT ${FFMPEG_ARCHIVES}
-    COMMAND ${BASH} ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure --disable-everything
+    COMMAND ${FFMPEG_BASH} ${CMAKE_SOURCE_DIR}/.external/ffmpeg/configure --disable-everything
         --disable-autodetect --disable-iconv --disable-debug --disable-programs --disable-doc
         --disable-avdevice --disable-avformat --disable-avfilter
         --disable-swresample --disable-network --enable-static --disable-shared --enable-pic
