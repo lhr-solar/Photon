@@ -65,6 +65,39 @@ void drawLiveIndicator(float height, const PhotonUi::Palette& palette) {
   draw->AddText({min.x + height * 0.63f, centerY - textSize.y / 2},
                 PhotonUi::colorU32(palette.text), label);
 }
+
+bool drawTimelineSlider(double& value, double first, double last, float width,
+                        const PhotonUi::Palette& palette) {
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, PhotonUi::kFrameRounding);
+  ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, PhotonUi::kFrameRounding);
+  ImGui::PushStyleColor(ImGuiCol_FrameBg, PhotonUi::withAlpha(palette.panel, 0.82f));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, PhotonUi::withAlpha(palette.raised, 0.92f));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgActive, PhotonUi::withAlpha(palette.active, 0.92f));
+  ImGui::PushStyleColor(ImGuiCol_SliderGrab, PhotonUi::withAlpha(palette.accent, 0.70f));
+  ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, palette.accent);
+  ImGui::SetNextItemWidth(width);
+  const bool changed =
+      ImGui::SliderScalar("##TimelineTime", ImGuiDataType_Double, &value, &first, &last, "");
+  ImGui::PopStyleColor(5);
+  ImGui::PopStyleVar(2);
+
+  char timestamp[48];
+  formatTimestamp(value, timestamp, sizeof(timestamp));
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  const float iconWidth = max.y - min.y;
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  PhotonUi::drawIconCentered(draw, "\uea70", min, {min.x + iconWidth, max.y}, 16.0f,
+                             PhotonUi::colorU32(palette.muted), 1.0f);
+  const ImVec2 textSize = ImGui::CalcTextSize(timestamp);
+  draw->PushClipRect({min.x + iconWidth, min.y}, max, true);
+  draw->AddText({min.x + iconWidth + std::max(0.0f, (width - iconWidth - textSize.x) / 2),
+                 min.y + (max.y - min.y - textSize.y) / 2},
+                PhotonUi::colorU32(palette.text), timestamp);
+  draw->PopClipRect();
+  PhotonUi::tooltip("Timeline position");
+  return changed;
+}
 }  // namespace
 
 bool Plots::signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
@@ -179,35 +212,36 @@ void Plots::timeline(Arena& arena, ImVec2 pos, ImVec2 size) {
       ImGuiWindowFlags_NoBringToFrontOnFocus;
   if (ImGui::Begin("Timeline", nullptr, flags) && found) {
     const ImGuiStyle& style = ImGui::GetStyle();
+    const PhotonUi::Palette palette = PhotonUi::palette();
     const float spacing = style.ItemSpacing.x;
     const float buttonWidth = ImGui::GetFrameHeight();
     char scale[32];
-    std::snprintf(scale, sizeof(scale), "Scale %.3f s", windowSeconds);
-    const float scaleWidth = ImGui::CalcTextSize(scale).x + buttonWidth * 2 + spacing * 3;
-    const float statusWidth = followLatest
-                                  ? ImGui::CalcTextSize("Live").x
-                                  : ImGui::CalcTextSize("Go Live").x + style.FramePadding.x * 2;
-    ImGui::SetNextItemWidth(
-        std::max(2.0f, ImGui::GetContentRegionAvail().x - scaleWidth - statusWidth - spacing * 2));
+    std::snprintf(scale, sizeof(scale), "SCALE %.3f s", windowSeconds);
+    const float scaleValueWidth = ImGui::CalcTextSize(scale).x + style.FramePadding.x * 2;
+    const float statusWidth = followLatest ? ImGui::CalcTextSize("LIVE").x + buttonWidth
+                                           : ImGui::CalcTextSize("Go live").x + 50.0f;
+    const float timeWidth = std::max(2.0f, ImGui::GetContentRegionAvail().x - buttonWidth * 2 -
+                                               scaleValueWidth - statusWidth - spacing * 4);
     double nextCursor = cursor;
-    if (ImGui::SliderScalar("##TimelineTime", ImGuiDataType_Double, &nextCursor, &first, &last,
-                            "Time %.3f")) {
+    if (drawTimelineSlider(nextCursor, first, last, timeWidth, palette)) {
       cursor = nextCursor;
       followLatest = cursor >= last;
     }
     ImGui::SameLine();
-    if (ImGui::Button("-##TimelineScale", {buttonWidth, 0}))
+    if (PhotonUi::iconButton("TimelineScaleDown", "\ueaf2", "Show a shorter time range",
+                             {buttonWidth, buttonWidth}, palette))
       windowSeconds = std::max(0.001, windowSeconds / 2);
     ImGui::SameLine();
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(scale);
+    drawTimelineValue(scale, {scaleValueWidth, buttonWidth}, palette);
     ImGui::SameLine();
-    if (ImGui::Button("+##TimelineScale", {buttonWidth, 0})) windowSeconds *= 2;
+    if (PhotonUi::iconButton("TimelineScaleUp", "\ueb0b", "Show a longer time range",
+                             {buttonWidth, buttonWidth}, palette))
+      windowSeconds *= 2;
     ImGui::SameLine();
     if (followLatest) {
-      ImGui::AlignTextToFramePadding();
-      ImGui::TextUnformatted("Live");
-    } else if (ImGui::Button("Go Live")) {
+      drawLiveIndicator(buttonWidth, palette);
+    } else if (PhotonUi::rowButton("TimelineGoLive", "\ued46", "Go live",
+                                   {statusWidth, buttonWidth}, palette)) {
       cursor = last;
       followLatest = true;
     }
