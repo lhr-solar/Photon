@@ -15,7 +15,7 @@ struct Network {
   void destroy();
   void backend(std::stop_token stoken);
   void startTCP(TCPConfig config);
-  void requestTimeline(double seconds);
+  void requestTimeline(uint16_t command, double seconds = 0.0);
   void stopWriter();
   bool switchDBC(DBCType kind);
   bool switchDBCFile(const std::string& path);

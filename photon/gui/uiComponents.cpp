@@ -251,7 +251,7 @@ bool button(const char* id, std::string_view text, ImVec2 size, const Palette& p
 }
 
 bool iconButton(const char* id, const char* icon, std::string_view tooltipText, ImVec2 size,
-                const Palette& palette, bool selected) {
+                const Palette& palette, bool selected, float iconSize) {
   ImGui::PushID(id);
   const ControlState state = control("icon", size, selected, 0.62f, 1.0f);
   ImDrawList* draw = ImGui::GetWindowDrawList();
@@ -260,14 +260,15 @@ bool iconButton(const char* id, const char* icon, std::string_view tooltipText, 
   draw->AddRect(state.min, state.max,
                 colorU32(withAlpha(palette.border, 0.42f + state.focus * 0.24f)), 8.0f);
   const ImVec4 iconColor = mixColor(palette.muted, palette.text, 0.35f + state.focus * 0.65f);
-  drawIconCentered(draw, icon, state.min, state.max, 17.0f, colorU32(iconColor), 1.0f);
+  drawIconCentered(draw, icon, state.min, state.max, iconSize, colorU32(iconColor), 1.0f);
   tooltip(tooltipText);
   ImGui::PopID();
   return state.clicked;
 }
 
 bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
-               const Palette& palette, bool selected, bool disabled, bool transparent) {
+               const Palette& palette, bool selected, bool disabled, bool transparent,
+               float textSize, float iconSize) {
   ImGui::PushID(id);
   if (disabled) ImGui::BeginDisabled();
   const ControlState state = control("row", size, selected, 0.62f, 1.0f);
@@ -285,12 +286,26 @@ bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 s
     draw->AddRect(state.min, state.max,
                   colorU32(withAlpha(palette.border, 0.40f + state.focus * 0.24f)), 8.0f);
   }
-  if (icon && icon[0] != '\0')
-    drawIconCentered(draw, icon, {state.min.x + 8.0f, state.min.y},
-                     {state.min.x + 32.0f, state.max.y}, 17.0f, colorU32(fg), 1.0f);
-  const float textX = icon && icon[0] != '\0' ? state.min.x + 38.0f : state.min.x + 12.0f;
+  const bool hasIcon = icon && icon[0] != '\0';
+  const bool customSizing = textSize > 0.0f;
+  ImFont* font = ImGui::GetFont();
+  textSize = textSize > 0.0f ? textSize : ImGui::GetFontSize();
+  const ImVec2 labelSize =
+      font->CalcTextSizeA(textSize, FLT_MAX, 0.0f, text.data(), text.data() + text.size());
+  const float contentX =
+      customSizing ? state.min.x + (size.x - size.y - 4.0f - labelSize.x) * 0.5f : state.min.x;
+  if (hasIcon)
+    drawIconCentered(
+        draw, icon,
+        customSizing ? ImVec2{contentX, state.min.y} : ImVec2{state.min.x + 8.0f, state.min.y},
+        customSizing ? ImVec2{contentX + size.y, state.max.y}
+                     : ImVec2{state.min.x + 32.0f, state.max.y},
+        iconSize, colorU32(fg), 1.0f);
+  const float textX =
+      hasIcon ? (customSizing ? contentX + size.y + 4.0f : state.min.x + 38.0f)
+              : (customSizing ? state.min.x + (size.x - labelSize.x) * 0.5f : state.min.x + 12.0f);
   draw->PushClipRect({textX, state.min.y}, {state.max.x - 10.0f, state.max.y}, true);
-  draw->AddText({textX, state.min.y + (size.y - ImGui::GetTextLineHeight()) * 0.5f}, colorU32(fg),
+  draw->AddText(font, textSize, {textX, state.min.y + (size.y - labelSize.y) * 0.5f}, colorU32(fg),
                 text.data(), text.data() + text.size());
   draw->PopClipRect();
   tooltip(text);

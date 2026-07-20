@@ -77,10 +77,10 @@ ControlState control(const char* id, ImVec2 size, bool selected = false, float h
 bool button(const char* id, std::string_view text, ImVec2 size, const Palette& palette,
             bool selected = false, std::string_view tooltipText = {});
 bool iconButton(const char* id, const char* icon, std::string_view tooltipText, ImVec2 size,
-                const Palette& palette, bool selected = false);
+                const Palette& palette, bool selected = false, float iconSize = 17.0f);
 bool rowButton(const char* id, const char* icon, std::string_view text, ImVec2 size,
                const Palette& palette, bool selected = false, bool disabled = false,
-               bool transparent = false);
+               bool transparent = false, float textSize = 0.0f, float iconSize = 17.0f);
 void infoPanel(const char* id, std::string_view heading, std::string_view body, ImVec2 size,
                const Palette& palette);
 

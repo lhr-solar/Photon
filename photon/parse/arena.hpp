@@ -64,6 +64,8 @@ struct Arena {
   uint32_t totalTimeBuffers = {};
   uint32_t totalBuffers = {};
   uint64_t generation = {};
+  std::atomic<uint32_t> readers{};
+  std::atomic<bool> resetting{};
   std::vector<uint32_t> validIds{};
   std::array<Message*, MESSAGE_MAX> messages{};
 
@@ -74,9 +76,22 @@ struct Arena {
   void readTime(uint32_t id, void** data, uint32_t* size);
   bool writeTime(uint32_t id, void* data, uint32_t size);
   bool appendFrame(uint32_t id, double timeValue, const double* signalValues, uint32_t signalCount);
+  void beginRead();
+  void endRead();
+  void beginReset();
+  void endReset();
   void clear(uint32_t signal);
+  void clearAll();
   void destroy();
 
   void status();
   void statusUI(int flags);
+};
+
+struct ArenaReadScope {
+  explicit ArenaReadScope(Arena& arena) : arena(arena) { arena.beginRead(); }
+  ~ArenaReadScope() { arena.endRead(); }
+  ArenaReadScope(const ArenaReadScope&) = delete;
+  ArenaReadScope& operator=(const ArenaReadScope&) = delete;
+  Arena& arena;
 };

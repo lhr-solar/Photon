@@ -27,8 +27,13 @@ extern "C" {
 #define CANP_VERSION 3u
 #define CANP_MAX_BATCH 64u
 #define CANP_TIMELINE_MAGIC 0x544C4E31u /* "TLN1" */
-#define CANP_TIMELINE_VERSION 1u
-#define CANP_TIMELINE_SEEK 1u
+#define CANP_TIMELINE_VERSION 2u
+#define CANP_TIMELINE_PAUSE 1u
+#define CANP_TIMELINE_PLAY 2u
+#define CANP_TIMELINE_LIVE 3u
+#define CANP_TIMELINE_UNAVAILABLE 4u
+#define CANP_TIMELINE_STATUS_MAGIC 0x544C5331u /* "TLS1" */
+#define CANP_TIMELINE_STATUS_VERSION 1u
 
 #ifdef _MSC_VER
 #define CANP_PACKED_BEGIN __pragma(pack(push, 1))
@@ -45,6 +50,7 @@ extern "C" {
 #define CANP_TIMELINE_REQUEST_SIZE 16u
 
 typedef enum {
+  CANP_READ_TIMELINE_STATUS = 2,
   CANP_READ_OK = 1,
   CANP_READ_CLOSED = 0,
   CANP_READ_SOCKET_ERROR = -1,
@@ -78,17 +84,28 @@ typedef struct CANP_PACKED {
   uint16_t command;
   uint64_t timestamp;
 } canpTimelineRequest_t;
+
+typedef struct CANP_PACKED {
+  uint32_t magic;
+  uint16_t version;
+  uint16_t mode;
+  uint32_t generation;
+  uint64_t timestamp;
+} canpTimelineStatus_t;
 CANP_PACKED_END
 
 #ifdef __cplusplus
 static_assert(sizeof(canpHeader_t) == CANP_HEADER_SIZE);
 static_assert(sizeof(canpPacket_t) == CANP_PACKET_SIZE);
 static_assert(sizeof(canpTimelineRequest_t) == CANP_TIMELINE_REQUEST_SIZE);
+static_assert(sizeof(canpTimelineStatus_t) == CANP_HEADER_SIZE);
 #else
 _Static_assert(sizeof(canpHeader_t) == CANP_HEADER_SIZE, "unexpected CANP header size");
 _Static_assert(sizeof(canpPacket_t) == CANP_PACKET_SIZE, "unexpected CANP packet size");
 _Static_assert(sizeof(canpTimelineRequest_t) == CANP_TIMELINE_REQUEST_SIZE,
                "unexpected CANP timeline request size");
+_Static_assert(sizeof(canpTimelineStatus_t) == CANP_HEADER_SIZE,
+               "unexpected CANP timeline status size");
 #endif
 
 typedef struct {
@@ -103,7 +120,8 @@ int canpRead(canpSocket_t fd, void* buf, size_t n);
 
 int canpWriteBatch(canpSocket_t fd, canpBatch_t* batch);
 int canpReadBatch(canpSocket_t fd, canpBatch_t* batch);
-int canpWriteTimelineSeek(canpSocket_t fd, uint64_t timestamp);
+int canpReadStream(canpSocket_t fd, canpBatch_t* batch, canpTimelineStatus_t* status);
+int canpWriteTimelineCommand(canpSocket_t fd, uint16_t command, uint64_t timestamp);
 
 int canpRelayBatch(canpSocket_t in_fd, canpSocket_t out_fd);
 void canpPrintBatch(canpBatch_t* batch);

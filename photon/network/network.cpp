@@ -22,10 +22,11 @@ void Network::startTCP(TCPConfig config) {
   });
 }
 
-void Network::requestTimeline(double seconds) {
+void Network::requestTimeline(uint16_t command, double seconds) {
   if (!std::isfinite(seconds) || seconds < 0.0) return;
-  timelineCursor.timestampMs.store(static_cast<uint64_t>(std::llround(seconds * 1000.0)),
-                                   std::memory_order_relaxed);
+  timelineCursor.request.store(
+      TimelineCursorMailbox::pack(command, static_cast<uint64_t>(std::llround(seconds * 1000.0))),
+      std::memory_order_relaxed);
   timelineCursor.sequence.fetch_add(1, std::memory_order_release);
   timelineCursor.sequence.notify_one();
 }

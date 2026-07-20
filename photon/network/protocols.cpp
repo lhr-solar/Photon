@@ -43,8 +43,10 @@ void sendTimelineRequests(std::stop_token stoken, SocketHandle sock,
     timelineCursor.sequence.wait(observed, std::memory_order_acquire);
     if (stoken.stop_requested()) break;
     observed = timelineCursor.sequence.load(std::memory_order_acquire);
-    const uint64_t timestamp = timelineCursor.timestampMs.load(std::memory_order_relaxed);
-    if (canpWriteTimelineSeek(sock, timestamp) != 1) break;
+    const uint64_t request = timelineCursor.request.load(std::memory_order_relaxed);
+    if (canpWriteTimelineCommand(sock, TimelineCursorMailbox::command(request),
+                                 TimelineCursorMailbox::timestamp(request)) != 1)
+      break;
   }
 }
 
@@ -379,8 +381,7 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
       });
 
   canpBatch_t batch{};
-  uint64_t previousTimestamp = 0;
-  bool haveTimestamp = false;
+  canpTimelineStatus_t timelineStatus{};
   while (!stoken.stop_requested()) {
     std::string waitError{};
     const SocketWaitResult waitResult = waitForReadable(sock, stoken, waitError);
@@ -390,13 +391,22 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
       break;
     }
 
-    int readStatus = canpReadBatch(sock, &batch);
+    int readStatus = canpReadStream(sock, &batch, &timelineStatus);
+    if (readStatus == CANP_READ_TIMELINE_STATUS) {
+      if (timelineStatus.mode == CANP_TIMELINE_PLAY || timelineStatus.mode == CANP_TIMELINE_LIVE) {
+        arena.clearAll();
+        timelineCursor.latestTimestampMs.store(0, std::memory_order_relaxed);
+      }
+      timelineCursor.response.store(
+          TimelineCursorMailbox::pack(timelineStatus.mode, timelineStatus.timestamp),
+          std::memory_order_relaxed);
+      timelineCursor.statusSequence.fetch_add(1, std::memory_order_release);
+      timelineCursor.statusSequence.notify_all();
+      continue;
+    }
     if (readStatus == CANP_READ_OK) {
-      if (haveTimestamp && batch.timestamp < previousTimestamp)
-        for (uint32_t id : arena.validIds) arena.clear(id);
-      previousTimestamp = batch.timestamp;
-      haveTimestamp = true;
       handleNetwork(batch, arena);
+      timelineCursor.latestTimestampMs.store(batch.timestamp, std::memory_order_release);
       continue;
     }
     if (readStatus == CANP_READ_CLOSED) {

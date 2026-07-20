@@ -1,6 +1,7 @@
 #include "plots.hpp"
 
 #include <algorithm>
+#include <cfloat>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -50,7 +51,8 @@ void formatTimestamp(double seconds, char* text, size_t size) {
                 local.tm_sec, milliseconds, local.tm_hour < 12 ? "AM" : "PM");
 }
 
-void drawTimelineValue(const char* text, ImVec2 size, const PhotonUi::Palette& palette) {
+void drawTimelineValue(const char* text, ImVec2 size, const PhotonUi::Palette& palette,
+                       float fontSize) {
   ImGui::Dummy(size);
   const ImVec2 min = ImGui::GetItemRectMin();
   const ImVec2 max = ImGui::GetItemRectMax();
@@ -59,14 +61,16 @@ void drawTimelineValue(const char* text, ImVec2 size, const PhotonUi::Palette& p
                       PhotonUi::kFrameRounding);
   draw->AddRect(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.42f)),
                 PhotonUi::kFrameRounding);
-  const ImVec2 textSize = ImGui::CalcTextSize(text);
+  ImFont* font = ImGui::GetFont();
+  const ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text);
   draw->PushClipRect(min, max, true);
-  draw->AddText({min.x + (size.x - textSize.x) / 2, min.y + (size.y - textSize.y) / 2},
+  draw->AddText(font, fontSize,
+                {min.x + (size.x - textSize.x) / 2, min.y + (size.y - textSize.y) / 2},
                 PhotonUi::colorU32(palette.text), text);
   draw->PopClipRect();
 }
 
-void drawLiveIndicator(ImVec2 size, const PhotonUi::Palette& palette) {
+void drawLiveIndicator(ImVec2 size, const PhotonUi::Palette& palette, float fontSize) {
   const char* label = "LIVE";
   ImGui::Dummy(size);
   const ImVec2 min = ImGui::GetItemRectMin();
@@ -76,15 +80,16 @@ void drawLiveIndicator(ImVec2 size, const PhotonUi::Palette& palette) {
                       PhotonUi::kFrameRounding);
   draw->AddRect(min, max, PhotonUi::colorU32(PhotonUi::withAlpha(palette.accent, 0.42f)),
                 PhotonUi::kFrameRounding);
-  const ImVec2 textSize = ImGui::CalcTextSize(label);
+  ImFont* font = ImGui::GetFont();
+  const ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label);
   const float centerY = (min.y + max.y) / 2;
   const float radius = std::max(2.5f, size.y * 0.11f);
   const float gap = size.y * 0.18f;
   const float contentWidth = radius * 2 + gap + textSize.x;
   const float dotX = min.x + (size.x - contentWidth) / 2 + radius;
   draw->AddCircleFilled({dotX, centerY}, radius, IM_COL32(56, 220, 116, 255));
-  draw->AddText({dotX + radius + gap, centerY - textSize.y / 2}, PhotonUi::colorU32(palette.text),
-                label);
+  draw->AddText(font, fontSize, {dotX + radius + gap, centerY - textSize.y / 2},
+                PhotonUi::colorU32(palette.text), label);
 }
 
 struct TimelineNavigation {
@@ -94,15 +99,19 @@ struct TimelineNavigation {
   bool hidden{};
 };
 
-TimelineNavigation drawTimelineNavigator(int level, int value, int limit, float width,
+enum class TimelineDateMode : uint8_t { Hidden, Icon, Compact, Full };
+
+TimelineNavigation drawTimelineNavigator(int level, int value, int limit, ImVec2 size,
                                          uint8_t& dragging, const PhotonUi::Palette& palette,
-                                         const char* clock, bool floating = false,
-                                         bool hideable = false) {
+                                         const char* clock, float fontSize, float iconSize,
+                                         bool floating = false, bool hideable = false) {
   static constexpr int counts[] = {24, 60, 60};
   static constexpr const char* names[] = {"HOUR", "MIN", "SEC"};
   TimelineNavigation result{.value = value};
-  const float height = ImGui::GetFrameHeight();
-  ImGui::InvisibleButton("##TimelineTime", {width, height});
+  const float width = size.x;
+  const float height = size.y;
+  ImFont* font = ImGui::GetFont();
+  ImGui::InvisibleButton("##TimelineTime", size);
   const ImVec2 min = ImGui::GetItemRectMin();
   const ImVec2 max = ImGui::GetItemRectMax();
   const bool hovered = ImGui::IsItemHovered();
@@ -115,7 +124,7 @@ TimelineNavigation drawTimelineNavigator(int level, int value, int limit, float 
                 PhotonUi::kFrameRounding);
 
   const float closeWidth = floating ? height : 0.0f;
-  const float labelWidth = std::min(height * (floating ? 3.35f : 2.35f), width * 0.28f);
+  const float labelWidth = std::min(height * 2.35f, width * 0.28f);
   float clockWidth = width >= 190.0f ? std::min(height * 3.0f, width * 0.30f) : 0.0f;
   float railMin = min.x + labelWidth + 6.0f;
   float railMax = max.x - clockWidth - 10.0f;
@@ -163,10 +172,11 @@ TimelineNavigation drawTimelineNavigator(int level, int value, int limit, float 
                                                   : palette.border),
                   PhotonUi::kFrameRounding);
     PhotonUi::drawIconCentered(
-        draw, "\ueb55", closeMin, closeMax, height * 0.46f,
+        draw, "\ueb55", closeMin, closeMax, iconSize,
         PhotonUi::colorU32(PhotonUi::withAlpha(palette.text, closeHovered ? 1.0f : 0.82f)), 1.0f);
   }
-  draw->AddText({min.x + closeWidth + 10.0f, min.y + (height - ImGui::GetTextLineHeight()) * 0.5f},
+  const ImVec2 nameSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, names[level]);
+  draw->AddText(font, fontSize, {min.x + closeWidth + 10.0f, min.y + (height - nameSize.y) * 0.5f},
                 PhotonUi::colorU32(palette.muted), names[level]);
 
   const float baseline = max.y - 6.0f;
@@ -193,8 +203,9 @@ TimelineNavigation drawTimelineNavigator(int level, int value, int limit, float 
         std::snprintf(label, sizeof(label), "%d%s", displayHour(tick), tick < 12 ? "AM" : "PM");
       else
         std::snprintf(label, sizeof(label), "%02d", tick);
-      const float textWidth = ImGui::CalcTextSize(label).x;
-      draw->AddText({x - textWidth * 0.5f, min.y + 2.0f}, PhotonUi::colorU32(palette.muted), label);
+      const float textWidth = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label).x;
+      draw->AddText(font, fontSize, {x - textWidth * 0.5f, min.y + 2.0f},
+                    PhotonUi::colorU32(palette.muted), label);
     }
   }
   const float selectedX = railMin + railWidth * result.value / (count - 1);
@@ -207,34 +218,10 @@ TimelineNavigation drawTimelineNavigator(int level, int value, int limit, float 
   draw->AddCircleFilled(handle, held ? 4.0f : 3.5f, PhotonUi::colorU32(palette.accent));
   draw->AddCircle(handle, held ? 4.0f : 3.5f, PhotonUi::colorU32(palette.text), 0, 1.0f);
 
-  if (held) {
-    char notch[8];
-    if (level == 0)
-      std::snprintf(notch, sizeof(notch), "%d %s", displayHour(result.value),
-                    result.value < 12 ? "AM" : "PM");
-    else
-      std::snprintf(notch, sizeof(notch), "%02d %c", result.value, "HMS"[level]);
-    const ImVec2 textSize = ImGui::CalcTextSize(notch);
-    const float badgeWidth = textSize.x + 14.0f;
-    const float badgeBottom = min.y - 5.0f;
-    const float badgeX =
-        std::clamp(selectedX - badgeWidth * 0.5f, railMin, std::max(railMin, railMax - badgeWidth));
-    const ImVec2 badgeMin{badgeX, badgeBottom - textSize.y - 6.0f};
-    const ImVec2 badgeMax{badgeX + badgeWidth, badgeBottom};
-    draw->PushClipRectFullScreen();
-    draw->AddRectFilled({badgeMin.x + 1.0f, badgeMin.y + 2.0f},
-                        {badgeMax.x + 1.0f, badgeMax.y + 2.0f},
-                        PhotonUi::colorU32(PhotonUi::withAlpha(palette.bg, 0.55f)), 5.0f);
-    draw->AddRectFilled(badgeMin, badgeMax, PhotonUi::colorU32(palette.accent), 5.0f);
-    draw->AddTriangleFilled({selectedX - 4.0f, badgeBottom}, {selectedX + 4.0f, badgeBottom},
-                            {selectedX, min.y}, PhotonUi::colorU32(palette.accent));
-    draw->AddText({badgeX + 7.0f, badgeMin.y + 3.0f}, PhotonUi::colorU32(palette.text), notch);
-    draw->PopClipRect();
-  }
-
   if (clockWidth > 0.0f) {
-    const ImVec2 textSize = ImGui::CalcTextSize(clock);
-    draw->AddText({max.x - clockWidth + (clockWidth - textSize.x) * 0.5f,
+    const ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, clock);
+    draw->AddText(font, fontSize,
+                  {max.x - clockWidth + (clockWidth - textSize.x) * 0.5f,
                    min.y + (height - textSize.y) * 0.5f},
                   PhotonUi::colorU32(palette.text), clock);
   }
@@ -268,14 +255,20 @@ bool drawCalendarPopup(int& year, int& month, double cursor, double liveTime, do
 
   constexpr float cell = 30.0f;
   const float spacing = ImGui::GetStyle().ItemSpacing.x;
+  constexpr float padding = 10.0f;
   const float width = cell * 7 + spacing * 6;
-  ImGui::SetNextWindowSize({width + ImGui::GetStyle().WindowPadding.x * 2, 0});
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {10.0f, 10.0f});
+  ImGui::SetNextWindowSize({width + padding * 2.0f, 0});
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {padding, padding});
   ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, PhotonUi::kPopupRounding);
   ImGui::PushStyleColor(ImGuiCol_PopupBg, PhotonUi::withAlpha(palette.bg, 0.98f));
   ImGui::PushStyleColor(ImGuiCol_Border, PhotonUi::withAlpha(palette.border, 0.72f));
   bool changed = false;
   if (ImGui::BeginPopup("TimelineCalendar", ImGuiWindowFlags_AlwaysAutoResize)) {
+    constexpr float calendarFontSize = 14.0f;
+    const float previousFontScale = ImGui::GetCurrentWindow()->FontWindowScale;
+    const float windowIndependentFontSize =
+        ImGui::GetFontSize() / std::max(previousFontScale, 0.001f);
+    ImGui::SetWindowFontScale(calendarFontSize / std::max(windowIndependentFontSize, 1.0f));
     PhotonUi::pushInputStyle(palette);
     ImGui::SetNextItemWidth(width - 88.0f - spacing);
     if (ImGui::BeginCombo("##CalendarMonth", months[month])) {
@@ -302,12 +295,13 @@ bool drawCalendarPopup(int& year, int& month, double cursor, double liveTime, do
     PhotonUi::popInputStyle();
     if (year == liveDate.tm_year + 1900) month = std::min(month, liveDate.tm_mon);
 
+    const ImVec2 weekdayStart = ImGui::GetCursorPos();
+    const float weekdayHeight = ImGui::GetTextLineHeight();
     for (int column = 0; column < 7; ++column) {
-      if (column) ImGui::SameLine();
       const float textWidth = ImGui::CalcTextSize(weekdays[column]).x;
-      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (cell - textWidth) * 0.5f);
+      ImGui::SetCursorPos(
+          {weekdayStart.x + column * (cell + spacing) + (cell - textWidth) * 0.5f, weekdayStart.y});
       ImGui::TextDisabled("%s", weekdays[column]);
-      if (column != 6) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (cell - textWidth) * 0.5f);
     }
 
     std::tm first{};
@@ -319,13 +313,14 @@ bool drawCalendarPopup(int& year, int& month, double cursor, double liveTime, do
     static constexpr int monthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     const bool leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     const int days = monthDays[month] + (month == 1 && leap);
+    const ImVec2 dayStart{weekdayStart.x, weekdayStart.y + weekdayHeight + spacing};
     for (int slot = 0; slot < first.tm_wday + days; ++slot) {
-      if (slot % 7) ImGui::SameLine();
       const int day = slot - first.tm_wday + 1;
-      if (day < 1) {
-        ImGui::Dummy({cell, cell});
-        continue;
-      }
+      if (day < 1) continue;
+      const int column = slot % 7;
+      const int row = slot / 7;
+      ImGui::SetCursorPos(
+          {dayStart.x + column * (cell + spacing), dayStart.y + row * (cell + spacing)});
       const bool future =
           year == liveDate.tm_year + 1900 && month == liveDate.tm_mon && day > liveDate.tm_mday;
       char label[3];
@@ -347,6 +342,9 @@ bool drawCalendarPopup(int& year, int& month, double cursor, double liveTime, do
       ImGui::PopID();
       ImGui::EndDisabled();
     }
+    const int rows = (first.tm_wday + days + 6) / 7;
+    ImGui::SetCursorPos({dayStart.x, dayStart.y + rows * cell + std::max(0, rows - 1) * spacing});
+    ImGui::SetWindowFontScale(previousFontScale);
     ImGui::EndPopup();
   }
   ImGui::PopStyleColor(2);
@@ -404,6 +402,7 @@ bool Plots::signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
 
 bool Plots::signalStatic(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
                          const ImPlotSpec& spec) {
+  ArenaReadScope read(arena);
   void* data = nullptr;
   void* time = nullptr;
   uint32_t timeBytes = 0;
@@ -443,52 +442,71 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
       std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
   double first = 0;
   double last = 0;
-  double locallyAvailableFrom = 0;
   bool found = false;
-  for (uint32_t id : arena.validIds) {
-    Message* msg = arena.messages[id];
-    const uint32_t count = msg->signalSize.value.load(std::memory_order_acquire) / sizeof(double);
-    if (!count) continue;
-    const auto* time = static_cast<const double*>(msg->timeData);
-    first = found ? std::min(first, time[0]) : time[0];
-    last = found ? std::max(last, time[count - 1]) : time[count - 1];
-    locallyAvailableFrom = found ? std::max(locallyAvailableFrom, time[0]) : time[0];
-    found = true;
+  {
+    ArenaReadScope read(arena);
+    for (uint32_t id : arena.validIds) {
+      Message* msg = arena.messages[id];
+      const uint32_t count = msg->signalSize.value.load(std::memory_order_acquire) / sizeof(double);
+      if (!count) continue;
+      const auto* time = static_cast<const double*>(msg->timeData);
+      first = found ? std::min(first, time[0]) : time[0];
+      last = found ? std::max(last, time[count - 1]) : time[count - 1];
+      found = true;
+    }
   }
-  if (found) {
-    if (followLatest)
-      cursor = systemNow;
-    else if (!serverConnected)
-      cursor = std::clamp(cursor, first, last);
-  } else if (followLatest && serverConnected)
-    cursor = systemNow;
-  if (playing && (serverConnected || (found && first <= cursor && last >= cursor))) {
+  if (timelineMode == TimelineMode::Live) cursor = systemNow;
+  if (timelineMode == TimelineMode::Buffering) {
+    if (!serverConnected) {
+      timelineMode = TimelineMode::Paused;
+    } else if (network && network->timelineCursor.statusSequence.load(std::memory_order_acquire) !=
+                              playbackStatusSequence) {
+      const uint64_t response = network->timelineCursor.response.load(std::memory_order_relaxed);
+      const uint16_t status = TimelineCursorMailbox::command(response);
+      if (status == CANP_TIMELINE_UNAVAILABLE) {
+        timelineMode = TimelineMode::Unavailable;
+      } else if (status == CANP_TIMELINE_PLAY) {
+        const uint64_t latest =
+            network->timelineCursor.latestTimestampMs.load(std::memory_order_acquire);
+        if (cursor >= playTarget) {
+          timelineMode = TimelineMode::Live;
+          cursor = systemNow;
+          network->requestTimeline(CANP_TIMELINE_LIVE);
+        } else if (latest >= static_cast<uint64_t>(std::min(cursor + 2.0, playTarget) * 1000.0) ||
+                   (latest >= static_cast<uint64_t>(cursor * 1000.0) &&
+                    ImGui::GetTime() - bufferingSince >= 0.25)) {
+          timelineMode = TimelineMode::Playing;
+        }
+      }
+    }
+  }
+  if (timelineMode == TimelineMode::Playing &&
+      (serverConnected || (found && first <= cursor && last >= cursor))) {
     cursor = std::min(cursor + ImGui::GetIO().DeltaTime, playTarget);
     if (!serverConnected) cursor = std::min(cursor, last);
     if (cursor >= playTarget) {
-      playing = false;
-      followLatest = true;
+      timelineMode = TimelineMode::Live;
       cursor = systemNow;
-      if (serverConnected && network) network->requestTimeline(cursor);
+      if (serverConnected && network) network->requestTimeline(CANP_TIMELINE_LIVE);
     }
   }
-  if (followLatest) timelineLevel = 0;
+  if (timelineMode == TimelineMode::Live) timelineLevel = 0;
 
   ImGui::SetNextWindowPos(pos);
   ImGui::SetNextWindowSize(size);
   ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
   const ImGuiStyle& baseStyle = ImGui::GetStyle();
-  const float timelineFramePaddingY =
-      std::min(baseStyle.FramePadding.y, std::max(2.0f, (size.y - ImGui::GetFontSize()) * 0.5f));
-  const float timelineFrameHeight = ImGui::GetFontSize() + timelineFramePaddingY * 2.0f;
+  const float controlHeight = std::min(size.y, 30.0f);
+  const float timelineFontSize = controlHeight * 0.42f;
+  const float timelineIconSize = controlHeight * 0.47f;
+  const float timelineFramePaddingY = std::max(0.0f, (controlHeight - ImGui::GetFontSize()) * 0.5f);
+  const float timelineWindowPaddingY = std::max(0.0f, (size.y - controlHeight) * 0.5f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, {0, 0});
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
                       {baseStyle.FramePadding.x, timelineFramePaddingY});
-  ImGui::PushStyleVar(
-      ImGuiStyleVar_WindowPadding,
-      {baseStyle.WindowPadding.x, std::max(0.0f, (size.y - timelineFrameHeight) / 2)});
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.0f, timelineWindowPaddingY});
   ImVec4 windowBg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
   windowBg.w = 0.85f;
   ImGui::PushStyleColor(ImGuiCol_WindowBg, windowBg);
@@ -498,7 +516,6 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
       ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavFocus |
       ImGuiWindowFlags_NoBringToFrontOnFocus;
   if (ImGui::Begin("Timeline", nullptr, flags) && (found || serverConnected)) {
-    const ImGuiStyle& style = ImGui::GetStyle();
     const PhotonUi::Palette palette = PhotonUi::palette();
     PhotonUi::Palette goLivePalette = palette;
     const ImVec4 softRed{0.90f, 0.24f, 0.28f, 1.0f};
@@ -506,58 +523,11 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
     goLivePalette.active = PhotonUi::mixColor(palette.active, softRed, 0.52f);
     goLivePalette.border = PhotonUi::mixColor(palette.border, softRed, 0.48f);
     goLivePalette.muted = PhotonUi::mixColor(palette.muted, softRed, 0.18f);
-    const float spacing = style.ItemSpacing.x;
-    const float buttonWidth = ImGui::GetFrameHeight();
+    constexpr float spacing = 6.0f;
+    constexpr float maxTimelineWidth = 640.0f;
+    const float buttonWidth = controlHeight;
     const float availableWidth = std::max(0.0f, ImGui::GetContentRegionAvail().x);
     constexpr float minSliderWidth = 96.0f;
-    const float fullDateWidth = buttonWidth * 5.25f;
-    const float compactDateWidth = buttonWidth * 3.30f;
-    const float scaleValueWidth = buttonWidth * 4.25f;
-    const float playWidth = buttonWidth * 4.75f;
-    const float statusWidth = buttonWidth * 3.5f;
-    char scale[32];
-    std::snprintf(scale, sizeof(scale), "RANGE %.3f s", windowSeconds);
-
-    bool showDate = false;
-    bool compactDate = false;
-    bool showScaleButtons = false;
-    bool showScaleValue = false;
-    bool showPlay = false;
-    bool showStatus = false;
-    float dateWidth = fullDateWidth;
-    float timeWidth = std::max(2.0f, availableWidth);
-
-    const auto fits = [&](float nonSliderWidth, int visibleItems) {
-      const float spacingWidth = spacing * static_cast<float>(std::max(0, visibleItems - 1));
-      return availableWidth >= nonSliderWidth + minSliderWidth + spacingWidth;
-    };
-
-    if (fits(fullDateWidth + buttonWidth * 2.0f + scaleValueWidth + playWidth + statusWidth, 7)) {
-      showDate = true;
-      showScaleButtons = true;
-      showScaleValue = true;
-      showPlay = true;
-      showStatus = true;
-      timeWidth = availableWidth - fullDateWidth - buttonWidth * 2.0f - scaleValueWidth -
-                  playWidth - statusWidth - spacing * 6.0f;
-    } else if (fits(fullDateWidth + buttonWidth * 2.0f + statusWidth, 5)) {
-      showDate = true;
-      showScaleButtons = true;
-      showStatus = true;
-      timeWidth =
-          availableWidth - fullDateWidth - buttonWidth * 2.0f - statusWidth - spacing * 4.0f;
-    } else if (fits(compactDateWidth + statusWidth, 3)) {
-      showDate = true;
-      compactDate = true;
-      showStatus = true;
-      dateWidth = compactDateWidth;
-      timeWidth = availableWidth - compactDateWidth - statusWidth - spacing * 2.0f;
-    } else if (fits(statusWidth, 2)) {
-      showStatus = true;
-      timeWidth = availableWidth - statusWidth - spacing;
-    }
-    timeWidth = std::max(2.0f, timeWidth);
-
     const double liveTime = systemNow;
     std::tm cursorDate{}, liveDate{};
     localTime(cursor, cursorDate);
@@ -571,6 +541,87 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
     std::snprintf(compactDateLabel, sizeof(compactDateLabel), "%02d-%02d", cursorDate.tm_mon + 1,
                   cursorDate.tm_mday);
 
+    ImFont* font = ImGui::GetFont();
+    const auto timelineRowButtonWidth = [&](const char* label) {
+      const float labelWidth = font->CalcTextSizeA(timelineFontSize, FLT_MAX, 0.0f, label).x;
+      return std::ceil(buttonWidth + labelWidth + 24.0f);
+    };
+    const float fullDateWidth = timelineRowButtonWidth(date);
+    const float compactDateWidth = timelineRowButtonWidth(compactDateLabel);
+    const float iconDateWidth = buttonWidth;
+    const float scaleValueWidth = buttonWidth * 4.25f;
+    const float playWidth = buttonWidth * 4.75f;
+    const float statusWidth = buttonWidth * 3.5f;
+    const float activePlayWidth = timelineMode == TimelineMode::Live ? 0.0f : playWidth;
+    char scale[32];
+    std::snprintf(scale, sizeof(scale), "RANGE %.3f s", windowSeconds);
+
+    TimelineDateMode dateMode = TimelineDateMode::Hidden;
+    bool showScaleButtons = false;
+    bool showScaleValue = false;
+    bool showPlay = false;
+    bool showStatus = false;
+    float dateWidth = fullDateWidth;
+    float timeWidth = std::max(2.0f, availableWidth);
+
+    const auto fits = [&](float nonSliderWidth, int visibleItems) {
+      const float spacingWidth = spacing * static_cast<float>(std::max(0, visibleItems - 1));
+      return availableWidth >= nonSliderWidth + minSliderWidth + spacingWidth;
+    };
+    const auto showTimelineDate = [&](TimelineDateMode mode, float width) {
+      dateMode = mode;
+      dateWidth = width;
+    };
+
+    if (fits(fullDateWidth + buttonWidth * 2.0f + scaleValueWidth + activePlayWidth + statusWidth,
+             activePlayWidth > 0.0f ? 7 : 6)) {
+      showTimelineDate(TimelineDateMode::Full, fullDateWidth);
+      showScaleButtons = true;
+      showScaleValue = true;
+      showPlay = activePlayWidth > 0.0f;
+      showStatus = true;
+      timeWidth = availableWidth - fullDateWidth - buttonWidth * 2.0f - scaleValueWidth -
+                  activePlayWidth - statusWidth - spacing * (activePlayWidth > 0.0f ? 6.0f : 5.0f);
+    } else if (fits(compactDateWidth + buttonWidth * 2.0f + scaleValueWidth + activePlayWidth +
+                        statusWidth,
+                    activePlayWidth > 0.0f ? 7 : 6)) {
+      showTimelineDate(TimelineDateMode::Compact, compactDateWidth);
+      showScaleButtons = true;
+      showScaleValue = true;
+      showPlay = activePlayWidth > 0.0f;
+      showStatus = true;
+      timeWidth = availableWidth - compactDateWidth - buttonWidth * 2.0f - scaleValueWidth -
+                  activePlayWidth - statusWidth - spacing * (activePlayWidth > 0.0f ? 6.0f : 5.0f);
+    } else if (fits(fullDateWidth + buttonWidth * 2.0f + statusWidth, 5)) {
+      showTimelineDate(TimelineDateMode::Full, fullDateWidth);
+      showScaleButtons = true;
+      showStatus = true;
+      timeWidth =
+          availableWidth - fullDateWidth - buttonWidth * 2.0f - statusWidth - spacing * 4.0f;
+    } else if (fits(compactDateWidth + buttonWidth * 2.0f + statusWidth, 5)) {
+      showTimelineDate(TimelineDateMode::Compact, compactDateWidth);
+      showScaleButtons = true;
+      showStatus = true;
+      timeWidth =
+          availableWidth - compactDateWidth - buttonWidth * 2.0f - statusWidth - spacing * 4.0f;
+    } else if (fits(compactDateWidth + statusWidth, 3)) {
+      showTimelineDate(TimelineDateMode::Compact, compactDateWidth);
+      timeWidth = availableWidth - compactDateWidth - statusWidth - spacing * 2.0f;
+      showStatus = true;
+    } else if (fits(iconDateWidth + statusWidth, 3)) {
+      showTimelineDate(TimelineDateMode::Icon, iconDateWidth);
+      timeWidth = availableWidth - iconDateWidth - statusWidth - spacing * 2.0f;
+      showStatus = true;
+    } else if (fits(statusWidth, 2)) {
+      showStatus = true;
+      timeWidth = availableWidth - statusWidth - spacing;
+    }
+    const float reservedWidth = availableWidth - timeWidth;
+    timeWidth = std::clamp(timeWidth, 2.0f, maxTimelineWidth);
+    const float groupWidth = reservedWidth + timeWidth;
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                         std::max(0.0f, (availableWidth - groupWidth) * 0.5f));
+
     bool hasPreviousItem = false;
     const auto nextTimelineItem = [&]() {
       if (hasPreviousItem)
@@ -579,10 +630,17 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
         hasPreviousItem = true;
     };
 
-    if (showDate) {
+    if (dateMode != TimelineDateMode::Hidden) {
       nextTimelineItem();
-      if (PhotonUi::rowButton("TimelineDate", "\uea53", compactDate ? compactDateLabel : date,
-                              {dateWidth, buttonWidth}, palette)) {
+      const bool opened =
+          dateMode == TimelineDateMode::Icon
+              ? PhotonUi::iconButton("TimelineDate", "\uea53", date, {dateWidth, controlHeight},
+                                     palette, false, timelineIconSize)
+              : PhotonUi::rowButton("TimelineDate", "\uea53",
+                                    dateMode == TimelineDateMode::Compact ? compactDateLabel : date,
+                                    {dateWidth, controlHeight}, palette, false, false, false,
+                                    timelineFontSize, timelineIconSize);
+      if (opened) {
         calendarYear = cursorDate.tm_year + 1900;
         calendarMonth = cursorDate.tm_mon;
         ImGui::OpenPopup("TimelineCalendar");
@@ -590,6 +648,29 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
     }
     const bool today =
         cursorDate.tm_year == liveDate.tm_year && cursorDate.tm_yday == liveDate.tm_yday;
+    const auto pauseTimeline = [&]() {
+      if (timelineMode == TimelineMode::Paused) return;
+      timelineMode = TimelineMode::Paused;
+      if (serverConnected && network) network->requestTimeline(CANP_TIMELINE_PAUSE);
+    };
+    const auto startPlayback = [&]() {
+      timelineMode = TimelineMode::Paused;
+      playTarget = serverConnected ? liveTime : last;
+      if (serverConnected && network) {
+        if (cursor >= playTarget) {
+          timelineMode = TimelineMode::Live;
+          network->requestTimeline(CANP_TIMELINE_LIVE);
+          return;
+        }
+        playbackStatusSequence =
+            network->timelineCursor.statusSequence.load(std::memory_order_acquire);
+        bufferingSince = ImGui::GetTime();
+        timelineMode = TimelineMode::Buffering;
+        network->requestTimeline(CANP_TIMELINE_PLAY, cursor);
+      } else if (found && first <= cursor && cursor < last) {
+        timelineMode = TimelineMode::Playing;
+      }
+    };
     const auto timelineLimit = [&](int level) {
       if (!today) return level == 0 ? 23 : 59;
       if (level == 0) return liveDate.tm_hour;
@@ -605,79 +686,80 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
         return;
       }
       if (navigation.changed) {
+        pauseTimeline();
         timelineLevel = level;
         cursor = std::min(setTimelinePart(cursor, level, navigation.value), liveTime);
         localTime(cursor, cursorDate);
         formatClock(cursorDate, clock, sizeof(clock));
-        followLatest = cursor >= liveTime;
-        playing = false;
       }
       if (navigation.committed) {
         timelineLevel = std::min(level + 1, 2);
-        if (level == 2 && serverConnected && network &&
-            (!found || cursor - windowSeconds < locallyAvailableFrom))
-          network->requestTimeline(cursor);
+        startPlayback();
       }
     };
 
     nextTimelineItem();
-    const TimelineNavigation navigation = drawTimelineNavigator(
-        0, cursorDate.tm_hour, timelineLimit(0), timeWidth, timelineDragging, palette, clock);
+    const TimelineNavigation navigation =
+        drawTimelineNavigator(0, cursorDate.tm_hour, timelineLimit(0), {timeWidth, controlHeight},
+                              timelineDragging, palette, clock, timelineFontSize, timelineIconSize);
+    const ImVec2 hourBarMin = ImGui::GetItemRectMin();
+    const float hourBarWidth = ImGui::GetItemRectSize().x;
     applyNavigation(0, navigation);
 
     if (showScaleButtons) {
       nextTimelineItem();
       if (PhotonUi::iconButton("TimelineScaleDown", "\ueaf2", "", {buttonWidth, buttonWidth},
-                               palette))
+                               palette, false, timelineIconSize))
         windowSeconds = std::max(0.001, windowSeconds / 2);
       if (showScaleValue) {
         nextTimelineItem();
-        drawTimelineValue(scale, {scaleValueWidth, buttonWidth}, palette);
+        drawTimelineValue(scale, {scaleValueWidth, controlHeight}, palette, timelineFontSize);
       }
       nextTimelineItem();
-      if (PhotonUi::iconButton("TimelineScaleUp", "\ueb0b", "", {buttonWidth, buttonWidth},
-                               palette)) {
+      if (PhotonUi::iconButton("TimelineScaleUp", "\ueb0b", "", {buttonWidth, buttonWidth}, palette,
+                               false, timelineIconSize)) {
         windowSeconds *= 2;
-        if (serverConnected && network && (!found || cursor - windowSeconds < locallyAvailableFrom))
-          network->requestTimeline(cursor);
       }
     }
 
-    if (showPlay && !followLatest) {
+    if (showPlay && timelineMode != TimelineMode::Live) {
       nextTimelineItem();
       const bool cursorLocal = found && first <= cursor && last >= cursor;
+      const bool activePlayback =
+          timelineMode == TimelineMode::Buffering || timelineMode == TimelineMode::Playing;
       const bool canPlay =
-          playing || (serverConnected ? cursor < liveTime : cursorLocal && cursor < last);
-      if (PhotonUi::rowButton("TimelinePlay", playing ? "\ued45" : "\ued46",
-                              playing ? "Pause" : "Play from here", {playWidth, buttonWidth},
-                              palette, false, !canPlay)) {
-        playing = !playing;
-        if (playing) {
-          playTarget = serverConnected ? liveTime : last;
-          if (serverConnected && !cursorLocal && network) network->requestTimeline(cursor);
+          activePlayback || (serverConnected ? cursor < liveTime : cursorLocal && cursor < last);
+      const char* playLabel = timelineMode == TimelineMode::Buffering     ? "Buffering"
+                              : timelineMode == TimelineMode::Unavailable ? "Retry"
+                              : activePlayback                            ? "Pause"
+                                                                          : "Play from here";
+      if (PhotonUi::rowButton("TimelinePlay", activePlayback ? "\ued45" : "\ued46", playLabel,
+                              {playWidth, buttonWidth}, palette, false, !canPlay, false,
+                              timelineFontSize, timelineIconSize)) {
+        if (activePlayback) {
+          pauseTimeline();
+        } else {
+          startPlayback();
         }
       }
     }
     if (showStatus) {
       nextTimelineItem();
-      if (followLatest) {
-        drawLiveIndicator({statusWidth, buttonWidth}, palette);
+      if (timelineMode == TimelineMode::Live) {
+        drawLiveIndicator({statusWidth, controlHeight}, palette, timelineFontSize);
       } else if (PhotonUi::rowButton("TimelineGoLive", "\ued46", "Go live",
-                                     {statusWidth, buttonWidth}, goLivePalette)) {
+                                     {statusWidth, controlHeight}, goLivePalette, false, false,
+                                     false, timelineFontSize, timelineIconSize)) {
         cursor = liveTime;
-        followLatest = true;
-        playing = false;
-        if (serverConnected && network) network->requestTimeline(cursor);
+        timelineMode = TimelineMode::Live;
+        if (serverConnected && network) network->requestTimeline(CANP_TIMELINE_LIVE);
       }
     }
     double selectedDate = cursor;
     if (drawCalendarPopup(calendarYear, calendarMonth, cursor, liveTime, selectedDate, palette)) {
       cursor = selectedDate;
       timelineLevel = 0;
-      followLatest = cursor >= liveTime;
-      playing = false;
-      if (serverConnected && network && (!found || cursor - windowSeconds < locallyAvailableFrom))
-        network->requestTimeline(cursor);
+      startPlayback();
     }
 
     constexpr ImGuiWindowFlags floatingFlags = flags | ImGuiWindowFlags_NoFocusOnAppearing |
@@ -686,19 +768,17 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
     for (int level = 1; level <= timelineLevel; ++level) {
       char windowName[24];
       std::snprintf(windowName, sizeof(windowName), "TimelinePrecision%d", level);
-      ImGui::SetNextWindowPos({pos.x, pos.y - level * (size.y + 5.0f)});
-      ImGui::SetNextWindowSize(size);
+      ImGui::SetNextWindowPos({hourBarMin.x, pos.y - level * (size.y + 5.0f)});
+      ImGui::SetNextWindowSize({hourBarWidth, size.y});
       ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, PhotonUi::kPopupRounding);
-      ImGui::PushStyleVar(
-          ImGuiStyleVar_WindowPadding,
-          {baseStyle.WindowPadding.x, std::max(0.0f, (size.y - timelineFrameHeight) / 2)});
+      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.0f, timelineWindowPaddingY});
       TimelineNavigation precision{};
       if (ImGui::Begin(windowName, nullptr, floatingFlags)) {
         ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
         const int value = level == 1 ? cursorDate.tm_min : cursorDate.tm_sec;
-        precision = drawTimelineNavigator(level, value, timelineLimit(level),
-                                          ImGui::GetContentRegionAvail().x, timelineDragging,
-                                          palette, clock, true, level == timelineLevel);
+        precision = drawTimelineNavigator(
+            level, value, timelineLimit(level), {hourBarWidth, controlHeight}, timelineDragging,
+            palette, clock, timelineFontSize, timelineIconSize, true, level == timelineLevel);
       }
       ImGui::End();
       ImGui::PopStyleVar(2);

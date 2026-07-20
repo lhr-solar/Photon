@@ -8,6 +8,8 @@
 
 struct Network;
 
+enum class TimelineMode : uint8_t { Paused, Buffering, Playing, Live, Unavailable };
+
 struct Plots {
   static bool signalStatic(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
                            const ImPlotSpec& spec = ImPlotSpec());
@@ -26,9 +28,10 @@ struct Plots {
     uint32_t first{};
     uint32_t last{};
   } index;
-  bool followLatest = true;
-  bool playing = false;
+  TimelineMode timelineMode = TimelineMode::Live;
   double playTarget{};
+  double bufferingSince{};
+  uint64_t playbackStatusSequence{};
   double windowSeconds = 2.0;
   int calendarYear{};
   int calendarMonth{};

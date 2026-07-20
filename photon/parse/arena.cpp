@@ -140,12 +140,43 @@ void* Arena::alloc(size_t bytes, size_t align) {
   return p;
 };
 
-// clears the existing message
-// if no message exists, simply returns
+void Arena::beginRead() {
+  for (;;) {
+    while (resetting.load(std::memory_order_acquire)) resetting.wait(true);
+    readers.fetch_add(1, std::memory_order_acquire);
+    if (!resetting.load(std::memory_order_acquire)) return;
+    if (readers.fetch_sub(1, std::memory_order_release) == 1) readers.notify_all();
+  }
+}
+
+void Arena::endRead() {
+  if (readers.fetch_sub(1, std::memory_order_release) == 1) readers.notify_all();
+}
+
+void Arena::beginReset() {
+  while (resetting.exchange(true, std::memory_order_acq_rel)) resetting.wait(true);
+  while (const uint32_t count = readers.load(std::memory_order_acquire)) readers.wait(count);
+}
+
+void Arena::endReset() {
+  resetting.store(false, std::memory_order_release);
+  resetting.notify_all();
+}
+
 void Arena::clear(uint32_t id) {
-  if (id >= messages.size() || !messages[id]) return;
-  messages[id]->signalSize.value.store(0, std::memory_order_release);
-};
+  beginReset();
+  if (id < messages.size() && messages[id])
+    messages[id]->signalSize.value.store(0, std::memory_order_release);
+  endReset();
+}
+
+void Arena::clearAll() {
+  beginReset();
+  for (uint32_t id : validIds)
+    if (id < messages.size() && messages[id])
+      messages[id]->signalSize.value.store(0, std::memory_order_release);
+  endReset();
+}
 
 // thread safe read
 // returns a pointer of the signals buffer
@@ -227,8 +258,8 @@ bool Arena::appendFrame(uint32_t id, double timeValue, const double* signalValue
 }
 
 void Arena::destroy() {
+  beginReset();
   for (const auto& id : validIds) {
-    clear(id);
     if (id >= messages.size() || !messages[id]) continue;
     Message* msg = messages[id];
     for (size_t i = 0; i < msg->signalCount; ++i) {
@@ -250,6 +281,7 @@ void Arena::destroy() {
   bytesPerBuffer = 0;
   if (pool == nullptr) {
     arenaSize = 0;
+    endReset();
     return;
   }
 #ifdef _WIN32
@@ -259,4 +291,5 @@ void Arena::destroy() {
 #endif
   pool = nullptr;
   arenaSize = 0;
+  endReset();
 }

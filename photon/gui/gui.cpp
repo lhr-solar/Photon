@@ -165,6 +165,7 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
   flags &= ~(ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
   flags |= ImGuiWindowFlags_AlwaysVerticalScrollbar;
   if (ImGui::Begin("Page 1", NULL, flags)) {
+    ArenaReadScope read(*arena);
     auto dim = ImGui::GetContentRegionAvail();
     dim.y = 0;
     ImPlotSpec spec = settings.plotLineSpec;

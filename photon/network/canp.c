@@ -110,10 +110,10 @@ int canpWriteBatch(canpSocket_t fd, canpBatch_t* batch) {
   return canpWrite(fd, iov, 2);
 }
 
-int canpWriteTimelineSeek(canpSocket_t fd, uint64_t timestamp) {
+int canpWriteTimelineCommand(canpSocket_t fd, uint16_t command, uint64_t timestamp) {
   const canpTimelineRequest_t request = {.magic = htonl(CANP_TIMELINE_MAGIC),
                                          .version = htons(CANP_TIMELINE_VERSION),
-                                         .command = htons(CANP_TIMELINE_SEEK),
+                                         .command = htons(command),
                                          .timestamp = canpHton64(timestamp)};
   return canpSendBytes(fd, &request, sizeof request);
 }
@@ -141,11 +141,21 @@ int canpRead(canpSocket_t fd, void* buf, size_t len) {
   return CANP_READ_OK;
 }
 
-int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
+int canpReadStream(canpSocket_t fd, canpBatch_t* batch, canpTimelineStatus_t* status) {
   canpHeader_t hdr;
   int r = canpRead(fd, &hdr, sizeof hdr);
   if (r <= 0) return r;
-  if (ntohl(hdr.magic) != CANP_MAGIC) return CANP_READ_BAD_MAGIC;
+  const uint32_t magic = ntohl(hdr.magic);
+  if (magic == CANP_TIMELINE_STATUS_MAGIC) {
+    if (ntohs(hdr.version) != CANP_TIMELINE_STATUS_VERSION) return CANP_READ_BAD_VERSION;
+    if (status != NULL) {
+      status->mode = ntohs(hdr.count);
+      status->generation = ntohl(hdr.seq);
+      status->timestamp = canpNtoh64(hdr.timestamp);
+    }
+    return CANP_READ_TIMELINE_STATUS;
+  }
+  if (magic != CANP_MAGIC) return CANP_READ_BAD_MAGIC;
   if (ntohs(hdr.version) != CANP_VERSION) return CANP_READ_BAD_VERSION;
   uint16_t n = ntohs(hdr.count);
   if (n == 0 || n > CANP_MAX_BATCH) return CANP_READ_BAD_COUNT;
@@ -157,10 +167,15 @@ int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
   return CANP_READ_OK;
 }
 
+int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
+  canpTimelineStatus_t status;
+  return canpReadStream(fd, batch, &status);
+}
+
 int canpRelayBatch(canpSocket_t in_fd, canpSocket_t out_fd) {
   canpBatch_t batch;
   int r = canpReadBatch(in_fd, &batch);
-  if (r <= 0) return r;
+  if (r != CANP_READ_OK) return r;
   return canpWriteBatch(out_fd, &batch);
 }
 
