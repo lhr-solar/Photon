@@ -173,9 +173,8 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size);
 static void RenderButtonGrid(AppState& state, const ImVec2& size);
 static void RenderSpeedGauge(AppState& state, const ImVec2& size);
 
-// Highest-priority active fault, short-form. BPS always wins over VCU: a BPS
-// fault is the more actionable/severe one, and showing both at once just
-// forces the driver to read two lines under pressure.
+// Highest-priority active fault, short-form. BPS always wins; a specific motor
+// controller cause is more actionable than the VCU's aggregate motor flag.
 struct ActiveFaultInfo {
     std::string label;   // e.g. "BPS Fault"
     std::string detail;  // e.g. "Overtemp"
@@ -187,6 +186,19 @@ static bool GetActiveFault(const AppState& state, ActiveFaultInfo& out) {
     if (bpsFaultCode != 0) {
         out.label = "BPS Fault";
         out.detail = BpsFaultName(bpsFaultCode);
+        return true;
+    }
+    size_t motorFaultCount = 0;
+    for (const Fault& fault : state.faults) {
+        if (fault.name != "Motor") continue;
+        if (motorFaultCount == 0) out.detail = fault.message;
+        ++motorFaultCount;
+    }
+    if (motorFaultCount != 0) {
+        out.label = "Motor Fault";
+        if (motorFaultCount > 1) {
+            out.detail += " +" + std::to_string(motorFaultCount - 1) + " more";
+        }
         return true;
     }
     if (vcuFaultCode != 0) {
@@ -609,6 +621,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
         for (const Fault& fault : state.faults) {
             if (bannerActive) {
                 if (bannerInfo.label == "BPS Fault" && fault.name == "BPS") continue;
+                if (bannerInfo.label == "Motor Fault" && fault.name == "Motor") continue;
                 if (bannerInfo.label == "VCU Fault" && fault.name == "VCU") continue;
             }
             listFaults.push_back(&fault);

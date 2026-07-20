@@ -69,7 +69,7 @@ struct AppState {
     std::vector<float> moduleVoltages;
     std::vector<float> moduleTemps;
 
-    // Built from BPS_Fault / VCU_Fault.
+    // Built from BPS_Fault, VCU fault flags, and MC_Status fault bits.
     std::vector<Fault> faults;
     bool canFault = false;
     uint16_t canFaultId = 0;

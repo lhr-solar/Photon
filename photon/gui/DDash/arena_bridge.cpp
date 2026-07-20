@@ -13,6 +13,24 @@ void addFault(ui::AppState& state, const char* name,
   state.faults.push_back(ui::Fault{name, message, severity, 0});
 }
 
+struct MotorFaultDefinition {
+  const char* signal;
+  const char* message;
+};
+
+// MotorCAN.dbc, MC_Status (CAN ID 0x421 / 1057), bits 16-24.
+constexpr MotorFaultDefinition kMotorFaults[] = {
+    {"MC_FAULT_HardwareOverCurrent", "Hardware overcurrent"},
+    {"MC_FAULT_SoftwareOverCurrent", "Software overcurrent"},
+    {"MC_FAULT_DcBusOverVoltage", "DC bus overvoltage"},
+    {"MC_FAULT_BadMotorPositionHallSeq", "Bad motor position Hall sequence"},
+    {"MC_FAULT_WatchdogCausedLastReset", "Watchdog caused last reset"},
+    {"MC_FAULT_ConfigRead", "Configuration read fault"},
+    {"MC_FAULT_15vRailUnderVoltage", "15 V rail undervoltage"},
+    {"MC_FAULT_DesaturationFault", "Desaturation fault"},
+    {"MC_FAULT_MotorOverSpeed", "Motor overspeed"},
+};
+
 // Seconds since the message carrying signalName last had a frame appended
 // (see Arena::appendFrame); -1 if the signal isn't in any loaded message.
 double MessageAgeSecondsForSignal(Arena& arena, const char* signalName) {
@@ -140,13 +158,23 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
   if (!hasConsolidatedVcuFault)
     for (const char* sig : kVcuFaultSignals) vcuF += state.get(sig) != 0.0 ? 1.0 : 0.0;
   if (hasBps && bpsF != 0) addFault(state, "BPS", FaultSeverity::Critical, "BPS fault detected");
+
+  uint16_t motorFaultMask = 0;
+  for (size_t i = 0; i < sizeof(kMotorFaults) / sizeof(kMotorFaults[0]); ++i) {
+    if (!state.getBool(kMotorFaults[i].signal)) continue;
+    motorFaultMask |= static_cast<uint16_t>(1u << i);
+    addFault(state, "Motor", FaultSeverity::Critical, kMotorFaults[i].message);
+  }
+
   if (hasVcu && vcuF != 0) addFault(state, "VCU", FaultSeverity::Critical, "VCU fault detected");
   std::stable_sort(state.faults.begin(), state.faults.end(), [](const Fault& a, const Fault& b) {
-    return (a.name == "BPS" ? 0 : a.name == "VCU" ? 1 : 2) <
-           (b.name == "BPS" ? 0 : b.name == "VCU" ? 1 : 2);
+    return (a.name == "BPS" ? 0 : a.name == "Motor" ? 1 : a.name == "VCU" ? 2 : 3) <
+           (b.name == "BPS" ? 0 : b.name == "Motor" ? 1 : b.name == "VCU" ? 2 : 3);
   });
-  state.canFault = (hasBps && bpsF != 0) || (hasVcu && vcuF != 0);
-  state.canFaultId = 0;
+  state.canFault = (hasBps && bpsF != 0) || motorFaultMask != 0 || (hasVcu && vcuF != 0);
+  state.canFaultId = motorFaultMask;
+  if (hasBps && bpsF != 0) state.canFaultId |= 0x8000;
+  if (hasVcu && vcuF != 0) state.canFaultId |= 0x4000;
   state.canFaultName = state.canFault ? joinFaultNames(state.faults) : std::string{};
   state.canFaultMessage = state.canFault ? joinFaultMessages(state.faults) : std::string{};
 }
