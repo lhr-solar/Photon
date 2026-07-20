@@ -60,5 +60,5 @@ struct GuiSettings {
 };
 
 struct GuiFlags {
-  bool showGPUInfo = false;
+  bool showFPS = false;
 };

@@ -1,6 +1,7 @@
 #include "network.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -15,8 +16,7 @@ void Network::init() {
 void Network::startTCP(TCPConfig config) {
   std::lock_guard lock(writerMutex);
   stopWriterUnlocked();
-  if (config.useAwsExtendedTelemetryDBC &&
-      (!parse || !parse->loadDBC(DBCType::HighNoonAWS))) {
+  if (config.useAwsExtendedTelemetryDBC && (!parse || !parse->loadDBC(DBCType::HighNoonAWS))) {
     guiTxCommandBuffer.write([](ProtocolReceiveVariant& message) {
       message = ProtocolError{.error = "Cannot load the AWS extended telemetry DBC"};
     });
@@ -27,7 +27,7 @@ void Network::startTCP(TCPConfig config) {
   dashboardArmRequested.store(false, std::memory_order_release);
   activeTCPConfig = config;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, timelineCursor);
   });
 }
 
@@ -105,6 +105,15 @@ void Network::armCanControls(bool armed) {
                            std::memory_order_release);
 }
 
+void Network::requestTimeline(uint16_t command, double seconds) {
+  if (!std::isfinite(seconds) || seconds < 0.0) return;
+  timelineCursor.request.store(
+      TimelineCursorMailbox::pack(command, static_cast<uint64_t>(std::llround(seconds * 1000.0))),
+      std::memory_order_relaxed);
+  timelineCursor.sequence.fetch_add(1, std::memory_order_release);
+  timelineCursor.sequence.notify_one();
+}
+
 void Network::stopWriter() {
   std::lock_guard lock(writerMutex);
   stopWriterUnlocked();
@@ -129,7 +138,7 @@ void Network::restartWriterUnlocked() {
   if (activeTCPConfig) {
     const TCPConfig config = *activeTCPConfig;
     writerThread = std::jthread([this, config](std::stop_token stoken) {
-      Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena);
+      Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, timelineCursor);
     });
   } else if (activePCANConfig) {
     const PCANConfig config = *activePCANConfig;
@@ -138,8 +147,7 @@ void Network::restartWriterUnlocked() {
       Protocols::PCAN(stoken, guiTxCommandBuffer, canWriteBuffer, canFrameBuffer, config,
                       parse->arena);
     });
-  }
-  else if (activeDashboardConfig) {
+  } else if (activeDashboardConfig) {
     const DashboardConfig config = *activeDashboardConfig;
     writerThread = std::jthread([this, config](std::stop_token stoken) {
       Protocols::Dashboard(stoken, guiTxCommandBuffer, canWriteBuffer, canFrameBuffer, config,

@@ -18,6 +18,7 @@
 #include "tabs.hpp"
 #include "titlebar.hpp"
 #include "updater.hpp"
+#include "video_ui.h"
 
 struct GUI {
   void init(GPU& gpu, Arena& arena, Network& network);
@@ -33,6 +34,8 @@ struct GUI {
   void shaderTest(ImGuiWindowFlags flags);
   void testFunc(ImGuiWindowFlags flags);
   void networkPage(ImGuiWindowFlags flags);
+  void connectDaqServer();
+  void updateNetworkStatus();
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
   void carMap(ImGuiWindowFlags flags);
 
@@ -53,6 +56,7 @@ struct GUI {
   bool updateAvailable = false;
   Updater updater;
   Plots plots;
+  VideoUI videoUi;
   Exporter exporter;
 #if PHOTON_GUI_RENDER_ITEMS
   Scene scene;

@@ -30,7 +30,7 @@ struct Updater {
   UpdaterProcessId ourPid{};
   UpdaterPathString ourPath{};
 
-  std::string version = "00.00.00";
+  std::string version = "0.0.3";
   std::string newVersion{};
 
   void getOurInfo();

@@ -10,6 +10,7 @@
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
 #endif
@@ -32,6 +33,27 @@ static uint64_t canpNtoh64(uint64_t value) {
 #else
   return value;
 #endif
+}
+
+static int canpSendBytes(canpSocket_t fd, const void* data, size_t size) {
+  const char* bytes = (const char*)data;
+  while (size > 0) {
+#ifdef _WIN32
+    int sent = send(fd, bytes, (int)size, 0);
+    if (sent < 0 && WSAGetLastError() == WSAEINTR) continue;
+#else
+    int flags = 0;
+#ifdef MSG_NOSIGNAL
+    flags = MSG_NOSIGNAL;
+#endif
+    ssize_t sent = send(fd, bytes, size, flags);
+    if (sent < 0 && errno == EINTR) continue;
+#endif
+    if (sent <= 0) return -1;
+    bytes += sent;
+    size -= (size_t)sent;
+  }
+  return 1;
 }
 
 canpPacket_t canpMakePacket(uint32_t canId, uint8_t dlc, const uint8_t data[8],
@@ -88,6 +110,14 @@ int canpWriteBatch(canpSocket_t fd, canpBatch_t* batch) {
   return canpWrite(fd, iov, 2);
 }
 
+int canpWriteTimelineCommand(canpSocket_t fd, uint16_t command, uint64_t timestamp) {
+  const canpTimelineRequest_t request = {.magic = htonl(CANP_TIMELINE_MAGIC),
+                                         .version = htons(CANP_TIMELINE_VERSION),
+                                         .command = htons(command),
+                                         .timestamp = canpHton64(timestamp)};
+  return canpSendBytes(fd, &request, sizeof request);
+}
+
 int canpRead(canpSocket_t fd, void* buf, size_t len) {
   char* p = (char*)buf;
   size_t accum = 0;
@@ -111,11 +141,21 @@ int canpRead(canpSocket_t fd, void* buf, size_t len) {
   return CANP_READ_OK;
 }
 
-int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
+int canpReadStream(canpSocket_t fd, canpBatch_t* batch, canpTimelineStatus_t* status) {
   canpHeader_t hdr;
   int r = canpRead(fd, &hdr, sizeof hdr);
   if (r <= 0) return r;
-  if (ntohl(hdr.magic) != CANP_MAGIC) return CANP_READ_BAD_MAGIC;
+  const uint32_t magic = ntohl(hdr.magic);
+  if (magic == CANP_TIMELINE_STATUS_MAGIC) {
+    if (ntohs(hdr.version) != CANP_TIMELINE_STATUS_VERSION) return CANP_READ_BAD_VERSION;
+    if (status != NULL) {
+      status->mode = ntohs(hdr.count);
+      status->generation = ntohl(hdr.seq);
+      status->timestamp = canpNtoh64(hdr.timestamp);
+    }
+    return CANP_READ_TIMELINE_STATUS;
+  }
+  if (magic != CANP_MAGIC) return CANP_READ_BAD_MAGIC;
   if (ntohs(hdr.version) != CANP_VERSION) return CANP_READ_BAD_VERSION;
   uint16_t n = ntohs(hdr.count);
   if (n == 0 || n > CANP_MAX_BATCH) return CANP_READ_BAD_COUNT;
@@ -127,10 +167,15 @@ int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
   return CANP_READ_OK;
 }
 
+int canpReadBatch(canpSocket_t fd, canpBatch_t* batch) {
+  canpTimelineStatus_t status;
+  return canpReadStream(fd, batch, &status);
+}
+
 int canpRelayBatch(canpSocket_t in_fd, canpSocket_t out_fd) {
   canpBatch_t batch;
   int r = canpReadBatch(in_fd, &batch);
-  if (r <= 0) return r;
+  if (r != CANP_READ_OK) return r;
   return canpWriteBatch(out_fd, &batch);
 }
 

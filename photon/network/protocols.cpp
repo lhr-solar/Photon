@@ -22,7 +22,6 @@
 #include "dashboardLink.hpp"
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
 #include <Ws2tcpip.h>
 #include <windows.h>
 #include <winsock2.h>
@@ -51,6 +50,19 @@ void publishMessage(SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer, std::string
 
 void publishError(SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer, std::string error) {
   txBuffer.write([&](ProtocolReceiveVariant& out) { out = ProtocolError{.error = error}; });
+}
+
+void sendTimelineRequests(std::stop_token stoken, SocketHandle sock,
+                          TimelineCursorMailbox& timelineCursor, uint64_t observed) {
+  while (!stoken.stop_requested()) {
+    timelineCursor.sequence.wait(observed, std::memory_order_acquire);
+    if (stoken.stop_requested()) break;
+    observed = timelineCursor.sequence.load(std::memory_order_acquire);
+    const uint64_t request = timelineCursor.request.load(std::memory_order_relaxed);
+    if (canpWriteTimelineCommand(sock, TimelineCursorMailbox::command(request),
+                                 TimelineCursorMailbox::timestamp(request)) != 1)
+      break;
+  }
 }
 
 #ifdef _WIN32
@@ -247,6 +259,11 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
     error = socketError("TCP socket creation");
     return false;
   }
+#ifdef SO_NOSIGPIPE
+  int noSigPipe = 1;
+  setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<const char*>(&noSigPipe),
+             sizeof(noSigPipe));
+#endif
 
   if (!setNonBlocking(sock)) {
     error = socketError("TCP non-blocking setup");
@@ -567,7 +584,7 @@ std::string timeNow() {
 };
 
 void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                    TCPConfig config, Arena& arena) {
+                    TCPConfig config, Arena& arena, TimelineCursorMailbox& timelineCursor) {
   SocketHandle sock = INVALID_SOCKET;
   std::string error{};
   if (!connectTcp(sock, config, stoken, error)) {
@@ -575,8 +592,14 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
     return;
   }
   publishMessage(txBuffer, timeNow() + "TCP connected");
+  const uint64_t timelineSequence = timelineCursor.sequence.load(std::memory_order_acquire);
+  std::jthread timelineSender(
+      [sock, &timelineCursor, timelineSequence](std::stop_token senderToken) {
+        sendTimelineRequests(senderToken, sock, timelineCursor, timelineSequence);
+      });
 
   canpBatch_t batch{};
+  canpTimelineStatus_t timelineStatus{};
   while (!stoken.stop_requested()) {
     std::string waitError{};
     const SocketWaitResult waitResult = waitForReadable(sock, stoken, waitError);
@@ -586,9 +609,22 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
       break;
     }
 
-    int readStatus = canpReadBatch(sock, &batch);
+    int readStatus = canpReadStream(sock, &batch, &timelineStatus);
+    if (readStatus == CANP_READ_TIMELINE_STATUS) {
+      if (timelineStatus.mode == CANP_TIMELINE_PLAY || timelineStatus.mode == CANP_TIMELINE_LIVE) {
+        arena.clearAll();
+        timelineCursor.latestTimestampMs.store(0, std::memory_order_relaxed);
+      }
+      timelineCursor.response.store(
+          TimelineCursorMailbox::pack(timelineStatus.mode, timelineStatus.timestamp),
+          std::memory_order_relaxed);
+      timelineCursor.statusSequence.fetch_add(1, std::memory_order_release);
+      timelineCursor.statusSequence.notify_all();
+      continue;
+    }
     if (readStatus == CANP_READ_OK) {
       handleNetwork(batch, arena);
+      timelineCursor.latestTimestampMs.store(batch.timestamp, std::memory_order_release);
       continue;
     }
     if (readStatus == CANP_READ_CLOSED) {
@@ -602,6 +638,10 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
     publishError(txBuffer, timeNow() + canpReadError(readStatus));
     break;
   }
+  timelineSender.request_stop();
+  timelineCursor.sequence.fetch_add(1, std::memory_order_release);
+  timelineCursor.sequence.notify_all();
+  timelineSender.join();
   closeSocket(sock);
   publishMessage(txBuffer, timeNow() + "TCP stopped");
 }

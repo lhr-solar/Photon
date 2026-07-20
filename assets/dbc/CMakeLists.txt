@@ -6,6 +6,12 @@ set(DBC_OBJECT_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated/dbc_objects)
 
 file(GLOB DBC_FILES CONFIGURE_DEPENDS "${DBC_DIR}/*.dbc")
 
+list(REMOVE_ITEM DBC_FILES
+    "${DBC_DIR}/daybreak-master.dbc"
+    "${DBC_DIR}/lonestar.dbc"
+    "${DBC_DIR}/test.dbc"
+)
+
 # The car-facing HighNoon bundle is generated from the pinned Embedded
 # Sharepoint submodule.  Keep the source files separate so collision validation
 # can fail the build instead of relying on a DBC parser's last-file-wins rule.

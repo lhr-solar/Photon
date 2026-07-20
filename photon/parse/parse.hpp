@@ -4,11 +4,9 @@
 #include "arena.hpp"
 
 enum class DBCType : uint32_t {
-  HighNoonTelemetry = 0,
+  HighNoon = 0,
+  HighNoonTelemetry,
   HighNoonAWS,
-  Lonestar,
-  DaybreakMaster,
-  Test,
   AssettoCorsa,
   File,
 };
@@ -23,7 +21,7 @@ struct Parse {
   bool loadDBCFile(const std::string& path);
   void destroy();
 
-  static constexpr uint32_t dbcCount() { return 7; }
+  static constexpr uint32_t dbcCount() { return 5; }
   static const char* dbcName(DBCType kind);
   const char* currentDBCName() const;
 };

@@ -41,6 +41,13 @@ struct ImGuiTextureBackendData {
   VkDeviceMemory memory{VK_NULL_HANDLE};
   VkImageView view{VK_NULL_HANDLE};
   VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
+  VkBuffer uploadBuffer{VK_NULL_HANDLE};
+  VkDeviceMemory uploadMemory{VK_NULL_HANDLE};
+  void* uploadMapped = nullptr;
+  VkDeviceSize uploadSize = 0;
+  VkDeviceSize uploadStride = 0;
+  uint32_t uploadSlots = 0;
+  bool uploaded = false;
 };
 struct GPU {
   bool validationLayerSupport();
@@ -189,6 +196,7 @@ struct GPU {
   std::vector<VkDeviceMemory> indexBufferMemories{};
   std::vector<uint32_t> vertexIsMapped{};
   std::vector<uint32_t> indexIsMapped{};
+  std::vector<std::vector<ImGuiTextureBackendData*>> retiredImguiTextures{};
   uint32_t frameIndex = 0;
 
 #ifdef _WIN32

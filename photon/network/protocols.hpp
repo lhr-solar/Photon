@@ -1,7 +1,7 @@
 #pragma once
+#include <array>
 #include <atomic>
 #include <cstdint>
-#include <array>
 #include <stop_token>
 #include <string>
 #include <variant>
@@ -9,6 +9,7 @@
 
 #include "../parse/arena.hpp"
 #include "../parse/spmc.hpp"
+#include "canp.h"
 
 #if defined(LINUX) || defined(APPLE) || defined(__APPLE__)
 
@@ -151,9 +152,26 @@ bool encodeSignal(uint8_t data[8], uint8_t dlc, const Signal& signal, double phy
                   std::string& error);
 }  // namespace CANCodec
 
+struct alignas(64) TimelineCursorMailbox {
+  static constexpr uint64_t timestampMask = (uint64_t{1} << 48) - 1;
+  static constexpr uint64_t pack(uint16_t command, uint64_t timestamp) {
+    return static_cast<uint64_t>(command) << 48 | (timestamp & timestampMask);
+  }
+  static constexpr uint16_t command(uint64_t value) { return static_cast<uint16_t>(value >> 48); }
+  static constexpr uint64_t timestamp(uint64_t value) { return value & timestampMask; }
+
+  std::atomic<uint64_t> request{pack(CANP_TIMELINE_LIVE, 0)};
+  std::atomic<uint64_t> sequence{};
+  std::atomic<uint64_t> response{pack(CANP_TIMELINE_LIVE, 0)};
+  std::atomic<uint64_t> statusSequence{};
+  std::atomic<uint64_t> latestTimestampMs{};
+};
+
+static_assert(sizeof(TimelineCursorMailbox) == 64);
+
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                  TCPConfig config, Arena& arena);
+                  TCPConfig config, Arena& arena, TimelineCursorMailbox& timelineCursor);
   static void PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
                    SPMCQueue<CANFrameWrite, 64>& writeBuffer,
                    SPMCQueue<CANFrameEvent, 512>& frameEvents, PCANConfig config, Arena& arena);
@@ -161,8 +179,7 @@ struct Protocols {
                         SPMCQueue<CANFrameWrite, 64>& writeBuffer,
                         SPMCQueue<CANFrameEvent, 512>& frameEvents, DashboardConfig config,
                         Arena& arena, std::atomic<bool>& armRequested,
-                        std::atomic<bool>& transmitAvailable,
-                        std::atomic<bool>& controlsArmed);
+                        std::atomic<bool>& transmitAvailable, std::atomic<bool>& controlsArmed);
   static void discoverDashboards(std::stop_token stoken,
                                  SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer);
 };

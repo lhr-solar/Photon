@@ -1,5 +1,4 @@
 #include "exporter.hpp"
-#include "../engine/include.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -11,8 +10,11 @@
 #include <thread>
 #include <vector>
 
+#include "../engine/include.hpp"
+
 void Exporter::toFile(Arena& arena, std::filesystem::path filePath) {
   running.store(true);
+  ArenaReadScope read(arena);
   std::ofstream fileStream{filePath};
   if (!fileStream) return;
   fileStream << std::format("message_id,message_name,signal_name,time,value\n");
@@ -32,8 +34,8 @@ void Exporter::toFile(Arena& arena, std::filesystem::path filePath) {
       for (int i = 0; i < adjSize; i++) {
         double val = ((double*)data)[i];
         double time = ((double*)tData)[i];
-        fileStream << std::format("{},{},{},{},{}\n",
-                        message_id, message_name, signal_name, time, val);
+        fileStream << std::format("{},{},{},{},{}\n", message_id, message_name, signal_name, time,
+                                  val);
       };
     };
   };

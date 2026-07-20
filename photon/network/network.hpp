@@ -22,6 +22,7 @@ struct Network {
   void startPCAN(PCANConfig config);
   void startDashboard(DashboardConfig config);
   void discoverDashboards();
+  void requestTimeline(uint16_t command, double seconds = 0.0);
   void stopWriter();
   bool sendDBCSignal(std::string_view messageName, std::string_view signalName,
                      double physicalValue);
@@ -45,6 +46,7 @@ struct Network {
   std::atomic<bool> canControlsEnabled{false};
   std::atomic<bool> dashboardArmRequested{false};
   std::jthread discoveryThread{};
+  TimelineCursorMailbox timelineCursor{};
 
   /* GUI Sends here, Network Reads here */
   SPMCQueue<ProtocolTransmitVariant, 32> guiRxCommandBuffer{};
