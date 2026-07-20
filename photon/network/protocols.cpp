@@ -1,6 +1,5 @@
 #include "protocols.hpp"
 
-
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -283,7 +282,8 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
   }
 
   if (connect(sock, reinterpret_cast<const sockaddr*>(&server), sizeof(server)) == 0) {
-    if (finishTcpConnect(sock, error) && sendRecordStartCommand(sock, config.recordOnConnect, error))
+    if (finishTcpConnect(sock, error) &&
+        sendRecordStartCommand(sock, config.recordOnConnect, error))
       return true;
     closeSocket(sock);
     sock = INVALID_SOCKET;
@@ -297,7 +297,8 @@ bool connectTcp(SocketHandle& sock, const TCPConfig& config, std::stop_token sto
   }
 
   if (waitForConnect(sock, stoken, error)) {
-    if (finishTcpConnect(sock, error) && sendRecordStartCommand(sock, config.recordOnConnect, error))
+    if (finishTcpConnect(sock, error) &&
+        sendRecordStartCommand(sock, config.recordOnConnect, error))
       return true;
     closeSocket(sock);
     sock = INVALID_SOCKET;
@@ -584,7 +585,8 @@ std::string timeNow() {
 };
 
 void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                    TCPConfig config, Arena& arena, TimelineCursorMailbox& timelineCursor) {
+                    SPMCQueue<CANFrameEvent, 512>& frameEvents, TCPConfig config, Arena& arena,
+                    TimelineCursorMailbox& timelineCursor) {
   SocketHandle sock = INVALID_SOCKET;
   std::string error{};
   if (!connectTcp(sock, config, stoken, error)) {
@@ -624,6 +626,20 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
     }
     if (readStatus == CANP_READ_OK) {
       handleNetwork(batch, arena);
+      const uint16_t count = std::min<uint16_t>(batch.count, CANP_MAX_BATCH);
+      for (uint16_t index = 0; index < count; ++index) {
+        const canpPacket_t& packet = batch.packets[index];
+        const uint32_t id = canpGetId(&packet);
+        if (id >= MESSAGE_MAX || packet.dlc > 8) continue;
+        frameEvents.write([id, &packet, timestampMs = batch.timestamp](CANFrameEvent& event) {
+          event.id = id;
+          event.dlc = packet.dlc;
+          std::copy_n(packet.data, packet.dlc, event.data.begin());
+          std::fill(event.data.begin() + packet.dlc, event.data.end(), 0);
+          event.timestampMs = timestampMs;
+          event.transmitted = false;
+        });
+      }
       timelineCursor.latestTimestampMs.store(batch.timestamp, std::memory_order_release);
       continue;
     }
@@ -656,8 +672,8 @@ struct CachedCANFrame {
 using CANFrameCache = std::array<CachedCANFrame, MESSAGE_MAX>;
 
 void receiveCANFrame(uint32_t id, uint8_t dlc, const uint8_t data[8], uint64_t timestampMs,
-                     CANFrameCache& cache, Arena& arena,
-                     SPMCQueue<CANFrameEvent, 512>& frameEvents, bool transmitted) {
+                     CANFrameCache& cache, Arena& arena, SPMCQueue<CANFrameEvent, 512>& frameEvents,
+                     bool transmitted) {
   if (id >= MESSAGE_MAX || dlc > 8) return;
   CachedCANFrame& cached = cache[id];
   cached.valid = true;
@@ -671,11 +687,8 @@ void receiveCANFrame(uint32_t id, uint8_t dlc, const uint8_t data[8], uint64_t t
   batch.packets[0] = canpMakePacket(id, dlc, data, deltaTimes);
   handleNetwork(batch, arena);
   frameEvents.write([id, dlc, data = cached.data, timestampMs, transmitted](CANFrameEvent& event) {
-    event = {.id = id,
-             .dlc = dlc,
-             .data = data,
-             .timestampMs = timestampMs,
-             .transmitted = transmitted};
+    event = {
+        .id = id, .dlc = dlc, .data = data, .timestampMs = timestampMs, .transmitted = transmitted};
   });
 }
 
@@ -713,14 +726,15 @@ bool prepareCANWrite(const CANFrameWrite& request, Arena& arena, CANFrameCache& 
   for (const CANSignalValue& value : request.values) {
     Signal* signal = nullptr;
     for (uint32_t signalIndex = 0; signalIndex < message->signalCount; ++signalIndex) {
-      if (message->signals[signalIndex] && message->signals[signalIndex]->name == value.signalName) {
+      if (message->signals[signalIndex] &&
+          message->signals[signalIndex]->name == value.signalName) {
         signal = message->signals[signalIndex];
         break;
       }
     }
     if (!signal) {
-      error = std::format("DBC signal '{}.{}' no longer exists", request.messageName,
-                          value.signalName);
+      error =
+          std::format("DBC signal '{}.{}' no longer exists", request.messageName, value.signalName);
       return false;
     }
     if (!CANCodec::encodeSignal(data.data(), dlc, *signal, value.physicalValue, error))
@@ -992,14 +1006,11 @@ void Protocols::PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 3
   publishMessage(txBuffer, timeNow() + "PCAN stopped");
 }
 
-void Protocols::Dashboard(std::stop_token stoken,
-                          SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
+void Protocols::Dashboard(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
                           SPMCQueue<CANFrameWrite, 64>& writeBuffer,
-                          SPMCQueue<CANFrameEvent, 512>& frameEvents,
-                          DashboardConfig config, Arena& arena,
-                          std::atomic<bool>& armRequested,
-                          std::atomic<bool>& transmitAvailable,
-                          std::atomic<bool>& controlsArmed) {
+                          SPMCQueue<CANFrameEvent, 512>& frameEvents, DashboardConfig config,
+                          Arena& arena, std::atomic<bool>& armRequested,
+                          std::atomic<bool>& transmitAvailable, std::atomic<bool>& controlsArmed) {
   TCPConfig endpoint{};
   endpoint.port = config.port;
   std::snprintf(endpoint.ip, sizeof(endpoint.ip), "%s", config.ip);
@@ -1032,7 +1043,8 @@ void Protocols::Dashboard(std::stop_token stoken,
       if (!requested) controlsArmed.store(false, std::memory_order_release);
     }
     if (requested && std::chrono::steady_clock::now() >= nextHeartbeat) {
-      if (!writeDashboardMessage(socket, DashboardLink::MessageType::Heartbeat, sequence++, nullptr, 0))
+      if (!writeDashboardMessage(socket, DashboardLink::MessageType::Heartbeat, sequence++, nullptr,
+                                 0))
         break;
       nextHeartbeat = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     }
@@ -1142,8 +1154,8 @@ void Protocols::discoverDashboards(std::stop_token stoken,
   destination.sin_port = htons(DashboardLink::kDiscoveryPort);
   destination.sin_addr.s_addr = htonl(INADDR_BROADCAST);
   DashboardLink::DiscoveryRequest request{.magic = htonl(DashboardLink::kMagic),
-                                           .version = htons(DashboardLink::kVersion),
-                                           .reserved = 0};
+                                          .version = htons(DashboardLink::kVersion),
+                                          .reserved = 0};
   sendto(socket, reinterpret_cast<const char*>(&request), sizeof(request), 0,
          reinterpret_cast<const sockaddr*>(&destination), sizeof(destination));
 
@@ -1171,7 +1183,8 @@ void Protocols::discoverDashboards(std::stop_token stoken,
       continue;
     char address[INET_ADDRSTRLEN]{};
     if (!inet_ntop(AF_INET, &source.sin_addr, address, sizeof(address))) continue;
-    const std::string name(response.name.data(), strnlen(response.name.data(), response.name.size()));
+    const std::string name(response.name.data(),
+                           strnlen(response.name.data(), response.name.size()));
     const std::string entry = name + "|" + address + "|" +
                               std::to_string(ntohs(response.streamPort)) + "|" +
                               std::to_string(response.statusFlags);

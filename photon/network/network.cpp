@@ -27,7 +27,8 @@ void Network::startTCP(TCPConfig config) {
   dashboardArmRequested.store(false, std::memory_order_release);
   activeTCPConfig = config;
   writerThread = std::jthread([this, config](std::stop_token stoken) {
-    Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, timelineCursor);
+    Protocols::TCP(stoken, guiTxCommandBuffer, canFrameBuffer, config, parse->arena,
+                   timelineCursor);
   });
 }
 
@@ -138,7 +139,8 @@ void Network::restartWriterUnlocked() {
   if (activeTCPConfig) {
     const TCPConfig config = *activeTCPConfig;
     writerThread = std::jthread([this, config](std::stop_token stoken) {
-      Protocols::TCP(stoken, guiTxCommandBuffer, config, parse->arena, timelineCursor);
+      Protocols::TCP(stoken, guiTxCommandBuffer, canFrameBuffer, config, parse->arena,
+                     timelineCursor);
     });
   } else if (activePCANConfig) {
     const PCANConfig config = *activePCANConfig;

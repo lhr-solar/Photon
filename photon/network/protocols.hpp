@@ -171,7 +171,8 @@ static_assert(sizeof(TimelineCursorMailbox) == 64);
 
 struct Protocols {
   static void TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
-                  TCPConfig config, Arena& arena, TimelineCursorMailbox& timelineCursor);
+                  SPMCQueue<CANFrameEvent, 512>& frameEvents, TCPConfig config, Arena& arena,
+                  TimelineCursorMailbox& timelineCursor);
   static void PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32>& txBuffer,
                    SPMCQueue<CANFrameWrite, 64>& writeBuffer,
                    SPMCQueue<CANFrameEvent, 512>& frameEvents, PCANConfig config, Arena& arena);
