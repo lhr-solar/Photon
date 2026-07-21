@@ -598,15 +598,21 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
                                   limitMotorTemp || limitOutputVoltage;
             if (anyLimit) {
                 widgets::Space(4);
+                std::string activeLimits;
+                const auto appendLimit = [&](const char* label) {
+                    if (!activeLimits.empty()) activeLimits += " | ";
+                    activeLimits += label;
+                };
+                if (limitMotorCurrent) appendLimit("Motor Current");
+                if (limitVelocity) appendLimit("Velocity");
+                if (limitBusCurrent) appendLimit("Bus Current");
+                if (limitBusVoltageUpper) appendLimit("Bus Voltage High");
+                if (limitBusVoltageLower) appendLimit("Bus Voltage Low");
+                if (limitMotorTemp) appendLimit("IPM/Motor Temp");
+                if (limitOutputVoltage) appendLimit("Output PWM");
                 ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning());
                 ImGui::TextUnformatted("MOTOR LIMITS ACTIVE:");
-                if (limitMotorCurrent)    { ImGui::SameLine(); ImGui::TextUnformatted(" Motor A"); }
-                if (limitVelocity)        { ImGui::SameLine(); ImGui::TextUnformatted(" Velocity"); }
-                if (limitBusCurrent)      { ImGui::SameLine(); ImGui::TextUnformatted(" Bus A"); }
-                if (limitBusVoltageUpper) { ImGui::SameLine(); ImGui::TextUnformatted(" Bus Hi V"); }
-                if (limitBusVoltageLower) { ImGui::SameLine(); ImGui::TextUnformatted(" Bus Lo V"); }
-                if (limitMotorTemp)       { ImGui::SameLine(); ImGui::TextUnformatted(" Temp"); }
-                if (limitOutputVoltage)   { ImGui::SameLine(); ImGui::TextUnformatted(" PWM"); }
+                ImGui::TextUnformatted(activeLimits.c_str());
                 ImGui::PopStyleColor();
             }
         }
