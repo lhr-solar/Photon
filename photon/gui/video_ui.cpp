@@ -34,6 +34,7 @@ static constexpr uint8_t RTP_PAYLOAD_TYPE = 96;
 static constexpr uint8_t START_CODE[] = {0, 0, 0, 1};
 static constexpr size_t MAX_ACCESS_UNIT_SIZE = 16 * 1024 * 1024;
 static constexpr int MAX_VIDEO_DIMENSION = 4096;
+static constexpr auto STREAM_TIMEOUT = std::chrono::seconds(1);
 
 static SocketHandle nativeSocket(uintptr_t handle) { return static_cast<SocketHandle>(handle); }
 
@@ -83,6 +84,15 @@ static bool socketInterrupted() {
   return WSAGetLastError() == WSAEINTR;
 #else
   return errno == EINTR;
+#endif
+}
+
+static bool socketReset() {
+#ifdef _WIN32
+  const int error = WSAGetLastError();
+  return error == WSAECONNRESET || error == WSAENETRESET;
+#else
+  return errno == ECONNREFUSED || errno == ECONNRESET;
 #endif
 }
 
@@ -256,7 +266,11 @@ void VideoUI::backendLoop() {
     }
     while (!stopRequested.load(std::memory_order_relaxed)) {
       const int result = decodeFrame();
-      if (result < 0) break;
+      if (result == -2) break;
+      if (result < 0) {
+        resetStream();
+        continue;
+      }
       if (result > 0) {
         if (!publishFrame()) break;
         av_frame_unref(frame);
@@ -282,6 +296,23 @@ void VideoUI::clearAccessUnit() {
   accessUnitHasIdr = false;
 }
 
+void VideoUI::resetStream(bool forgetParameters) {
+  clearAccessUnit();
+  avcodec_flush_buffers(decoderContext);
+  av_frame_unref(frame);
+  av_packet_unref(packet);
+  decoderSynced = false;
+  sequenceStarted = false;
+  timestampStarted = false;
+  streamStarted = false;
+  lastPacketAt = {};
+  if (forgetParameters) {
+    cachedSps.clear();
+    cachedPps.clear();
+  }
+  feedStatus.store(VideoFeedStatus::WaitingForStream, std::memory_order_relaxed);
+}
+
 int VideoUI::receiveAccessUnit() {
   const auto now = std::chrono::steady_clock::now();
   if (now >= nextKeepalive) {
@@ -294,11 +325,32 @@ int VideoUI::receiveAccessUnit() {
     const int size =
         receiveSocket(nativeSocket(socketHandle), datagram, static_cast<int>(sizeof(datagram)));
     if (size < 0) {
-      if (socketWouldBlock()) return 0;
+      if (socketWouldBlock()) {
+        if (lastPacketAt.time_since_epoch().count() && now - lastPacketAt > STREAM_TIMEOUT)
+          resetStream();
+        return 0;
+      }
       if (socketInterrupted()) continue;
-      return -1;
+      if (socketReset()) {
+        resetStream();
+        return 0;
+      }
+      return -2;
     }
     if (size < 12 || datagram[0] >> 6 != 2 || (datagram[1] & 0x7f) != RTP_PAYLOAD_TYPE) continue;
+
+    const uint16_t sequence = readU16(datagram + 2);
+    const uint32_t timestamp = readU32(datagram + 4);
+    const uint32_t ssrc = readU32(datagram + 8);
+    const int32_t timestampDelta = static_cast<int32_t>(timestamp - lastTimestamp);
+    if ((streamStarted && ssrc != streamSsrc) ||
+        (timestampStarted && timestampDelta < 0 &&
+         (timestampDelta < -90000 || (sequenceStarted && sequence != expectedSequence))))
+      resetStream(true);
+    streamSsrc = ssrc;
+    streamStarted = true;
+    lastPacketAt = now;
+
     VideoFeedStatus waiting = VideoFeedStatus::WaitingForStream;
     feedStatus.compare_exchange_strong(waiting, VideoFeedStatus::Synchronizing,
                                        std::memory_order_relaxed);
@@ -318,12 +370,10 @@ int VideoUI::receiveAccessUnit() {
     }
     if (headerSize >= payloadEnd) continue;
 
-    const uint16_t sequence = readU16(datagram + 2);
     const bool sequenceGap = sequenceStarted && sequence != expectedSequence;
     expectedSequence = static_cast<uint16_t>(sequence + 1);
     sequenceStarted = true;
 
-    const uint32_t timestamp = readU32(datagram + 4);
     const bool continuingAccessUnit = !accessUnit.empty() && timestamp == accessUnitTimestamp;
     if (!accessUnit.empty() && timestamp != accessUnitTimestamp) {
       clearAccessUnit();
@@ -551,13 +601,20 @@ void VideoUI::videoController(ImGuiWindowFlags flags) {
     ImVec2 size = ImGui::GetContentRegionAvail();
     size.x = size.x > 1.0f ? size.x : 1.0f;
     size.y = size.y > 1.0f ? size.y : 1.0f;
-    if (videoTexture.Status != ImTextureStatus_Destroyed)
-      ImGui::Image(videoTexture.GetTexRef(), size);
-    else
-      ImGui::Dummy(size);
+    ImGui::Dummy(size);
+    ImVec2 min = ImGui::GetItemRectMin();
+    ImVec2 max = ImGui::GetItemRectMax();
+    if (videoTexture.Status != ImTextureStatus_Destroyed && videoTexture.Width > 0 &&
+        videoTexture.Height > 0) {
+      const float aspect = static_cast<float>(videoTexture.Height) / videoTexture.Width;
+      ImVec2 drawSize{size.x, size.x / aspect};
+      if (drawSize.y > size.y) drawSize = {size.y * aspect, size.y};
+      min = {(min.x + max.x - drawSize.x) * 0.5f, (min.y + max.y - drawSize.y) * 0.5f};
+      max = {min.x + drawSize.x, min.y + drawSize.y};
+      ImGui::GetWindowDrawList()->AddImageQuad(videoTexture.GetTexRef(), min, {max.x, min.y}, max,
+                                               {min.x, max.y}, {0, 1}, {0, 0}, {1, 0}, {1, 1});
+    }
     if (const char* text = videoStatusText(feedStatus.load(std::memory_order_relaxed))) {
-      const ImVec2 min = ImGui::GetItemRectMin();
-      const ImVec2 max = ImGui::GetItemRectMax();
       const ImVec2 textSize = ImGui::CalcTextSize(text);
       ImGui::GetWindowDrawList()->AddText(
           {(min.x + max.x - textSize.x) / 2, (min.y + max.y - textSize.y) / 2},
