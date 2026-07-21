@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,38 @@ struct alignas(16) SceneViewProjection {
   glm::vec4 camPos{0.0f};
 };
 
+enum SceneDynamicPart : uint32_t {
+  SceneDynamicNone = 0,
+  SceneDynamicFrontLeftCorner = 1u << 0,
+  SceneDynamicFrontRightCorner = 1u << 1,
+  SceneDynamicFrontLeftWheel = 1u << 2,
+  SceneDynamicFrontRightWheel = 1u << 3,
+  SceneDynamicRearCorner = 1u << 4,
+  SceneDynamicRearWheel = 1u << 5,
+  SceneDynamicSteeringWheel = 1u << 6,
+  SceneDynamicFrontLeftUpperWishbone = 1u << 7,
+  SceneDynamicFrontRightUpperWishbone = 1u << 8,
+  SceneDynamicFrontLeftLowerWishbone = 1u << 9,
+  SceneDynamicFrontRightLowerWishbone = 1u << 10,
+  SceneDynamicFrontLeftPushrod = 1u << 11,
+  SceneDynamicFrontRightPushrod = 1u << 12,
+  SceneDynamicFrontLeftTieRod = 1u << 13,
+  SceneDynamicFrontRightTieRod = 1u << 14,
+};
+
+struct SceneDynamicsPose {
+  float steeringDegrees{0.0f};
+  float steeringWheelDegrees{0.0f};
+  float frontLeftWheelDegrees{0.0f};
+  float frontRightWheelDegrees{0.0f};
+  float rearWheelDegrees{0.0f};
+  float frontLeftSuspension{0.0f};
+  float frontRightSuspension{0.0f};
+  float rearSuspension{0.0f};
+  float rollDegrees{0.0f};
+  float pitchDegrees{0.0f};
+};
+
 struct SceneObject {
   std::string name{};
   std::vector<unsigned char> source{};
@@ -39,6 +72,7 @@ struct SceneObject {
     uint32_t firstIndex{0};
     uint32_t indexCount{0};
     uint32_t materialIndex{0};
+    uint32_t dynamicParts{SceneDynamicNone};
   };
   std::vector<DrawItem> drawItems{};
   VkBuffer vertexBuffer{VK_NULL_HANDLE};
@@ -51,6 +85,8 @@ struct SceneObject {
   Position position{};
   float rotationDegrees{0.0f};
   bool trackable{false};
+  bool dynamicsModel{false};
+  SceneDynamicsPose dynamics{};
   bool loaded{false};
 };
 

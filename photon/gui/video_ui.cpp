@@ -593,30 +593,42 @@ static const char* videoStatusText(VideoFeedStatus status) {
   return nullptr;
 }
 
+float VideoUI::rotatedAspect() const {
+  return videoTexture.Width > 0 && videoTexture.Height > 0
+             ? static_cast<float>(videoTexture.Height) / videoTexture.Width
+             : 9.0f / 16.0f;
+}
+
 void VideoUI::drawContent(ImVec2 size) {
   init();
   if (!presentFrame()) feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
   size = {std::max(size.x, 1.0f), std::max(size.y, 1.0f)};
   ImGui::Dummy(size);
-  ImVec2 min = ImGui::GetItemRectMin();
-  ImVec2 max = ImGui::GetItemRectMax();
-  ImGui::GetWindowDrawList()->AddRectFilled(min, max, ImGui::GetColorU32(ImGuiCol_FrameBg));
+  const ImVec2 paneMin = ImGui::GetItemRectMin();
+  const ImVec2 paneMax = ImGui::GetItemRectMax();
+  ImVec2 imageMin = paneMin;
+  ImVec2 imageMax = paneMax;
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->PushClipRect(paneMin, paneMax, true);
+  draw->AddRectFilled(paneMin, paneMax, ImGui::GetColorU32(ImGuiCol_FrameBg));
   if (videoTexture.Status != ImTextureStatus_Destroyed && videoTexture.Width > 0 &&
       videoTexture.Height > 0) {
-    const float aspect = static_cast<float>(videoTexture.Height) / videoTexture.Width;
+    const float aspect = rotatedAspect();
     ImVec2 drawSize{size.x, size.x / aspect};
     if (drawSize.y > size.y) drawSize = {size.y * aspect, size.y};
-    min = {(min.x + max.x - drawSize.x) * 0.5f, (min.y + max.y - drawSize.y) * 0.5f};
-    max = {min.x + drawSize.x, min.y + drawSize.y};
-    ImGui::GetWindowDrawList()->AddImageQuad(videoTexture.GetTexRef(), min, {max.x, min.y}, max,
-                                             {min.x, max.y}, {0, 1}, {0, 0}, {1, 0}, {1, 1});
+    imageMin = {(paneMin.x + paneMax.x - drawSize.x) * 0.5f,
+                (paneMin.y + paneMax.y - drawSize.y) * 0.5f};
+    imageMax = {imageMin.x + drawSize.x, imageMin.y + drawSize.y};
+    draw->AddImageQuad(videoTexture.GetTexRef(), imageMin, {imageMax.x, imageMin.y}, imageMax,
+                       {imageMin.x, imageMax.y}, {0, 1}, {0, 0}, {1, 0}, {1, 1});
   }
   if (const char* text = videoStatusText(feedStatus.load(std::memory_order_relaxed))) {
     const ImVec2 textSize = ImGui::CalcTextSize(text);
-    ImGui::GetWindowDrawList()->AddText(
-        {(min.x + max.x - textSize.x) / 2, (min.y + max.y - textSize.y) / 2},
-        IM_COL32(220, 220, 220, 255), text);
+    draw->AddText({(imageMin.x + imageMax.x - textSize.x) * 0.5f,
+                   (imageMin.y + imageMax.y - textSize.y) * 0.5f},
+                  IM_COL32(220, 220, 220, 255), text);
   }
+  draw->PopClipRect();
 }
 
 void VideoUI::videoController(ImGuiWindowFlags flags) {

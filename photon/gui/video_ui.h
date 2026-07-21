@@ -77,6 +77,7 @@ struct VideoUI {
   int decodeFrame();
   bool publishFrame();
   bool presentFrame();
+  float rotatedAspect() const;
   void drawContent(ImVec2 size);
   void videoController(ImGuiWindowFlags flags);
 };
