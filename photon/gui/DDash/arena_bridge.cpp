@@ -84,6 +84,49 @@ std::string joinFaultMessages(const std::vector<ui::Fault>& faults, ui::FaultSev
   return messages;
 }
 
+void updateBpsTapSeries(Arena& arena, const char* messageName, const char* valueName,
+                        std::vector<float>& destination) {
+  Message* message = nullptr;
+  for (uint32_t id : arena.validIds) {
+    Message* candidate = arena.messages[id];
+    if (candidate && candidate->name == messageName) {
+      message = candidate;
+      break;
+    }
+  }
+  if (!message) return;
+
+  uint32_t tapSignal = SIGNAL_MAX;
+  uint32_t valueSignal = SIGNAL_MAX;
+  for (uint32_t signal = 0; signal < message->signalCount; ++signal) {
+    if (!message->signals[signal]) continue;
+    if (message->signals[signal]->name == "BPS_Tap_idx") tapSignal = signal;
+    if (message->signals[signal]->name == valueName) valueSignal = signal;
+  }
+  if (tapSignal == SIGNAL_MAX || valueSignal == SIGNAL_MAX) return;
+
+  void* tapData = nullptr;
+  void* valueData = nullptr;
+  uint32_t tapBytes = 0;
+  uint32_t valueBytes = 0;
+  arena.read(message->id, tapSignal, &tapData, &tapBytes);
+  arena.read(message->id, valueSignal, &valueData, &valueBytes);
+  const uint32_t count = std::min(tapBytes, valueBytes) / sizeof(double);
+  if (count == 0 || !tapData || !valueData) return;
+
+  const auto* taps = static_cast<const double*>(tapData);
+  const auto* values = static_cast<const double*>(valueData);
+  bool filled[32]{};
+  destination.resize(32, 0.0f);
+  for (uint32_t offset = 0; offset < count; ++offset) {
+    const uint32_t sample = count - offset - 1;
+    const int tap = static_cast<int>(std::lround(taps[sample]));
+    if (tap < 0 || tap >= 32 || filled[tap] || !std::isfinite(values[sample])) continue;
+    destination[static_cast<size_t>(tap)] = static_cast<float>(values[sample]);
+    filled[tap] = true;
+  }
+}
+
 }  // namespace
 
 namespace ui {
@@ -147,15 +190,13 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
                         state.get("Brake_Pressure_1") > 10.0 ||
                         state.get("Brake_Pressure_2") > 10.0;
 
-  if (state.signals.count("BPS_Tap_idx")) {
-    int idx = (int)state.get("BPS_Tap_idx");
-    if (idx >= 0 && idx < 256) {
-      if ((int)state.moduleVoltages.size() <= idx) state.moduleVoltages.resize(idx + 1, 0.0f);
-      if ((int)state.moduleTemps.size() <= idx) state.moduleTemps.resize(idx + 1, 0.0f);
-      state.moduleVoltages[idx] = (float)state.get("BPS_Voltage_Tap_Data");
-      state.moduleTemps[idx] = (float)state.get("BPS_Temperature_Tap_Data");
-    }
-  }
+  // BPS_Tap_idx exists in voltage, temperature, ADC, fault, and balance messages. Pair the tap
+  // index and value from the same canonical aggregate message instead of combining entries from
+  // the flattened name-keyed signal map.
+  updateBpsTapSeries(arena, "BPS_Voltage_Aggregate_Arr", "BPS_Voltage_Tap_Data",
+                     state.moduleVoltages);
+  updateBpsTapSeries(arena, "BPS_Temperature_Aggregate_Arr", "BPS_Temperature_Tap_Data",
+                     state.moduleTemps);
 
   // VCU_Status has no single consolidated fault signal on the real bus; it
   // splits fault state into six per-subsystem 1-bit flags.
