@@ -343,7 +343,7 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
   ImGui::End();
 };
 
-void GUI::carMap(ImGuiWindowFlags flags) {
+void GUI::liveView(ImGuiWindowFlags flags) {
 #if PHOTON_GUI_RENDER_ITEMS
   scene.showing = false;
   const bool ready =
@@ -356,8 +356,15 @@ void GUI::carMap(ImGuiWindowFlags flags) {
   ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-  if (ImGui::Begin("scene", nullptr, flags)) {
-    ImVec2 drawSize = ImGui::GetContentRegionAvail();
+  if (ImGui::Begin("Live View", nullptr, flags)) {
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const float videoAspect =
+        videoUi.videoTexture.Width > 0 && videoUi.videoTexture.Height > 0
+            ? static_cast<float>(videoUi.videoTexture.Height) / videoUi.videoTexture.Width
+            : 9.0f / 16.0f;
+    const float videoWidth =
+        std::clamp(available.y * videoAspect, 1.0f, std::max(available.x - 1.0f, 1.0f));
+    ImVec2 drawSize{available.x - videoWidth, available.y};
     drawSize.x = std::max(drawSize.x, 1.0f);
     drawSize.y = std::max(drawSize.y, 1.0f);
     if (ready) {
@@ -432,13 +439,21 @@ void GUI::carMap(ImGuiWindowFlags flags) {
         }
       }
     } else {
-      ImGui::Text("loading scene");
+      ImGui::Dummy(drawSize);
+      const ImVec2 min = ImGui::GetItemRectMin();
+      const ImVec2 max = ImGui::GetItemRectMax();
+      const ImVec2 textSize = ImGui::CalcTextSize("loading scene");
+      ImGui::GetWindowDrawList()->AddText(
+          {(min.x + max.x - textSize.x) * 0.5f, (min.y + max.y - textSize.y) * 0.5f},
+          PhotonUi::colorU32(palette.text), "loading scene");
     }
+    ImGui::SameLine(0.0f, 0.0f);
+    videoUi.drawContent({videoWidth, available.y});
   }
   ImGui::End();
   ImGui::PopStyleColor(2);
 #else
-  (void)flags;
+  videoUi.videoController(flags);
 #endif
 };
 
@@ -561,10 +576,7 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(
       Tab::bind<ui::DashboardTab, &ui::DashboardTab::draw>(ui::dashboardTab(), "Dashboard"));
-#if PHOTON_GUI_RENDER_ITEMS
-  tabs.list.push_back(Tab::bind<GUI, &GUI::carMap>(*this, "Map"));
-#endif
-  tabs.list.push_back(Tab::bind<VideoUI, &VideoUI::videoController>(videoUi, "Livestream"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::liveView>(*this, "Live View"));
 #if PHOTON_GUI_RENDER_ITEMS
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
 #endif

@@ -38,7 +38,7 @@ struct GUI {
   void connectDaqServer();
   void updateNetworkStatus();
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
-  void carMap(ImGuiWindowFlags flags);
+  void liveView(ImGuiWindowFlags flags);
 
   GPU* gpu;
   Arena* arena;

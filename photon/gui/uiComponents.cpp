@@ -60,9 +60,8 @@ const char* tabIcon(std::string_view name) {
   if (name.find("Plot") != std::string_view::npos) return "\uea5c";
   if (name.find("Arena") != std::string_view::npos) return "\uea88";
   if (name.find("Network") != std::string_view::npos) return "\uf09f";
-  if (name.find("Livestream") != std::string_view::npos) return "\uf1e9";
+  if (name.find("Live View") != std::string_view::npos) return "\uec6b";
   if (name.find("Dashboard") != std::string_view::npos) return "\ueab1";
-  if (name.find("Map") != std::string_view::npos) return "\ueae9";
   if (name.find("WIP") != std::string_view::npos) return "\uea77";
   return "\ueada";
 }

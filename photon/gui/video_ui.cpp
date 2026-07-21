@@ -593,33 +593,34 @@ static const char* videoStatusText(VideoFeedStatus status) {
   return nullptr;
 }
 
-void VideoUI::videoController(ImGuiWindowFlags flags) {
+void VideoUI::drawContent(ImVec2 size) {
   init();
-  const bool visible = ImGui::Begin("Video Controller", nullptr, flags);
-  if (visible) {
-    if (!presentFrame()) feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
-    ImVec2 size = ImGui::GetContentRegionAvail();
-    size.x = size.x > 1.0f ? size.x : 1.0f;
-    size.y = size.y > 1.0f ? size.y : 1.0f;
-    ImGui::Dummy(size);
-    ImVec2 min = ImGui::GetItemRectMin();
-    ImVec2 max = ImGui::GetItemRectMax();
-    if (videoTexture.Status != ImTextureStatus_Destroyed && videoTexture.Width > 0 &&
-        videoTexture.Height > 0) {
-      const float aspect = static_cast<float>(videoTexture.Height) / videoTexture.Width;
-      ImVec2 drawSize{size.x, size.x / aspect};
-      if (drawSize.y > size.y) drawSize = {size.y * aspect, size.y};
-      min = {(min.x + max.x - drawSize.x) * 0.5f, (min.y + max.y - drawSize.y) * 0.5f};
-      max = {min.x + drawSize.x, min.y + drawSize.y};
-      ImGui::GetWindowDrawList()->AddImageQuad(videoTexture.GetTexRef(), min, {max.x, min.y}, max,
-                                               {min.x, max.y}, {0, 1}, {0, 0}, {1, 0}, {1, 1});
-    }
-    if (const char* text = videoStatusText(feedStatus.load(std::memory_order_relaxed))) {
-      const ImVec2 textSize = ImGui::CalcTextSize(text);
-      ImGui::GetWindowDrawList()->AddText(
-          {(min.x + max.x - textSize.x) / 2, (min.y + max.y - textSize.y) / 2},
-          IM_COL32(220, 220, 220, 255), text);
-    }
+  if (!presentFrame()) feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
+  size = {std::max(size.x, 1.0f), std::max(size.y, 1.0f)};
+  ImGui::Dummy(size);
+  ImVec2 min = ImGui::GetItemRectMin();
+  ImVec2 max = ImGui::GetItemRectMax();
+  ImGui::GetWindowDrawList()->AddRectFilled(min, max, ImGui::GetColorU32(ImGuiCol_FrameBg));
+  if (videoTexture.Status != ImTextureStatus_Destroyed && videoTexture.Width > 0 &&
+      videoTexture.Height > 0) {
+    const float aspect = static_cast<float>(videoTexture.Height) / videoTexture.Width;
+    ImVec2 drawSize{size.x, size.x / aspect};
+    if (drawSize.y > size.y) drawSize = {size.y * aspect, size.y};
+    min = {(min.x + max.x - drawSize.x) * 0.5f, (min.y + max.y - drawSize.y) * 0.5f};
+    max = {min.x + drawSize.x, min.y + drawSize.y};
+    ImGui::GetWindowDrawList()->AddImageQuad(videoTexture.GetTexRef(), min, {max.x, min.y}, max,
+                                             {min.x, max.y}, {0, 1}, {0, 0}, {1, 0}, {1, 1});
   }
+  if (const char* text = videoStatusText(feedStatus.load(std::memory_order_relaxed))) {
+    const ImVec2 textSize = ImGui::CalcTextSize(text);
+    ImGui::GetWindowDrawList()->AddText(
+        {(min.x + max.x - textSize.x) / 2, (min.y + max.y - textSize.y) / 2},
+        IM_COL32(220, 220, 220, 255), text);
+  }
+}
+
+void VideoUI::videoController(ImGuiWindowFlags flags) {
+  const bool visible = ImGui::Begin("Video Controller", nullptr, flags);
+  if (visible) drawContent(ImGui::GetContentRegionAvail());
   ImGui::End();
 }
