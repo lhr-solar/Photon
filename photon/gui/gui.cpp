@@ -358,7 +358,7 @@ void GUI::publishDisplayStatus() {
   if (!network || !kioskMode) return;
 
   const double nowMs = ImGui::GetTime() * 1000.0;
-  if (lastDisplayStatusMs > 0.0 && (nowMs - lastDisplayStatusMs) < 100.0) return;
+  if (lastDisplayStatusMs > 0.0 && (nowMs - lastDisplayStatusMs) < 10.0) return;
   lastDisplayStatusMs = nowMs;
 
   if (!network->openCanTx("can0")) return;
