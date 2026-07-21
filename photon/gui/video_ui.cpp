@@ -214,7 +214,6 @@ bool VideoUI::initBackend() {
   if (decoderContext) {
     decoderContext->pkt_timebase = {1, 90000};
     decoderContext->thread_count = 2;
-    decoderContext->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
   }
   if (!decoderContext || avcodec_open2(decoderContext, decoder, nullptr) < 0) return false;
 
@@ -328,6 +327,10 @@ int VideoUI::receiveAccessUnit() {
     const bool continuingAccessUnit = !accessUnit.empty() && timestamp == accessUnitTimestamp;
     if (!accessUnit.empty() && timestamp != accessUnitTimestamp) {
       clearAccessUnit();
+      if (decoderSynced) {
+        decoderSynced = false;
+        avcodec_flush_buffers(decoderContext);
+      }
     }
     if (accessUnit.empty()) accessUnitTimestamp = timestamp;
     if (sequenceGap && continuingAccessUnit) accessUnitDamaged = true;
@@ -390,7 +393,12 @@ int VideoUI::receiveAccessUnit() {
     if (!(datagram[1] & 0x80)) continue;
 
     if (accessUnit.empty() || inFragment || accessUnitDamaged) {
+      const bool damaged = inFragment || accessUnitDamaged;
       clearAccessUnit();
+      if (damaged && decoderSynced) {
+        decoderSynced = false;
+        avcodec_flush_buffers(decoderContext);
+      }
       continue;
     }
 
@@ -536,6 +544,7 @@ static const char* videoStatusText(VideoFeedStatus status) {
 }
 
 void VideoUI::videoController(ImGuiWindowFlags flags) {
+  init();
   const bool visible = ImGui::Begin("Video Controller", nullptr, flags);
   if (visible) {
     if (!presentFrame()) feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);

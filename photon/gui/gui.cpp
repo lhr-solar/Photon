@@ -217,7 +217,6 @@ void drawFpsOverlay() {
 }  // namespace
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
-  videoUi.init();
   this->gpu = &gpu;
   this->arena = &arena;
   this->network = &network;
