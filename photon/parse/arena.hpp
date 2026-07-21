@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -60,6 +61,7 @@ struct Message {
   PublishedSize signalSize{};
   void* timeData{};
   std::array<Signal*, SIGNAL_MAX> signals{};
+  std::chrono::steady_clock::time_point lastUpdated{};
 };
 
 struct Arena {

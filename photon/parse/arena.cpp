@@ -253,6 +253,7 @@ bool Arena::appendFrame(uint32_t id, double timeValue, const double* signalValue
     std::memcpy(dst, &signalValues[i], sizeof(double));
   }
 
+  msg.lastUpdated = std::chrono::steady_clock::now();
   msg.signalSize.value.store(offset + sizeof(double), std::memory_order_release);
   return true;
 }

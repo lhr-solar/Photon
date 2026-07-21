@@ -886,6 +886,7 @@ void GUI::setTabs() {
   PlotManager& plots = plotManager();
   plots.init(arena, network);
   customViewTab().init(arena, gpu ? gpu->window : nullptr);
+  ui::dashboardTab().init(arena);
   tabs.list.clear();
   tabs.list.push_back(
       Tab::bind<CustomViewTab, &CustomViewTab::draw>(customViewTab(), "Custom Views"));

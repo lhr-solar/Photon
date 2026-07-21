@@ -2551,6 +2551,19 @@ void GPU::configureTransparentWindow() {
 
 #else
 SDL_Window* GPU::createWindow() {
+  // Match the X11 desktop without requesting exclusive fullscreen. On the CM5,
+  // switching modes while vc4/KMS is still settling can leave the Vulkan
+  // surface with no drawable image after a restart.
+  SDL_DisplayID display = SDL_GetPrimaryDisplay();
+  if (display != 0) {
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+    if (mode == NULL) mode = SDL_GetDesktopDisplayMode(display);
+    if (mode != NULL && mode->w > 0 && mode->h > 0) {
+      width = static_cast<uint32_t>(mode->w);
+      height = static_cast<uint32_t>(mode->h);
+    }
+  }
+
   SDL_PropertiesID properties = SDL_CreateProperties();
   if (properties != 0) {
     SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Photon");
