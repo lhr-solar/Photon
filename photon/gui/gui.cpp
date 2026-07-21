@@ -512,6 +512,39 @@ void GUI::dashboardPage(ImGuiWindowFlags) {
     dashboardState.bpsMsgAgeSeconds = 0.0;
     dashboardState.vcuMsgAgeSeconds = 0.0;
   }
+  if (std::getenv("PHOTON_FAKE_DASHBOARD_LIMITS") != nullptr) {
+    dashboardState.signals["BPS_Fault"] = 0.0;
+    dashboardState.signals["VCU_Fault"] = 0.0;
+    dashboardState.signals["MC_LIMIT_OutputVoltagePWM"] = 1.0;
+    dashboardState.signals["MC_LIMIT_MotorCurrent"] = 0.0;
+    dashboardState.signals["MC_LIMIT_Velocity"] = 0.0;
+    dashboardState.signals["MC_LIMIT_BusCurrent"] = 1.0;
+    dashboardState.signals["MC_LIMIT_BusVoltageUpper"] = 0.0;
+    dashboardState.signals["MC_LIMIT_BusVoltageLower"] = 0.0;
+    dashboardState.signals["MC_LIMIT_MotorTemp"] = 1.0;
+    dashboardState.signals["MC_VehicleVelocity"] = 25.0;
+    dashboardState.signals["Gear_Forward"] = 1.0;
+    dashboardState.signals["Gear_Neutral"] = 0.0;
+    dashboardState.signals["Gear_Reverse"] = 0.0;
+
+    dashboardState.speed = 56;
+    dashboardState.gear = ui::Gear::Forward;
+    dashboardState.faults = {
+        ui::Fault{"Motor Limit", "Output voltage PWM", ui::FaultSeverity::Warning, 0},
+        ui::Fault{"Motor Limit", "Bus current", ui::FaultSeverity::Warning, 0},
+        ui::Fault{"Motor Limit", "IPM or motor temperature", ui::FaultSeverity::Warning, 0},
+    };
+    dashboardState.canFault = false;
+    dashboardState.canFaultName.clear();
+    dashboardState.canFaultMessage.clear();
+    dashboardState.canFaultRecoverable = true;
+    dashboardState.canFaultRecoverableId = 0x49;
+    dashboardState.canFaultRecoverableName = "Motor Limit";
+    dashboardState.canFaultRecoverableMessage =
+        "Output voltage PWM; Bus current; IPM or motor temperature";
+    dashboardState.bpsMsgAgeSeconds = 0.0;
+    dashboardState.vcuMsgAgeSeconds = 0.0;
+  }
   ui::RenderDashboard(dashboardState);
 }
 

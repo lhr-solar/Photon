@@ -31,6 +31,22 @@ constexpr MotorFaultDefinition kMotorFaults[] = {
     {"MC_FAULT_MotorOverSpeed", "Motor overspeed"},
 };
 
+struct MotorLimitDefinition {
+  const char* signal;
+  const char* message;
+};
+
+// MotorCAN.dbc, MC_Status (CAN ID 0x421 / 1057), bits 0-6.
+constexpr MotorLimitDefinition kMotorLimits[] = {
+    {"MC_LIMIT_OutputVoltagePWM", "Output voltage PWM"},
+    {"MC_LIMIT_MotorCurrent", "Motor current"},
+    {"MC_LIMIT_Velocity", "Velocity"},
+    {"MC_LIMIT_BusCurrent", "Bus current"},
+    {"MC_LIMIT_BusVoltageUpper", "Bus voltage upper limit"},
+    {"MC_LIMIT_BusVoltageLower", "Bus voltage lower limit"},
+    {"MC_LIMIT_MotorTemp", "IPM or motor temperature"},
+};
+
 // Seconds since the message carrying signalName last had a frame appended
 // (see Arena::appendFrame); -1 if the signal isn't in any loaded message.
 double MessageAgeSecondsForSignal(Arena& arena, const char* signalName) {
@@ -48,18 +64,20 @@ double MessageAgeSecondsForSignal(Arena& arena, const char* signalName) {
   return -1.0;
 }
 
-std::string joinFaultNames(const std::vector<ui::Fault>& faults) {
+std::string joinFaultNames(const std::vector<ui::Fault>& faults, ui::FaultSeverity severity) {
   std::string names;
   for (const auto& fault : faults) {
+    if (fault.severity != severity) continue;
     if (!names.empty()) names += ", ";
     names += fault.name;
   }
   return names;
 }
 
-std::string joinFaultMessages(const std::vector<ui::Fault>& faults) {
+std::string joinFaultMessages(const std::vector<ui::Fault>& faults, ui::FaultSeverity severity) {
   std::string messages;
   for (const auto& fault : faults) {
+    if (fault.severity != severity) continue;
     if (!messages.empty()) messages += "; ";
     messages += fault.name + ": " + fault.message;
   }
@@ -166,17 +184,34 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
     addFault(state, "Motor", FaultSeverity::Critical, kMotorFaults[i].message);
   }
 
+  uint16_t motorLimitMask = 0;
+  for (size_t i = 0; i < sizeof(kMotorLimits) / sizeof(kMotorLimits[0]); ++i) {
+    if (!state.getBool(kMotorLimits[i].signal)) continue;
+    motorLimitMask |= static_cast<uint16_t>(1u << i);
+    addFault(state, "Motor Limit", FaultSeverity::Warning, kMotorLimits[i].message);
+  }
+
   if (hasVcu && vcuF != 0) addFault(state, "VCU", FaultSeverity::Critical, "VCU fault detected");
   std::stable_sort(state.faults.begin(), state.faults.end(), [](const Fault& a, const Fault& b) {
-    return (a.name == "BPS" ? 0 : a.name == "Motor" ? 1 : a.name == "VCU" ? 2 : 3) <
-           (b.name == "BPS" ? 0 : b.name == "Motor" ? 1 : b.name == "VCU" ? 2 : 3);
+    return (a.name == "BPS" ? 0 : a.name == "Motor" ? 1 : a.name == "VCU" ? 2 :
+            a.name == "Motor Limit" ? 3 : 4) <
+           (b.name == "BPS" ? 0 : b.name == "Motor" ? 1 : b.name == "VCU" ? 2 :
+            b.name == "Motor Limit" ? 3 : 4);
   });
   state.canFault = (hasBps && bpsF != 0) || motorFaultMask != 0 || (hasVcu && vcuF != 0);
   state.canFaultId = motorFaultMask;
   if (hasBps && bpsF != 0) state.canFaultId |= 0x8000;
   if (hasVcu && vcuF != 0) state.canFaultId |= 0x4000;
-  state.canFaultName = state.canFault ? joinFaultNames(state.faults) : std::string{};
-  state.canFaultMessage = state.canFault ? joinFaultMessages(state.faults) : std::string{};
+  state.canFaultName =
+      state.canFault ? joinFaultNames(state.faults, FaultSeverity::Critical) : std::string{};
+  state.canFaultMessage =
+      state.canFault ? joinFaultMessages(state.faults, FaultSeverity::Critical) : std::string{};
+  state.canFaultRecoverable = motorLimitMask != 0;
+  state.canFaultRecoverableId = motorLimitMask;
+  state.canFaultRecoverableName = state.canFaultRecoverable ? "Motor Limit" : std::string{};
+  state.canFaultRecoverableMessage = state.canFaultRecoverable
+                                         ? joinFaultMessages(state.faults, FaultSeverity::Warning)
+                                         : std::string{};
 }
 
 }  // namespace ui
