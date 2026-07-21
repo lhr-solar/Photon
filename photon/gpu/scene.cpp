@@ -1774,9 +1774,7 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
   const float yawRadians = glm::radians(camera.yaw);
   const float pitchRadians = glm::radians(camera.pitch);
 
-  if (cameraMode == SceneCameraMode::TrackModel) {
-    camera.target = trackedTarget(*this);
-  }
+  camera.target = trackedTarget(*this);
 
   const glm::vec3 orbitOffset(camera.distance * std::cos(pitchRadians) * std::cos(yawRadians),
                               camera.distance * std::cos(pitchRadians) * std::sin(yawRadians),

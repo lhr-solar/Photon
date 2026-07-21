@@ -12,11 +12,6 @@ struct Position {
   float z{0.0f};
 };
 
-enum class SceneCameraMode {
-  Free,
-  TrackModel,
-};
-
 struct ScenePushConstants {
   float resolution[2];
   float time;
@@ -89,7 +84,6 @@ struct Scene {
   GPU* gpu{};
   std::vector<SceneObject> objects{};
   Camera camera{};
-  SceneCameraMode cameraMode{SceneCameraMode::Free};
   int trackedObjectIndex{-1};
   TextureResource fallbackWhiteTexture{};
   VkDevice device{VK_NULL_HANDLE};

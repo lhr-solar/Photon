@@ -61,6 +61,14 @@ struct GUI {
   Exporter exporter;
 #if PHOTON_GUI_RENDER_ITEMS
   Scene scene;
+  struct MapTracker {
+    Position position{};
+    double time{};
+    double gpsTime{};
+    float speed{};
+    float heading{};
+    bool valid{};
+  } mapTracker;
 #endif
 };
 

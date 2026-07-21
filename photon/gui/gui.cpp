@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,171 @@
 #include "widget.hpp"
 
 namespace {
+#if PHOTON_GUI_RENDER_ITEMS
+struct FrameView {
+  const Message* message{};
+  const double* times{};
+  uint32_t count{};
+  uint32_t index{};
+
+  double time(int offset = 0) const { return times[index + offset]; }
+  double value(uint32_t signal, int offset = 0) const {
+    return static_cast<const double*>(message->signals[signal]->data)[index + offset];
+  }
+};
+
+bool frameAt(const Arena& arena, uint32_t id, double cursor, FrameView& frame) {
+  if (id >= arena.messages.size() || !arena.messages[id]) return false;
+  const Message& message = *arena.messages[id];
+  const uint32_t count = message.signalSize.value.load(std::memory_order_acquire) / sizeof(double);
+  if (!count) return false;
+  const auto* times = static_cast<const double*>(message.timeData);
+  const double* found = std::upper_bound(times, times + count, cursor);
+  if (found == times) return false;
+  frame = {&message, times, count, static_cast<uint32_t>(--found - times)};
+  return true;
+}
+
+Position gpsPosition(double latitude, double longitude) {
+  // Brainerd OSM centerline fitted to the Assetto Corsa track.glb coordinate system.
+  constexpr double latitudeOrigin = 46.41613092075472;
+  constexpr double longitudeOrigin = -94.27538689056604;
+  constexpr double metersPerLatitudeDegree = 111320.0;
+  constexpr double metersPerLongitudeDegree = 76745.74845956931;
+  constexpr double eastX = 0.09952096955160591;
+  constexpr double northX = 0.00019804275620237066;
+  constexpr double eastY = -0.00019804275620237066;
+  constexpr double northY = 0.09952096955160591;
+  const double east = (longitude - longitudeOrigin) * metersPerLongitudeDegree;
+  const double north = (latitude - latitudeOrigin) * metersPerLatitudeDegree;
+  return {static_cast<float>(eastX * east + northX * north - 3.75936219),
+          static_cast<float>(eastY * east + northY * north + 4.97846090), 0.3f};
+}
+
+struct GpsSpan {
+  Position previous{};
+  Position current{};
+  Position next{};
+  double previousTime{};
+  double time{};
+  double nextTime{};
+  bool hasPrevious{};
+  bool hasNext{};
+};
+
+bool gpsPoint(const FrameView& latitude, const FrameView& longitude, int offset, Position& position,
+              double& time) {
+  const int latitudeIndex = static_cast<int>(latitude.index) + offset;
+  const int longitudeIndex = static_cast<int>(longitude.index) + offset;
+  if (latitudeIndex < 0 || longitudeIndex < 0 || latitudeIndex >= static_cast<int>(latitude.count) ||
+      longitudeIndex >= static_cast<int>(longitude.count) ||
+      std::abs(latitude.times[latitudeIndex] - longitude.times[longitudeIndex]) > 1.0)
+    return false;
+  const double lat = latitude.value(0, offset);
+  const double lon = longitude.value(0, offset);
+  if (!std::isfinite(lat) || !std::isfinite(lon) || std::abs(lat) > 90.0 ||
+      std::abs(lon) > 180.0 || (lat == 0.0 && lon == 0.0))
+    return false;
+  position = gpsPosition(lat, lon);
+  time = std::max(latitude.times[latitudeIndex], longitude.times[longitudeIndex]);
+  return true;
+}
+
+bool gpsSpanAt(const Arena& arena, double cursor, GpsSpan& gps) {
+  FrameView latitude{}, longitude{};
+  if (!frameAt(arena, 4288, cursor, latitude) || !frameAt(arena, 4289, cursor, longitude) ||
+      !gpsPoint(latitude, longitude, 0, gps.current, gps.time))
+    return false;
+  gps.hasPrevious = gpsPoint(latitude, longitude, -1, gps.previous, gps.previousTime);
+  gps.hasNext = gpsPoint(latitude, longitude, 1, gps.next, gps.nextTime);
+  return true;
+}
+
+float distance(Position a, Position b) { return std::hypot(b.x - a.x, b.y - a.y); }
+float direction(Position a, Position b) { return std::atan2(b.y - a.y, b.x - a.x); }
+
+bool fusedMapPosition(const Arena& arena, double cursor, GUI::MapTracker& tracker,
+                      Position& position, float& heading) {
+  GpsSpan gps{};
+  if (!gpsSpanAt(arena, cursor, gps)) return false;
+
+  if (gps.hasNext && gps.nextTime > gps.time) {
+    const float amount = static_cast<float>(std::clamp((cursor - gps.time) /
+                                                           (gps.nextTime - gps.time),
+                                                       0.0, 1.0));
+    position = {std::lerp(gps.current.x, gps.next.x, amount),
+                std::lerp(gps.current.y, gps.next.y, amount), 0.3f};
+    const float segmentDistance = distance(gps.current, gps.next);
+    heading = segmentDistance > 0.05f ? direction(gps.current, gps.next) : tracker.heading;
+    tracker = {position, cursor, gps.time,
+               segmentDistance / static_cast<float>(gps.nextTime - gps.time), heading, true};
+    return true;
+  }
+
+  const bool reset = !tracker.valid || cursor < tracker.time || cursor - tracker.time > 0.5 ||
+                     gps.time > tracker.gpsTime;
+  if (reset) {
+    tracker.position = gps.current;
+    tracker.time = gps.time;
+    tracker.gpsTime = gps.time;
+    if (gps.hasPrevious && gps.time > gps.previousTime) {
+      const float segmentDistance = distance(gps.previous, gps.current);
+      if (segmentDistance > 0.05f) tracker.heading = direction(gps.previous, gps.current);
+      tracker.speed = segmentDistance / static_cast<float>(gps.time - gps.previousTime);
+    }
+    tracker.valid = true;
+  }
+
+  const float dt = static_cast<float>(std::clamp(cursor - tracker.time, 0.0, 30.0));
+  FrameView velocity{}, acceleration{}, gyro{};
+  const bool hasVelocity = frameAt(arena, 1059, cursor, velocity) &&
+                           velocity.message->signalCount > 1 && cursor - velocity.time() < 1.0 &&
+                           std::isfinite(velocity.value(1));
+  const bool hasAcceleration = frameAt(arena, 4528, cursor, acceleration) &&
+                               acceleration.message->signalCount > 2 &&
+                               cursor - acceleration.time() < 0.25;
+  const bool hasGyro = frameAt(arena, 4529, cursor, gyro) && gyro.message->signalCount > 2 &&
+                       cursor - gyro.time() < 0.25;
+
+  float yawRate = 0.0f;
+  if (hasAcceleration && hasGyro && std::abs(acceleration.time() - gyro.time()) < 0.1) {
+    // Project angular velocity onto measured gravity, independent of the IMU's mounting axes.
+    const float ax = static_cast<float>(acceleration.value(0));
+    const float ay = static_cast<float>(acceleration.value(1));
+    const float az = static_cast<float>(acceleration.value(2));
+    const float gravity = std::sqrt(ax * ax + ay * ay + az * az);
+    if (gravity > 0.7f && gravity < 1.3f)
+      yawRate = static_cast<float>((gyro.value(0) * ax + gyro.value(1) * ay +
+                                    gyro.value(2) * az) /
+                                   gravity) *
+                std::numbers::pi_v<float> / 180.0f;
+  }
+
+  if (dt > 0.0f && (hasVelocity || (hasAcceleration && hasGyro))) {
+    const float nextHeading = tracker.heading + std::clamp(yawRate, -4.0f, 4.0f) * dt;
+    float nextSpeed = tracker.speed;
+    if (hasVelocity) {
+      constexpr float metersToScene = 0.099521f;
+      const float measured = std::clamp(std::abs(static_cast<float>(velocity.value(1))), 0.0f,
+                                        100.0f) *
+                             metersToScene;
+      nextSpeed = std::lerp(nextSpeed, measured, 1.0f - std::exp(-8.0f * dt));
+    }
+    const float travel = (tracker.speed + nextSpeed) * 0.5f * dt;
+    const float middleHeading = (tracker.heading + nextHeading) * 0.5f;
+    tracker.position.x += std::cos(middleHeading) * travel;
+    tracker.position.y += std::sin(middleHeading) * travel;
+    tracker.position.z = 0.3f;
+    tracker.heading = nextHeading;
+    tracker.speed = nextSpeed;
+  }
+  tracker.time = cursor;
+  position = tracker.position;
+  heading = tracker.heading;
+  return true;
+}
+#endif
+
 void drawFpsOverlay() {
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(
@@ -181,7 +347,6 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
 void GUI::carMap(ImGuiWindowFlags flags) {
 #if PHOTON_GUI_RENDER_ITEMS
   scene.showing = false;
-  scene.cameraMode = SceneCameraMode::TrackModel;
   const bool ready =
       scene.initialized.load() && !scene.frames.empty() && scene.frameIndex != nullptr;
   SceneFrame fallbackFrame{};
@@ -214,6 +379,22 @@ void GUI::carMap(ImGuiWindowFlags flags) {
       const bool hasTrackedObject =
           scene.trackedObjectIndex >= 0 &&
           scene.trackedObjectIndex < static_cast<int>(scene.objects.size());
+      if (hasTrackedObject) {
+        Position nextPosition{};
+        float nextHeading{};
+        const bool smooth = mapTracker.valid && plots.cursor >= mapTracker.time &&
+                            plots.cursor - mapTracker.time < 0.5;
+        ArenaReadScope read(*arena);
+        if (fusedMapPosition(*arena, plots.cursor, mapTracker, nextPosition, nextHeading)) {
+          SceneObject& car = scene.objects[scene.trackedObjectIndex];
+          const float amount = smooth ? 1.0f - std::exp(-10.0f * ImGui::GetIO().DeltaTime) : 1.0f;
+          car.position.x = std::lerp(car.position.x, nextPosition.x, amount);
+          car.position.y = std::lerp(car.position.y, nextPosition.y, amount);
+          car.position.z = nextPosition.z;
+          const float rotation = nextHeading * 180.0f / std::numbers::pi_v<float> + 90.0f;
+          car.rotationDegrees += std::remainder(rotation - car.rotationDegrees, 360.0f) * amount;
+        }
+      }
       const Position trackedPosition =
           hasTrackedObject ? scene.objects[scene.trackedObjectIndex].position : Position{};
 
