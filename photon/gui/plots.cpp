@@ -435,6 +435,11 @@ bool Plots::signalStatic(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size
   return true;
 }
 
+double Plots::mapCursor() const {
+  if (timelineMode != TimelineMode::Live) return cursor;
+  return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
 void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec2 pos,
                      ImVec2 size) {
   // Timeline values are Unix seconds; LIVE advances independently of message cadence.

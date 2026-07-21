@@ -1,9 +1,12 @@
 #include "gui.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <limits>
 #include <numbers>
 #include <string>
 #include <vector>
@@ -60,6 +63,19 @@ bool frameAt(const Arena& arena, uint32_t id, double cursor, FrameView& frame) {
   if (found == times) return false;
   frame = {&message, times, count, static_cast<uint32_t>(--found - times)};
   return true;
+}
+
+bool frameLatest(const Arena& arena, uint32_t id, FrameView& frame) {
+  if (id >= arena.messages.size() || !arena.messages[id]) return false;
+  const Message& message = *arena.messages[id];
+  const uint32_t count = message.signalSize.value.load(std::memory_order_acquire) / sizeof(double);
+  if (!count) return false;
+  frame = {&message, static_cast<const double*>(message.timeData), count, count - 1};
+  return true;
+}
+
+bool frameAtOrLatest(const Arena& arena, uint32_t id, double cursor, FrameView& frame) {
+  return frameAt(arena, id, cursor, frame) || frameLatest(arena, id, frame);
 }
 
 bool dynamicsSignalAt(const Arena& arena, uint32_t id, uint32_t signal, double cursor,
@@ -236,6 +252,40 @@ struct GpsSpan {
   bool hasNext{};
 };
 
+bool normalizeGpsCoordinate(double rawValue, bool latitude, double& coordinate) {
+  if (!std::isfinite(rawValue)) return false;
+
+  const double limit = latitude ? 90.0 : 180.0;
+  const double trackCoordinate = latitude ? 46.41613092075472 : -94.27538689056604;
+  bool found = false;
+  double bestDistance = std::numeric_limits<double>::max();
+  const auto consider = [&](double candidate) {
+    if (!std::isfinite(candidate) || std::abs(candidate) > limit) return;
+    const double candidateDistance = std::abs(candidate - trackCoordinate);
+    if (!found || candidateDistance < bestDistance) {
+      coordinate = candidate;
+      bestDistance = candidateDistance;
+      found = true;
+    }
+  };
+
+  // The direct-car DBC publishes signed degrees scaled by 1e-6, which the
+  // decoder has already converted to degrees by the time it reaches here.
+  consider(rawValue);
+
+  // The AWS telemetry DBC describes the same four bytes as an unsigned
+  // integer. Depending on the producer, those bytes contain either an IEEE
+  // float or signed microdegrees. Evaluate both representations and select
+  // the coordinate that is plausible for the configured Brainerd track.
+  if (rawValue >= 0.0 && rawValue <= std::numeric_limits<uint32_t>::max() &&
+      std::floor(rawValue) == rawValue) {
+    const uint32_t bits = static_cast<uint32_t>(rawValue);
+    consider(static_cast<double>(std::bit_cast<float>(bits)));
+    consider(static_cast<double>(std::bit_cast<int32_t>(bits)) * 1e-6);
+  }
+  return found;
+}
+
 bool gpsPoint(const FrameView& latitude, const FrameView& longitude, int offset, Position& position,
               double& time) {
   const int latitudeIndex = static_cast<int>(latitude.index) + offset;
@@ -245,10 +295,10 @@ bool gpsPoint(const FrameView& latitude, const FrameView& longitude, int offset,
       longitudeIndex >= static_cast<int>(longitude.count) ||
       std::abs(latitude.times[latitudeIndex] - longitude.times[longitudeIndex]) > 1.0)
     return false;
-  const double lat = latitude.value(0, offset);
-  const double lon = longitude.value(0, offset);
-  if (!std::isfinite(lat) || !std::isfinite(lon) || std::abs(lat) > 90.0 || std::abs(lon) > 180.0 ||
-      (lat == 0.0 && lon == 0.0))
+  double lat = 0.0;
+  double lon = 0.0;
+  if (!normalizeGpsCoordinate(latitude.value(0, offset), true, lat) ||
+      !normalizeGpsCoordinate(longitude.value(0, offset), false, lon) || (lat == 0.0 && lon == 0.0))
     return false;
   position = gpsPosition(lat, lon);
   time = std::max(latitude.times[latitudeIndex], longitude.times[longitudeIndex]);
@@ -256,13 +306,75 @@ bool gpsPoint(const FrameView& latitude, const FrameView& longitude, int offset,
 }
 
 bool gpsSpanAt(const Arena& arena, double cursor, GpsSpan& gps) {
-  FrameView latitude{}, longitude{};
-  if (!frameAt(arena, 4288, cursor, latitude) || !frameAt(arena, 4289, cursor, longitude) ||
-      !gpsPoint(latitude, longitude, 0, gps.current, gps.time))
-    return false;
-  gps.hasPrevious = gpsPoint(latitude, longitude, -1, gps.previous, gps.previousTime);
-  gps.hasNext = gpsPoint(latitude, longitude, 1, gps.next, gps.nextTime);
-  return true;
+  struct GpsMessagePair {
+    uint32_t latitude;
+    uint32_t longitude;
+  };
+  constexpr GpsMessagePair pairs[]{{4288, 4289}, {5888, 5889}};
+
+  bool found = false;
+  for (const GpsMessagePair pair : pairs) {
+    FrameView latitude{}, longitude{};
+    GpsSpan candidate{};
+    if (!frameAtOrLatest(arena, pair.latitude, cursor, latitude) ||
+        !frameAtOrLatest(arena, pair.longitude, cursor, longitude) ||
+        !gpsPoint(latitude, longitude, 0, candidate.current, candidate.time))
+      continue;
+    candidate.hasPrevious =
+        gpsPoint(latitude, longitude, -1, candidate.previous, candidate.previousTime);
+    candidate.hasNext = gpsPoint(latitude, longitude, 1, candidate.next, candidate.nextTime);
+    if (!found || candidate.time > gps.time) {
+      gps = candidate;
+      found = true;
+    }
+  }
+  return found;
+}
+
+uint32_t messageSampleCount(const Arena& arena, uint32_t id) {
+  if (id >= arena.messages.size() || !arena.messages[id]) return 0;
+  return arena.messages[id]->signalSize.value.load(std::memory_order_acquire) / sizeof(double);
+}
+
+struct GpsDebugInfo {
+  bool locked{};
+  uint32_t latitudeId{};
+  uint32_t longitudeId{};
+  uint32_t latitudeSamples{};
+  uint32_t longitudeSamples{};
+  double latitude{};
+  double longitude{};
+  double ageSeconds{};
+};
+
+GpsDebugInfo gpsDebugAt(const Arena& arena, double cursor) {
+  GpsDebugInfo info{};
+  struct GpsMessagePair {
+    uint32_t latitude;
+    uint32_t longitude;
+  };
+  constexpr GpsMessagePair pairs[]{{4288, 4289}, {5888, 5889}};
+  for (const GpsMessagePair pair : pairs) {
+    info.latitudeSamples = messageSampleCount(arena, pair.latitude);
+    info.longitudeSamples = messageSampleCount(arena, pair.longitude);
+    info.latitudeId = pair.latitude;
+    info.longitudeId = pair.longitude;
+    FrameView latitude{}, longitude{};
+    if (!frameAtOrLatest(arena, pair.latitude, cursor, latitude) ||
+        !frameAtOrLatest(arena, pair.longitude, cursor, longitude))
+      continue;
+    double lat = 0.0;
+    double lon = 0.0;
+    if (!normalizeGpsCoordinate(latitude.value(0), true, lat) ||
+        !normalizeGpsCoordinate(longitude.value(0), false, lon))
+      continue;
+    info.locked = true;
+    info.latitude = lat;
+    info.longitude = lon;
+    info.ageSeconds = cursor - std::max(latitude.time(), longitude.time());
+    return info;
+  }
+  return info;
 }
 
 float distance(Position a, Position b) { return std::hypot(b.x - a.x, b.y - a.y); }
@@ -518,13 +630,33 @@ void GUI::liveView(ImGuiWindowFlags flags) {
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
   if (ImGui::Begin("Live View", nullptr, flags)) {
+    constexpr float controlHeight = 34.0f;
+    constexpr float controlGap = 8.0f;
+    constexpr const char* eyeIcon = "\uea9a";
+    constexpr const char* eyeOffIcon = "\uecf0";
+    if (PhotonUi::rowButton("LiveSceneVisibility", showLiveScene ? eyeIcon : eyeOffIcon, "3D model",
+                            {126.0f, controlHeight}, palette, showLiveScene))
+      showLiveScene = !showLiveScene;
+    ImGui::SameLine(0.0f, controlGap);
+    if (PhotonUi::rowButton("LiveVideoVisibility", showLiveVideo ? eyeIcon : eyeOffIcon,
+                            "Video stream", {144.0f, controlHeight}, palette, showLiveVideo))
+      showLiveVideo = !showLiveVideo;
+
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 contentMin = ImGui::GetCursorScreenPos();
     const ImVec2 contentSize{std::max(available.x, 2.0f), std::max(available.y, 1.0f)};
-    const float videoWidth =
-        std::clamp(contentSize.y * videoUi.rotatedAspect(), 1.0f, contentSize.x * 0.5f);
-    const ImVec2 drawSize{contentSize.x - videoWidth, contentSize.y};
-    if (ready) {
+    constexpr float splitterWidth = 10.0f;
+    const bool split = showLiveScene && showLiveVideo && contentSize.x > splitterWidth * 2.0f;
+    const float minPaneWidth = std::min(160.0f, contentSize.x * 0.25f);
+    float videoWidth = showLiveVideo ? contentSize.x : 0.0f;
+    float sceneWidth = showLiveScene ? contentSize.x : 0.0f;
+    if (split) {
+      videoWidth = std::clamp(contentSize.x * liveVideoFraction, minPaneWidth,
+                              contentSize.x - minPaneWidth - splitterWidth);
+      sceneWidth = contentSize.x - videoWidth - splitterWidth;
+    }
+    const ImVec2 drawSize{sceneWidth, contentSize.y};
+    if (showLiveScene && ready) {
       const VkExtent2D nextExtent = quantizeContentExtent(drawSize, frame.extent);
       if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
         frame.extent = nextExtent;
@@ -532,7 +664,7 @@ void GUI::liveView(ImGuiWindowFlags flags) {
       }
     }
 
-    if (ready) {
+    if (showLiveScene && ready) {
       const bool sceneVisible = ImGui::IsRectVisible(drawSize);
       if (sceneVisible) scene.showing = true;
       ImGui::Image(frame.texture, drawSize);
@@ -545,10 +677,11 @@ void GUI::liveView(ImGuiWindowFlags flags) {
       if (hasTrackedObject) {
         Position nextPosition{};
         float nextHeading{};
-        const bool smooth = mapTracker.valid && plots.cursor >= mapTracker.time &&
-                            plots.cursor - mapTracker.time < 0.5;
+        const double mapCursor = plots.mapCursor();
+        const bool smooth = mapTracker.valid && mapCursor >= mapTracker.time &&
+                            mapCursor - mapTracker.time < 0.5;
         ArenaReadScope read(*arena);
-        if (fusedMapPosition(*arena, plots.cursor, mapTracker, nextPosition, nextHeading)) {
+        if (fusedMapPosition(*arena, mapCursor, mapTracker, nextPosition, nextHeading)) {
           SceneObject& car = scene.objects[scene.trackedObjectIndex];
           const float amount = smooth ? 1.0f - std::exp(-10.0f * ImGui::GetIO().DeltaTime) : 1.0f;
           car.position.x = std::lerp(car.position.x, nextPosition.x, amount);
@@ -561,9 +694,22 @@ void GUI::liveView(ImGuiWindowFlags flags) {
       const Position trackedPosition =
           hasTrackedObject ? scene.objects[scene.trackedObjectIndex].position : Position{};
 
-      char positionLabel[128]{};
-      std::snprintf(positionLabel, sizeof(positionLabel), "x: %.3f | y: %.3f | z: %.3f",
-                    trackedPosition.x, trackedPosition.y, trackedPosition.z);
+      char positionLabel[192]{};
+      {
+        ArenaReadScope read(*arena);
+        const GpsDebugInfo gpsDebug = gpsDebugAt(*arena, plots.mapCursor());
+        if (gpsDebug.locked)
+          std::snprintf(positionLabel, sizeof(positionLabel),
+                        "x: %.3f | y: %.3f | z: %.3f | GPS %u/%u lock %.6f, %.6f (%.1fs)",
+                        trackedPosition.x, trackedPosition.y, trackedPosition.z, gpsDebug.latitudeId,
+                        gpsDebug.longitudeId, gpsDebug.latitude, gpsDebug.longitude,
+                        gpsDebug.ageSeconds);
+        else
+          std::snprintf(positionLabel, sizeof(positionLabel),
+                        "x: %.3f | y: %.3f | z: %.3f | GPS %u/%u samples %u/%u (no lock)",
+                        trackedPosition.x, trackedPosition.y, trackedPosition.z, gpsDebug.latitudeId,
+                        gpsDebug.longitudeId, gpsDebug.latitudeSamples, gpsDebug.longitudeSamples);
+      }
       const ImVec2 textPadding(10.0f, 6.0f);
       const ImVec2 textSize = ImGui::CalcTextSize(positionLabel);
       const ImVec2 textMin(imageMin.x + 12.0f,
@@ -597,7 +743,7 @@ void GUI::liveView(ImGuiWindowFlags flags) {
               std::clamp(scene.camera.distance, scene.camera.minDistance, scene.camera.maxDistance);
         }
       }
-    } else {
+    } else if (showLiveScene) {
       ImGui::Dummy(drawSize);
       const ImVec2 min = ImGui::GetItemRectMin();
       const ImVec2 max = ImGui::GetItemRectMax();
@@ -608,8 +754,39 @@ void GUI::liveView(ImGuiWindowFlags flags) {
                         PhotonUi::colorU32(palette.text), "loading scene");
       drawList->PopClipRect();
     }
-    ImGui::SetCursorScreenPos({contentMin.x + drawSize.x, contentMin.y});
-    videoUi.drawContent({videoWidth, contentSize.y});
+    if (split) {
+      ImGui::SetCursorScreenPos({contentMin.x + sceneWidth, contentMin.y});
+      ImGui::InvisibleButton("##LiveViewSplitter", {splitterWidth, contentSize.y});
+      const bool splitterHovered = ImGui::IsItemHovered();
+      const bool splitterActive = ImGui::IsItemActive();
+      if (splitterActive) {
+        liveVideoFraction =
+            std::clamp(liveVideoFraction - ImGui::GetIO().MouseDelta.x / contentSize.x,
+                       minPaneWidth / contentSize.x,
+                       (contentSize.x - minPaneWidth - splitterWidth) / contentSize.x);
+      }
+      const ImVec2 splitMin = ImGui::GetItemRectMin();
+      const ImVec2 splitMax = ImGui::GetItemRectMax();
+      const ImVec4 splitColor = splitterActive    ? palette.accent
+                                : splitterHovered ? palette.text
+                                                  : palette.border;
+      ImGui::GetWindowDrawList()->AddRectFilled(
+          {splitMin.x + 3.0f, splitMin.y + 4.0f}, {splitMax.x - 3.0f, splitMax.y - 4.0f},
+          PhotonUi::colorU32(PhotonUi::withAlpha(splitColor, splitterActive ? 0.9f : 0.55f)), 3.0f);
+      if (splitterHovered || splitterActive) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+    }
+    if (showLiveVideo) {
+      ImGui::SetCursorScreenPos(
+          {contentMin.x + (split ? sceneWidth + splitterWidth : 0.0f), contentMin.y});
+      videoUi.drawContent({videoWidth, contentSize.y});
+    }
+    if (!showLiveScene && !showLiveVideo) {
+      const char* hiddenText = "3D model and video stream are hidden";
+      const ImVec2 textSize = ImGui::CalcTextSize(hiddenText);
+      ImGui::GetWindowDrawList()->AddText({contentMin.x + (contentSize.x - textSize.x) * 0.5f,
+                                           contentMin.y + (contentSize.y - textSize.y) * 0.5f},
+                                          PhotonUi::colorU32(palette.muted), hiddenText);
+    }
   }
   ImGui::End();
   ImGui::PopStyleColor(2);
@@ -630,7 +807,7 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
   if (dynamicsObjectIndex >= 0 &&
       dynamicsObjectIndex < static_cast<int>(dynamicsScene.objects.size())) {
     ArenaReadScope read(*arena);
-    updateDynamicsPose(*arena, plots.cursor, dynamicsTelemetry,
+    updateDynamicsPose(*arena, plots.mapCursor(), dynamicsTelemetry,
                        dynamicsScene.objects[dynamicsObjectIndex]);
     applyDynamicsJiggle(dynamicsTelemetry, dynamicsScene.objects[dynamicsObjectIndex]);
   }

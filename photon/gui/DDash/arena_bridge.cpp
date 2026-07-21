@@ -8,6 +8,23 @@
 
 namespace {
 
+constexpr char kQualifiedSignalSeparator = '.';
+
+std::string qualifiedSignalName(const Message& message, const Signal& signal) {
+  return message.name + kQualifiedSignalSeparator + signal.name;
+}
+
+void aliasSignal(ui::AppState& state, const char* alias, const char* source) {
+  const auto it = state.signals.find(source);
+  if (it != state.signals.end()) state.signals[alias] = it->second;
+}
+
+void aliasMessageSignal(ui::AppState& state, const char* alias, const char* message,
+                        const char* signal) {
+  const std::string source = std::string(message) + kQualifiedSignalSeparator + signal;
+  aliasSignal(state, alias, source.c_str());
+}
+
 void addFault(ui::AppState& state, const char* name,
              ui::FaultSeverity severity, const char* message) {
   state.faults.push_back(ui::Fault{name, message, severity, 0});
@@ -149,25 +166,42 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
       uint32_t dataBytes = 0;
       arena.read(id, s, &data, &dataBytes);
       const uint32_t count = dataBytes / sizeof(double);
-      if (count > 0) state.signals[sig->name] = static_cast<const double*>(data)[count - 1];
+      if (count == 0) continue;
+      const double value = static_cast<const double*>(data)[count - 1];
+      state.signals[qualifiedSignalName(*msg, *sig)] = value;
+      state.signals[sig->name] = value;
     }
   }
 
   // Embedded-Sharepoint CarCAN uses the newer *_Pos_* names while the
   // dashboard still consumes the original pedal names. Keep the raw names
   // and expose compatibility aliases until the UI is migrated wholesale.
-  const auto aliasSignal = [&](const char* alias, const char* source) {
-    const auto it = state.signals.find(source);
-    if (it != state.signals.end()) state.signals[alias] = it->second;
+  aliasSignal(state, "AccelPedal_Main_Pos", "Accel_Pos_Main");
+  aliasSignal(state, "AccelPedal_Redundant_Pos", "Accel_Pos_Redundant");
+  aliasSignal(state, "BrakePedal_Main_Pos", "Brake_Pos_Main");
+  aliasSignal(state, "BrakePedal_Redundant_Pos", "Brake_Pos_Redundant");
+  aliasSignal(state, "AccelPedal_Main_Fault", "Accel_Pos_Main_Fault");
+  aliasSignal(state, "AccelPedal_Redundant_Fault", "Accel_Pos_Redundant_Fault");
+  aliasSignal(state, "BrakePedal_Main_Fault", "Brake_Pos_Main_Fault");
+  aliasSignal(state, "BrakePedal_Redundant_Fault", "Brake_Pos_Redundant_Fault");
+
+  // Some HighNoon messages intentionally repeat a signal name. Preserve the
+  // generic value above for plots, while exposing stable dashboard aliases
+  // from the message-qualified Arena values.
+  aliasMessageSignal(state, "Brake_Pressure_1", "Brake_Pressure_1", "Brake_Pressure");
+  aliasMessageSignal(state, "Brake_Pressure_2", "Brake_Pressure_2", "Brake_Pressure");
+  aliasSignal(state, "SuppCharger_Status", "Supplemental_Charger_Status");
+  aliasSignal(state, "Supplemental_DCDC_Voltage", "Supplemental_Vicor_Voltage");
+  aliasSignal(state, "Supplemental_DCDC_Current", "Supplemental_Vicor_Current");
+
+  uint8_t lightingFaults = 0;
+  static constexpr const char* kLightingFaultSignals[] = {
+      "LightingBoard_Front_Status", "LightingBoard_Left_Status",   "LightingBoard_Right_Status",
+      "LightingBoard_Rear_Status",  "LightingBoard_Canopy_Status",
   };
-  aliasSignal("AccelPedal_Main_Pos", "Accel_Pos_Main");
-  aliasSignal("AccelPedal_Redundant_Pos", "Accel_Pos_Redundant");
-  aliasSignal("BrakePedal_Main_Pos", "Brake_Pos_Main");
-  aliasSignal("BrakePedal_Redundant_Pos", "Brake_Pos_Redundant");
-  aliasSignal("AccelPedal_Main_Fault", "Accel_Pos_Main_Fault");
-  aliasSignal("AccelPedal_Redundant_Fault", "Accel_Pos_Redundant_Fault");
-  aliasSignal("BrakePedal_Main_Fault", "Brake_Pos_Main_Fault");
-  aliasSignal("BrakePedal_Redundant_Fault", "Brake_Pos_Redundant_Fault");
+  for (size_t index = 0; index < std::size(kLightingFaultSignals); ++index)
+    if (state.getBool(kLightingFaultSignals[index])) lightingFaults |= 1u << index;
+  state.signals["Controls_Lighting_Fault"] = lightingFaults;
 
   // Everything below needs more than one signal at once, or isn't a raw
   // signal at all — can't be a generic name lookup.
@@ -216,6 +250,7 @@ void UpdateDashboardState(Arena& arena, AppState& state) {
   double vcuF = state.get("VCU_Fault");
   if (!hasConsolidatedVcuFault)
     for (const char* sig : kVcuFaultSignals) vcuF += state.get(sig) != 0.0 ? 1.0 : 0.0;
+  state.signals["VCU_Fault"] = vcuF;
   if (hasBps && bpsF != 0) addFault(state, "BPS", FaultSeverity::Critical, "BPS fault detected");
 
   uint16_t motorFaultMask = 0;

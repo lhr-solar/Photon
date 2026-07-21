@@ -546,6 +546,8 @@ bool encodeSignal(uint8_t data[8], uint8_t dlc, const Signal& signal, double phy
 
 double batchTimeSeconds(uint64_t timestampMs) { return static_cast<double>(timestampMs) / 1000.0; }
 
+constexpr uint32_t kCanIdMask = 0x1FFFFFFFu;
+
 void handleNetwork(const canpBatch_t& batch, Arena& arena) {
   double timeValue = batchTimeSeconds(batch.timestamp);
   const uint16_t count = batch.count > CANP_MAX_BATCH ? CANP_MAX_BATCH : batch.count;
@@ -553,7 +555,9 @@ void handleNetwork(const canpBatch_t& batch, Arena& arena) {
     const canpPacket_t& packet = batch.packets[i];
     if (packet.dlc > 8) continue;
 
-    const uint32_t id = canpGetId(&packet);
+    // Strip Linux/SocketCAN EFF/RTR/ERR flag bits if a telem gateway embeds them in can_id.
+    // AWS GPS frames (0x1700/0x1701) are extended; without masking they miss MESSAGE_MAX.
+    const uint32_t id = canpGetId(&packet) & kCanIdMask;
     if (id >= arena.messages.size()) continue;
 
     Message* msg = arena.messages[id];
@@ -629,7 +633,7 @@ void Protocols::TCP(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 32
       const uint16_t count = std::min<uint16_t>(batch.count, CANP_MAX_BATCH);
       for (uint16_t index = 0; index < count; ++index) {
         const canpPacket_t& packet = batch.packets[index];
-        const uint32_t id = canpGetId(&packet);
+        const uint32_t id = canpGetId(&packet) & kCanIdMask;
         if (id >= MESSAGE_MAX || packet.dlc > 8) continue;
         frameEvents.write([id, &packet, timestampMs = batch.timestamp](CANFrameEvent& event) {
           event.id = id;
@@ -674,6 +678,7 @@ using CANFrameCache = std::array<CachedCANFrame, MESSAGE_MAX>;
 void receiveCANFrame(uint32_t id, uint8_t dlc, const uint8_t data[8], uint64_t timestampMs,
                      CANFrameCache& cache, Arena& arena, SPMCQueue<CANFrameEvent, 512>& frameEvents,
                      bool transmitted) {
+  id &= kCanIdMask;
   if (id >= MESSAGE_MAX || dlc > 8) return;
   CachedCANFrame& cached = cache[id];
   cached.valid = true;
@@ -929,13 +934,12 @@ void Protocols::PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 3
       }
       received = true;
       if ((message.MSGTYPE & PCAN_MESSAGE_RTR) != 0 ||
-          (message.MSGTYPE & PCAN_MESSAGE_EXTENDED) != 0 ||
           (message.MSGTYPE & PCAN_MESSAGE_STATUS) != 0)
         continue;
       const uint64_t timestampMs = static_cast<uint64_t>(timestamp.millis) +
                                    (static_cast<uint64_t>(timestamp.millis_overflow) << 32);
-      receiveCANFrame(message.ID, message.LEN, message.DATA, timestampMs, cache, arena, frameEvents,
-                      false);
+      receiveCANFrame(message.ID & kCanIdMask, message.LEN, message.DATA, timestampMs, cache, arena,
+                      frameEvents, false);
     }
     if (!received) std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
@@ -987,9 +991,8 @@ void Protocols::PCAN(std::stop_token stoken, SPMCQueue<ProtocolReceiveVariant, 3
     }
     can_frame frame{};
     const ssize_t bytes = ::read(sock, &frame, sizeof(frame));
-    if (bytes == sizeof(frame) &&
-        (frame.can_id & (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG)) == 0)
-      receiveCANFrame(frame.can_id & CAN_SFF_MASK, frame.can_dlc, frame.data, steadyTimestampMs(),
+    if (bytes == sizeof(frame) && (frame.can_id & (CAN_RTR_FLAG | CAN_ERR_FLAG)) == 0)
+      receiveCANFrame(frame.can_id & CAN_EFF_MASK, frame.can_dlc, frame.data, steadyTimestampMs(),
                       cache, arena, frameEvents, false);
     else
       std::this_thread::sleep_for(std::chrono::milliseconds(2));

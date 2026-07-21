@@ -61,6 +61,9 @@ struct GUI {
   Updater updater;
   Plots plots;
   VideoUI videoUi;
+  float liveVideoFraction = 0.35f;
+  bool showLiveScene = true;
+  bool showLiveVideo = true;
   Exporter exporter;
 #if PHOTON_GUI_RENDER_ITEMS
   Scene scene;

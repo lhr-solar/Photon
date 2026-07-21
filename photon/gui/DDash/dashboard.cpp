@@ -454,17 +454,17 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
 
         // Aux battery — no bar, just label + voltage + current inline
         {
-            const float auxVoltage = (float)state.get("Supplemental_Battery_Voltage");
-            const float auxCurrent = (float)(state.get("Supplemental_Battery_Current") * 0.001);
-            const float auxSoc     = (float)state.get("Supplemental_Battery_SOC");
+          const float auxVoltage = (float)state.get("Supplemental_Battery_Voltage");
+          const float auxCurrent = (float)state.get("Supplemental_Battery_Current");
+          const float auxSoc = (float)state.get("Supplemental_Battery_SOC");
 
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
-            ImGui::Text("Aux");
-            ImGui::PopStyleColor();
-            ImGui::SameLine(48.0f + 8.0f);
-            ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-            ImGui::Text("%.0f V  %.0f A  %.0f%%", auxVoltage, auxCurrent, auxSoc);
-            ImGui::PopStyleColor();
+          ImGui::PushStyleColor(ImGuiCol_Text, Colors::MutedForeground());
+          ImGui::Text("Aux");
+          ImGui::PopStyleColor();
+          ImGui::SameLine(48.0f + 8.0f);
+          ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
+          ImGui::Text("%.0f V  %.0f A  %.0f%%", auxVoltage, auxCurrent, auxSoc);
+          ImGui::PopStyleColor();
         }
 
         widgets::Space(0);
@@ -1438,20 +1438,31 @@ static void RenderDebugScreen(AppState& liveState) {
     // LV + Cameras + Lights
     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.9f, 1.0f), "LV / CAMERAS / LIGHTS");
     ImGui::Text(" HV DCDC: Sel:%s Fault:%s Valid:%s",
-        state.getBool("LTC4421_HVDCDC_Selected")?"Y":"N", state.getBool("LTC4421_HVDCDC_Fault")?"YES":"no", state.getBool("LTC4421_HVDCDC_Valid")?"Y":"N");
+                state.getBool("LTC4421_HVDCDC_Selected") ? "Y" : "N",
+                state.getBool("LTC4421_HVDCDC_Fault") ? "YES" : "no",
+                state.getBool("LTC4421_HVDCDC_Valid") ? "Y" : "N");
     ImGui::Text(" Supp Batt: Sel:%s Fault:%s Valid:%s",
-        state.getBool("LTC4421_SuppBatt_Selected")?"Y":"N", state.getBool("LTC4421_SuppBatt_Fault")?"YES":"no", state.getBool("LTC4421_SuppBatt_Valid")?"Y":"N");
+                state.getBool("LTC4421_SuppBatt_Selected") ? "Y" : "N",
+                state.getBool("LTC4421_SuppBatt_Fault") ? "YES" : "no",
+                state.getBool("LTC4421_SuppBatt_Valid") ? "Y" : "N");
     ImGui::Text(" Enable: SuppBatt:%s PSU:%s",
-        state.getBool("LV_EN_SupplementalBattery")?"ON":"off", state.getBool("LV_EN_PowerSupply")?"ON":"off");
+                state.getBool("LV_EN_SupplementalBattery") ? "ON" : "off",
+                state.getBool("LV_EN_PowerSupply") ? "ON" : "off");
     ImGui::Text(" Supp Batt Info: SOC: %.1f%%  %.1fV  %.1fA  Charger: %s  DCDC: %.1fV %.1fA",
-        state.get("Supplemental_Battery_SOC"), state.get("Supplemental_Battery_Voltage"), state.get("Supplemental_Battery_Current") * 0.001,
-        SuppChargerStatusStr((uint8_t)state.get("SuppCharger_Status")), state.get("Supplemental_DCDC_Voltage"), state.get("Supplemental_DCDC_Current") * 0.001);
+                state.get("Supplemental_Battery_SOC"), state.get("Supplemental_Battery_Voltage"),
+                state.get("Supplemental_Battery_Current"),
+                SuppChargerStatusStr((uint8_t)state.get("SuppCharger_Status")),
+                state.get("Supplemental_DCDC_Voltage"), state.get("Supplemental_DCDC_Current"));
     ImGui::Text(" Cameras: Backup:%s Left:%s Right:%s",
-        state.getBool("Camera_Status_Backup")?"Y":"N", state.getBool("Camera_Status_Left")?"Y":"N", state.getBool("Camera_Status_Right")?"Y":"N");
+                state.getBool("Camera_Status_Backup") ? "Y" : "N",
+                state.getBool("Camera_Status_Left") ? "Y" : "N",
+                state.getBool("Camera_Status_Right") ? "Y" : "N");
     const uint8_t lightingFaults = (uint8_t)state.get("Controls_Lighting_Fault");
     const uint8_t controlsLeaderFault = (uint8_t)state.get("Controls_Leader_Fault");
-    ImVec4 ctlCol = (lightingFaults||controlsLeaderFault) ? Colors::Destructive() : Colors::Foreground();
-    ImGui::TextColored(ctlCol, " Light Faults: %d  Controls Faults: %d", lightingFaults, controlsLeaderFault);
+    ImVec4 ctlCol =
+        (lightingFaults || controlsLeaderFault) ? Colors::Destructive() : Colors::Foreground();
+    ImGui::TextColored(ctlCol, " Light Faults: %d  Controls Faults: %d", lightingFaults,
+                       controlsLeaderFault);
     widgets::Space(4);
 
     // BPS Status

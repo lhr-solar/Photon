@@ -21,6 +21,9 @@ struct Plots {
               const ImPlotSpec& spec = ImPlotSpec());
   void timeline(Arena& arena, Network* network, bool serverConnected, ImVec2 pos, ImVec2 size);
   double cursor{};
+  // Live View / Dynamics should not wait for the bottom timeline widget to run later in
+  // the frame. In Live mode this returns wall-clock now; otherwise the scrubber cursor.
+  double mapCursor() const;
 
  private:
   struct CursorIndex {

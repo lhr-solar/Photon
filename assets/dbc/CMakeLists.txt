@@ -25,6 +25,9 @@ set(HIGHNOON_TEAM_SOURCES
     "${HIGHNOON_DBC_DIR}/MotorCAN.dbc"
     "${HIGHNOON_DBC_DIR}/SteeringCAN.dbc"
     "${HIGHNOON_DBC_DIR}/DAqCAN.dbc"
+    # Embedded DAqCAN no longer ships GPS. Keep the staging/HighNoon car IDs
+    # (4288/4289) so Live View still receives the AWS TCP feed that staging uses.
+    "${DBC_DIR}/gps_car.dbc"
 )
 foreach(_highnoon_dbc IN LISTS HIGHNOON_TEAM_SOURCES)
     if(NOT EXISTS "${_highnoon_dbc}")
