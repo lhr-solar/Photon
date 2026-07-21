@@ -388,9 +388,127 @@ BO_ 1876 Pedal_Accel_ADC: 5 Pedals
  SG_ AccelPedal_Redundant_ADC : 16|12@1+ (1,0) [0|4095] ""  VCU
  SG_ FrameID_Pedals : 32|8@1+ (1,0) [0|255] "" Vector__XXX
 
+BO_ 192 TelemLeader_Center: 8 Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 416 IMU_Accel_FR: 8 Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 417 IMU_Gyro_FR: 8 Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 432 IMU_Accel_Back: 8 Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 433 IMU_Gyro_Back: 8 Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 464 IMU_Accel_FL: 8 Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 465 IMU_Gyro_FL: 8 Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 672 Suspension_FR: 8 Vector__XXX
+ SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 688 Suspension_Back: 8 Vector__XXX
+ SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 720 Suspension_FL: 8 Vector__XXX
+ SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 928 Pitot_FR: 8 Vector__XXX
+ SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 976 Pitot_FL: 8 Vector__XXX
+ SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 1184 WheelRPM_FR: 8 Vector__XXX
+ SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 1232 WheelRPM_FL: 8 Vector__XXX
+ SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 1440 RideHeight_FR: 8 Vector__XXX
+ SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 1456 RideHeight_Back: 8 Vector__XXX
+ SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 1488 RideHeight_FL: 8 Vector__XXX
+ SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 1984 Temp_1_Center: 8 Vector__XXX
+ SG_ Temperature : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Humidity : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 1985 Temp_2_Center: 8 Vector__XXX
+ SG_ Temperature : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Humidity : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 4288 GPS_Latitude: 4 Vector__XXX
+ SG_ Latitude : 0|32@1- (0.000001,0) [-90|90] "°" Vector__XXX
+
+BO_ 4289 GPS_Longitude: 4 Vector__XXX
+ SG_ Longitude : 0|32@1- (0.000001,0) [-180|180] "°" Vector__XXX
 
 
 
+
+CM_ BO_ 192 "Telem Leader Node";
+CM_ SG_ 192 Timestamp "Wheel-Based Vehicle Speed: Speed of the vehicle as calculated from wheel or tailshaft speed.";
 CM_ SG_ 1 BPS_Fault "BPS Fault State (0 for all clear; see value table for specific faults)";
 CM_ SG_ 1 BPS_Charge_OK "BPS has determined charging the pack is OK (0 not ok, 1 ok)";
 CM_ SG_ 1 BPS_Regen_OK "BPS has determined regenerative braking is OK (0 not ok, 1 ok)";
@@ -527,6 +645,13 @@ BA_ "VFrameFormat" BO_ 32 0;
 BA_ "VFrameFormat" BO_ 33 0;
 BA_ "VFrameFormat" BO_ 80 0;
 BA_ "VFrameFormat" BO_ 96 0;
+BA_ "VFrameFormat" BO_ 192 0;
+BA_ "VFrameFormat" BO_ 416 0;
+BA_ "VFrameFormat" BO_ 417 0;
+BA_ "VFrameFormat" BO_ 432 0;
+BA_ "VFrameFormat" BO_ 433 0;
+BA_ "VFrameFormat" BO_ 464 0;
+BA_ "VFrameFormat" BO_ 465 0;
 BA_ "VFrameFormat" BO_ 512 0;
 BA_ "VFrameFormat" BO_ 513 0;
 BA_ "VFrameFormat" BO_ 514 0;
@@ -548,15 +673,25 @@ BA_ "VFrameFormat" BO_ 585 0;
 BA_ "VFrameFormat" BO_ 592 0;
 BA_ "VFrameFormat" BO_ 593 0;
 BA_ "VFrameFormat" BO_ 594 0;
+BA_ "VFrameFormat" BO_ 672 0;
+BA_ "VFrameFormat" BO_ 688 0;
+BA_ "VFrameFormat" BO_ 720 0;
 BA_ "VFrameFormat" BO_ 768 0;
 BA_ "VFrameFormat" BO_ 769 0;
 BA_ "VFrameFormat" BO_ 770 0;
 BA_ "VFrameFormat" BO_ 848 0;
 BA_ "VFrameFormat" BO_ 849 0;
 BA_ "VFrameFormat" BO_ 850 0;
+BA_ "VFrameFormat" BO_ 928 0;
+BA_ "VFrameFormat" BO_ 976 0;
+BA_ "VFrameFormat" BO_ 1184 0;
+BA_ "VFrameFormat" BO_ 1232 0;
 BA_ "VFrameFormat" BO_ 1280 0;
 BA_ "VFrameFormat" BO_ 1281 0;
 BA_ "VFrameFormat" BO_ 1282 0;
+BA_ "VFrameFormat" BO_ 1440 0;
+BA_ "VFrameFormat" BO_ 1456 0;
+BA_ "VFrameFormat" BO_ 1488 0;
 BA_ "VFrameFormat" BO_ 1536 0;
 BA_ "VFrameFormat" BO_ 1616 0;
 BA_ "VFrameFormat" BO_ 1617 0;
@@ -567,6 +702,8 @@ BA_ "VFrameFormat" BO_ 1873 0;
 BA_ "VFrameFormat" BO_ 1874 0;
 BA_ "VFrameFormat" BO_ 1875 0;
 BA_ "VFrameFormat" BO_ 1876 0;
+BA_ "VFrameFormat" BO_ 1984 0;
+BA_ "VFrameFormat" BO_ 1985 0;
 VAL_ 1 BPS_Fault 0 "OK" 1 "Overvoltage" 2 "Undervoltage" 3 "Regen" 4 "Overtemperature" 5 "Elcon" 6 "Array Precharge Timeout" 7 "Internal Watchdog" 8 "Segment Watchdog" 9 "HV Plus Contactor Sense" 10 "HV Minus Contactor Sense" 11 "Array Contactor Sense" 12 "Array Pchg Contactor Sense" 13 "Estop 1" 14 "Estop 2" 15 "Estop 3" 16 "Charging Overcurrent" 17 "Discharging Overcurrent" 18 "Amperes Watchdog" ;
 VAL_ 1 BPS_Charge_OK 0 "NOT OK" 1 "OK" ;
 VAL_ 1 BPS_Regen_OK 0 "NOT OK" 1 "OK" ;
