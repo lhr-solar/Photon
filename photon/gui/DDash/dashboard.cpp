@@ -434,7 +434,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             ImGui::SameLine(0, gap);
             {
                 char aTxt[16];
-                snprintf(aTxt, sizeof(aTxt), "%.0f A", packCurrent);
+                snprintf(aTxt, sizeof(aTxt), "%.1f A", packCurrent);
                 float fs = 32.0f;
                 ImVec2 pos = ImGui::GetCursorScreenPos();
                 if (medFont) {
@@ -463,7 +463,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             ImGui::PopStyleColor();
             ImGui::SameLine(48.0f + 8.0f);
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-            ImGui::Text("%.0f V  %.0f A  %.0f%%", auxVoltage, auxCurrent, auxSoc);
+            ImGui::Text("%.0f V  %.1f A  %.0f%%", auxVoltage, auxCurrent, auxSoc);
             ImGui::PopStyleColor();
         }
 
@@ -517,7 +517,7 @@ static void RenderBatteryPanel(const AppState& state, const ImVec2& size) {
             ImGui::PopStyleColor();
             ImGui::SameLine(col3);
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::Foreground());
-            ImGui::Text("%.0f A", state.get("MC_BusCurrent"));
+            ImGui::Text("%.1f A", state.get("MC_BusCurrent"));
             ImGui::PopStyleColor();
             
         }
