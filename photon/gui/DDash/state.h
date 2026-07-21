@@ -92,6 +92,15 @@ struct AppState {
     ImTextureData* leftCameraTexture = nullptr;
     ImTextureData* rightCameraTexture = nullptr;
     ImTextureData* rearCameraTexture = nullptr;
+
+    // Local Pi board status (sourced on-device, also published on 0x680).
+    uint8_t localStatusCounter = 0;
+    bool localCameraLeft = false;
+    bool localCameraRight = false;
+    bool localCameraBackup = false;
+    bool localDisplayConnected = false;
+    uint8_t localFrameRate = 0;
+    uint8_t localCpuTempC = 0;
 };
 
 inline AppState CreateDefaultState() { return AppState{}; }

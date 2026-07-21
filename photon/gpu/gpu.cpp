@@ -135,7 +135,11 @@ void submitImguiUpload(GPU& gpu, VkImage image, VkBuffer stagingBuffer, uint32_t
   VkFence fence = VK_NULL_HANDLE;
   vkCreateFence(gpu.device, &fenceInfo, nullptr, &fence);
   vkQueueSubmit(gpu.queue, 1, &submitInfo, fence);
-  vkWaitForFences(gpu.device, 1, &fence, VK_TRUE, UINT64_MAX);
+  // Prefer a short wait so a stalled GPU does not lock the UI indefinitely. If the
+  // fence is still pending we finish waiting before freeing resources.
+  constexpr uint64_t kUploadFenceTimeoutNs = 33ull * 1000ull * 1000ull;
+  if (vkWaitForFences(gpu.device, 1, &fence, VK_TRUE, kUploadFenceTimeoutNs) == VK_TIMEOUT)
+    vkWaitForFences(gpu.device, 1, &fence, VK_TRUE, UINT64_MAX);
   vkDestroyFence(gpu.device, fence, nullptr);
   gpu.freeCommandBuffers(gpu.commandPool, 1, &commandBuffer);
 }
@@ -273,11 +277,15 @@ void processImguiTextures(GPU& gpu, ImVector<ImTextureData*>* textures) {
         break;
       case ImTextureStatus_WantUpdates: {
         auto* backend = static_cast<ImGuiTextureBackendData*>(texture->BackendUserData);
-        if (backend != nullptr &&
-            updateImguiTexture(gpu, texture, backend, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
-          texture->SetStatus(ImTextureStatus_OK);
-        else
+        if (backend == nullptr) {
           createImguiTexture(gpu, texture);
+        } else if (updateImguiTexture(gpu, texture, backend,
+                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)) {
+          texture->SetStatus(ImTextureStatus_OK);
+        } else {
+          // Timed-out / failed update: keep the previous GPU image and retry later.
+          texture->SetStatus(ImTextureStatus_OK);
+        }
         break;
       }
       case ImTextureStatus_WantDestroy:

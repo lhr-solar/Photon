@@ -1,16 +1,22 @@
 #include "gui.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <csignal>
 #include <cstddef>
 #include <cstring>
 #include <cstdlib>
+#include <fstream>
 #include <locale>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
+#ifdef LINUX
+#include <filesystem>
+#endif
 
 #include "../gpu/shader.hpp"
 #include "DDash/arena_bridge.hpp"
@@ -71,6 +77,7 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
     // only sees writes made after it exists, so a command written this early
     // in startup would be missed.
     network.startCandump(PCANConfig{});
+    network.openCanTx("can0");
     DashboardConfig relay{};
     relay.remoteWritesEnabled = [] {
       const char* value = std::getenv("PHOTON_REMOTE_CAN_WRITES");
@@ -229,26 +236,74 @@ void GUI::initDashboardCameras() {
     ImGui::RegisterUserTexture(texture);
     dashboardCameraTextures[index] = texture;
   }
+#if defined(LINUX)
+  if (dashboardCameraThread.joinable()) {
+    dashboardCameraThread.request_stop();
+    dashboardCameraThread.join();
+  }
+  dashboardCameraThread =
+      std::jthread([this](std::stop_token stoken) { cameraWorker(stoken); });
+#endif
+}
+
+void GUI::cameraWorker(std::stop_token stoken) {
+#if defined(LINUX)
+  std::vector<uint8_t> scratch[dashboardCameraCount];
+  while (!stoken.stop_requested()) {
+    bool capturedAny = false;
+    for (int index = 0; index < dashboardCameraCount; ++index) {
+      if (!dashboardCameras[index].captureFrame(scratch[index])) continue;
+      capturedAny = true;
+      std::lock_guard lock(dashboardCameraShares[index].mutex);
+      dashboardCameraShares[index].rgba.swap(scratch[index]);
+      dashboardCameraShares[index].dirty = true;
+    }
+    if (!capturedAny) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+#else
+  (void)stoken;
+#endif
 }
 
 void GUI::updateDashboardCameras() {
-  for (int index = 0; index < dashboardCameraCount; ++index) {
+  // Copy at most one dirty camera frame onto the UI texture per tick to bound
+  // Vulkan upload hitch size.
+  bool uploaded = false;
+  for (int pass = 0; pass < dashboardCameraCount; ++pass) {
+    const int index = (dashboardCameraUploadCursor + pass) % dashboardCameraCount;
     ImTextureData* texture = dashboardCameraTextures[index];
     if (!texture) continue;
-    if (dashboardCameras[index].captureFrame(dashboardCameraFrames[index]) &&
-        dashboardCameraFrames[index].size() == static_cast<size_t>(texture->GetSizeInBytes())) {
-      std::memcpy(texture->Pixels, dashboardCameraFrames[index].data(),
-                  dashboardCameraFrames[index].size());
-      texture->SetStatus(ImTextureStatus_WantUpdates);
+
+    std::vector<uint8_t> local;
+    {
+      std::lock_guard lock(dashboardCameraShares[index].mutex);
+      if (!dashboardCameraShares[index].dirty) continue;
+      local.swap(dashboardCameraShares[index].rgba);
+      dashboardCameraShares[index].dirty = false;
     }
+    if (local.size() != static_cast<size_t>(texture->GetSizeInBytes())) continue;
+    std::memcpy(texture->Pixels, local.data(), local.size());
+    texture->SetStatus(ImTextureStatus_WantUpdates);
+    dashboardCameraUploadCursor = (index + 1) % dashboardCameraCount;
+    uploaded = true;
+    break;
   }
+  (void)uploaded;
 
   dashboardState.leftCameraTexture = dashboardCameraTextures[0];
   dashboardState.rightCameraTexture = dashboardCameraTextures[1];
   dashboardState.rearCameraTexture = dashboardCameraTextures[2];
+
+  dashboardState.localCameraLeft = dashboardCameras[0].isAvailable();
+  dashboardState.localCameraRight = dashboardCameras[1].isAvailable();
+  dashboardState.localCameraBackup = dashboardCameras[2].isAvailable();
 }
 
 void GUI::destroyDashboardCameras() {
+  if (dashboardCameraThread.joinable()) {
+    dashboardCameraThread.request_stop();
+    dashboardCameraThread.join();
+  }
   for (int index = 0; index < dashboardCameraCount; ++index) {
     dashboardCameras[index].shutdown();
     if (dashboardCameraTextures[index]) {
@@ -261,6 +316,79 @@ void GUI::destroyDashboardCameras() {
   dashboardState.leftCameraTexture = nullptr;
   dashboardState.rightCameraTexture = nullptr;
   dashboardState.rearCameraTexture = nullptr;
+}
+
+namespace {
+
+#ifdef LINUX
+bool readDisplayConnected() {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  const fs::path drmRoot{"/sys/class/drm"};
+  if (!fs::exists(drmRoot, ec)) return false;
+  for (const auto& entry : fs::directory_iterator(drmRoot, ec)) {
+    if (ec) break;
+    const auto name = entry.path().filename().string();
+    // Skip card-only nodes; connector nodes look like card1-HDMI-A-1.
+    if (name.find('-') == std::string::npos) continue;
+    std::ifstream statusFile(entry.path() / "status");
+    std::string status;
+    if (statusFile && std::getline(statusFile, status) && status == "connected") return true;
+  }
+  return false;
+}
+
+uint8_t readCpuTempC() {
+  std::ifstream tempFile("/sys/class/thermal/thermal_zone0/temp");
+  long milliC = 0;
+  if (!(tempFile >> milliC)) return 0;
+  const long celsius = milliC / 1000;
+  if (celsius < 0) return 0;
+  if (celsius > 255) return 255;
+  return static_cast<uint8_t>(celsius);
+}
+#else
+bool readDisplayConnected() { return false; }
+uint8_t readCpuTempC() { return 0; }
+#endif
+
+}  // namespace
+
+void GUI::publishDisplayStatus() {
+  if (!network || !kioskMode) return;
+
+  const double nowMs = ImGui::GetTime() * 1000.0;
+  if (lastDisplayStatusMs > 0.0 && (nowMs - lastDisplayStatusMs) < 100.0) return;
+  lastDisplayStatusMs = nowMs;
+
+  if (!network->openCanTx("can0")) return;
+
+  const bool left = dashboardCameras[0].isAvailable();
+  const bool right = dashboardCameras[1].isAvailable();
+  const bool backup = dashboardCameras[2].isAvailable();
+  const bool displayConnected = readDisplayConnected();
+  const uint8_t fps =
+      static_cast<uint8_t>(std::clamp(static_cast<int>(ImGui::GetIO().Framerate + 0.5f), 0, 255));
+  const uint8_t cpuTemp = readCpuTempC();
+  const uint8_t counter = displayStatusCounter++;
+
+  // Display_Status @ 0x680 / 1664, DLC=4 (Intel/@1+ packing).
+  uint8_t data[4]{};
+  data[0] = counter;
+  data[1] = static_cast<uint8_t>((backup ? 1u : 0u) | (left ? 2u : 0u) | (right ? 4u : 0u) |
+                                (displayConnected ? 8u : 0u));
+  data[2] = fps;
+  data[3] = cpuTemp;
+
+  network->sendRawCan(0x680, 4, data);
+
+  dashboardState.localStatusCounter = counter;
+  dashboardState.localCameraLeft = left;
+  dashboardState.localCameraRight = right;
+  dashboardState.localCameraBackup = backup;
+  dashboardState.localDisplayConnected = displayConnected;
+  dashboardState.localFrameRate = fps;
+  dashboardState.localCpuTempC = cpuTemp;
 }
 
 void GUI::updateUI() {
@@ -487,6 +615,7 @@ void GUI::setTabs() {
 
 void GUI::dashboardPage(ImGuiWindowFlags) {
   updateDashboardCameras();
+  publishDisplayStatus();
   ui::UpdateDashboardState(*arena, dashboardState);
   if (std::getenv("PHOTON_FAKE_DASHBOARD_FAULT") != nullptr) {
     dashboardState.signals["BPS_Fault"] = 4.0;  // overtemp

@@ -65,7 +65,7 @@ bool WebcamCapture::openDevice() {
     closeDevice();
     return false;
   }
-  available = true;
+  available.store(true, std::memory_order_release);
   return true;
 }
 
@@ -79,7 +79,7 @@ void WebcamCapture::closeDevice() {
     close(fd);
     fd = -1;
   }
-  available = false;
+  available.store(false, std::memory_order_release);
 }
 
 void WebcamCapture::markDeviceLost() { closeDevice(); }
@@ -171,9 +171,12 @@ bool WebcamCapture::startStreaming() {
 }
 
 bool WebcamCapture::captureFrame(std::vector<uint8_t>& outRGBA) {
-  if (!available && !maybeReconnect()) return false;
+  if (!isAvailable() && !maybeReconnect()) return false;
 
-  bool received = false;
+  // Drain the V4L2 queue, requeueing every buffer except the newest, then decode
+  // only that last frame. Avoids multi-frame MJPEG spikes on USB glitches.
+  v4l2_buffer newest{};
+  bool haveNewest = false;
   for (;;) {
     pollfd descriptors{};
     descriptors.fd = fd;
@@ -181,37 +184,49 @@ bool WebcamCapture::captureFrame(std::vector<uint8_t>& outRGBA) {
     const int result = poll(&descriptors, 1, 0);
     if (result < 0) {
       if (isDeviceLostErrno(errno)) markDeviceLost();
-      return received;
+      break;
     }
-    if (result == 0) return received;
+    if (result == 0) break;
     if (descriptors.revents & (POLLERR | POLLHUP | POLLNVAL)) {
       markDeviceLost();
-      return received;
+      return false;
     }
-    if (!dequeueFrame(outRGBA)) return received;
-    received = true;
-  }
-}
 
-bool WebcamCapture::dequeueFrame(std::vector<uint8_t>& outRGBA) {
-  v4l2_buffer buffer{};
-  buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  buffer.memory = V4L2_MEMORY_MMAP;
-  if (!xioctl(fd, VIDIOC_DQBUF, &buffer)) {
-    const int error = errno;
-    if (error != EAGAIN) {
-      logs("[!] WebcamCapture: VIDIOC_DQBUF failed error=" << strerror(error));
-      if (isDeviceLostErrno(error)) markDeviceLost();
+    v4l2_buffer buffer{};
+    buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buffer.memory = V4L2_MEMORY_MMAP;
+    if (!xioctl(fd, VIDIOC_DQBUF, &buffer)) {
+      const int error = errno;
+      if (error != EAGAIN) {
+        logs("[!] WebcamCapture: VIDIOC_DQBUF failed error=" << strerror(error));
+        if (isDeviceLostErrno(error)) markDeviceLost();
+      }
+      break;
     }
-    return false;
-  }
-  if (buffer.index >= buffers.size()) return false;
+    if (buffer.index >= buffers.size()) {
+      markDeviceLost();
+      return false;
+    }
 
-  const auto* source = static_cast<const uint8_t*>(buffers[buffer.index].start);
-  const bool decoded = mjpegToRgba(jpegDecoder, source, buffer.bytesused, frameWidth, frameHeight,
-                                   outRGBA);
+    if (haveNewest) {
+      if (!xioctl(fd, VIDIOC_QBUF, &newest)) {
+        const int error = errno;
+        logs("[!] WebcamCapture: VIDIOC_QBUF failed error=" << strerror(error));
+        if (isDeviceLostErrno(error)) markDeviceLost();
+        return false;
+      }
+    }
+    newest = buffer;
+    haveNewest = true;
+  }
+
+  if (!haveNewest) return false;
+
+  const auto* source = static_cast<const uint8_t*>(buffers[newest.index].start);
+  const bool decoded =
+      mjpegToRgba(jpegDecoder, source, newest.bytesused, frameWidth, frameHeight, outRGBA);
   if (!decoded) logs("[!] WebcamCapture: MJPEG decode failed: " << tjGetErrorStr());
-  if (!xioctl(fd, VIDIOC_QBUF, &buffer)) {
+  if (!xioctl(fd, VIDIOC_QBUF, &newest)) {
     const int error = errno;
     logs("[!] WebcamCapture: VIDIOC_QBUF failed error=" << strerror(error));
     if (isDeviceLostErrno(error)) markDeviceLost();
@@ -247,7 +262,7 @@ WebcamCapture::~WebcamCapture() = default;
 bool WebcamCapture::initialize(const std::string&, uint32_t, uint32_t) { return false; }
 bool WebcamCapture::captureFrame(std::vector<uint8_t>&) { return false; }
 void WebcamCapture::shutdown() {
-  available = false;
+  available.store(false, std::memory_order_release);
   frameWidth = frameHeight = 0;
 }
 

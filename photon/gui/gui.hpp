@@ -1,4 +1,10 @@
 #pragma once
+#include <cstdint>
+#include <mutex>
+#include <stop_token>
+#include <thread>
+#include <vector>
+
 #include "../gpu/gpu.hpp"
 #include "../gpu/shader.hpp"
 #include "../network/network.hpp"
@@ -35,6 +41,8 @@ struct GUI {
   void initDashboardCameras();
   void updateDashboardCameras();
   void destroyDashboardCameras();
+  void publishDisplayStatus();
+  void cameraWorker(std::stop_token stoken);
 
   ui::AppState dashboardState = ui::CreateDefaultState();
   bool kioskMode = false;
@@ -43,6 +51,18 @@ struct GUI {
   WebcamCapture dashboardCameras[dashboardCameraCount];
   ImTextureData* dashboardCameraTextures[dashboardCameraCount]{};
   std::vector<uint8_t> dashboardCameraFrames[dashboardCameraCount];
+
+  struct CameraShare {
+    std::mutex mutex;
+    std::vector<uint8_t> rgba;
+    bool dirty = false;
+  };
+  CameraShare dashboardCameraShares[dashboardCameraCount];
+  std::jthread dashboardCameraThread{};
+  int dashboardCameraUploadCursor = 0;
+
+  uint8_t displayStatusCounter = 0;
+  double lastDisplayStatusMs = 0.0;
 
   GPU* gpu;
   Arena* arena;

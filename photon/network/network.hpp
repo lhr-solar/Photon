@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <mutex>
 #include <optional>
 #include <stop_token>
@@ -20,6 +21,12 @@ struct Network {
   void stopWriter();
   bool switchDBC(DBCType kind);
   bool switchDBCFile(const std::string& path);
+
+  // Local SocketCAN TX for kiosk Display_Status (and similar). Opens can0 on first use.
+  bool openCanTx(const char* channel = "can0");
+  void closeCanTx();
+  bool sendRawCan(uint32_t id, uint8_t dlc, const uint8_t* data);
+
   Parse* parse;
 
   std::jthread backendThread{};
@@ -45,4 +52,10 @@ struct Network {
  private:
   void stopWriterUnlocked();
   void restartWriterUnlocked();
+  void closeCanTxUnlocked();
+
+  std::mutex canTxMutex{};
+  int canTxSocket = -1;
+  std::string canTxChannel{};
+  bool canTxLoggedFailure = false;
 };

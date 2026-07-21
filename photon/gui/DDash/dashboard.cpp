@@ -1300,7 +1300,11 @@ static void RenderDebugScreen(AppState& liveState) {
     }
     
     ImGui::SameLine();
-    ImGui::Text("HB:%d %.0fFPS %.1fms", state.heartbeat, dbgIo.Framerate, dbgIo.DeltaTime * 1000.0f);
+    ImGui::Text("HB:%d %.0fFPS %.1fms | Pi CTR:%u Disp:%s CPU:%uC Cams L/R/B:%s/%s/%s",
+                state.heartbeat, dbgIo.Framerate, dbgIo.DeltaTime * 1000.0f,
+                state.localStatusCounter, state.localDisplayConnected ? "Y" : "N",
+                state.localCpuTempC, state.localCameraLeft ? "Y" : "N",
+                state.localCameraRight ? "Y" : "N", state.localCameraBackup ? "Y" : "N");
     ImGui::Separator();
 
     float colW = avail.x * 0.5f - 10.0f;
@@ -1446,8 +1450,12 @@ static void RenderDebugScreen(AppState& liveState) {
     ImGui::Text(" Supp Batt Info: SOC: %.1f%%  %.1fV  %.1fA  Charger: %s  DCDC: %.1fV %.1fA",
         state.get("Supplemental_Battery_SOC"), state.get("Supplemental_Battery_Voltage"), state.get("Supplemental_Battery_Current") * 0.001,
         SuppChargerStatusStr((uint8_t)state.get("SuppCharger_Status")), state.get("Supplemental_DCDC_Voltage"), state.get("Supplemental_DCDC_Current") * 0.001);
-    ImGui::Text(" Cameras: Backup:%s Left:%s Right:%s",
+    ImGui::Text(" Cameras (bus): Backup:%s Left:%s Right:%s",
         state.getBool("Camera_Status_Backup")?"Y":"N", state.getBool("Camera_Status_Left")?"Y":"N", state.getBool("Camera_Status_Right")?"Y":"N");
+    ImGui::Text(" Cameras (local USB): Backup:%s Left:%s Right:%s  Display:%s  CPU:%uC  CTR:%u",
+        state.localCameraBackup ? "Y" : "N", state.localCameraLeft ? "Y" : "N",
+        state.localCameraRight ? "Y" : "N", state.localDisplayConnected ? "Y" : "N",
+        state.localCpuTempC, state.localStatusCounter);
     const uint8_t lightingFaults = (uint8_t)state.get("Controls_Lighting_Fault");
     const uint8_t controlsLeaderFault = (uint8_t)state.get("Controls_Leader_Fault");
     ImVec4 ctlCol = (lightingFaults||controlsLeaderFault) ? Colors::Destructive() : Colors::Foreground();

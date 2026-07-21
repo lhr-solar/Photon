@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -17,14 +18,14 @@ class WebcamCapture {
   bool initialize(const std::string& devicePath, uint32_t requestWidth, uint32_t requestHeight);
   void shutdown();
 
-  bool isAvailable() const { return available; }
+  bool isAvailable() const { return available.load(std::memory_order_acquire); }
   bool captureFrame(std::vector<uint8_t>& outRGBA);
 
   uint32_t width() const { return frameWidth; }
   uint32_t height() const { return frameHeight; }
 
  private:
-  bool available = false;
+  std::atomic<bool> available{false};
   uint32_t frameWidth = 0;
   uint32_t frameHeight = 0;
 
@@ -49,7 +50,6 @@ class WebcamCapture {
   bool initDevice(const std::string& devicePath, uint32_t requestWidth, uint32_t requestHeight);
   bool initMMap();
   bool startStreaming();
-  bool dequeueFrame(std::vector<uint8_t>& outRGBA);
   void stopStreaming();
   void markDeviceLost();
   bool maybeReconnect();
