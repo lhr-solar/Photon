@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,7 @@
 #include "glowButton_frag_spv.hpp"
 #include "lens_frag_spv.hpp"
 #include "newCar_glb.hpp"
+#include "new_dyn_glb.hpp"
 #include "track_glb.hpp"
 #endif
 #include "DDash/dashboard_tab.h"
@@ -35,6 +37,317 @@
 #include "widget.hpp"
 
 namespace {
+#if PHOTON_GUI_RENDER_ITEMS
+struct FrameView {
+  const Message* message{};
+  const double* times{};
+  uint32_t count{};
+  uint32_t index{};
+
+  double time(int offset = 0) const { return times[index + offset]; }
+  double value(uint32_t signal, int offset = 0) const {
+    return static_cast<const double*>(message->signals[signal]->data)[index + offset];
+  }
+};
+
+bool frameAt(const Arena& arena, uint32_t id, double cursor, FrameView& frame) {
+  if (id >= arena.messages.size() || !arena.messages[id]) return false;
+  const Message& message = *arena.messages[id];
+  const uint32_t count = message.signalSize.value.load(std::memory_order_acquire) / sizeof(double);
+  if (!count) return false;
+  const auto* times = static_cast<const double*>(message.timeData);
+  const double* found = std::upper_bound(times, times + count, cursor);
+  if (found == times) return false;
+  frame = {&message, times, count, static_cast<uint32_t>(--found - times)};
+  return true;
+}
+
+bool dynamicsSignalAt(const Arena& arena, uint32_t id, uint32_t signal, double cursor,
+                      float& value) {
+  FrameView frame{};
+  if (!frameAt(arena, id, cursor, frame) || signal >= frame.message->signalCount ||
+      cursor - frame.time() > 2.0)
+    return false;
+  const double sample = frame.value(signal);
+  if (!std::isfinite(sample)) return false;
+  value = static_cast<float>(sample);
+  return true;
+}
+
+bool dynamicsSignalAtEither(const Arena& arena, uint32_t preferredId, uint32_t legacyId,
+                            uint32_t signal, double cursor, float& value) {
+  return dynamicsSignalAt(arena, preferredId, signal, cursor, value) ||
+         dynamicsSignalAt(arena, legacyId, signal, cursor, value);
+}
+
+bool dynamicsVectorAt(const Arena& arena, uint32_t id, double cursor, std::array<float, 3>& value) {
+  FrameView frame{};
+  if (!frameAt(arena, id, cursor, frame) || frame.message->signalCount < 3 ||
+      cursor - frame.time() > 2.0)
+    return false;
+  for (uint32_t signal = 0; signal < 3; ++signal) {
+    const double sample = frame.value(signal);
+    if (!std::isfinite(sample)) return false;
+    value[signal] = static_cast<float>(sample);
+  }
+  return true;
+}
+
+bool dynamicsSuspensionAt(const Arena& arena, uint32_t preferredId, uint32_t legacyId,
+                          double cursor, float& value) {
+  FrameView frame{};
+  const bool found = frameAt(arena, preferredId, cursor, frame) ||
+                     (legacyId != 0 && frameAt(arena, legacyId, cursor, frame));
+  if (!found || frame.message->signalCount < 4 || cursor - frame.time() > 2.0) return false;
+  double sum = 0.0;
+  for (uint32_t signal = 0; signal < 4; ++signal) sum += frame.value(signal);
+  if (!std::isfinite(sum)) return false;
+  value = static_cast<float>(sum * 0.25);
+  return true;
+}
+
+void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetry& telemetry,
+                        SceneObject& object) {
+  float steering = telemetry.steeringDegrees;
+  const bool hasSteering = dynamicsSignalAt(arena, 688, 0, cursor, steering);
+  telemetry.steeringDegrees = steering;
+
+  float frontRightRpm = telemetry.frontRightRpm;
+  float frontLeftRpm = telemetry.frontLeftRpm;
+  float rearRpm = telemetry.rearRpm;
+  const bool hasFrontRightRpm = dynamicsSignalAtEither(arena, 5280, 1184, 0, cursor, frontRightRpm);
+  const bool hasFrontLeftRpm = dynamicsSignalAtEither(arena, 5328, 1232, 0, cursor, frontLeftRpm);
+  const bool hasRearRpm = dynamicsSignalAt(arena, 1059, 0, cursor, rearRpm);
+  if (!hasRearRpm) {
+    if (hasFrontLeftRpm && hasFrontRightRpm)
+      rearRpm = (frontLeftRpm + frontRightRpm) * 0.5f;
+    else if (hasFrontLeftRpm)
+      rearRpm = frontLeftRpm;
+    else if (hasFrontRightRpm)
+      rearRpm = frontRightRpm;
+  }
+  telemetry.frontLeftRpm = frontLeftRpm;
+  telemetry.frontRightRpm = frontRightRpm;
+  telemetry.rearRpm = rearRpm;
+
+  std::array<bool, 3> hasSuspension{};
+  hasSuspension[0] = dynamicsSuspensionAt(arena, 4816, 720, cursor, telemetry.suspensionRaw[0]);
+  hasSuspension[1] = dynamicsSuspensionAt(arena, 4768, 672, cursor, telemetry.suspensionRaw[1]);
+  hasSuspension[2] = dynamicsSuspensionAt(arena, 4784, 0, cursor, telemetry.suspensionRaw[2]);
+  const bool hasAcceleration = dynamicsVectorAt(arena, 4528, cursor, telemetry.acceleration);
+  const bool hasAngularVelocity = dynamicsVectorAt(arena, 4529, cursor, telemetry.angularVelocity);
+
+  const bool timelineReset = telemetry.lastCursor < 0.0 || cursor < telemetry.lastCursor ||
+                             cursor - telemetry.lastCursor > 0.5;
+  std::array<float, 3> suspension{};
+  for (size_t i = 0; i < suspension.size(); ++i) {
+    if (timelineReset) telemetry.suspensionReferenceValid[i] = false;
+    if (hasSuspension[i] && !telemetry.suspensionReferenceValid[i]) {
+      telemetry.suspensionReference[i] = telemetry.suspensionRaw[i];
+      telemetry.suspensionReferenceValid[i] = true;
+    }
+    if (hasSuspension[i] && telemetry.suspensionReferenceValid[i])
+      suspension[i] = std::clamp(
+          (telemetry.suspensionRaw[i] - telemetry.suspensionReference[i]) / 4095.0f * 0.24f, -0.12f,
+          0.12f);
+  }
+
+  const float dt = timelineReset
+                       ? 0.0f
+                       : static_cast<float>(std::clamp(cursor - telemetry.lastCursor, 0.0, 0.1));
+  telemetry.lastCursor = cursor;
+  SceneDynamicsPose& pose = object.dynamics;
+  const float animatedFrontLeftRpm = hasFrontLeftRpm ? frontLeftRpm : 0.0f;
+  const float animatedFrontRightRpm = hasFrontRightRpm ? frontRightRpm : 0.0f;
+  const float animatedRearRpm = hasRearRpm || hasFrontLeftRpm || hasFrontRightRpm ? rearRpm : 0.0f;
+  pose.frontLeftWheelDegrees =
+      std::remainder(pose.frontLeftWheelDegrees + animatedFrontLeftRpm * 6.0f * dt, 360.0f);
+  pose.frontRightWheelDegrees =
+      std::remainder(pose.frontRightWheelDegrees + animatedFrontRightRpm * 6.0f * dt, 360.0f);
+  pose.rearWheelDegrees =
+      std::remainder(pose.rearWheelDegrees + animatedRearRpm * 6.0f * dt, 360.0f);
+
+  const float response = 1.0f - std::exp(-10.0f * ImGui::GetIO().DeltaTime);
+  const float roadWheelSteering = std::clamp(steering / 12.0f, -35.0f, 35.0f);
+  pose.steeringDegrees = std::lerp(pose.steeringDegrees, roadWheelSteering, response);
+  pose.steeringWheelDegrees =
+      std::lerp(pose.steeringWheelDegrees, std::clamp(steering, -540.0f, 540.0f), response);
+  pose.frontLeftSuspension = std::lerp(pose.frontLeftSuspension, suspension[0], response);
+  pose.frontRightSuspension = std::lerp(pose.frontRightSuspension, suspension[1], response);
+  pose.rearSuspension = std::lerp(pose.rearSuspension, suspension[2], response);
+  const float accelerationRoll = hasAcceleration ? -telemetry.acceleration[1] * 1.5f : 0.0f;
+  const float accelerationPitch = hasAcceleration ? telemetry.acceleration[0] * 1.2f : 0.0f;
+  const float roll =
+      std::clamp((suspension[1] - suspension[0]) * 12.0f + accelerationRoll, -4.0f, 4.0f);
+  const float pitch = std::clamp(
+      (suspension[2] - (suspension[0] + suspension[1]) * 0.5f) * 8.0f + accelerationPitch, -3.0f,
+      3.0f);
+  pose.rollDegrees = std::lerp(pose.rollDegrees, roll, response);
+  pose.pitchDegrees = std::lerp(pose.pitchDegrees, pitch, response);
+
+  telemetry.hasSteering = hasSteering;
+  telemetry.hasWheelSpeed = hasFrontLeftRpm || hasFrontRightRpm || hasRearRpm;
+  telemetry.hasSuspension = hasSuspension[0] || hasSuspension[1] || hasSuspension[2];
+  telemetry.hasImu = hasAcceleration || hasAngularVelocity;
+}
+
+void applyDynamicsJiggle(GUI::DynamicsTelemetry& telemetry, SceneObject& object) {
+  if (!telemetry.jiggle) return;
+
+  telemetry.jiggleTime = std::fmod(telemetry.jiggleTime + ImGui::GetIO().DeltaTime, 60.0f);
+  const float phase = telemetry.jiggleTime * (2.0f * std::numbers::pi_v<float> / 5.0f);
+  SceneDynamicsPose& pose = object.dynamics;
+  pose.steeringDegrees = std::sin(phase) * 35.0f;
+  pose.steeringWheelDegrees = std::sin(phase) * 540.0f;
+  pose.frontLeftWheelDegrees = std::remainder(telemetry.jiggleTime * 360.0f, 360.0f);
+  pose.frontRightWheelDegrees = std::remainder(telemetry.jiggleTime * 420.0f, 360.0f);
+  pose.rearWheelDegrees = std::remainder(telemetry.jiggleTime * 480.0f, 360.0f);
+  pose.frontLeftSuspension = std::sin(phase * 1.31f) * 0.12f;
+  pose.frontRightSuspension = std::sin(phase * 1.31f + 2.1f) * 0.12f;
+  pose.rearSuspension = std::sin(phase * 1.31f + 4.2f) * 0.12f;
+  pose.rollDegrees = std::sin(phase * 0.73f) * 4.0f;
+  pose.pitchDegrees = std::sin(phase * 1.07f + 1.2f) * 3.0f;
+}
+
+Position gpsPosition(double latitude, double longitude) {
+  // Brainerd OSM centerline fitted to the Assetto Corsa track.glb coordinate system.
+  constexpr double latitudeOrigin = 46.41613092075472;
+  constexpr double longitudeOrigin = -94.27538689056604;
+  constexpr double metersPerLatitudeDegree = 111320.0;
+  constexpr double metersPerLongitudeDegree = 76745.74845956931;
+  constexpr double eastX = 0.09952096955160591;
+  constexpr double northX = 0.00019804275620237066;
+  constexpr double eastY = -0.00019804275620237066;
+  constexpr double northY = 0.09952096955160591;
+  const double east = (longitude - longitudeOrigin) * metersPerLongitudeDegree;
+  const double north = (latitude - latitudeOrigin) * metersPerLatitudeDegree;
+  return {static_cast<float>(eastX * east + northX * north - 3.75936219),
+          static_cast<float>(eastY * east + northY * north + 4.97846090), 0.3f};
+}
+
+struct GpsSpan {
+  Position previous{};
+  Position current{};
+  Position next{};
+  double previousTime{};
+  double time{};
+  double nextTime{};
+  bool hasPrevious{};
+  bool hasNext{};
+};
+
+bool gpsPoint(const FrameView& latitude, const FrameView& longitude, int offset, Position& position,
+              double& time) {
+  const int latitudeIndex = static_cast<int>(latitude.index) + offset;
+  const int longitudeIndex = static_cast<int>(longitude.index) + offset;
+  if (latitudeIndex < 0 || longitudeIndex < 0 ||
+      latitudeIndex >= static_cast<int>(latitude.count) ||
+      longitudeIndex >= static_cast<int>(longitude.count) ||
+      std::abs(latitude.times[latitudeIndex] - longitude.times[longitudeIndex]) > 1.0)
+    return false;
+  const double lat = latitude.value(0, offset);
+  const double lon = longitude.value(0, offset);
+  if (!std::isfinite(lat) || !std::isfinite(lon) || std::abs(lat) > 90.0 || std::abs(lon) > 180.0 ||
+      (lat == 0.0 && lon == 0.0))
+    return false;
+  position = gpsPosition(lat, lon);
+  time = std::max(latitude.times[latitudeIndex], longitude.times[longitudeIndex]);
+  return true;
+}
+
+bool gpsSpanAt(const Arena& arena, double cursor, GpsSpan& gps) {
+  FrameView latitude{}, longitude{};
+  if (!frameAt(arena, 4288, cursor, latitude) || !frameAt(arena, 4289, cursor, longitude) ||
+      !gpsPoint(latitude, longitude, 0, gps.current, gps.time))
+    return false;
+  gps.hasPrevious = gpsPoint(latitude, longitude, -1, gps.previous, gps.previousTime);
+  gps.hasNext = gpsPoint(latitude, longitude, 1, gps.next, gps.nextTime);
+  return true;
+}
+
+float distance(Position a, Position b) { return std::hypot(b.x - a.x, b.y - a.y); }
+float direction(Position a, Position b) { return std::atan2(b.y - a.y, b.x - a.x); }
+
+bool fusedMapPosition(const Arena& arena, double cursor, GUI::MapTracker& tracker,
+                      Position& position, float& heading) {
+  GpsSpan gps{};
+  if (!gpsSpanAt(arena, cursor, gps)) return false;
+
+  if (gps.hasNext && gps.nextTime > gps.time) {
+    const float amount =
+        static_cast<float>(std::clamp((cursor - gps.time) / (gps.nextTime - gps.time), 0.0, 1.0));
+    position = {std::lerp(gps.current.x, gps.next.x, amount),
+                std::lerp(gps.current.y, gps.next.y, amount), 0.3f};
+    const float segmentDistance = distance(gps.current, gps.next);
+    heading = segmentDistance > 0.05f ? direction(gps.current, gps.next) : tracker.heading;
+    tracker = {position, cursor,
+               gps.time, segmentDistance / static_cast<float>(gps.nextTime - gps.time),
+               heading,  true};
+    return true;
+  }
+
+  const bool reset = !tracker.valid || cursor < tracker.time || cursor - tracker.time > 0.5 ||
+                     gps.time > tracker.gpsTime;
+  if (reset) {
+    tracker.position = gps.current;
+    tracker.time = gps.time;
+    tracker.gpsTime = gps.time;
+    if (gps.hasPrevious && gps.time > gps.previousTime) {
+      const float segmentDistance = distance(gps.previous, gps.current);
+      if (segmentDistance > 0.05f) tracker.heading = direction(gps.previous, gps.current);
+      tracker.speed = segmentDistance / static_cast<float>(gps.time - gps.previousTime);
+    }
+    tracker.valid = true;
+  }
+
+  const float dt = static_cast<float>(std::clamp(cursor - tracker.time, 0.0, 30.0));
+  FrameView velocity{}, acceleration{}, gyro{};
+  const bool hasVelocity = frameAt(arena, 1059, cursor, velocity) &&
+                           velocity.message->signalCount > 1 && cursor - velocity.time() < 1.0 &&
+                           std::isfinite(velocity.value(1));
+  const bool hasAcceleration = frameAt(arena, 4528, cursor, acceleration) &&
+                               acceleration.message->signalCount > 2 &&
+                               cursor - acceleration.time() < 0.25;
+  const bool hasGyro = frameAt(arena, 4529, cursor, gyro) && gyro.message->signalCount > 2 &&
+                       cursor - gyro.time() < 0.25;
+
+  float yawRate = 0.0f;
+  if (hasAcceleration && hasGyro && std::abs(acceleration.time() - gyro.time()) < 0.1) {
+    // Project angular velocity onto measured gravity, independent of the IMU's mounting axes.
+    const float ax = static_cast<float>(acceleration.value(0));
+    const float ay = static_cast<float>(acceleration.value(1));
+    const float az = static_cast<float>(acceleration.value(2));
+    const float gravity = std::sqrt(ax * ax + ay * ay + az * az);
+    if (gravity > 0.7f && gravity < 1.3f)
+      yawRate = static_cast<float>((gyro.value(0) * ax + gyro.value(1) * ay + gyro.value(2) * az) /
+                                   gravity) *
+                std::numbers::pi_v<float> / 180.0f;
+  }
+
+  if (dt > 0.0f && (hasVelocity || (hasAcceleration && hasGyro))) {
+    const float nextHeading = tracker.heading + std::clamp(yawRate, -4.0f, 4.0f) * dt;
+    float nextSpeed = tracker.speed;
+    if (hasVelocity) {
+      constexpr float metersToScene = 0.099521f;
+      const float measured =
+          std::clamp(std::abs(static_cast<float>(velocity.value(1))), 0.0f, 100.0f) * metersToScene;
+      nextSpeed = std::lerp(nextSpeed, measured, 1.0f - std::exp(-8.0f * dt));
+    }
+    const float travel = (tracker.speed + nextSpeed) * 0.5f * dt;
+    const float middleHeading = (tracker.heading + nextHeading) * 0.5f;
+    tracker.position.x += std::cos(middleHeading) * travel;
+    tracker.position.y += std::sin(middleHeading) * travel;
+    tracker.position.z = 0.3f;
+    tracker.heading = nextHeading;
+    tracker.speed = nextSpeed;
+  }
+  tracker.time = cursor;
+  position = tracker.position;
+  heading = tracker.heading;
+  return true;
+}
+#endif
+
 void drawFpsOverlay() {
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(
@@ -52,7 +365,6 @@ void drawFpsOverlay() {
 }  // namespace
 
 void GUI::init(GPU& gpu, Arena& arena, Network& network) {
-  videoUi.init();
   this->gpu = &gpu;
   this->arena = &arena;
   this->network = &network;
@@ -69,6 +381,11 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   scene.addModel("track_glb", track_glb, track_glb_size, false);
   scene.addModel("newCar_glb", newCar_glb, newCar_glb_size, true);
   scene.dispatchInit(gpu);
+
+  dynamicsObjectIndex = static_cast<int>(dynamicsScene.objects.size());
+  dynamicsScene.addModel("new_dyn_glb", new_dyn_glb, new_dyn_glb_size, false);
+  dynamicsScene.objects[dynamicsObjectIndex].dynamicsModel = true;
+  dynamicsScene.dispatchInit(gpu);
 #endif
 }
 
@@ -93,6 +410,13 @@ void GUI::render() {
     scene.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
     scene.showing = false;
   }
+
+  if (!dynamicsScene.initialized.load() && dynamicsScene.partInitialized.load())
+    dynamicsScene.finishInit(*gpu);
+  if (dynamicsScene.showing) {
+    dynamicsScene.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
+    dynamicsScene.showing = false;
+  }
 #endif
 };
 
@@ -111,6 +435,7 @@ void GUI::destroy() {
   testShader.destroy();
   buttonShader.destroy();
   scene.destroy();
+  dynamicsScene.destroy();
 #endif
 };
 
@@ -162,10 +487,26 @@ void GUI::exportUI() {
   PhotonUi::endModal(open);
 };
 
-void GUI::carMap(ImGuiWindowFlags flags) {
+void GUI::plotTest(ImGuiWindowFlags flags) {
+  flags &= ~(ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+  flags |= ImGuiWindowFlags_AlwaysVerticalScrollbar;
+  if (ImGui::Begin("Page 1", NULL, flags)) {
+    ArenaReadScope read(*arena);
+    auto dim = ImGui::GetContentRegionAvail();
+    dim.y = 0;
+    ImPlotSpec spec = settings.plotLineSpec;
+    for (const uint32_t id : arena->validIds) {
+      if (id >= arena->messages.size() || !arena->messages[id]) continue;
+      for (uint32_t signal = 0; signal < arena->messages[id]->signalCount; signal++)
+        plots.signal(*arena, id, signal, dim, spec);
+    }
+  }
+  ImGui::End();
+};
+
+void GUI::liveView(ImGuiWindowFlags flags) {
 #if PHOTON_GUI_RENDER_ITEMS
   scene.showing = false;
-  scene.cameraMode = SceneCameraMode::TrackModel;
   const bool ready =
       scene.initialized.load() && !scene.frames.empty() && scene.frameIndex != nullptr;
   SceneFrame fallbackFrame{};
@@ -176,10 +517,13 @@ void GUI::carMap(ImGuiWindowFlags flags) {
   ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-  if (ImGui::Begin("scene", nullptr, flags)) {
-    ImVec2 drawSize = ImGui::GetContentRegionAvail();
-    drawSize.x = std::max(drawSize.x, 1.0f);
-    drawSize.y = std::max(drawSize.y, 1.0f);
+  if (ImGui::Begin("Live View", nullptr, flags)) {
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const ImVec2 contentMin = ImGui::GetCursorScreenPos();
+    const ImVec2 contentSize{std::max(available.x, 2.0f), std::max(available.y, 1.0f)};
+    const float videoWidth =
+        std::clamp(contentSize.y * videoUi.rotatedAspect(), 1.0f, contentSize.x * 0.5f);
+    const ImVec2 drawSize{contentSize.x - videoWidth, contentSize.y};
     if (ready) {
       const VkExtent2D nextExtent = quantizeContentExtent(drawSize, frame.extent);
       if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
@@ -198,6 +542,22 @@ void GUI::carMap(ImGuiWindowFlags flags) {
       const bool hasTrackedObject =
           scene.trackedObjectIndex >= 0 &&
           scene.trackedObjectIndex < static_cast<int>(scene.objects.size());
+      if (hasTrackedObject) {
+        Position nextPosition{};
+        float nextHeading{};
+        const bool smooth = mapTracker.valid && plots.cursor >= mapTracker.time &&
+                            plots.cursor - mapTracker.time < 0.5;
+        ArenaReadScope read(*arena);
+        if (fusedMapPosition(*arena, plots.cursor, mapTracker, nextPosition, nextHeading)) {
+          SceneObject& car = scene.objects[scene.trackedObjectIndex];
+          const float amount = smooth ? 1.0f - std::exp(-10.0f * ImGui::GetIO().DeltaTime) : 1.0f;
+          car.position.x = std::lerp(car.position.x, nextPosition.x, amount);
+          car.position.y = std::lerp(car.position.y, nextPosition.y, amount);
+          car.position.z = nextPosition.z;
+          const float rotation = nextHeading * 180.0f / std::numbers::pi_v<float> + 90.0f;
+          car.rotationDegrees += std::remainder(rotation - car.rotationDegrees, 360.0f) * amount;
+        }
+      }
       const Position trackedPosition =
           hasTrackedObject ? scene.objects[scene.trackedObjectIndex].position : Position{};
 
@@ -211,6 +571,7 @@ void GUI::carMap(ImGuiWindowFlags flags) {
       const ImVec2 textMax(textMin.x + textSize.x + textPadding.x * 2.0f,
                            textMin.y + textSize.y + textPadding.y * 2.0f);
       ImDrawList* drawList = ImGui::GetWindowDrawList();
+      drawList->PushClipRect(imageMin, imageMax, true);
       drawList->AddRectFilled(textMin, textMax,
                               PhotonUi::colorU32(PhotonUi::withAlpha(palette.panel, 0.88f)),
                               PhotonUi::kFrameRounding);
@@ -219,6 +580,7 @@ void GUI::carMap(ImGuiWindowFlags flags) {
                         PhotonUi::kFrameRounding);
       drawList->AddText(ImVec2(textMin.x + textPadding.x, textMin.y + textPadding.y),
                         PhotonUi::colorU32(palette.text), positionLabel);
+      drawList->PopClipRect();
 
       ImGuiIO& io = ImGui::GetIO();
       if (sceneHovered) {
@@ -236,13 +598,174 @@ void GUI::carMap(ImGuiWindowFlags flags) {
         }
       }
     } else {
-      ImGui::Text("loading scene");
+      ImGui::Dummy(drawSize);
+      const ImVec2 min = ImGui::GetItemRectMin();
+      const ImVec2 max = ImGui::GetItemRectMax();
+      const ImVec2 textSize = ImGui::CalcTextSize("loading scene");
+      ImDrawList* drawList = ImGui::GetWindowDrawList();
+      drawList->PushClipRect(min, max, true);
+      drawList->AddText({(min.x + max.x - textSize.x) * 0.5f, (min.y + max.y - textSize.y) * 0.5f},
+                        PhotonUi::colorU32(palette.text), "loading scene");
+      drawList->PopClipRect();
     }
+    ImGui::SetCursorScreenPos({contentMin.x + drawSize.x, contentMin.y});
+    videoUi.drawContent({videoWidth, contentSize.y});
   }
   ImGui::End();
   ImGui::PopStyleColor(2);
 #else
-  (void)flags;
+  videoUi.videoController(flags);
+#endif
+};
+
+void GUI::dynamicsView(ImGuiWindowFlags flags) {
+#if PHOTON_GUI_RENDER_ITEMS
+  dynamicsScene.showing = false;
+  const bool ready = dynamicsScene.initialized.load() && !dynamicsScene.frames.empty() &&
+                     dynamicsScene.frameIndex != nullptr;
+  SceneFrame fallbackFrame{};
+  SceneFrame& frame = ready ? dynamicsScene.frames[*dynamicsScene.frameIndex] : fallbackFrame;
+  const PhotonUi::Palette palette = PhotonUi::palette();
+
+  if (dynamicsObjectIndex >= 0 &&
+      dynamicsObjectIndex < static_cast<int>(dynamicsScene.objects.size())) {
+    ArenaReadScope read(*arena);
+    updateDynamicsPose(*arena, plots.cursor, dynamicsTelemetry,
+                       dynamicsScene.objects[dynamicsObjectIndex]);
+    applyDynamicsJiggle(dynamicsTelemetry, dynamicsScene.objects[dynamicsObjectIndex]);
+  }
+
+  ImGui::SetNextWindowBgAlpha(0.0f);
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  if (ImGui::Begin("Dynamics", nullptr, flags)) {
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    ImVec2 sceneSize{std::max(available.x, 1.0f), std::max(available.y, 1.0f)};
+    const ImVec2 sceneMin = ImGui::GetCursorScreenPos();
+    constexpr float overlayMargin = 14.0f;
+    const ImVec2 overlaySize{std::max(sceneSize.x - overlayMargin * 2.0f, 1.0f),
+                             std::max(std::min(112.0f, sceneSize.y - overlayMargin * 2.0f), 1.0f)};
+    const ImVec2 overlayMin{sceneMin.x + overlayMargin,
+                            sceneMin.y + sceneSize.y - overlaySize.y - overlayMargin};
+    const ImVec2 overlayMax{overlayMin.x + overlaySize.x, overlayMin.y + overlaySize.y};
+
+    if (ready) {
+      const VkExtent2D nextExtent = quantizeContentExtent(sceneSize, frame.extent);
+      if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+        frame.extent = nextExtent;
+        dynamicsScene.dirty = true;
+      }
+      if (ImGui::IsRectVisible(sceneSize)) dynamicsScene.showing = true;
+      ImGui::Image(frame.texture, sceneSize);
+      const bool hovered =
+          ImGui::IsItemHovered() && !ImGui::IsMouseHoveringRect(overlayMin, overlayMax, false);
+      ImGuiIO& io = ImGui::GetIO();
+      if (hovered) {
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+          dynamicsScene.camera.yaw -= io.MouseDelta.x * dynamicsScene.camera.orbitSensitivity;
+          dynamicsScene.camera.pitch += io.MouseDelta.y * dynamicsScene.camera.orbitSensitivity;
+          dynamicsScene.camera.pitch = std::clamp(dynamicsScene.camera.pitch, -89.0f, 89.0f);
+        }
+        if (std::abs(io.MouseWheel) > 0.0f) {
+          const float zoomScale =
+              std::max(0.1f, 1.0f - io.MouseWheel * dynamicsScene.camera.zoomSensitivity);
+          dynamicsScene.camera.distance =
+              std::clamp(dynamicsScene.camera.distance * zoomScale,
+                         dynamicsScene.camera.minDistance, dynamicsScene.camera.maxDistance);
+        }
+      }
+    } else {
+      ImGui::Dummy(sceneSize);
+      const ImVec2 textSize = ImGui::CalcTextSize("loading dynamics model");
+      ImGui::GetWindowDrawList()->AddText({sceneMin.x + (sceneSize.x - textSize.x) * 0.5f,
+                                           sceneMin.y + (sceneSize.y - textSize.y) * 0.5f},
+                                          PhotonUi::colorU32(palette.text),
+                                          "loading dynamics model");
+    }
+
+    ImGui::SetCursorScreenPos(overlayMin);
+    constexpr float groupGap = 8.0f;
+    constexpr float controlWidth = 88.0f;
+    const float groupWidth =
+        std::max((overlaySize.x - controlWidth - groupGap * 4.0f) * 0.25f, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 4.0f));
+
+    const auto beginGroup = [&](const char* id, const char* heading, bool active, float width) {
+      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
+      ImGui::PushStyleColor(ImGuiCol_ChildBg, PhotonUi::withAlpha(palette.bg, 0.36f));
+      const bool open = PhotonUi::beginPanel(
+          id, {width, overlaySize.y}, palette, ImGuiChildFlags_AlwaysUseWindowPadding,
+          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+      ImGui::PopStyleColor();
+      ImGui::PopStyleVar();
+      if (open) {
+        PhotonUi::label(heading, palette);
+        const ImVec2 center{ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 14.0f,
+                            ImGui::GetWindowPos().y + 14.0f};
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+            center, 3.0f, PhotonUi::colorU32(active ? palette.accent : palette.muted));
+      }
+      return open;
+    };
+
+    const auto valueRow = [](const char* label, const char* format, auto... values) {
+      const float rowStart = ImGui::GetCursorPosX();
+      ImGui::TextUnformatted(label);
+      ImGui::SameLine();
+      ImGui::SetCursorPosX(rowStart + 62.0f);
+      ImGui::Text(format, values...);
+    };
+
+    if (beginGroup("##DynamicsSteering", "STEERING", dynamicsTelemetry.hasSteering, groupWidth)) {
+      valueRow("Input", "%7.1f deg", dynamicsTelemetry.steeringDegrees);
+      valueRow("Road", "%7.1f deg",
+               std::clamp(dynamicsTelemetry.steeringDegrees / 12.0f, -35.0f, 35.0f));
+    }
+    PhotonUi::endPanel();
+    ImGui::SameLine(0.0f, groupGap);
+    if (beginGroup("##DynamicsWheelSpeed", "WHEEL SPEED", dynamicsTelemetry.hasWheelSpeed,
+                   groupWidth)) {
+      valueRow("Front L", "%7.0f rpm", dynamicsTelemetry.frontLeftRpm);
+      valueRow("Front R", "%7.0f rpm", dynamicsTelemetry.frontRightRpm);
+      valueRow("Rear", "%7.0f rpm", dynamicsTelemetry.rearRpm);
+    }
+    PhotonUi::endPanel();
+    ImGui::SameLine(0.0f, groupGap);
+    if (beginGroup("##DynamicsSuspension", "SUSPENSION", dynamicsTelemetry.hasSuspension,
+                   groupWidth)) {
+      valueRow("Front L", "%7.0f", dynamicsTelemetry.suspensionRaw[0]);
+      valueRow("Front R", "%7.0f", dynamicsTelemetry.suspensionRaw[1]);
+      valueRow("Rear", "%7.0f", dynamicsTelemetry.suspensionRaw[2]);
+      ImGui::TextDisabled("*uncalibrated ADC data");
+    }
+    PhotonUi::endPanel();
+    ImGui::SameLine(0.0f, groupGap);
+    if (beginGroup("##DynamicsRearImu", "REAR IMU", dynamicsTelemetry.hasImu, groupWidth)) {
+      valueRow("Accel", "%6.2f %6.2f %6.2f g", dynamicsTelemetry.acceleration[0],
+               dynamicsTelemetry.acceleration[1], dynamicsTelemetry.acceleration[2]);
+      valueRow("Gyro", "%6.1f %6.1f %6.1f dps", dynamicsTelemetry.angularVelocity[0],
+               dynamicsTelemetry.angularVelocity[1], dynamicsTelemetry.angularVelocity[2]);
+    }
+    PhotonUi::endPanel();
+    ImGui::SameLine(0.0f, groupGap);
+    if (beginGroup("##DynamicsControls", "TEST", dynamicsTelemetry.jiggle, controlWidth)) {
+      const float buttonWidth = ImGui::GetContentRegionAvail().x;
+      if (PhotonUi::button("##DynamicsJiggle", "Jiggle", {buttonWidth, 34.0f}, palette,
+                           dynamicsTelemetry.jiggle,
+                           "Exercise steering, wheels, suspension, roll, and pitch")) {
+        dynamicsTelemetry.jiggle = !dynamicsTelemetry.jiggle;
+        if (dynamicsTelemetry.jiggle) dynamicsTelemetry.jiggleTime = 0.0f;
+      }
+    }
+    PhotonUi::endPanel();
+    ImGui::PopStyleVar();
+  }
+  ImGui::End();
+  ImGui::PopStyleColor(2);
+#else
+  if (ImGui::Begin("Dynamics", nullptr, flags))
+    ImGui::TextUnformatted("The Dynamics 3D view is available with Vulkan rendering.");
+  ImGui::End();
 #endif
 };
 
@@ -371,11 +894,9 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(
       Tab::bind<ui::DashboardTab, &ui::DashboardTab::draw>(ui::dashboardTab(), "Dashboard"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::liveView>(*this, "Live View"));
 #if PHOTON_GUI_RENDER_ITEMS
-  tabs.list.push_back(Tab::bind<GUI, &GUI::carMap>(*this, "Map"));
-#endif
-  tabs.list.push_back(Tab::bind<VideoUI, &VideoUI::videoController>(videoUi, "Livestream"));
-#if PHOTON_GUI_RENDER_ITEMS
+  tabs.list.push_back(Tab::bind<GUI, &GUI::dynamicsView>(*this, "Dynamics"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
 #endif
 };

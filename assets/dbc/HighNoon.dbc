@@ -1,5 +1,6 @@
 VERSION ""
 
+
 NS_ :
 	NS_DESC_
 	CM_
@@ -32,7 +33,7 @@ NS_ :
 
 BS_:
 
-BU_: VoltTemp_7 VoltTemp_6 VoltTemp_5 VoltTemp_4 VoltTemp_3 VoltTemp_2 VoltTemp_1 VoltTemp_0 BPS Amperes TPEE_MPPT_C TPEE_MPPT_B TPEE_MPPT_A Telemetry Pump Pedals PDU LV_Carrier External Dashboard_Display ChargerInterface Controls VCU Elcon Lighting_Rear Lighting_Right Lighting_Left Lighting_Front Lighting_Canopy Prohelion_WaveSculptor22 Bosch_LWS Vector__XXX
+BU_: VoltTemp_7 VoltTemp_6 VoltTemp_5 VoltTemp_4 VoltTemp_3 VoltTemp_2 VoltTemp_1 VoltTemp_0 BPS Amperes TPEE_MPPT_C TPEE_MPPT_B TPEE_MPPT_A Telemetry Pump Pedals PDU LV_Carrier External Dashboard_Display ChargerInterface Controls VCU Elcon Lighting_Rear Lighting_Right Lighting_Left Lighting_Front Lighting_Canopy Prohelion_WaveSculptor22 Bosch_LWS
 
 VAL_TABLE_ BPS_Amperes_Fault 0 "OK" 1 "Out-of-Bounds" 2 "Over-Current (Discharge)" 3 "Over-Current (Charge)" 4 "Message Watchdog" ;
 VAL_TABLE_ BPS_Volt_Tap_Fault 0 "OK" 1 "BQ I2C Read Error" 2 "Out-of-Bounds" 3 "Over-Voltage" 4 "Under-Voltage" 5 "Message Watchdog" ;
@@ -788,108 +789,135 @@ BO_ 1984 LWS_Config: 2 Controls
  SG_ LWS_CCW : 0|4@1+ (1,0) [0|15] "" Vector__XXX
  SG_ LWS_RES : 4|12@1+ (1,0) [0|4095] "" Vector__XXX
 
-BO_ 192 TelemLeader_Center: 8 Vector__XXX
-	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4096 TelemLeader_Center: 2 Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 416 IMU_Accel_FR: 8 Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4512 IMU_Accel_FR: 8 Vector__XXX
+ SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+ SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+ SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 417 IMU_Gyro_FR: 8 Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4513 IMU_Gyro_FR: 8 Vector__XXX
+ SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+ SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+ SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 432 IMU_Accel_Back: 8 Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4529 IMU_Gyro_Back: 8 Vector__XXX
+ SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "" Vector__XXX
+ SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "" Vector__XXX
+ SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 433 IMU_Gyro_Back: 8 Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4560 IMU_Accel_FL: 8 Vector__XXX
+ SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "" Vector__XXX
+ SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "" Vector__XXX
+ SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 464 IMU_Accel_FL: 8 Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4561 IMU_Gyro_FL: 8 Vector__XXX
+ SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "" Vector__XXX
+ SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "" Vector__XXX
+ SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 465 IMU_Gyro_FL: 8 Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4768 Suspension_FR: 8 Vector__XXX
+ SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 672 Suspension_FR: 8 Vector__XXX
-	SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4784 Suspension_Back: 8 Vector__XXX
+ SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 720 Suspension_FL: 8 Vector__XXX
-	SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+BO_ 4816 Suspension_FL: 8 Vector__XXX
+ SG_ SUS_Data1 : 23|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data2 : 27|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data3 : 47|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SUS_Data4 : 51|12@0+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 928 Pitot_FR: 8 Vector__XXX
-	SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 5024 Pitot_FR: 8 Vector__XXX
+ SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 976 Pitot_FL: 8 Vector__XXX
-	SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
-	SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 5072 Pitot_FL: 8 Vector__XXX
+ SG_ Pitot_Data1 : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data2 : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data3 : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Pitot_Data4 : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 1184 WheelRPM_FR: 8 Vector__XXX
-	SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 5280 WheelRPM_FR: 8 Vector__XXX
+ SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 1232 WheelRPM_FL: 8 Vector__XXX
-	SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 5328 WheelRPM_FL: 8 Vector__XXX
+ SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 1440 RideHeight_FR: 8 Vector__XXX
-	SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 5536 RideHeight_FR: 8 Vector__XXX
+ SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 1456 RideHeight_Back: 8 Vector__XXX
-	SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 5552 RideHeight_Back: 8 Vector__XXX
+ SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 1488 RideHeight_FL: 8 Vector__XXX
-	SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 5584 RideHeight_FL: 8 Vector__XXX
+ SG_ RH_Data1 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data2 : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RH_Data3 : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 1985 Temp_2_Center: 8 Vector__XXX
-	SG_ Temperature : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Humidity : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Timestamp : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
+BO_ 6080 Temp_1_Center: 8 Vector__XXX
+ SG_ Temperature : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Humidity : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
 
-BO_ 2046 Sig_Wave: 8 Vector_XXX
- SG_ Sine : 0|32@1+ (1,0) [-1|1] "" Vector__XXX
- SG_ Cosine : 32|32@1+ (1,0) [-1|1] "" Vector__XXX
+BO_ 6081 Temp_2_Center: 6 Vector__XXX
+ SG_ Temperature : 0|16@1- (1,0) [-32768|32767] "" Vector__XXX
+ SG_ Humidity : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ Timestamp : 32|16@1+ (1,0) [0|65535] "" Vector__XXX
 
+BO_ 6082 FR_IMU_Temp: 4 Vector__XXX
+ SG_ Temperature : 23|16@0- (0.00703125,77) [-40|180] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 6083 FL_IMU_Temp: 4 Vector__XXX
+ SG_ Temperature : 23|16@0- (0.00703125,77) [-40|180] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 6084 B_IMU_Temp: 4 Vector__XXX
+ SG_ Temperature : 23|16@0- (0.00703125,77) [-40|180] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 4528 IMU_B_Accel: 8 Vector__XXX
+ SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "" Vector__XXX
+ SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "" Vector__XXX
+ SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "" Vector__XXX
+ SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
+
+BO_ 4288 GPS_Latitude: 4 Vector__XXX
+ SG_ Latitude : 0|32@1- (0.000001,0) [-90|90] "°" Vector__XXX
+
+BO_ 4289 GPS_Longitude: 4 Vector__XXX
+ SG_ Longitude : 0|32@1- (0.000001,0) [-180|180] "°" Vector__XXX
+
+CM_ BO_ 4096 "Telem Leader Node";
 CM_ SG_ 2 BPS_Voltage_Tap_Data "Voltage tap measurement for the specified VoltTemp and Tap ID";
 CM_ SG_ 2 BPS_Voltage_Tap_Fault "VoltTemp BQ Fault State (0 no fault, 1 fault)";
 CM_ SG_ 3 BPS_Voltage_Tap_Data "Voltage tap measurement for the specified VoltTemp and Tap ID";
@@ -1065,8 +1093,6 @@ CM_ SG_ 1068 MC_DspBoardTemp "Temperature of the DSP board.";
 CM_ SG_ 1070 MC_TripOdometer "Distance the vehicle has travelled since reset.";
 CM_ SG_ 1070 MC_DCBusAh "Charge flow into the controller DC bus from the time of reset.";
 CM_ SG_ 1079 MC_SlipSpeed "Slip speed when driving an induction motor.";
-CM_ BO_ 192 "Telem Leader Node";
-CM_ SG_ 192 Timestamp "Wheel-Based Vehicle Speed: Speed of the vehicle as calculated from wheel or tailshaft speed.";
 
 BA_DEF_  "DBName" STRING ;
 BA_DEF_ SG_  "SPN" INT 0 524287;
@@ -1076,9 +1102,7 @@ BA_DEF_ BO_  "VFrameFormat" ENUM  "StandardCAN","ExtendedCAN","reserved","J1939P
 BA_DEF_  "MultiplexExtEnabled" ENUM  "No","Yes";
 BA_DEF_  "BusType" STRING ;
 BA_DEF_ BO_  "CANFD_BRS" ENUM  "0","1";
-BA_DEF_  "DatabaseVersion" STRING ;
-BA_DEF_  "ProtocolType" STRING ;
-BA_DEF_  "DatabaseCompiler" STRING ;
+
 BA_DEF_DEF_  "DBName" "";
 BA_DEF_DEF_  "SPN" 0;
 BA_DEF_DEF_  "GenMsgCycleTime" 0;
@@ -1087,11 +1111,7 @@ BA_DEF_DEF_  "VFrameFormat" "StandardCAN";
 BA_DEF_DEF_  "MultiplexExtEnabled" "No";
 BA_DEF_DEF_  "BusType" "";
 BA_DEF_DEF_  "CANFD_BRS" "1";
-BA_DEF_DEF_  "DatabaseVersion" "DEMO PLUS";
-BA_DEF_DEF_  "ProtocolType" "";
-BA_DEF_DEF_  "DatabaseCompiler" "";
-BA_ "DBName" "HighNoon";
-BA_ "BusType" "CAN";
+
 BA_ "VFrameFormat" BO_ 2 0;
 BA_ "VFrameFormat" BO_ 3 0;
 BA_ "VFrameFormat" BO_ 4 0;
@@ -1111,8 +1131,6 @@ BA_ "VFrameFormat" BO_ 22 0;
 BA_ "VFrameFormat" BO_ 23 0;
 BA_ "VFrameFormat" BO_ 1877 0;
 BA_ "VFrameFormat" BO_ 1952 0;
-BA_ "MultiplexExtEnabled" 1;
-BA_ "BusType" "CAN FD";
 BA_ "VFrameFormat" BO_ 1 0;
 BA_ "VFrameFormat" BO_ 11 0;
 BA_ "VFrameFormat" BO_ 12 0;
@@ -1192,9 +1210,9 @@ BA_ "VFrameFormat" BO_ 1079 0;
 BA_ "VFrameFormat" BO_ 1953 0;
 BA_ "VFrameFormat" BO_ 688 0;
 BA_ "VFrameFormat" BO_ 1984 0;
-BA_ "ProtocolType" "";
-BA_ "DatabaseCompiler" "CSS ELECTRONICS (WWW.CSSELECTRONICS.COM)";
-BA_ "DatabaseVersion" "1.0.0";
+BA_ "MultiplexExtEnabled" 1;
+BA_ "BusType" "CAN FD";
+BA_ "DBName" "Highnoon";
 
 VAL_ 2 BPS_Voltage_Tap_Fault 0 "OK" 1 "BQ I2C Read Error" 2 "Out-of-Bounds" 3 "Over-Voltage" 4 "Under-Voltage" 5 "Message Watchdog" ;
 VAL_ 3 BPS_Voltage_Tap_Fault 0 "OK" 1 "BQ I2C Read Error" 2 "Out-of-Bounds" 3 "Over-Voltage" 4 "Under-Voltage" 5 "Message Watchdog" ;
@@ -1476,6 +1494,11 @@ VAL_ 1057 MC_FAULT_DesaturationFault 0 "OK" 1 "FAULT" ;
 VAL_ 1057 MC_FAULT_MotorOverSpeed 0 "OK" 1 "FAULT" ;
 VAL_ 1057 MC_FAULT_Reserved 0 "OK" 1 "FAULT" ;
 VAL_ 1953 Motor_Command_Source 0 "VCU" 1 "Tritium External" ;
+VAL_ 688 LWS_Fault 0 "OK" 1 "Internal Fault" ;
+VAL_ 688 LWS_CalibrationStaus 0 "Sensor Not Calibrated" 1 "Sensor Calibrated" ;
+VAL_ 688 LWS_Trimming_Status 0 "FAULT - Sensor Not Trimmed" 1 "Sensor Trimmed" ;
+VAL_ 1984 LWS_CCW 3 "Sets the signal LWS_Angle to 0°" 5 "Resets calibration status" ;
+
 SIG_VALTYPE_ 1025 MC_MotorVelocitySetpoint : 1;
 SIG_VALTYPE_ 1025 MC_MotorCurrentSetpoint : 1;
 SIG_VALTYPE_ 1026 MC_MotorPowerSetpoint : 1;
@@ -1500,9 +1523,3 @@ SIG_VALTYPE_ 1068 MC_DspBoardTemp : 1;
 SIG_VALTYPE_ 1070 MC_TripOdometer : 1;
 SIG_VALTYPE_ 1070 MC_DCBusAh : 1;
 SIG_VALTYPE_ 1079 MC_SlipSpeed : 1;
-SIG_VALTYPE_ 2046 Sine : 1;
-SIG_VALTYPE_ 2046 Cosine : 1;
-VAL_ 688 LWS_Fault 0 "OK" 1 "Internal Fault" ;
-VAL_ 688 LWS_CalibrationStaus 0 "Sensor Not Calibrated" 1 "Sensor Calibrated" ;
-VAL_ 688 LWS_Trimming_Status 0 "FAULT - Sensor Not Trimmed" 1 "Sensor Trimmed" ;
-VAL_ 1984 LWS_CCW 3 "Sets the signal LWS_Angle to 0°" 5 "Resets calibration status" ;

@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+
 #include "../gpu/gpu.hpp"
 #if !defined(APPLE) && !defined(__APPLE__)
 #define PHOTON_GUI_RENDER_ITEMS 1
@@ -37,7 +39,9 @@ struct GUI {
   void connectDaqServer();
   void updateNetworkStatus();
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
-  void carMap(ImGuiWindowFlags flags);
+  void plotTest(ImGuiWindowFlags flags);
+  void liveView(ImGuiWindowFlags flags);
+  void dynamicsView(ImGuiWindowFlags flags);
 
   GPU* gpu;
   Arena* arena;
@@ -60,6 +64,34 @@ struct GUI {
   Exporter exporter;
 #if PHOTON_GUI_RENDER_ITEMS
   Scene scene;
+  Scene dynamicsScene;
+  int dynamicsObjectIndex{-1};
+  struct DynamicsTelemetry {
+    float steeringDegrees{};
+    float frontLeftRpm{};
+    float frontRightRpm{};
+    float rearRpm{};
+    std::array<float, 3> acceleration{};
+    std::array<float, 3> angularVelocity{};
+    std::array<float, 3> suspensionRaw{};
+    std::array<float, 3> suspensionReference{};
+    std::array<bool, 3> suspensionReferenceValid{};
+    double lastCursor{-1.0};
+    float jiggleTime{};
+    bool jiggle{};
+    bool hasSteering{};
+    bool hasWheelSpeed{};
+    bool hasSuspension{};
+    bool hasImu{};
+  } dynamicsTelemetry;
+  struct MapTracker {
+    Position position{};
+    double time{};
+    double gpsTime{};
+    float speed{};
+    float heading{};
+    bool valid{};
+  } mapTracker;
 #endif
 };
 

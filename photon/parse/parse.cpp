@@ -40,6 +40,7 @@ DBCAsset dbcAsset(DBCType kind) {
 void buildConfig(std::istream& stream, arenaConfig& config) {
   std::vector<uint32_t> validIds{};
   std::array<uint32_t, MESSAGE_MAX> signalCounts{};
+  std::array<bool, MESSAGE_MAX> seen{};
   std::string line;
   uint32_t currentId = 0;
   bool haveMsg = false;
@@ -67,7 +68,9 @@ void buildConfig(std::istream& stream, arenaConfig& config) {
       (void)dlc;
       haveMsg = true;
       currentId = canId;
-      validIds.push_back(canId);
+      signalCounts[canId] = 0;
+      if (!seen[canId]) validIds.push_back(canId);
+      seen[canId] = true;
     } else if (line.rfind("SG_ ", 0) == 0 && haveMsg) {
       signalCounts[currentId]++;
     }
@@ -120,6 +123,9 @@ void populateArena(Arena& arena, std::istream& stream) {
       Message* msg = arena.messages[currentId];
       if (!msg || currentIndex >= msg->signalCount) continue;
       Signal* sig = msg->signals[currentIndex++];
+      void* data = sig->data;
+      *sig = Signal{};
+      sig->data = data;
       std::istringstream iss(line);
       std::string tag{};
       std::string sigName{};

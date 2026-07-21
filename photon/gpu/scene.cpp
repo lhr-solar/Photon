@@ -27,6 +27,8 @@ struct ScenePrimitiveRange {
   uint32_t firstIndex{0};
   uint32_t indexCount{0};
   int materialIndex{-1};
+  glm::vec3 minBounds{0.0f};
+  glm::vec3 maxBounds{0.0f};
 };
 
 struct FloatImageMip {
@@ -1182,7 +1184,17 @@ void appendPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primi
   }
 
   const uint32_t indexCount = static_cast<uint32_t>(outIndices.size()) - firstIndex;
-  if (indexCount > 0) outRanges.push_back({firstIndex, indexCount, primitive.material});
+  if (indexCount > 0) {
+    glm::vec3 minBounds(std::numeric_limits<float>::max());
+    glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
+    for (uint32_t i = firstIndex; i < firstIndex + indexCount; ++i) {
+      const GltfVertex& vertex = outVertices[outIndices[i]];
+      const glm::vec3 position(vertex.pos[0], vertex.pos[1], vertex.pos[2]);
+      minBounds = glm::min(minBounds, position);
+      maxBounds = glm::max(maxBounds, position);
+    }
+    outRanges.push_back({firstIndex, indexCount, primitive.material, minBounds, maxBounds});
+  }
 }
 
 void appendNodeMesh(const tinygltf::Model& model, int nodeIndex, const glm::mat4& parentMatrix,
@@ -1199,6 +1211,53 @@ void appendNodeMesh(const tinygltf::Model& model, int nodeIndex, const glm::mat4
   for (int child : node.children) {
     appendNodeMesh(model, child, world, outVertices, outIndices, outRanges);
   }
+}
+
+uint32_t classifyDynamicParts(const ScenePrimitiveRange& range) {
+  const glm::vec3 center = (range.minBounds + range.maxBounds) * 0.5f;
+  const glm::vec3 extent = range.maxBounds - range.minBounds;
+  uint32_t parts = SceneDynamicNone;
+
+  // new_dyn.glb uses glTF's Y-up coordinates: X is track width and -Z runs rearward.
+  const bool atFrontAxle = center.z > -0.55f && center.z < 0.55f;
+  const float lateral = std::abs(center.x);
+  const float frontRadialExtent = std::max(extent.y, extent.z);
+  const bool isFrontWheel = atFrontAxle && lateral > 1.62f && frontRadialExtent > 0.85f;
+  const bool isPushrod = atFrontAxle && lateral > 1.0f && lateral < 1.53f && center.y > 0.42f &&
+                         center.y < 1.10f && center.z > 0.025f && center.z < 0.11f;
+  const bool isTieRod = atFrontAxle && lateral > 0.55f && lateral < 1.56f && center.y > 0.43f &&
+                        center.y < 0.56f && center.z > -0.22f && center.z < -0.07f;
+  const bool isUpperWishbone = atFrontAxle && !isPushrod && lateral > 0.55f && lateral < 1.60f &&
+                               center.y > 0.82f && center.y < 1.17f &&
+                               !(lateral > 1.56f && center.y < 0.94f);
+  const bool isLowerWishbone = atFrontAxle && !isTieRod && lateral > 0.55f && lateral < 1.60f &&
+                               center.y > 0.30f && center.y < 0.43f;
+
+  if (isPushrod)
+    parts |= center.x < 0.0f ? SceneDynamicFrontLeftPushrod : SceneDynamicFrontRightPushrod;
+  else if (isTieRod)
+    parts |= center.x < 0.0f ? SceneDynamicFrontLeftTieRod : SceneDynamicFrontRightTieRod;
+  else if (isUpperWishbone)
+    parts |=
+        center.x < 0.0f ? SceneDynamicFrontLeftUpperWishbone : SceneDynamicFrontRightUpperWishbone;
+  else if (isLowerWishbone)
+    parts |=
+        center.x < 0.0f ? SceneDynamicFrontLeftLowerWishbone : SceneDynamicFrontRightLowerWishbone;
+  else if (atFrontAxle && center.x < -1.45f)
+    parts |= SceneDynamicFrontLeftCorner;
+  else if (atFrontAxle && center.x > 1.45f)
+    parts |= SceneDynamicFrontRightCorner;
+
+  if (isFrontWheel)
+    parts |= center.x < 0.0f ? SceneDynamicFrontLeftWheel : SceneDynamicFrontRightWheel;
+
+  if (center.z < -4.55f) parts |= SceneDynamicRearCorner;
+  const float rearRadialExtent = std::max(extent.x, extent.y);
+  if (center.z < -5.55f && rearRadialExtent > 0.22f) parts |= SceneDynamicRearWheel;
+
+  if (std::abs(center.x) < 0.45f && center.y > 1.60f && center.z < -0.72f && center.z > -1.22f)
+    parts |= SceneDynamicSteeringWheel;
+  return parts;
 }
 
 void loadObject(SceneObject& object) {
@@ -1324,6 +1383,7 @@ void loadObject(SceneObject& object) {
         range.materialIndex >= 0 && range.materialIndex < static_cast<int>(object.materials.size())
             ? static_cast<uint32_t>(range.materialIndex)
             : 0u;
+    if (object.dynamicsModel) item.dynamicParts = classifyDynamicParts(range);
     object.drawItems.push_back(item);
   }
   if (object.drawItems.empty()) {
@@ -1342,8 +1402,147 @@ glm::mat4 objectModelMatrix(const SceneObject& object) {
       glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
   const glm::mat4 worldRotation = glm::rotate(glm::mat4(1.0f), glm::radians(object.rotationDegrees),
                                               glm::vec3(0.0f, 0.0f, 1.0f));
-  return glm::translate(glm::mat4(1.0f), positionToVec3(object.position)) * worldRotation *
-         baseRotation;
+  glm::mat4 model =
+      glm::translate(glm::mat4(1.0f), positionToVec3(object.position)) * worldRotation;
+  if (object.dynamicsModel) {
+    const glm::vec3 chassisPivot(0.0f, 2.9f, 0.72f);
+    model = model * glm::translate(glm::mat4(1.0f), chassisPivot) *
+            glm::rotate(glm::mat4(1.0f), glm::radians(object.dynamics.pitchDegrees),
+                        glm::vec3(0.0f, 1.0f, 0.0f)) *
+            glm::rotate(glm::mat4(1.0f), glm::radians(object.dynamics.rollDegrees),
+                        glm::vec3(1.0f, 0.0f, 0.0f)) *
+            glm::translate(glm::mat4(1.0f), -chassisPivot);
+  }
+  return model * baseRotation;
+}
+
+glm::mat4 dynamicsItemMatrix(const SceneObject& object, uint32_t parts) {
+  if (!object.dynamicsModel || parts == SceneDynamicNone) return glm::mat4(1.0f);
+  const SceneDynamicsPose& pose = object.dynamics;
+  glm::mat4 transform(1.0f);
+
+  const auto rotateAt = [](const glm::vec3& pivot, float angle, const glm::vec3& axis) {
+    return glm::translate(glm::mat4(1.0f), pivot) * glm::rotate(glm::mat4(1.0f), angle, axis) *
+           glm::translate(glm::mat4(1.0f), -pivot);
+  };
+
+  const auto wishboneTransform = [&](float side, bool upper, float suspension) {
+    const glm::vec3 pivot =
+        upper ? glm::vec3(side * 0.88f, 0.93f, 0.0f) : glm::vec3(side * 0.66f, 0.375f, 0.0f);
+    const glm::vec3 tip =
+        upper ? glm::vec3(side * 1.50f, 0.98f, 0.0f) : glm::vec3(side * 1.50f, 0.40f, 0.0f);
+    const glm::vec2 base(tip.x - pivot.x, tip.y - pivot.y);
+    const float angle = std::atan2(base.y + suspension, base.x) - std::atan2(base.y, base.x);
+    return rotateAt(pivot, angle, glm::vec3(0.0f, 0.0f, 1.0f));
+  };
+
+  const auto wishboneTip = [&](float side, bool upper, float suspension) {
+    const glm::vec3 tip =
+        upper ? glm::vec3(side * 1.50f, 0.98f, 0.0f) : glm::vec3(side * 1.50f, 0.40f, 0.0f);
+    return glm::vec3(wishboneTransform(side, upper, suspension) * glm::vec4(tip, 1.0f));
+  };
+
+  const auto linkTransform = [&](const glm::vec3& anchor, const glm::vec3& tip,
+                                 const glm::vec3& movedTip) {
+    const glm::vec3 from = tip - anchor;
+    const glm::vec3 to = movedTip - anchor;
+    const float fromLength = glm::length(from);
+    const float toLength = glm::length(to);
+    if (fromLength < 1e-5f || toLength < 1e-5f) return glm::mat4(1.0f);
+    const glm::vec3 fromDirection = from / fromLength;
+    const glm::vec3 toDirection = to / toLength;
+    const float cosine = std::clamp(glm::dot(fromDirection, toDirection), -1.0f, 1.0f);
+    const float angle = std::acos(cosine);
+    glm::vec3 axis = glm::cross(fromDirection, toDirection);
+    if (glm::length(axis) < 1e-5f) axis = glm::vec3(0.0f, 0.0f, 1.0f);
+    axis = glm::normalize(axis);
+    return glm::translate(glm::mat4(1.0f), anchor) * glm::rotate(glm::mat4(1.0f), angle, axis) *
+           glm::scale(glm::mat4(1.0f), glm::vec3(toLength / fromLength)) *
+           glm::translate(glm::mat4(1.0f), -anchor);
+  };
+
+  const auto pushrodTransform = [&](float side, float suspension) {
+    const glm::vec3 anchor(side * 1.06f, 1.03f, 0.05f);
+    const glm::vec3 tip(side * 1.48f, 0.47f, 0.05f);
+    return linkTransform(anchor, tip, tip + glm::vec3(0.0f, suspension, 0.0f));
+  };
+
+  const auto tieRodTransform = [&](float side, float suspension, float steering) {
+    const glm::vec3 anchor(side * 0.69f, 0.49f, -0.13f);
+    const glm::vec3 tip(side * 1.51f, 0.50f, -0.17f);
+    const glm::vec3 wheelPivot(side * 1.74f, 0.71f, 0.0f);
+    glm::vec3 movedTip = glm::vec3(
+        glm::translate(glm::mat4(1.0f), wheelPivot) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(steering), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::translate(glm::mat4(1.0f), -wheelPivot) * glm::vec4(tip, 1.0f));
+    movedTip.y += suspension;
+    return linkTransform(anchor, tip, movedTip);
+  };
+
+  const auto frontCornerTransform = [&](float side, float suspension, float steering,
+                                        float wheelRotation, bool spinWheel) {
+    const glm::vec3 baseUpper(side * 1.50f, 0.98f, 0.0f);
+    const glm::vec3 baseLower(side * 1.50f, 0.40f, 0.0f);
+    const glm::vec3 movedUpper = wishboneTip(side, true, suspension);
+    const glm::vec3 movedLower = wishboneTip(side, false, suspension);
+    const glm::vec3 baseMidpoint = (baseUpper + baseLower) * 0.5f;
+    const glm::vec3 movedMidpoint = (movedUpper + movedLower) * 0.5f;
+    const glm::vec2 baseAxis(baseUpper.x - baseLower.x, baseUpper.y - baseLower.y);
+    const glm::vec2 movedAxis(movedUpper.x - movedLower.x, movedUpper.y - movedLower.y);
+    const float camber = std::atan2(movedAxis.y, movedAxis.x) - std::atan2(baseAxis.y, baseAxis.x);
+    glm::mat4 result = glm::translate(glm::mat4(1.0f), movedMidpoint) *
+                       glm::rotate(glm::mat4(1.0f), camber, glm::vec3(0.0f, 0.0f, 1.0f)) *
+                       glm::translate(glm::mat4(1.0f), -baseMidpoint);
+    const glm::vec3 pivot(side * 1.74f, 0.71f, 0.0f);
+    result *= glm::translate(glm::mat4(1.0f), pivot);
+    result *= glm::rotate(glm::mat4(1.0f), glm::radians(steering), glm::vec3(0.0f, 1.0f, 0.0f));
+    if (spinWheel)
+      result *=
+          glm::rotate(glm::mat4(1.0f), glm::radians(wheelRotation), glm::vec3(1.0f, 0.0f, 0.0f));
+    return result * glm::translate(glm::mat4(1.0f), -pivot);
+  };
+
+  if ((parts & SceneDynamicFrontLeftUpperWishbone) != 0) {
+    transform = wishboneTransform(-1.0f, true, pose.frontLeftSuspension);
+  } else if ((parts & SceneDynamicFrontRightUpperWishbone) != 0) {
+    transform = wishboneTransform(1.0f, true, pose.frontRightSuspension);
+  } else if ((parts & SceneDynamicFrontLeftLowerWishbone) != 0) {
+    transform = wishboneTransform(-1.0f, false, pose.frontLeftSuspension);
+  } else if ((parts & SceneDynamicFrontRightLowerWishbone) != 0) {
+    transform = wishboneTransform(1.0f, false, pose.frontRightSuspension);
+  } else if ((parts & SceneDynamicFrontLeftPushrod) != 0) {
+    transform = pushrodTransform(-1.0f, pose.frontLeftSuspension);
+  } else if ((parts & SceneDynamicFrontRightPushrod) != 0) {
+    transform = pushrodTransform(1.0f, pose.frontRightSuspension);
+  } else if ((parts & SceneDynamicFrontLeftTieRod) != 0) {
+    transform = tieRodTransform(-1.0f, pose.frontLeftSuspension, pose.steeringDegrees);
+  } else if ((parts & SceneDynamicFrontRightTieRod) != 0) {
+    transform = tieRodTransform(1.0f, pose.frontRightSuspension, pose.steeringDegrees);
+  } else if ((parts & SceneDynamicFrontLeftCorner) != 0) {
+    transform =
+        frontCornerTransform(-1.0f, pose.frontLeftSuspension, pose.steeringDegrees,
+                             pose.frontLeftWheelDegrees, (parts & SceneDynamicFrontLeftWheel) != 0);
+  } else if ((parts & SceneDynamicFrontRightCorner) != 0) {
+    transform = frontCornerTransform(1.0f, pose.frontRightSuspension, pose.steeringDegrees,
+                                     pose.frontRightWheelDegrees,
+                                     (parts & SceneDynamicFrontRightWheel) != 0);
+  } else if ((parts & SceneDynamicRearCorner) != 0) {
+    const glm::vec3 pivot(0.0f, 0.71f, -5.78f);
+    transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, pose.rearSuspension, 0.0f)) *
+                glm::translate(glm::mat4(1.0f), pivot);
+    if ((parts & SceneDynamicRearWheel) != 0)
+      transform *= glm::rotate(glm::mat4(1.0f), glm::radians(pose.rearWheelDegrees),
+                               glm::vec3(1.0f, 0.0f, 0.0f));
+    transform *= glm::translate(glm::mat4(1.0f), -pivot);
+  } else if ((parts & SceneDynamicSteeringWheel) != 0) {
+    // Derived from the steering-wheel rim's center and least-variance (plane-normal) axis.
+    const glm::vec3 pivot(0.00065f, 1.67644f, -0.94506f);
+    const glm::vec3 columnAxis = glm::normalize(glm::vec3(0.00018f, 0.42394f, -0.90569f));
+    transform = glm::translate(glm::mat4(1.0f), pivot) *
+                glm::rotate(glm::mat4(1.0f), glm::radians(pose.steeringWheelDegrees), columnAxis) *
+                glm::translate(glm::mat4(1.0f), -pivot);
+  }
+  return transform;
 }
 
 void computeSceneBounds(const Scene& scene, glm::vec3& outMin, glm::vec3& outMax, bool& hasBounds) {
@@ -1774,9 +1973,7 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
   const float yawRadians = glm::radians(camera.yaw);
   const float pitchRadians = glm::radians(camera.pitch);
 
-  if (cameraMode == SceneCameraMode::TrackModel) {
-    camera.target = trackedTarget(*this);
-  }
+  camera.target = trackedTarget(*this);
 
   const glm::vec3 orbitOffset(camera.distance * std::cos(pitchRadians) * std::cos(yawRadians),
                               camera.distance * std::cos(pitchRadians) * std::sin(yawRadians),
@@ -1869,10 +2066,6 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
     pushConstants.resolution[0] = static_cast<float>(frame.extent.width);
     pushConstants.resolution[1] = static_cast<float>(frame.extent.height);
     pushConstants.time = time;
-    pushConstants.model = objectModelMatrix(object);
-    vkCmdPushConstants(commandBuffer, scenePipelineLayout,
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(ScenePushConstants), &pushConstants);
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &object.vertexBuffer, &offset);
@@ -1880,6 +2073,11 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
 
     for (const SceneObject::DrawItem& item : object.drawItems) {
       if (item.materialIndex >= object.materialDescriptorSets.size()) continue;
+      pushConstants.model =
+          objectModelMatrix(object) * dynamicsItemMatrix(object, item.dynamicParts);
+      vkCmdPushConstants(commandBuffer, scenePipelineLayout,
+                         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                         sizeof(ScenePushConstants), &pushConstants);
       vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, scenePipelineLayout,
                               1, 1, &object.materialDescriptorSets[item.materialIndex], 0, nullptr);
       vkCmdDrawIndexed(commandBuffer, item.indexCount, 1, item.firstIndex, 0, 0);

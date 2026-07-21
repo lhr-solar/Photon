@@ -1,7 +1,9 @@
 #include "video_ui.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
+#include <limits>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -30,6 +32,9 @@ static constexpr uint16_t SERVER_PORT = 6600;
 static constexpr int SOCKET_RECEIVE_BUFFER_SIZE = 4 * 1024 * 1024;
 static constexpr uint8_t RTP_PAYLOAD_TYPE = 96;
 static constexpr uint8_t START_CODE[] = {0, 0, 0, 1};
+static constexpr size_t MAX_ACCESS_UNIT_SIZE = 16 * 1024 * 1024;
+static constexpr int MAX_VIDEO_DIMENSION = 4096;
+static constexpr auto STREAM_TIMEOUT = std::chrono::seconds(1);
 
 static SocketHandle nativeSocket(uintptr_t handle) { return static_cast<SocketHandle>(handle); }
 
@@ -82,6 +87,15 @@ static bool socketInterrupted() {
 #endif
 }
 
+static bool socketReset() {
+#ifdef _WIN32
+  const int error = WSAGetLastError();
+  return error == WSAECONNRESET || error == WSAENETRESET;
+#else
+  return errno == ECONNREFUSED || errno == ECONNRESET;
+#endif
+}
+
 static int sendSocket(SocketHandle socket, const char* data, int size) {
   return send(socket, data, size, 0);
 }
@@ -115,9 +129,14 @@ static uint32_t readU32(const uint8_t* data) {
          static_cast<uint32_t>(data[2]) << 8 | data[3];
 }
 
-static void appendNal(std::vector<uint8_t>& accessUnit, const uint8_t* data, size_t size) {
+static bool appendNal(std::vector<uint8_t>& accessUnit, const uint8_t* data, size_t size) {
+  if (accessUnit.size() > MAX_ACCESS_UNIT_SIZE ||
+      MAX_ACCESS_UNIT_SIZE - accessUnit.size() < sizeof(START_CODE) ||
+      size > MAX_ACCESS_UNIT_SIZE - accessUnit.size() - sizeof(START_CODE))
+    return false;
   accessUnit.insert(accessUnit.end(), std::begin(START_CODE), std::end(START_CODE));
   accessUnit.insert(accessUnit.end(), data, data + size);
+  return true;
 }
 
 static AVPixelFormat normalizePixelFormat(AVPixelFormat format) {
@@ -205,7 +224,6 @@ bool VideoUI::initBackend() {
   if (decoderContext) {
     decoderContext->pkt_timebase = {1, 90000};
     decoderContext->thread_count = 2;
-    decoderContext->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;
   }
   if (!decoderContext || avcodec_open2(decoderContext, decoder, nullptr) < 0) return false;
 
@@ -240,21 +258,28 @@ bool VideoUI::initBackend() {
 }
 
 void VideoUI::backendLoop() {
-  if (!initBackend()) {
-    feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
-    shutdownBackend();
-    return;
-  }
-  while (!stopRequested.load(std::memory_order_relaxed)) {
-    const int result = decodeFrame();
-    if (result < 0) break;
-    if (result > 0) {
-      if (!publishFrame()) break;
-      av_frame_unref(frame);
-      continue;
+  try {
+    if (!initBackend()) {
+      feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
+      shutdownBackend();
+      return;
     }
+    while (!stopRequested.load(std::memory_order_relaxed)) {
+      const int result = decodeFrame();
+      if (result == -2) break;
+      if (result < 0) {
+        resetStream();
+        continue;
+      }
+      if (result > 0) {
+        if (!publishFrame()) break;
+        av_frame_unref(frame);
+        continue;
+      }
 
-    if (waitForSocket(nativeSocket(socketHandle)) == SOCKET_ERROR && !socketInterrupted()) break;
+      if (waitForSocket(nativeSocket(socketHandle)) == SOCKET_ERROR && !socketInterrupted()) break;
+    }
+  } catch (...) {
   }
 
   if (!stopRequested.load(std::memory_order_relaxed))
@@ -271,6 +296,23 @@ void VideoUI::clearAccessUnit() {
   accessUnitHasIdr = false;
 }
 
+void VideoUI::resetStream(bool forgetParameters) {
+  clearAccessUnit();
+  avcodec_flush_buffers(decoderContext);
+  av_frame_unref(frame);
+  av_packet_unref(packet);
+  decoderSynced = false;
+  sequenceStarted = false;
+  timestampStarted = false;
+  streamStarted = false;
+  lastPacketAt = {};
+  if (forgetParameters) {
+    cachedSps.clear();
+    cachedPps.clear();
+  }
+  feedStatus.store(VideoFeedStatus::WaitingForStream, std::memory_order_relaxed);
+}
+
 int VideoUI::receiveAccessUnit() {
   const auto now = std::chrono::steady_clock::now();
   if (now >= nextKeepalive) {
@@ -283,11 +325,32 @@ int VideoUI::receiveAccessUnit() {
     const int size =
         receiveSocket(nativeSocket(socketHandle), datagram, static_cast<int>(sizeof(datagram)));
     if (size < 0) {
-      if (socketWouldBlock()) return 0;
+      if (socketWouldBlock()) {
+        if (lastPacketAt.time_since_epoch().count() && now - lastPacketAt > STREAM_TIMEOUT)
+          resetStream();
+        return 0;
+      }
       if (socketInterrupted()) continue;
-      return -1;
+      if (socketReset()) {
+        resetStream();
+        return 0;
+      }
+      return -2;
     }
     if (size < 12 || datagram[0] >> 6 != 2 || (datagram[1] & 0x7f) != RTP_PAYLOAD_TYPE) continue;
+
+    const uint16_t sequence = readU16(datagram + 2);
+    const uint32_t timestamp = readU32(datagram + 4);
+    const uint32_t ssrc = readU32(datagram + 8);
+    const int32_t timestampDelta = static_cast<int32_t>(timestamp - lastTimestamp);
+    if ((streamStarted && ssrc != streamSsrc) ||
+        (timestampStarted && timestampDelta < 0 &&
+         (timestampDelta < -90000 || (sequenceStarted && sequence != expectedSequence))))
+      resetStream(true);
+    streamSsrc = ssrc;
+    streamStarted = true;
+    lastPacketAt = now;
+
     VideoFeedStatus waiting = VideoFeedStatus::WaitingForStream;
     feedStatus.compare_exchange_strong(waiting, VideoFeedStatus::Synchronizing,
                                        std::memory_order_relaxed);
@@ -307,15 +370,17 @@ int VideoUI::receiveAccessUnit() {
     }
     if (headerSize >= payloadEnd) continue;
 
-    const uint16_t sequence = readU16(datagram + 2);
     const bool sequenceGap = sequenceStarted && sequence != expectedSequence;
     expectedSequence = static_cast<uint16_t>(sequence + 1);
     sequenceStarted = true;
 
-    const uint32_t timestamp = readU32(datagram + 4);
     const bool continuingAccessUnit = !accessUnit.empty() && timestamp == accessUnitTimestamp;
     if (!accessUnit.empty() && timestamp != accessUnitTimestamp) {
       clearAccessUnit();
+      if (decoderSynced) {
+        decoderSynced = false;
+        avcodec_flush_buffers(decoderContext);
+      }
     }
     if (accessUnit.empty()) accessUnitTimestamp = timestamp;
     if (sequenceGap && continuingAccessUnit) accessUnitDamaged = true;
@@ -336,7 +401,7 @@ int VideoUI::receiveAccessUnit() {
     };
 
     if (nalType >= 1 && nalType <= 23) {
-      appendNal(accessUnit, payload, payloadSize);
+      if (!appendNal(accessUnit, payload, payloadSize)) accessUnitDamaged = true;
       noteNal(nalType, payload, payloadSize);
     } else if (nalType == 24) {
       size_t offset = 1;
@@ -347,7 +412,7 @@ int VideoUI::receiveAccessUnit() {
           accessUnitDamaged = true;
           break;
         }
-        appendNal(accessUnit, payload + offset, nalSize);
+        if (!appendNal(accessUnit, payload + offset, nalSize)) accessUnitDamaged = true;
         noteNal(payload[offset] & 0x1f, payload + offset, nalSize);
         offset += nalSize;
       }
@@ -357,14 +422,18 @@ int VideoUI::receiveAccessUnit() {
       if (start) {
         if (inFragment) accessUnitDamaged = true;
         const uint8_t header = (payload[0] & 0xe0) | (payload[1] & 0x1f);
-        appendNal(accessUnit, &header, 1);
+        if (!appendNal(accessUnit, &header, 1)) accessUnitDamaged = true;
         if ((header & 0x1f) == 5) accessUnitHasIdr = true;
         inFragment = true;
       } else if (!inFragment) {
         accessUnitDamaged = true;
       }
       if (inFragment) {
-        accessUnit.insert(accessUnit.end(), payload + 2, payload + payloadSize);
+        const size_t fragmentSize = payloadSize - 2;
+        if (fragmentSize > MAX_ACCESS_UNIT_SIZE - std::min(accessUnit.size(), MAX_ACCESS_UNIT_SIZE))
+          accessUnitDamaged = true;
+        else
+          accessUnit.insert(accessUnit.end(), payload + 2, payload + payloadSize);
       }
       if (end) inFragment = false;
     } else {
@@ -374,7 +443,12 @@ int VideoUI::receiveAccessUnit() {
     if (!(datagram[1] & 0x80)) continue;
 
     if (accessUnit.empty() || inFragment || accessUnitDamaged) {
+      const bool damaged = inFragment || accessUnitDamaged;
       clearAccessUnit();
+      if (damaged && decoderSynced) {
+        decoderSynced = false;
+        avcodec_flush_buffers(decoderContext);
+      }
       continue;
     }
 
@@ -386,8 +460,12 @@ int VideoUI::receiveAccessUnit() {
       if (!accessUnitHasSps || !accessUnitHasPps) {
         std::vector<uint8_t> synchronized;
         synchronized.reserve(cachedSps.size() + cachedPps.size() + accessUnit.size() + 8);
-        appendNal(synchronized, cachedSps.data(), cachedSps.size());
-        appendNal(synchronized, cachedPps.data(), cachedPps.size());
+        if (!appendNal(synchronized, cachedSps.data(), cachedSps.size()) ||
+            !appendNal(synchronized, cachedPps.data(), cachedPps.size()) ||
+            accessUnit.size() > MAX_ACCESS_UNIT_SIZE - synchronized.size()) {
+          clearAccessUnit();
+          continue;
+        }
         synchronized.insert(synchronized.end(), accessUnit.begin(), accessUnit.end());
         accessUnit.swap(synchronized);
       }
@@ -431,6 +509,10 @@ int VideoUI::decodeFrame() {
 }
 
 bool VideoUI::publishFrame() {
+  if (framePending.load(std::memory_order_acquire)) return true;
+  if (frame->width <= 0 || frame->height <= 0 || frame->width > MAX_VIDEO_DIMENSION ||
+      frame->height > MAX_VIDEO_DIMENSION)
+    return false;
   const auto decodedFormat = static_cast<AVPixelFormat>(frame->format);
   const AVPixelFormat sourceFormat = normalizePixelFormat(decodedFormat);
   scaler =
@@ -446,6 +528,7 @@ bool VideoUI::publishFrame() {
 
   const size_t pitch = static_cast<size_t>(frame->width) * 4;
   const size_t frameSize = pitch * static_cast<size_t>(frame->height);
+  if (frameSize > static_cast<size_t>(std::numeric_limits<int>::max())) return false;
   if (!frameBuffersInitialized) {
     for (auto& buffer : frameBuffers) buffer.pixels.resize(frameSize);
     frameBuffersInitialized = true;
@@ -467,6 +550,9 @@ bool VideoUI::presentFrame() {
   if (!framePending.exchange(false, std::memory_order_acquire)) return true;
   presentationFrame = middleFrame.exchange(presentationFrame, std::memory_order_acq_rel);
   const VideoFrameBuffer& input = frameBuffers[presentationFrame];
+  if (input.width <= 0 || input.height <= 0) return false;
+  const size_t inputSize = static_cast<size_t>(input.width) * static_cast<size_t>(input.height) * 4;
+  if (input.pixels.size() != inputSize) return false;
 
   if (videoTexture.Status == ImTextureStatus_Destroyed) {
     videoTexture.Create(ImTextureFormat_RGBA32, input.width, input.height);
@@ -476,7 +562,9 @@ bool VideoUI::presentFrame() {
     return false;
   }
 
-  std::memcpy(videoTexture.Pixels, input.pixels.data(), input.pixels.size());
+  if (!videoTexture.Pixels || static_cast<size_t>(videoTexture.GetSizeInBytes()) != inputSize)
+    return false;
+  std::memcpy(videoTexture.Pixels, input.pixels.data(), inputSize);
   if (videoTexture.Status == ImTextureStatus_OK) {
     const ImTextureRect update{0, 0, static_cast<unsigned short>(videoTexture.Width),
                                static_cast<unsigned short>(videoTexture.Height)};
@@ -505,25 +593,46 @@ static const char* videoStatusText(VideoFeedStatus status) {
   return nullptr;
 }
 
+float VideoUI::rotatedAspect() const {
+  return videoTexture.Width > 0 && videoTexture.Height > 0
+             ? static_cast<float>(videoTexture.Height) / videoTexture.Width
+             : 9.0f / 16.0f;
+}
+
+void VideoUI::drawContent(ImVec2 size) {
+  init();
+  if (!presentFrame()) feedStatus.store(VideoFeedStatus::Error, std::memory_order_relaxed);
+  size = {std::max(size.x, 1.0f), std::max(size.y, 1.0f)};
+  ImGui::Dummy(size);
+  const ImVec2 paneMin = ImGui::GetItemRectMin();
+  const ImVec2 paneMax = ImGui::GetItemRectMax();
+  ImVec2 imageMin = paneMin;
+  ImVec2 imageMax = paneMax;
+  ImDrawList* draw = ImGui::GetWindowDrawList();
+  draw->PushClipRect(paneMin, paneMax, true);
+  draw->AddRectFilled(paneMin, paneMax, ImGui::GetColorU32(ImGuiCol_FrameBg));
+  if (videoTexture.Status != ImTextureStatus_Destroyed && videoTexture.Width > 0 &&
+      videoTexture.Height > 0) {
+    const float aspect = rotatedAspect();
+    ImVec2 drawSize{size.x, size.x / aspect};
+    if (drawSize.y > size.y) drawSize = {size.y * aspect, size.y};
+    imageMin = {(paneMin.x + paneMax.x - drawSize.x) * 0.5f,
+                (paneMin.y + paneMax.y - drawSize.y) * 0.5f};
+    imageMax = {imageMin.x + drawSize.x, imageMin.y + drawSize.y};
+    draw->AddImageQuad(videoTexture.GetTexRef(), imageMin, {imageMax.x, imageMin.y}, imageMax,
+                       {imageMin.x, imageMax.y}, {0, 1}, {0, 0}, {1, 0}, {1, 1});
+  }
+  if (const char* text = videoStatusText(feedStatus.load(std::memory_order_relaxed))) {
+    const ImVec2 textSize = ImGui::CalcTextSize(text);
+    draw->AddText({(imageMin.x + imageMax.x - textSize.x) * 0.5f,
+                   (imageMin.y + imageMax.y - textSize.y) * 0.5f},
+                  IM_COL32(220, 220, 220, 255), text);
+  }
+  draw->PopClipRect();
+}
+
 void VideoUI::videoController(ImGuiWindowFlags flags) {
   const bool visible = ImGui::Begin("Video Controller", nullptr, flags);
-  if (visible) {
-    presentFrame();
-    ImVec2 size = ImGui::GetContentRegionAvail();
-    size.x = size.x > 1.0f ? size.x : 1.0f;
-    size.y = size.y > 1.0f ? size.y : 1.0f;
-    if (videoTexture.Status != ImTextureStatus_Destroyed)
-      ImGui::Image(videoTexture.GetTexRef(), size);
-    else
-      ImGui::Dummy(size);
-    if (const char* text = videoStatusText(feedStatus.load(std::memory_order_relaxed))) {
-      const ImVec2 min = ImGui::GetItemRectMin();
-      const ImVec2 max = ImGui::GetItemRectMax();
-      const ImVec2 textSize = ImGui::CalcTextSize(text);
-      ImGui::GetWindowDrawList()->AddText(
-          {(min.x + max.x - textSize.x) / 2, (min.y + max.y - textSize.y) / 2},
-          IM_COL32(220, 220, 220, 255), text);
-    }
-  }
+  if (visible) drawContent(ImGui::GetContentRegionAvail());
   ImGui::End();
 }

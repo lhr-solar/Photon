@@ -9,6 +9,7 @@ file(GLOB DBC_FILES CONFIGURE_DEPENDS "${DBC_DIR}/*.dbc")
 list(REMOVE_ITEM DBC_FILES
     "${DBC_DIR}/daybreak-master.dbc"
     "${DBC_DIR}/lonestar.dbc"
+    "${DBC_DIR}/newDAQ.dbc"
     "${DBC_DIR}/test.dbc"
 )
 

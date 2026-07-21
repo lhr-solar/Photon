@@ -40,6 +40,7 @@ struct VideoUI {
   std::array<VideoFrameBuffer, 3> frameBuffers;
   std::thread backendThread;
   std::chrono::steady_clock::time_point nextKeepalive;
+  std::chrono::steady_clock::time_point lastPacketAt;
   std::atomic<bool> stopRequested = false;
   std::atomic<bool> framePending = false;
   std::atomic<VideoFeedStatus> feedStatus = VideoFeedStatus::Connecting;
@@ -49,6 +50,7 @@ struct VideoUI {
   uint8_t presentationFrame = 0;
   uint32_t accessUnitTimestamp = 0;
   uint32_t lastTimestamp = 0;
+  uint32_t streamSsrc = 0;
   int64_t extendedTimestamp = 0;
   uint16_t expectedSequence = 0;
   bool timestampStarted = false;
@@ -59,6 +61,7 @@ struct VideoUI {
   bool accessUnitHasPps = false;
   bool accessUnitHasIdr = false;
   bool decoderSynced = false;
+  bool streamStarted = false;
   bool frameBuffersInitialized = false;
   bool socketSubsystemInitialized = false;
 
@@ -69,9 +72,12 @@ struct VideoUI {
   void shutdownBackend();
   void backendLoop();
   void clearAccessUnit();
+  void resetStream(bool forgetParameters = false);
   int receiveAccessUnit();
   int decodeFrame();
   bool publishFrame();
   bool presentFrame();
+  float rotatedAspect() const;
+  void drawContent(ImVec2 size);
   void videoController(ImGuiWindowFlags flags);
 };
