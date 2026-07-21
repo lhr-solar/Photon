@@ -10,8 +10,9 @@ struct Canvas {
   void draw(TitleBar& titleBar, Sidebar& sideBar, Tabs& tabs) {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImVec2 viewportSize = viewport->Size;
-    ImVec2 canvasSize = {viewportSize.x - sideBar.width, viewportSize.y - titleBar.height};
-    ImVec2 canvasPos = {sideBar.width, titleBar.height};
+    const float titleBarHeight = titleBar.enabled ? titleBar.height : 0.0f;
+    ImVec2 canvasSize = {viewportSize.x - sideBar.width, viewportSize.y - titleBarHeight};
+    ImVec2 canvasPos = {sideBar.width, titleBarHeight};
     width = canvasSize.x;
     ImGui::SetNextWindowSize(canvasSize);
     ImGui::SetNextWindowPos(canvasPos);

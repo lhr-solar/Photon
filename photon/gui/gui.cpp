@@ -61,6 +61,7 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
     }
     titleBar.showSidebar = false;
     titleBar.enabled = false;
+    sideBar.width = 0.0f;
     kioskMode = true;
     initDashboardCameras();
 #if defined(PHOTON_DASHBOARD_ONLY) && defined(LINUX)
@@ -563,7 +564,10 @@ void GUI::buildUI() {
   if (!tabs.list.empty() && tabs.index < tabs.list.size())
     titleBar.activePage = tabs.list[tabs.index].name;
   titleBar.draw();
-  sideBar.draw(*this);
+  if (kioskMode)
+    sideBar.width = 0.0f;
+  else
+    sideBar.draw(*this);
   canvas.draw(titleBar, sideBar, tabs);
 
   /* stateful UI building */
