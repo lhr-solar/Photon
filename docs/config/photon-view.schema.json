@@ -94,12 +94,12 @@
             "line", "filled-line", "shaded", "scatter", "stairstep", "bar",
             "bar-groups", "bar-stacks", "error-bars", "stem", "pie", "heatmap",
             "histogram", "histogram-2d", "digital", "line-3d", "scatter-3d",
-            "surface-3d", "list"
+            "surface-3d", "list", "tire-slip"
           ]
         },
         "title": { "type": "string" },
         "useSource1TimeAsX": { "type": "boolean" },
-        "sources": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/source" } },
+        "sources": { "type": "array", "minItems": 0, "maxItems": 128, "items": { "$ref": "#/$defs/source" } },
         "options": { "type": "object" }
       },
       "additionalProperties": true

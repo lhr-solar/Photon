@@ -402,6 +402,33 @@
           }
         }
       ]
+    },
+    {
+      "id": "tire-slip",
+      "layout": {
+        "columns": 48,
+        "gap": 8.0,
+        "rowHeight": 48.0
+      },
+      "name": "Tire Slip",
+      "widgets": [
+        {
+          "id": "tire-slip-plot",
+          "kind": "plot",
+          "plot": {
+            "sources": [],
+            "timeWindowSeconds": 60.0,
+            "title": "Tire Slip vs GPS / MC (%)",
+            "type": "tire-slip"
+          },
+          "rect": {
+            "h": 12,
+            "w": 48,
+            "x": 0,
+            "y": 0
+          }
+        }
+      ]
     }
   ],
   "schemaVersion": 1

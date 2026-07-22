@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <istream>
+#include <locale>
 #include <sstream>
 #include <string>
 
@@ -37,6 +38,22 @@ DBCAsset dbcAsset(DBCType kind) {
   return {DBCType::File, "unknown", nullptr, 0};
 }
 
+void trimDbcLine(std::string& line) {
+  line.erase(0, line.find_first_not_of(" \t\r\n"));
+  const auto end = line.find_last_not_of(" \t\r\n");
+  if (end == std::string::npos)
+    line.clear();
+  else
+    line.erase(end + 1);
+}
+
+std::istringstream dbcStream(const std::string& line) {
+  // DBC files always use '.' decimals; ignore the process locale.
+  std::istringstream iss(line);
+  iss.imbue(std::locale::classic());
+  return iss;
+}
+
 void buildConfig(std::istream& stream, arenaConfig& config) {
   std::vector<uint32_t> validIds{};
   std::array<uint32_t, MESSAGE_MAX> signalCounts{};
@@ -46,7 +63,7 @@ void buildConfig(std::istream& stream, arenaConfig& config) {
   bool haveMsg = false;
 
   while (std::getline(stream, line)) {
-    line.erase(0, line.find_first_not_of(" \t\r\n"));
+    trimDbcLine(line);
     if (line.empty()) continue;
     if (line.rfind("BO_", 0) == 0) {
       haveMsg = false;
@@ -56,7 +73,7 @@ void buildConfig(std::istream& stream, arenaConfig& config) {
       std::string tag{};
       std::string tmp{};
       std::string dlcStr{};
-      std::istringstream iss(line);
+      auto iss = dbcStream(line);
       iss >> tag >> canId >> tmp >> dlcStr >> sender;
       if (canId >= MESSAGE_MAX) continue;
       if (tmp.find(':') == std::string::npos) continue;
@@ -90,7 +107,7 @@ void populateArena(Arena& arena, std::istream& stream) {
   bool haveCurrentMessage = false;
 
   while (std::getline(stream, line)) {
-    line.erase(0, line.find_first_not_of(" \t\r\n"));
+    trimDbcLine(line);
     if (line.empty()) continue;
     if (line.rfind("BO_", 0) == 0) {
       haveCurrentMessage = false;
@@ -100,7 +117,7 @@ void populateArena(Arena& arena, std::istream& stream) {
       std::string tag{};
       std::string tmp{};
       std::string dlcStr{};
-      std::istringstream iss(line);
+      auto iss = dbcStream(line);
       iss >> tag >> canId >> tmp >> dlcStr >> sender;
       if (canId >= MESSAGE_MAX || !arena.messages[canId]) continue;
       const auto colon = tmp.find(':');
@@ -126,7 +143,7 @@ void populateArena(Arena& arena, std::istream& stream) {
       void* data = sig->data;
       *sig = Signal{};
       sig->data = data;
-      std::istringstream iss(line);
+      auto iss = dbcStream(line);
       std::string tag{};
       std::string sigName{};
       char c = '\0';
@@ -159,7 +176,7 @@ void populateArena(Arena& arena, std::istream& stream) {
       }
       if (iss >> std::ws) iss >> sig->receiver;
     } else if (line.rfind("SIG_VALTYPE_", 0) == 0) {
-      std::istringstream iss(line);
+      auto iss = dbcStream(line);
       std::string tag{};
       std::string sigName{};
       std::string colon{};
@@ -185,7 +202,7 @@ void populateArena(Arena& arena, std::istream& stream) {
           break;
         }
     } else if (line.rfind("VAL_ ", 0) == 0) {
-      std::istringstream iss(line);
+      auto iss = dbcStream(line);
       std::string tag{};
       std::string sigName{};
       uint32_t canId = 0;

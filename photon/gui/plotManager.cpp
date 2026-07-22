@@ -21,14 +21,14 @@ constexpr std::array<PlotManager::PlotTypeSpec, PlotType_Count> kPlotSpecs{{
     {"Histogram", 1, 8, false, false},       {"Histogram 2D", 2, 2, false, false},
     {"Digital Plots", 1, 8, true, false},    {"3D Line Plots", 2, 3, false, true},
     {"3D Scatter Plots", 2, 3, false, true}, {"3D Surface Plots", 2, 3, false, true},
-    {"List", 1, 128, false, false},
+    {"List", 1, 128, false, false},          {"Tire Slip", 0, 0, true, false},
 }};
 
 constexpr std::array<const char*, PlotType_Count> kPlotTypeKeys{{
     "line",    "filled-line", "shaded",     "scatter",      "stairstep",
     "bar",     "bar-groups",  "bar-stacks", "error-bars",   "stem",
     "pie",     "heatmap",     "histogram",  "histogram-2d", "digital",
-    "line-3d", "scatter-3d",  "surface-3d", "list",
+    "line-3d", "scatter-3d",  "surface-3d", "list",         "tire-slip",
 }};
 
 int required3DSources(bool useSource1TimeAsX) { return useSource1TimeAsX ? 2 : 3; }
@@ -69,7 +69,6 @@ Signal* findSignal(Arena* arena, const PlotManager::PlotSourceRef& ref) {
 }
 
 bool hasAllSources(const std::vector<PlotManager::PlotSourceRef>& sources) {
-  if (sources.empty()) return false;
   for (const auto& source : sources)
     if (!source.assigned) return false;
   return true;
@@ -84,14 +83,23 @@ std::string signalDisplayName(Arena* arena, const PlotManager::PlotSourceRef& re
     if (!ref.signalName.empty()) return ref.signalName;
     return "<unassigned>";
   }
-  if (!msg->name.empty()) return msg->name + " / " + sig->name;
+  const bool hasUnit = !sig->unit.empty() && sig->unit != "NULL";
+  if (!msg->name.empty()) {
+    if (hasUnit) return msg->name + " / " + sig->name + " (" + sig->unit + ")";
+    return msg->name + " / " + sig->name;
+  }
   char label[256]{};
-  std::snprintf(label, sizeof(label), "0x%03X / %s", msg->id, sig->name.c_str());
+  if (hasUnit)
+    std::snprintf(label, sizeof(label), "0x%03X / %s (%s)", msg->id, sig->name.c_str(),
+                  sig->unit.c_str());
+  else
+    std::snprintf(label, sizeof(label), "0x%03X / %s", msg->id, sig->name.c_str());
   return label;
 }
 
 std::string makePlotTitle(Arena* arena, int typeIndex,
                           const std::vector<PlotManager::PlotSourceRef>& sources) {
+  if (typeIndex == PlotType_TireSlip) return "Tire Slip";
   std::string sourcesPart{};
   for (size_t i = 0; i < sources.size(); ++i) {
     if (i > 0) sourcesPart += ", ";
@@ -130,8 +138,9 @@ int PlotManager::typeFromKey(std::string_view key) {
   return -1;
 }
 
-void PlotManager::init(Arena* arenaTarget, Network* networkTarget) {
+void PlotManager::init(Arena* arenaTarget, Network* networkTarget, Plots* timelineTarget) {
   network = networkTarget;
+  timeline = timelineTarget;
   if (arena == arenaTarget) return;
   arena = arenaTarget;
   arenaGeneration = arena ? arena->generation : 0;
@@ -251,7 +260,9 @@ std::vector<PlotManager::PlotWindow> PlotManager::takeWindows() {
   return taken;
 }
 
-void PlotManager::renderEmbedded(PlotWindow& plot) { PlotRenderer::render(arena, network, plot); }
+void PlotManager::renderEmbedded(PlotWindow& plot) {
+  PlotRenderer::render(arena, network, plot, timeline);
+}
 
 void PlotManager::renderHome(ImGuiID dockspaceID, const ImVec2& contentMin,
                              const ImVec2& contentMax) {
@@ -321,8 +332,12 @@ void PlotManager::refreshSignalOptions() {
       option.ref.signalName = sig->name;
       option.ref.assigned = true;
       char label[256]{};
-      std::snprintf(label, sizeof(label), "0x%03X (%u) : %s / %s", messageId, messageId,
-                    msg->name.c_str(), sig->name.c_str());
+      if (!sig->unit.empty() && sig->unit != "NULL")
+        std::snprintf(label, sizeof(label), "0x%03X (%u) : %s / %s (%s)", messageId, messageId,
+                      msg->name.c_str(), sig->name.c_str(), sig->unit.c_str());
+      else
+        std::snprintf(label, sizeof(label), "0x%03X (%u) : %s / %s", messageId, messageId,
+                      msg->name.c_str(), sig->name.c_str());
       option.label = label;
       signalOptions.push_back(std::move(option));
     }
@@ -444,7 +459,7 @@ void PlotManager::renderCreator() {
       preview.typeIndex = typeIndex;
       preview.sources = pendingSources;
       preview.useSource1TimeAsX = useSource1TimeAsX;
-      PlotRenderer::render(arena, network, preview);
+      PlotRenderer::render(arena, network, preview, timeline);
     }
     ImGui::EndChild();
 
@@ -462,35 +477,37 @@ void PlotManager::renderCreator() {
     }
 
     ImGui::TableSetColumnIndex(2);
-    ImGui::TextUnformatted("Search");
-    if (creatorFocusSearch) {
-      ImGui::SetKeyboardFocusHere();
-      creatorFocusSearch = false;
-    }
-    if (ImGui::InputTextWithHint("##plot_search", "Search message, id, or signal", search,
-                                 sizeof(search))) {
-      refreshMatches();
-    }
-    if (ImGui::BeginChild("##plot_search_results", ImVec2(0.0f, 280.0f), true,
-                          ImGuiWindowFlags_HorizontalScrollbar)) {
-      for (size_t i = 0; i < sourceMatches.size(); ++i) {
-        const int optionIndex = sourceMatches[i];
-        const bool selected = static_cast<int>(i) == selectedMatch;
-        if (ImGui::Selectable(signalOptions[static_cast<size_t>(optionIndex)].label.c_str(),
-                              selected, ImGuiSelectableFlags_AllowDoubleClick,
-                              ImVec2(maxSuggestionWidth + style.FramePadding.x * 2.0f, 0.0f))) {
-          selectedMatch = static_cast<int>(i);
-          pendingSources[static_cast<size_t>(activeSourceIndex)] =
-              signalOptions[static_cast<size_t>(optionIndex)].ref;
-          if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) &&
-              activeSourceIndex + 1 < static_cast<int>(pendingSources.size()))
-            activeSourceIndex += 1;
+    if (pendingSources.empty()) {
+      ImGui::TextDisabled("No signal sources required.");
+    } else {
+      ImGui::TextUnformatted("Search");
+      if (creatorFocusSearch) {
+        ImGui::SetKeyboardFocusHere();
+        creatorFocusSearch = false;
+      }
+      if (ImGui::InputTextWithHint("##plot_search", "Search message, id, or signal", search,
+                                   sizeof(search))) {
+        refreshMatches();
+      }
+      if (ImGui::BeginChild("##plot_search_results", ImVec2(0.0f, 280.0f), true,
+                            ImGuiWindowFlags_HorizontalScrollbar)) {
+        for (size_t i = 0; i < sourceMatches.size(); ++i) {
+          const int optionIndex = sourceMatches[i];
+          const bool selected = static_cast<int>(i) == selectedMatch;
+          if (ImGui::Selectable(signalOptions[static_cast<size_t>(optionIndex)].label.c_str(),
+                                selected, ImGuiSelectableFlags_AllowDoubleClick,
+                                ImVec2(maxSuggestionWidth + style.FramePadding.x * 2.0f, 0.0f))) {
+            selectedMatch = static_cast<int>(i);
+            pendingSources[static_cast<size_t>(activeSourceIndex)] =
+                signalOptions[static_cast<size_t>(optionIndex)].ref;
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) &&
+                activeSourceIndex + 1 < static_cast<int>(pendingSources.size()))
+              activeSourceIndex += 1;
+          }
         }
       }
+      ImGui::EndChild();
     }
-
-    ImGui::EndChild();
-
     ImGui::EndTable();
   }
 
@@ -526,7 +543,7 @@ void PlotManager::renderPlotWindows() {
     ImGui::SameLine();
     if (ImGui::SmallButton("Close")) window.open = false;
     if (ImGui::BeginChild("##plot_body", ImVec2(-1.0f, 340.0f), ImGuiChildFlags_Borders)) {
-      PlotRenderer::render(arena, network, window);
+      PlotRenderer::render(arena, network, window, timeline);
     }
     ImGui::EndChild();
     ImGui::PopID();

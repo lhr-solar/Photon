@@ -251,7 +251,7 @@ bool drawCalendarPopup(int& year, int& month, double cursor, double liveTime, do
                                            "September", "October",  "November", "December"};
   static constexpr const char* weekdays[] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
   std::tm cursorDate{}, liveDate{};
-  if (!localTime(cursor, cursorDate) || !localTime(liveTime, liveDate)) return false;
+  const bool timesOk = localTime(cursor, cursorDate) && localTime(liveTime, liveDate);
 
   constexpr float cell = 30.0f;
   const float spacing = ImGui::GetStyle().ItemSpacing.x;
@@ -263,7 +263,14 @@ bool drawCalendarPopup(int& year, int& month, double cursor, double liveTime, do
   ImGui::PushStyleColor(ImGuiCol_PopupBg, PhotonUi::withAlpha(palette.bg, 0.98f));
   ImGui::PushStyleColor(ImGuiCol_Border, PhotonUi::withAlpha(palette.border, 0.72f));
   bool changed = false;
+  // Always BeginPopup when open — skipping it abandons the OpenPopup request.
   if (ImGui::BeginPopup("TimelineCalendar", ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!timesOk) {
+      ImGui::EndPopup();
+      ImGui::PopStyleColor(2);
+      ImGui::PopStyleVar(2);
+      return false;
+    }
     constexpr float calendarFontSize = 14.0f;
     const float previousFontScale = ImGui::GetCurrentWindow()->FontWindowScale;
     const float windowIndependentFontSize =
@@ -389,12 +396,19 @@ bool Plots::signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
   ImPlot::SetNextAxisLimits(ImAxis_X1, cursor - windowSeconds, cursor, ImPlotCond_Always);
   ImPlot::SetNextAxisToFit(ImAxis_Y1);
   if (ImPlot::BeginPlot(name, size)) {
-    ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_None, ImPlotAxisFlags_None);
+    const char* yAxis = nullptr;
+    if (msg.signals[signal] && !msg.signals[signal]->unit.empty() &&
+        msg.signals[signal]->unit != "NULL")
+      yAxis = msg.signals[signal]->unit.c_str();
+    ImPlot::SetupAxes("time", yAxis, ImPlotAxisFlags_None, ImPlotAxisFlags_None);
     ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
-    if (visibleCount)
-      ImPlot::PlotLine(msg.signals[signal]->name.c_str(), timeValues + firstSample,
+    if (visibleCount) {
+      std::string series = msg.signals[signal]->name;
+      if (yAxis) series.append(" (").append(yAxis).append(")");
+      ImPlot::PlotLine(series.c_str(), timeValues + firstSample,
                        static_cast<const double*>(msg.signals[signal]->data) + firstSample,
                        static_cast<int>(visibleCount), plotSpec);
+    }
     ImPlot::EndPlot();
   }
   return true;
@@ -438,6 +452,33 @@ bool Plots::signalStatic(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size
 double Plots::mapCursor() const {
   if (timelineMode != TimelineMode::Live) return cursor;
   return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+void Plots::scrubTo(double timeSeconds, double visibleSeconds, Network* network) {
+  if (!std::isfinite(timeSeconds)) return;
+  cursor = timeSeconds;
+  if (std::isfinite(visibleSeconds) && visibleSeconds > 0.0)
+    windowSeconds = std::clamp(visibleSeconds, 0.001, PlotManager::kMaxTimeWindowSeconds);
+
+  const bool leaveLive = timelineMode == TimelineMode::Live ||
+                         timelineMode == TimelineMode::Playing ||
+                         timelineMode == TimelineMode::Buffering;
+  timelineMode = TimelineMode::Paused;
+  timelineLevel = 0;
+  if (leaveLive && network) network->requestTimeline(CANP_TIMELINE_PAUSE);
+}
+
+void Plots::setViewWindowSeconds(double visibleSeconds) {
+  if (!std::isfinite(visibleSeconds) || visibleSeconds <= 0.0) return;
+  windowSeconds = std::clamp(visibleSeconds, 0.001, PlotManager::kMaxTimeWindowSeconds);
+}
+
+void Plots::goLive(Network* network) {
+  cursor =
+      std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+  timelineMode = TimelineMode::Live;
+  timelineLevel = 0;
+  if (network) network->requestTimeline(CANP_TIMELINE_LIVE);
 }
 
 void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec2 pos,
@@ -637,19 +678,22 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
 
     if (dateMode != TimelineDateMode::Hidden) {
       nextTimelineItem();
-      const bool opened =
-          dateMode == TimelineDateMode::Icon
-              ? PhotonUi::iconButton("TimelineDate", "\uea53", date, {dateWidth, controlHeight},
-                                     palette, false, timelineIconSize)
-              : PhotonUi::rowButton("TimelineDate", "\uea53",
-                                    dateMode == TimelineDateMode::Compact ? compactDateLabel : date,
-                                    {dateWidth, controlHeight}, palette, false, false, false,
-                                    timelineFontSize, timelineIconSize);
-      if (opened) {
+      // Draw the date control, then open on mouse *release*. Opening on IsItemClicked
+      // (mouse down) lets the following release over Timeline immediately close the popup.
+      if (dateMode == TimelineDateMode::Icon)
+        PhotonUi::iconButton("TimelineDate", "\uea53", date, {dateWidth, controlHeight}, palette,
+                             false, timelineIconSize);
+      else
+        PhotonUi::rowButton("TimelineDate", "\uea53",
+                            dateMode == TimelineDateMode::Compact ? compactDateLabel : date,
+                            {dateWidth, controlHeight}, palette, false, false, false,
+                            timelineFontSize, timelineIconSize);
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup) &&
+          ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         calendarYear = cursorDate.tm_year + 1900;
         calendarMonth = cursorDate.tm_mon;
-        ImGui::OpenPopup("TimelineCalendar");
       }
+      ImGui::OpenPopupOnItemClick("TimelineCalendar", ImGuiPopupFlags_MouseButtonLeft);
     }
     const bool today =
         cursorDate.tm_year == liveDate.tm_year && cursorDate.tm_yday == liveDate.tm_yday;

@@ -308,6 +308,7 @@ void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetr
   telemetry.hasWheelSpeed = frontLeftRpmValid || frontRightRpmValid || hasRearRpm;
   telemetry.hasSuspension = hasSuspension[0] || hasSuspension[1] || hasSuspension[2];
   telemetry.hasImu = accelerationCount > 0 || angularVelocityCount > 0;
+  telemetry.hasTireSlip = tireSlipAt(arena, cursor, telemetry.tireSlip);
 }
 
 void applyDynamicsJiggle(GUI::DynamicsTelemetry& telemetry, SceneObject& object) {
@@ -987,9 +988,9 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
     ImGui::SetCursorScreenPos(overlayMin);
     constexpr float groupGap = 8.0f;
     constexpr float controlWidth = 88.0f;
-    constexpr float imuWidthRatio = 2.25f;
+    constexpr float imuWidthRatio = 2.0f;
     const float groupWidth =
-        std::max((overlaySize.x - controlWidth - groupGap * 4.0f) / (3.0f + imuWidthRatio), 1.0f);
+        std::max((overlaySize.x - controlWidth - groupGap * 5.0f) / (4.0f + imuWidthRatio), 1.0f);
     const float imuWidth = groupWidth * imuWidthRatio;
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 4.0f));
 
@@ -1033,6 +1034,31 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
       valueRow("Front L", "%7.0f rpm", dynamicsTelemetry.frontLeftRpm);
       valueRow("Front R", "%7.0f rpm", dynamicsTelemetry.frontRightRpm);
       valueRow("Rear", "%7.0f rpm", dynamicsTelemetry.rearRpm);
+    }
+    PhotonUi::endPanel();
+    ImGui::SameLine(0.0f, groupGap);
+    if (beginGroup("##DynamicsSlip", "SLIP", dynamicsTelemetry.hasTireSlip, groupWidth)) {
+      const TireSlipSample& slip = dynamicsTelemetry.tireSlip;
+      if (slip.hasWheel)
+        valueRow("Wheel", "%6.2f m/s", slip.wheelSpeedMps);
+      else
+        ImGui::TextUnformatted("Wheel      --");
+      if (slip.hasGps)
+        valueRow("GPS", "%6.2f m/s", slip.gpsSpeedMps);
+      else
+        ImGui::TextUnformatted("GPS        --");
+      if (slip.hasMcVehicle)
+        valueRow("MC", "%6.2f m/s", slip.mcVehicleSpeedMps);
+      else
+        ImGui::TextUnformatted("MC         --");
+      if (slip.hasSlipGps)
+        valueRow("vs GPS", "%6.1f %%", slip.slipVsGpsPercent);
+      else
+        ImGui::TextUnformatted("vs GPS     --");
+      if (slip.hasSlipMc)
+        valueRow("vs MC", "%6.1f %%", slip.slipVsMcPercent);
+      else
+        ImGui::TextUnformatted("vs MC      --");
     }
     PhotonUi::endPanel();
     ImGui::SameLine(0.0f, groupGap);
@@ -1198,14 +1224,14 @@ void GUI::testFunc(ImGuiWindowFlags flags) {
 
 void GUI::setTabs() {
   // Hot-reloaded UI modules own separate function-local singletons, so bind them lazily.
-  PlotManager& plots = plotManager();
-  plots.init(arena, network);
+  PlotManager& plotMgr = plotManager();
+  plotMgr.init(arena, network, &plots);
   customViewTab().init(arena, gpu ? gpu->window : nullptr);
   ui::dashboardTab().init(arena);
   tabs.list.clear();
   tabs.list.push_back(
       Tab::bind<CustomViewTab, &CustomViewTab::draw>(customViewTab(), "Custom Views"));
-  tabs.list.push_back(Tab::bind<PlotManager, &PlotManager::draw>(plots, "Plots"));
+  tabs.list.push_back(Tab::bind<PlotManager, &PlotManager::draw>(plotMgr, "Plots"));
   tabs.list.push_back(Tab::bind<Arena, &Arena::statusUI>(*arena, "Arena"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::networkPage>(*this, "Networks"));
   tabs.list.push_back(

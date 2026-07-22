@@ -24,6 +24,12 @@ struct Plots {
   // Live View / Dynamics should not wait for the bottom timeline widget to run later in
   // the frame. In Live mode this returns wall-clock now; otherwise the scrubber cursor.
   double mapCursor() const;
+  bool isLive() const { return timelineMode == TimelineMode::Live; }
+  double viewWindowSeconds() const { return windowSeconds; }
+  // Plot pan/zoom writes back through here so the bottom timeline stays authoritative.
+  void scrubTo(double timeSeconds, double visibleSeconds, Network* network);
+  void setViewWindowSeconds(double visibleSeconds);
+  void goLive(Network* network);
 
  private:
   struct CursorIndex {
@@ -66,6 +72,7 @@ enum PlotTypeIndex : int {
   PlotType_3DScatter,
   PlotType_3DSurface,
   PlotType_List,
+  PlotType_TireSlip,
   PlotType_Count
 };
 
@@ -115,6 +122,7 @@ struct PlotManager {
 
   Arena* arena = nullptr;
   Network* network = nullptr;
+  Plots* timeline = nullptr;
   uint64_t arenaGeneration = 0;
   ImGuiID homeDockspaceID = 0;
   bool creatorOpen = false;
@@ -134,7 +142,7 @@ struct PlotManager {
   int nextPlotId = 1;
   std::vector<PlotWindow> windows{};
 
-  void init(Arena* arenaTarget, Network* networkTarget = nullptr);
+  void init(Arena* arenaTarget, Network* networkTarget = nullptr, Plots* timelineTarget = nullptr);
   void draw(ImGuiWindowFlags flags);
   void requestCreate();
   void requestEdit(PlotWindow& plot);

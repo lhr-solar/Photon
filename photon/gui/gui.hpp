@@ -17,6 +17,7 @@
 #include "exporter.hpp"
 #include "plots.hpp"
 #include "sideBar.hpp"
+#include "tireSlip.hpp"
 #include "tabs.hpp"
 #include "titlebar.hpp"
 #include "updater.hpp"
@@ -93,6 +94,8 @@ struct GUI {
     std::array<bool, 3> hasAcceleration{};
     std::array<bool, 3> hasAngularVelocity{};
     bool hasImu{};
+    TireSlipSample tireSlip{};
+    bool hasTireSlip{};
   } dynamicsTelemetry;
   struct MapTracker {
     Position position{};

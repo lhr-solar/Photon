@@ -7,6 +7,7 @@
 #include <format>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "implot.h"
 #include "implot3d.h"
 #include "plots.hpp"
+#include "tireSlip.hpp"
 
 namespace {
 
@@ -87,10 +89,36 @@ double transformedValue(const PlotManager::PlotSourceRef& source, double raw) {
   return raw * source.scale + source.offset;
 }
 
-const char* sourcePlotLabel(Arena* arena, const PlotManager::PlotSourceRef& source) {
-  if (!source.label.empty()) return source.label.c_str();
+bool hasDbcUnit(std::string_view unit) { return !unit.empty() && unit != "NULL"; }
+
+std::string withDbcUnit(std::string_view name, std::string_view unit) {
+  if (!hasDbcUnit(unit)) return std::string(name);
+  return std::string(name) + " (" + std::string(unit) + ")";
+}
+
+std::string sourcePlotLabel(Arena* arena, const PlotManager::PlotSourceRef& source) {
+  if (!source.label.empty()) {
+    Signal* signal = findSignal(arena, source);
+    if (signal && hasDbcUnit(signal->unit) && source.label.find(signal->unit) == std::string::npos)
+      return withDbcUnit(source.label, signal->unit);
+    return source.label;
+  }
   Signal* signal = findSignal(arena, source);
-  return signal ? signal->name.c_str() : "?";
+  if (!signal) return "?";
+  return withDbcUnit(signal->name, signal->unit);
+}
+
+const char* sharedYAxisUnit(Arena* arena, const std::vector<PlotManager::PlotSourceRef>& sources) {
+  const char* unit = nullptr;
+  for (const auto& source : sources) {
+    Signal* signal = findSignal(arena, source);
+    if (!signal || !hasDbcUnit(signal->unit)) return nullptr;
+    if (!unit)
+      unit = signal->unit.c_str();
+    else if (signal->unit != unit)
+      return nullptr;
+  }
+  return unit;
 }
 
 void fillTransformedSlice(const PlotManager::PlotSourceRef& source, const double* values,
@@ -175,55 +203,77 @@ std::string formatTimeWindow(double seconds) {
 
 void drawTimeWindowStatus(const PlotManager::PlotWindow& plot) {
   const std::string label =
-      plot.followLatest ? "AUTO  " + formatTimeWindow(plot.timeWindowSeconds) : "MANUAL";
+      plot.followLatest ? "LIVE  " + formatTimeWindow(plot.timeWindowSeconds) : "MANUAL";
   const ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
   const float rightAlignedX =
       ImGui::GetCursorPosX() + std::max(0.0f, ImGui::GetContentRegionAvail().x - textSize.x);
   ImGui::SetCursorPosX(rightAlignedX);
   ImGui::TextDisabled("%s", label.c_str());
   if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Scroll over the plot to change the autofit window (0.1 s to 24 h)");
+    ImGui::SetTooltip(
+        "Scroll to zoom the live window (graph keeps moving).\n"
+        "Drag to scrub the bottom timeline.\n"
+        "Ctrl+click to return to live.");
 }
 
-void updateFollowState(PlotManager::PlotWindow& plot) {
+void updateFollowState(PlotManager::PlotWindow& plot, Plots* timeline, Network* network) {
   const ImGuiIO& io = ImGui::GetIO();
+  const bool hovered = ImPlot::IsPlotHovered();
   const bool isDragging =
-      ImPlot::IsPlotHovered() && (ImGui::IsMouseDragging(ImGuiMouseButton_Left) ||
-                                  ImGui::IsMouseDragging(ImGuiMouseButton_Right) ||
-                                  ImGui::IsMouseDragging(ImGuiMouseButton_Middle));
-  const bool isScrolling =
-      ImPlot::IsPlotHovered() && (io.MouseWheel != 0.0f || io.MouseWheelH != 0.0f);
-  const bool recenterToLive =
-      ImPlot::IsPlotHovered() && io.KeyCtrl && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+      hovered && (ImGui::IsMouseDragging(ImGuiMouseButton_Left) ||
+                  ImGui::IsMouseDragging(ImGuiMouseButton_Right) ||
+                  ImGui::IsMouseDragging(ImGuiMouseButton_Middle));
+  const float wheel = hovered ? io.MouseWheel : 0.0f;
+  const bool recenterToLive = hovered && io.KeyCtrl && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
   const ImPlotRect limits = ImPlot::GetPlotLimits(ImAxis_X1, ImAxis_Y1);
+  const double visibleSeconds =
+      std::clamp(limits.X.Max - limits.X.Min, PlotManager::kMinTimeWindowSeconds,
+                 PlotManager::kMaxTimeWindowSeconds);
+
   if (recenterToLive) {
     plot.followLatest = true;
     plot.hasView = false;
-  }
-  if (isDragging) {
-    plot.followLatest = false;
+    if (timeline) timeline->goLive(network);
   }
 
-  // While live autofit is active, the wheel controls the amount of recent
-  // history shown instead of silently dropping the plot into manual mode.
-  // ImPlot has already applied its zoom by this point, so retain that span and
-  // anchor it back to the latest sample on the next frame.
-  if (isScrolling && plot.followLatest) {
-    plot.timeWindowSeconds =
-        std::clamp(limits.X.Max - limits.X.Min, PlotManager::kMinTimeWindowSeconds,
-                   PlotManager::kMaxTimeWindowSeconds);
+  // Live follow: wheel only changes how much history is shown. Keep streaming.
+  const bool liveFollow =
+      plot.followLatest || (timeline && timeline->isLive() && !isDragging && !plot.hasView);
+  if (liveFollow && !isDragging) {
+    plot.followLatest = true;
     plot.hasView = false;
-    const std::string duration = formatTimeWindow(plot.timeWindowSeconds);
-    ImGui::SetTooltip("Autofit window: %s\nScroll to change (0.1 s to 24 h)", duration.c_str());
+    if (wheel != 0.0f) {
+      // Match ImPlot: scroll up zooms in (smaller window).
+      const double factor = wheel > 0.0f ? (1.0 / 1.1) : 1.1;
+      plot.timeWindowSeconds =
+          std::clamp(plot.timeWindowSeconds * factor, PlotManager::kMinTimeWindowSeconds,
+                     PlotManager::kMaxTimeWindowSeconds);
+      if (timeline) timeline->setViewWindowSeconds(plot.timeWindowSeconds);
+      const std::string duration = formatTimeWindow(plot.timeWindowSeconds);
+      ImGui::SetTooltip("Live window: %s\nScroll to zoom (graph keeps moving)", duration.c_str());
+    }
+    plot.xMin = limits.X.Min;
+    plot.xMax = limits.X.Max;
+    return;
   }
+
+  if (isDragging) plot.followLatest = false;
 
   plot.xMin = limits.X.Min;
   plot.xMax = limits.X.Max;
-  if (!plot.followLatest) plot.hasView = true;
+  if (!plot.followLatest) {
+    plot.hasView = true;
+    // Pan or manual zoom scrubs the shared bottom timeline (right edge = cursor).
+    if (timeline && (isDragging || wheel != 0.0f)) {
+      plot.timeWindowSeconds = visibleSeconds;
+      timeline->scrubTo(limits.X.Max, visibleSeconds, network);
+    }
+  }
 }
 
-bool setupTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, const char*& overlayText) {
+bool setupTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, const char*& overlayText,
+                         Plots* timeline) {
   overlayText = nullptr;
   if (plot.sources.empty()) {
     ImPlot::SetNextAxisLimits(ImAxis_X1, 0.0, 1.0, ImGuiCond_Always);
@@ -244,6 +294,18 @@ bool setupTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, const char
 
   const double dataStart = primaryTimes[0];
   const double latestTime = primaryTimes[primaryCount - 1];
+  // Bottom timeline cursor is authoritative when scrubbed/paused/playing.
+  // Keep the plot's own zoom level so Play/scrub does not snap the window back in.
+  if (timeline && !timeline->isLive()) {
+    plot.followLatest = false;
+    plot.hasView = true;
+    plot.xMax = timeline->cursor;
+    plot.xMin = plot.xMax - plot.timeWindowSeconds;
+  } else if (timeline && timeline->isLive()) {
+    plot.followLatest = true;
+    plot.hasView = false;
+  }
+
   plot.timeWindowSeconds = std::clamp(plot.timeWindowSeconds, PlotManager::kMinTimeWindowSeconds,
                                       PlotManager::kMaxTimeWindowSeconds);
   const double liveWindowStart = latestTime - plot.timeWindowSeconds;
@@ -312,7 +374,131 @@ bool setupTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, const char
   return true;
 }
 
-void drawXyScatterPlot(Arena* arena, PlotManager::PlotWindow& plot) {
+bool readMotorVelocityTimes(Arena* arena, const double*& times, int& count) {
+  times = nullptr;
+  count = 0;
+  Message* message = findMessage(arena, 1059);
+  if (!message) return false;
+  count = static_cast<int>(message->signalSize.value.load(std::memory_order_acquire) / sizeof(double));
+  if (count < 2) return false;
+  times = static_cast<const double*>(message->timeData);
+  return times != nullptr;
+}
+
+bool setupTireSlipPlot(Arena* arena, PlotManager::PlotWindow& plot, const char*& overlayText,
+                       Plots* timeline) {
+  overlayText = nullptr;
+  const double* primaryTimes = nullptr;
+  int primaryCount = 0;
+  if (!readMotorVelocityTimes(arena, primaryTimes, primaryCount)) {
+    ImPlot::SetNextAxisLimits(ImAxis_X1, 0.0, 1.0, ImGuiCond_Always);
+    ImPlot::SetNextAxisLimits(ImAxis_Y1, 0.0, 1.0, ImGuiCond_Always);
+    overlayText = "Need MC_MotorVelocity samples for tire slip.";
+    return false;
+  }
+
+  const double dataStart = primaryTimes[0];
+  const double latestTime = primaryTimes[primaryCount - 1];
+  if (timeline && !timeline->isLive()) {
+    plot.followLatest = false;
+    plot.hasView = true;
+    plot.xMax = timeline->cursor;
+    plot.xMin = plot.xMax - plot.timeWindowSeconds;
+  } else if (timeline && timeline->isLive()) {
+    plot.followLatest = true;
+    plot.hasView = false;
+  }
+
+  plot.timeWindowSeconds = std::clamp(plot.timeWindowSeconds, PlotManager::kMinTimeWindowSeconds,
+                                      PlotManager::kMaxTimeWindowSeconds);
+  const double liveWindowStart = latestTime - plot.timeWindowSeconds;
+  double rangeStart = liveWindowStart;
+  double rangeEnd = latestTime;
+  if (!plot.followLatest && plot.hasView) {
+    rangeStart = std::max(dataStart, plot.xMin);
+    rangeEnd = std::max(rangeStart, plot.xMax);
+    if (rangeEnd > latestTime) {
+      const double span = rangeEnd - rangeStart;
+      rangeEnd = latestTime;
+      rangeStart = std::max(dataStart, rangeEnd - span);
+    }
+  }
+
+  std::array<double, kMaxRenderablePoints> times{};
+  std::array<double, kMaxRenderablePoints> slipGps{};
+  std::array<double, kMaxRenderablePoints> slipMc{};
+  const size_t written =
+      tireSlipSeries(*arena, rangeStart, rangeEnd, times.data(), slipGps.data(), slipMc.data(),
+                     times.size());
+  if (written < 2) {
+    ImPlot::SetNextAxisLimits(ImAxis_X1, 0.0, 1.0, ImGuiCond_Always);
+    ImPlot::SetNextAxisLimits(ImAxis_Y1, 0.0, 1.0, ImGuiCond_Always);
+    overlayText = "Not enough tire-slip samples in the visible range.";
+    return false;
+  }
+
+  double yMin = std::numeric_limits<double>::max();
+  double yMax = std::numeric_limits<double>::lowest();
+  bool hasY = false;
+  for (size_t i = 0; i < written; ++i) {
+    for (double sample : {slipGps[i], slipMc[i]}) {
+      if (!std::isfinite(sample)) continue;
+      yMin = std::min(yMin, sample);
+      yMax = std::max(yMax, sample);
+      hasY = true;
+    }
+  }
+  if (!hasY) {
+    ImPlot::SetNextAxisLimits(ImAxis_X1, 0.0, 1.0, ImGuiCond_Always);
+    ImPlot::SetNextAxisLimits(ImAxis_Y1, -5.0, 5.0, ImGuiCond_Always);
+    overlayText = "Tire slip needs ground speed (GPS or MC_VehicleVelocity).";
+    return false;
+  }
+
+  if (plot.followLatest) {
+    ImPlot::SetNextAxisLimits(ImAxis_X1, liveWindowStart, latestTime, ImGuiCond_Always);
+  } else {
+    plot.xMin = rangeStart;
+    plot.xMax = rangeEnd;
+    ImPlot::SetNextAxisLinks(ImAxis_X1, &plot.xMin, &plot.xMax);
+  }
+  ImPlot::SetNextAxisLimits(ImAxis_Y1, paddedMin(yMin, yMax), paddedMax(yMin, yMax),
+                            ImGuiCond_Always);
+  return true;
+}
+
+void drawTireSlipPlot(Arena* arena, PlotManager::PlotWindow& plot, Plots* timeline,
+                      Network* network) {
+  const double* primaryTimes = nullptr;
+  int primaryCount = 0;
+  if (!readMotorVelocityTimes(arena, primaryTimes, primaryCount)) return;
+
+  const double dataStart = primaryTimes[0];
+  const double latestTime = primaryTimes[primaryCount - 1];
+  const double liveWindowStart = latestTime - plot.timeWindowSeconds;
+  double rangeStart = plot.followLatest ? liveWindowStart : std::max(dataStart, plot.xMin);
+  double rangeEnd = plot.followLatest ? latestTime : std::max(rangeStart, plot.xMax);
+  if (rangeEnd > latestTime) {
+    const double span = rangeEnd - rangeStart;
+    rangeEnd = latestTime;
+    rangeStart = std::max(dataStart, rangeEnd - span);
+  }
+
+  std::array<double, kMaxRenderablePoints> times{};
+  std::array<double, kMaxRenderablePoints> slipGps{};
+  std::array<double, kMaxRenderablePoints> slipMc{};
+  const size_t written =
+      tireSlipSeries(*arena, rangeStart, rangeEnd, times.data(), slipGps.data(), slipMc.data(),
+                     times.size());
+  if (written < 2) return;
+
+  ImPlot::PlotLine("Slip vs GPS (%)", times.data(), slipGps.data(), static_cast<int>(written));
+  ImPlot::PlotLine("Slip vs MC (%)", times.data(), slipMc.data(), static_cast<int>(written));
+  updateFollowState(plot, timeline, network);
+}
+
+void drawXyScatterPlot(Arena* arena, PlotManager::PlotWindow& plot, Plots* timeline,
+                       Network* network) {
   if (plot.sources.size() < 2) return;
   if (!sharesMessageClock(plot.sources)) {
     ImGui::TextUnformatted(
@@ -363,19 +549,20 @@ void drawXyScatterPlot(Arena* arena, PlotManager::PlotWindow& plot) {
     yMax = std::max(yMax, ys[i]);
   }
 
-  ImPlot::SetupAxes(sourcePlotLabel(arena, plot.sources[0]),
-                    sourcePlotLabel(arena, plot.sources[1]));
+  ImPlot::SetupAxes(sourcePlotLabel(arena, plot.sources[0]).c_str(),
+                    sourcePlotLabel(arena, plot.sources[1]).c_str());
   ImPlot::SetupAxesLimits(paddedMin(xMin, xMax), paddedMax(xMin, xMax), paddedMin(yMin, yMax),
                           paddedMax(yMin, yMax), ImGuiCond_Always);
   ImPlot::PlotScatter(plot.title.empty() ? "GG" : plot.title.c_str(), xs.data(), ys.data(),
                       static_cast<int>(xs.size()));
-  updateFollowState(plot);
+  updateFollowState(plot, timeline, network);
 }
 
-void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
+void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, Plots* timeline,
+                        Network* network) {
   if (plot.sources.empty()) return;
   if (plot.typeIndex == PlotType_Scatter && !plot.useSource1TimeAsX && plot.sources.size() >= 2) {
-    drawXyScatterPlot(arena, plot);
+    drawXyScatterPlot(arena, plot, timeline, network);
     return;
   }
 
@@ -423,7 +610,7 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
         plot.typeIndex == PlotType_Scatter ? kMaxRenderableScatterPoints : kMaxRenderablePoints);
     if (slice.count < 2) continue;
 
-    const char* label = sourcePlotLabel(arena, source);
+    const std::string label = sourcePlotLabel(arena, source);
     const bool identityTransform = source.scale == 1.0 && source.offset == 0.0;
     std::vector<double> transformed;
     std::vector<double> sampledTimes;
@@ -445,26 +632,26 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
     const ImPlotSpec strideSpec(ImPlotProp_Stride, stride);
     switch (plot.typeIndex) {
       case PlotType_Line:
-        ImPlot::PlotLine(label, plotTimes, plotValues, plotCount, strideSpec);
+        ImPlot::PlotLine(label.c_str(), plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_FilledLine:
-        ImPlot::PlotShaded(label, plotTimes, plotValues, plotCount, 0.0, strideSpec);
-        ImPlot::PlotLine(label, plotTimes, plotValues, plotCount, strideSpec);
+        ImPlot::PlotShaded(label.c_str(), plotTimes, plotValues, plotCount, 0.0, strideSpec);
+        ImPlot::PlotLine(label.c_str(), plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_Scatter:
-        ImPlot::PlotScatter(label, plotTimes, plotValues, plotCount, strideSpec);
+        ImPlot::PlotScatter(label.c_str(), plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_Stairstep:
-        ImPlot::PlotStairs(label, plotTimes, plotValues, plotCount, strideSpec);
+        ImPlot::PlotStairs(label.c_str(), plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_Bar:
-        ImPlot::PlotBars(label, plotTimes, plotValues, plotCount, 0.05, strideSpec);
+        ImPlot::PlotBars(label.c_str(), plotTimes, plotValues, plotCount, 0.05, strideSpec);
         break;
       case PlotType_Stem:
-        ImPlot::PlotStems(label, plotTimes, plotValues, plotCount, 0.0, strideSpec);
+        ImPlot::PlotStems(label.c_str(), plotTimes, plotValues, plotCount, 0.0, strideSpec);
         break;
       case PlotType_Digital:
-        ImPlot::PlotDigital(label, plotTimes, plotValues, plotCount, strideSpec);
+        ImPlot::PlotDigital(label.c_str(), plotTimes, plotValues, plotCount, strideSpec);
         break;
       default:
         break;
@@ -477,7 +664,7 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
   if (pairedType && !sharesMessageClock(plot.sources)) {
     ImPlot::PlotText("Paired sources must share a message clock until resampling is configured.",
                      rangeStart + (rangeEnd - rangeStart) * 0.5, 0.0);
-    updateFollowState(plot);
+    updateFollowState(plot, timeline, network);
     return;
   }
 
@@ -538,7 +725,7 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
       if (readSource(arena, source, t, y, c) && c > 0) series.push_back({&source, y, c});
     }
     if (series.size() < 2) {
-      updateFollowState(plot);
+      updateFollowState(plot, timeline, network);
       return;
     }
     const int itemCount = static_cast<int>(series.size());
@@ -567,7 +754,7 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
     }
   }
 
-  updateFollowState(plot);
+  updateFollowState(plot, timeline, network);
 }
 
 double physicalStateValue(const Signal& signal, int64_t rawValue) {
@@ -591,7 +778,13 @@ void renderListPlot(Arena* arena, Network* network, const PlotManager::PlotWindo
     return;
 
   ImGui::TableSetupColumn("Signal", ImGuiTableColumnFlags_WidthStretch, 1.3f);
-  ImGui::TableSetupColumn("Latest", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+  const char* latestHeader = "Latest";
+  char latestHeaderBuf[64]{};
+  if (const char* unit = sharedYAxisUnit(arena, plot.sources)) {
+    std::snprintf(latestHeaderBuf, sizeof(latestHeaderBuf), "Latest (%s)", unit);
+    latestHeader = latestHeaderBuf;
+  }
+  ImGui::TableSetupColumn(latestHeader, ImGuiTableColumnFlags_WidthStretch, 1.0f);
   ImGui::TableSetupColumn("Set via CAN", ImGuiTableColumnFlags_WidthStretch, 1.4f);
   ImGui::TableHeadersRow();
   const bool canTransmit = network && network->canSendCAN();
@@ -611,17 +804,15 @@ void renderListPlot(Arena* arena, Network* network, const PlotManager::PlotWindo
     ImGui::PushID(static_cast<int>(signalIndex));
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted(signal->name.c_str());
-    if (!signal->unit.empty() && signal->unit != "NULL") {
-      ImGui::SameLine();
-      ImGui::TextDisabled("(%s)", signal->unit.c_str());
-    }
+    ImGui::TextUnformatted(withDbcUnit(signal->name, signal->unit).c_str());
 
     ImGui::TableSetColumnIndex(1);
     if (!hasValue) {
       ImGui::TextDisabled("No samples");
     } else if (const auto* state = currentState(*signal, latest)) {
       ImGui::TextUnformatted(state->label.c_str());
+    } else if (hasDbcUnit(signal->unit)) {
+      ImGui::Text("%.3f %s", latest, signal->unit.c_str());
     } else {
       ImGui::Text("%.3f", latest);
     }
@@ -816,7 +1007,8 @@ void render3DPlot(Arena* arena, const PlotManager::PlotWindow& plot) {
   }
 }
 
-void renderPlotBody(Arena* arena, Network* network, PlotManager::PlotWindow& plot) {
+void renderPlotBody(Arena* arena, Network* network, PlotManager::PlotWindow& plot,
+                    Plots* timeline) {
   char plotId[64]{};
   std::snprintf(plotId, sizeof(plotId), "##generated_plot_%d", plot.id);
 
@@ -836,20 +1028,38 @@ void renderPlotBody(Arena* arena, Network* network, PlotManager::PlotWindow& plo
   const char* overlayText = nullptr;
   const bool xyScatter =
       plot.typeIndex == PlotType_Scatter && !plot.useSource1TimeAsX && plot.sources.size() >= 2;
-  if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis && !xyScatter) {
+  const bool tireSlip = plot.typeIndex == PlotType_TireSlip;
+  if (tireSlip) {
     drawTimeWindowStatus(plot);
-    setupTimeSeriesPlot(arena, plot, overlayText);
+    setupTireSlipPlot(arena, plot, overlayText, timeline);
+  } else if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis && !xyScatter) {
+    drawTimeWindowStatus(plot);
+    setupTimeSeriesPlot(arena, plot, overlayText, timeline);
   }
   if (ImPlot::BeginPlot(plotId, ImVec2(-1.0f, -1.0f))) {
     if (xyScatter) {
-      drawXyScatterPlot(arena, plot);
-    } else if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis) {
-      ImPlot::SetupAxes("time", nullptr, ImPlotAxisFlags_None, ImPlotAxisFlags_None);
+      drawXyScatterPlot(arena, plot, timeline, network);
+    } else if (tireSlip) {
+      ImPlot::SetupAxes("time", "%",
+                        plot.followLatest ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None,
+                        ImPlotAxisFlags_None);
       ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
       if (overlayText)
         ImPlot::PlotText(overlayText, 0.5, 0.5);
       else
-        drawTimeSeriesPlot(arena, plot);
+        drawTireSlipPlot(arena, plot, timeline, network);
+    } else if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis) {
+      const char* yAxis = sharedYAxisUnit(arena, plot.sources);
+      // Lock X while live so ImPlot wheel-zoom cannot freeze the right edge behind "now".
+      // Wheel is handled in updateFollowState to resize the live window instead.
+      const ImPlotAxisFlags xFlags =
+          plot.followLatest ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None;
+      ImPlot::SetupAxes("time", yAxis, xFlags, ImPlotAxisFlags_None);
+      ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
+      if (overlayText)
+        ImPlot::PlotText(overlayText, 0.5, 0.5);
+      else
+        drawTimeSeriesPlot(arena, plot, timeline, network);
     } else {
       renderNonTimePlot(arena, network, plot);
     }
@@ -859,6 +1069,7 @@ void renderPlotBody(Arena* arena, Network* network, PlotManager::PlotWindow& plo
 
 }  // namespace
 
-void PlotRenderer::render(Arena* arena, Network* network, PlotManager::PlotWindow& plot) {
-  renderPlotBody(arena, network, plot);
+void PlotRenderer::render(Arena* arena, Network* network, PlotManager::PlotWindow& plot,
+                          Plots* timeline) {
+  renderPlotBody(arena, network, plot, timeline);
 }

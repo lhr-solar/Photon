@@ -6,5 +6,6 @@
 struct Network;
 
 struct PlotRenderer {
-  static void render(Arena* arena, Network* network, PlotManager::PlotWindow& plot);
+  static void render(Arena* arena, Network* network, PlotManager::PlotWindow& plot,
+                     Plots* timeline = nullptr);
 };

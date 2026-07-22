@@ -75,7 +75,12 @@ bool formatLatestSignalValue(char* out, size_t outSize, const Signal& signal,
   if (!std::isfinite(value)) {
     std::snprintf(out, outSize, "%g", value);
   } else if ((magnitude > 0.0 && magnitude < 0.001) || magnitude >= 100000.0) {
-    std::snprintf(out, outSize, "%.4g", value);
+    if (!signal.unit.empty() && signal.unit != "NULL")
+      std::snprintf(out, outSize, "%.4g %s", value, signal.unit.c_str());
+    else
+      std::snprintf(out, outSize, "%.4g", value);
+  } else if (!signal.unit.empty() && signal.unit != "NULL") {
+    std::snprintf(out, outSize, "%.3f %s", value, signal.unit.c_str());
   } else {
     std::snprintf(out, outSize, "%.3f", value);
   }
@@ -731,11 +736,11 @@ void Arena::statusUI(int flags) {
                                                         : "int";
               tableCellf(2, palette, "%s %s", sig->isSigned ? "s" : "u", type);
 
-              tableCellf(3, palette, "%.3f", sig->scale);
+              tableCellf(3, palette, "%.6g", sig->scale);
 
-              tableCellf(4, palette, "%.3f", sig->offset);
+              tableCellf(4, palette, "%.6g", sig->offset);
 
-              tableCellf(5, palette, "%.3f .. %.3f", sig->min, sig->max);
+              tableCellf(5, palette, "%.6g .. %.6g", sig->min, sig->max);
 
               tableCell(6, sig->unit, palette, sig->unit.empty());
 
