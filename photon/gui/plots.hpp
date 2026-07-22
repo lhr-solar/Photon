@@ -79,6 +79,9 @@ struct PlotManager {
     uint32_t signalIndex = 0;
     std::string messageName{};
     std::string signalName{};
+    std::string label{};
+    double scale = 1.0;
+    double offset = 0.0;
     bool assigned = false;
     bool operator==(const PlotSourceRef&) const = default;
   };

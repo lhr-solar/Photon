@@ -40,45 +40,45 @@ BO_ 4096 TelemLeader_Center: 2 Vector__XXX
 BA_ "VFrameFormat" BO_ 4096 "ExtendedCAN";
 
 BO_ 4512 IMU_Accel_FR: 8 Vector__XXX
+	SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+	SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+	SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 4512 "ExtendedCAN";
 
 BO_ 4513 IMU_Gyro_FR: 8 Vector__XXX
+	SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+	SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+	SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 4513 "ExtendedCAN";
 
 BO_ 4528 IMU_Accel_Back: 8 Vector__XXX
+	SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+	SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+	SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 4528 "ExtendedCAN";
 
 BO_ 4529 IMU_Gyro_Back: 8 Vector__XXX
+	SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+	SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+	SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 4529 "ExtendedCAN";
 
 BO_ 4560 IMU_Accel_FL: 8 Vector__XXX
+	SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+	SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+	SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 4560 "ExtendedCAN";
 
 BO_ 4561 IMU_Gyro_FL: 8 Vector__XXX
+	SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+	SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+	SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
 	SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-	SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 4561 "ExtendedCAN";
 
 BO_ 4768 Suspension_FR: 8 Vector__XXX
@@ -129,12 +129,12 @@ BO_ 5072 Pitot_FL: 8 Vector__XXX
 BA_ "VFrameFormat" BO_ 5072 "ExtendedCAN";
 
 BO_ 5280 WheelRPM_FR: 8 Vector__XXX
-	SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+	SG_ RPM : 0|16@1+ (1,0) [0|65535] "rpm" Vector__XXX
 	SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 5280 "ExtendedCAN";
 
 BO_ 5328 WheelRPM_FL: 8 Vector__XXX
-	SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+	SG_ RPM : 0|16@1+ (1,0) [0|65535] "rpm" Vector__XXX
 	SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 BA_ "VFrameFormat" BO_ 5328 "ExtendedCAN";
 

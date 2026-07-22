@@ -552,11 +552,14 @@ BO_ 1641 BPS_Module_Override_Ack: 8 BPS
  SG_ Module30_Override : 60|2@1+ (1,0) [0|3] "" Vector__XXX
  SG_ Module31_Override : 62|2@1+ (1,0) [0|3] "" Vector__XXX
 
-BO_ 1664 Display_Status: 2 Dashboard_Display
- SG_ Display_FrameRate : 0|8@1+ (1,0) [0|60] "FPS" Vector__XXX
- SG_ Camera_Status_Backup : 8|1@1+ (1,0) [0|0] "" Vector__XXX
- SG_ Camera_Status_Left : 9|1@1+ (1,0) [0|0] "" Vector__XXX
- SG_ Camera_Status_Right : 10|1@1+ (1,0) [0|0] "" Vector__XXX
+BO_ 1664 Display_Status: 4 Dashboard_Display
+ SG_ Display_Status_Counter : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ Camera_Status_Backup : 8|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Camera_Status_Left : 9|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Camera_Status_Right : 10|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Display_Connected : 11|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Display_FrameRate : 16|8@1+ (1,0) [0|255] "FPS" Vector__XXX
+ SG_ Cpu_Temp_C : 24|8@1+ (1,0) [0|255] "°C" Vector__XXX
 
 BO_ 1792 Telemetry_Status: 8 Telemetry
 
@@ -858,11 +861,11 @@ BO_ 5072 Pitot_FL: 8 Vector__XXX
  SG_ Timestamp : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
 
 BO_ 5280 WheelRPM_FR: 8 Vector__XXX
- SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RPM : 0|16@1+ (1,0) [0|65535] "rpm" Vector__XXX
  SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 
 BO_ 5328 WheelRPM_FL: 8 Vector__XXX
- SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ RPM : 0|16@1+ (1,0) [0|65535] "rpm" Vector__XXX
  SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 
 BO_ 5536 RideHeight_FR: 8 Vector__XXX
@@ -1058,10 +1061,13 @@ CM_ SG_ 1616 Brake_Pressure "Brake Pressure PSI (Sensor 1)";
 CM_ SG_ 1616 Brake_Pressure_ADC "Brake Pressure Raw Voltage (Sensor 1)";
 CM_ SG_ 1617 Brake_Pressure "Brake Pressure PSI (Sensor 1)";
 CM_ SG_ 1617 Brake_Pressure_ADC "Brake Pressure Raw Voltage (Sensor 1)";
+CM_ SG_ 1664 Display_Status_Counter "Wrapping up-counter for drop detection (increments each TX)";
+CM_ SG_ 1664 Camera_Status_Backup "Backup/rear camera USB/V4L2 available (0 disconnected, 1 connected)";
+CM_ SG_ 1664 Camera_Status_Left "Left Side View Camera USB/V4L2 available (0 disconnected, 1 connected)";
+CM_ SG_ 1664 Camera_Status_Right "Right Side View Camera USB/V4L2 available (0 disconnected, 1 connected)";
+CM_ SG_ 1664 Display_Connected "HDMI/display connector connected (0 disconnected, 1 connected)";
 CM_ SG_ 1664 Display_FrameRate "Dashboard Display Frame Rate (FPS)";
-CM_ SG_ 1664 Camera_Status_Backup "Backup Camera Status (0 disconnected, 1 connected)";
-CM_ SG_ 1664 Camera_Status_Left "Left Side View Camera Status (0 disconnected, 1 connected)";
-CM_ SG_ 1664 Camera_Status_Right "Right Side View Camera Status (0 disconnected, 1 connected)";
+CM_ SG_ 1664 Cpu_Temp_C "CM5 SoC CPU temperature";
 CM_ SG_ 1872 BPS_Temperature_Tap_ADC "Raw thermistor voltage measurement for the specified VoltTemp and Tap ID";
 CM_ SG_ 1875 BrakePedal_Main_ADC "Brake Pedal Raw Voltage Measurement (Main Sensor)";
 CM_ SG_ 1875 BrakePedal_Redundant_ADC "Brake Pedal Raw Voltage Measurement (Redundant Sensor)";
@@ -1428,6 +1434,7 @@ VAL_ 1641 Module31_Override 0 "NORMAL_OPERATION" 1 "VOLTAGE_OVERRIDE" 2 "TEMP_OV
 VAL_ 1664 Camera_Status_Backup 0 "NOT OK" 1 "OK" ;
 VAL_ 1664 Camera_Status_Left 0 "NOT OK" 1 "OK" ;
 VAL_ 1664 Camera_Status_Right 0 "NOT OK" 1 "OK" ;
+VAL_ 1664 Display_Connected 0 "NOT OK" 1 "OK" ;
 VAL_ 2550589172 Elcon_MuxPage 1 "Page 1" 2 "Page 2" 3 "Page 3" 4 "Page 4" 5 "Page 5" ;
 VAL_ 2566869221 Elcon_HW_FAULT 0 "OK" 1 "FAULT" ;
 VAL_ 2566869221 Elcon_OVER_TEMPERATURE 0 "OK" 1 "FAULT" ;

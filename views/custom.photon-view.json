@@ -293,6 +293,115 @@
           }
         }
       ]
+    },
+    {
+      "id": "imu-gg",
+      "layout": {
+        "columns": 48,
+        "gap": 8.0,
+        "rowHeight": 48.0
+      },
+      "name": "IMU GG",
+      "widgets": [
+        {
+          "id": "imu-gg-fl",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 4560,
+                "messageName": "IMU_Accel_FL",
+                "signalName": "Accel_Z",
+                "label": "Lateral acceleration - left positive (g)",
+                "scale": -1.0,
+                "offset": 0.0403
+              },
+              {
+                "messageId": 4560,
+                "messageName": "IMU_Accel_FL",
+                "signalName": "Accel_Y",
+                "label": "Longitudinal acceleration - forward positive (g)",
+                "offset": -0.0033
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "FL GG - lateral vs longitudinal",
+            "type": "scatter",
+            "useSource1TimeAsX": false
+          },
+          "rect": {
+            "h": 12,
+            "w": 16,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "id": "imu-gg-fr",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 4512,
+                "messageName": "IMU_Accel_FR",
+                "signalName": "Accel_Z",
+                "label": "Lateral acceleration - left positive (g)",
+                "offset": -0.0419
+              },
+              {
+                "messageId": 4512,
+                "messageName": "IMU_Accel_FR",
+                "signalName": "Accel_Y",
+                "label": "Longitudinal acceleration - forward positive (g)",
+                "offset": 0.0608
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "FR GG - lateral vs longitudinal",
+            "type": "scatter",
+            "useSource1TimeAsX": false
+          },
+          "rect": {
+            "h": 12,
+            "w": 16,
+            "x": 16,
+            "y": 0
+          }
+        },
+        {
+          "id": "imu-gg-back",
+          "kind": "plot",
+          "plot": {
+            "sources": [
+              {
+                "messageId": 4528,
+                "messageName": "IMU_Accel_Back",
+                "signalName": "Accel_Z",
+                "label": "Lateral acceleration - left positive (g)",
+                "offset": -0.0959
+              },
+              {
+                "messageId": 4528,
+                "messageName": "IMU_Accel_Back",
+                "signalName": "Accel_Y",
+                "label": "Longitudinal acceleration - forward positive (g)",
+                "scale": -1.0,
+                "offset": -0.1325
+              }
+            ],
+            "timeWindowSeconds": 60.0,
+            "title": "Back (CG) GG - lateral vs longitudinal",
+            "type": "scatter",
+            "useSource1TimeAsX": false
+          },
+          "rect": {
+            "h": 12,
+            "w": 16,
+            "x": 32,
+            "y": 0
+          }
+        }
+      ]
     }
   ],
   "schemaVersion": 1

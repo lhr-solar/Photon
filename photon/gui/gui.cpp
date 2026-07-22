@@ -1,6 +1,7 @@
 #include "gui.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -9,6 +10,7 @@
 #include <limits>
 #include <numbers>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #if PHOTON_GUI_RENDER_ITEMS
@@ -81,9 +83,29 @@ bool frameAtOrLatest(const Arena& arena, uint32_t id, double cursor, FrameView& 
 bool dynamicsSignalAt(const Arena& arena, uint32_t id, uint32_t signal, double cursor,
                       float& value) {
   FrameView frame{};
-  if (!frameAt(arena, id, cursor, frame) || signal >= frame.message->signalCount ||
-      cursor - frame.time() > 2.0)
+  if (!frameAtOrLatest(arena, id, cursor, frame) || signal >= frame.message->signalCount ||
+      cursor - frame.time() > 5.0)
     return false;
+  const double sample = frame.value(signal);
+  if (!std::isfinite(sample)) return false;
+  value = static_cast<float>(sample);
+  return true;
+}
+
+uint32_t dynamicsSignalIndex(const Message& message, std::string_view name) {
+  for (uint32_t signal = 0; signal < message.signalCount; ++signal) {
+    const Signal* candidate = message.signals[signal];
+    if (candidate && candidate->name == name) return signal;
+  }
+  return SIGNAL_MAX;
+}
+
+bool dynamicsSignalNamedAt(const Arena& arena, uint32_t id, std::string_view signalName,
+                           double cursor, float& value) {
+  FrameView frame{};
+  if (!frameAtOrLatest(arena, id, cursor, frame) || cursor - frame.time() > 5.0) return false;
+  const uint32_t signal = dynamicsSignalIndex(*frame.message, signalName);
+  if (signal == SIGNAL_MAX) return false;
   const double sample = frame.value(signal);
   if (!std::isfinite(sample)) return false;
   value = static_cast<float>(sample);
@@ -96,15 +118,24 @@ bool dynamicsSignalAtEither(const Arena& arena, uint32_t preferredId, uint32_t l
          dynamicsSignalAt(arena, legacyId, signal, cursor, value);
 }
 
-bool dynamicsVectorAt(const Arena& arena, uint32_t id, double cursor, std::array<float, 3>& value) {
+bool dynamicsSignalNamedAtEither(const Arena& arena, uint32_t preferredId, uint32_t legacyId,
+                                 std::string_view signalName, double cursor, float& value) {
+  return dynamicsSignalNamedAt(arena, preferredId, signalName, cursor, value) ||
+         dynamicsSignalNamedAt(arena, legacyId, signalName, cursor, value);
+}
+
+bool dynamicsVectorAt(const Arena& arena, uint32_t id, double cursor, std::array<float, 3>& value,
+                      std::string_view xName, std::string_view yName, std::string_view zName) {
   FrameView frame{};
-  if (!frameAt(arena, id, cursor, frame) || frame.message->signalCount < 3 ||
-      cursor - frame.time() > 2.0)
-    return false;
-  for (uint32_t signal = 0; signal < 3; ++signal) {
-    const double sample = frame.value(signal);
-    if (!std::isfinite(sample)) return false;
-    value[signal] = static_cast<float>(sample);
+  if (!frameAtOrLatest(arena, id, cursor, frame) || cursor - frame.time() > 5.0) return false;
+  const uint32_t x = dynamicsSignalIndex(*frame.message, xName);
+  const uint32_t y = dynamicsSignalIndex(*frame.message, yName);
+  const uint32_t z = dynamicsSignalIndex(*frame.message, zName);
+  if (x == SIGNAL_MAX || y == SIGNAL_MAX || z == SIGNAL_MAX) return false;
+  const double samples[3] = {frame.value(x), frame.value(y), frame.value(z)};
+  for (uint32_t axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(samples[axis])) return false;
+    value[axis] = static_cast<float>(samples[axis]);
   }
   return true;
 }
@@ -112,34 +143,61 @@ bool dynamicsVectorAt(const Arena& arena, uint32_t id, double cursor, std::array
 bool dynamicsSuspensionAt(const Arena& arena, uint32_t preferredId, uint32_t legacyId,
                           double cursor, float& value) {
   FrameView frame{};
-  const bool found = frameAt(arena, preferredId, cursor, frame) ||
-                     (legacyId != 0 && frameAt(arena, legacyId, cursor, frame));
-  if (!found || frame.message->signalCount < 4 || cursor - frame.time() > 2.0) return false;
+  const bool found = frameAtOrLatest(arena, preferredId, cursor, frame) ||
+                     (legacyId != 0 && frameAtOrLatest(arena, legacyId, cursor, frame));
+  if (!found || cursor - frame.time() > 5.0) return false;
+
   double sum = 0.0;
-  for (uint32_t signal = 0; signal < 4; ++signal) sum += frame.value(signal);
-  if (!std::isfinite(sum)) return false;
-  value = static_cast<float>(sum * 0.25);
+  uint32_t count = 0;
+  for (uint32_t signal = 0; signal < frame.message->signalCount; ++signal) {
+    const Signal* candidate = frame.message->signals[signal];
+    if (!candidate || candidate->name.rfind("SUS_Data", 0) != 0) continue;
+    const double sample = frame.value(signal);
+    if (!std::isfinite(sample)) return false;
+    sum += sample;
+    ++count;
+  }
+  if (!count) return false;
+  value = static_cast<float>(sum / static_cast<double>(count));
   return true;
 }
 
 void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetry& telemetry,
                         SceneObject& object) {
   float steering = telemetry.steeringDegrees;
-  const bool hasSteering = dynamicsSignalAt(arena, 688, 0, cursor, steering);
+  const bool hasSteering = dynamicsSignalNamedAt(arena, 688, "LWS_Angle", cursor, steering);
   telemetry.steeringDegrees = steering;
+
+  float throttle = telemetry.throttlePercent;
+  float brake = telemetry.brakePercent;
+  const bool hasThrottle =
+      dynamicsSignalNamedAt(arena, 80, "AccelPedal_Main_Pos", cursor, throttle);
+  const bool hasBrake = dynamicsSignalNamedAt(arena, 80, "BrakePedal_Main_Pos", cursor, brake);
+  telemetry.throttlePercent = throttle;
+  telemetry.brakePercent = brake;
 
   float frontRightRpm = telemetry.frontRightRpm;
   float frontLeftRpm = telemetry.frontLeftRpm;
   float rearRpm = telemetry.rearRpm;
-  const bool hasFrontRightRpm = dynamicsSignalAtEither(arena, 5280, 1184, 0, cursor, frontRightRpm);
-  const bool hasFrontLeftRpm = dynamicsSignalAtEither(arena, 5328, 1232, 0, cursor, frontLeftRpm);
-  const bool hasRearRpm = dynamicsSignalAt(arena, 1059, 0, cursor, rearRpm);
+  const bool hasFrontRightRpm =
+      dynamicsSignalNamedAtEither(arena, 5280, 1184, "RPM", cursor, frontRightRpm);
+  const bool hasFrontLeftRpm =
+      dynamicsSignalNamedAtEither(arena, 5328, 1232, "RPM", cursor, frontLeftRpm);
+  const bool hasRearRpm =
+      dynamicsSignalNamedAt(arena, 1059, "MC_MotorVelocity", cursor, rearRpm);
+  // Wheel-speed boards occasionally emit saturated garbage (e.g. 0x8Cxx). Treat anything
+  // above a physical solar-car wheel limit as invalid rather than animating wild RPM.
+  constexpr float kMaxWheelRpm = 1200.0f;
+  const bool frontRightRpmValid = hasFrontRightRpm && frontRightRpm >= 0.0f && frontRightRpm <= kMaxWheelRpm;
+  const bool frontLeftRpmValid = hasFrontLeftRpm && frontLeftRpm >= 0.0f && frontLeftRpm <= kMaxWheelRpm;
+  if (!frontRightRpmValid) frontRightRpm = 0.0f;
+  if (!frontLeftRpmValid) frontLeftRpm = 0.0f;
   if (!hasRearRpm) {
-    if (hasFrontLeftRpm && hasFrontRightRpm)
+    if (frontLeftRpmValid && frontRightRpmValid)
       rearRpm = (frontLeftRpm + frontRightRpm) * 0.5f;
-    else if (hasFrontLeftRpm)
+    else if (frontLeftRpmValid)
       rearRpm = frontLeftRpm;
-    else if (hasFrontRightRpm)
+    else if (frontRightRpmValid)
       rearRpm = frontRightRpm;
   }
   telemetry.frontLeftRpm = frontLeftRpm;
@@ -153,10 +211,12 @@ void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetr
   constexpr std::array<uint32_t, 3> accelerationIds{4560, 4512, 4528};
   constexpr std::array<uint32_t, 3> angularVelocityIds{4561, 4513, 4529};
   for (size_t i = 0; i < telemetry.acceleration.size(); ++i) {
-    telemetry.hasAcceleration[i] =
-        dynamicsVectorAt(arena, accelerationIds[i], cursor, telemetry.acceleration[i]);
+    telemetry.hasAcceleration[i] = dynamicsVectorAt(arena, accelerationIds[i], cursor,
+                                                    telemetry.acceleration[i], "Accel_X", "Accel_Y",
+                                                    "Accel_Z");
     telemetry.hasAngularVelocity[i] =
-        dynamicsVectorAt(arena, angularVelocityIds[i], cursor, telemetry.angularVelocity[i]);
+        dynamicsVectorAt(arena, angularVelocityIds[i], cursor, telemetry.angularVelocity[i],
+                         "Gyro_X", "Gyro_Y", "Gyro_Z");
   }
 
   const bool timelineReset = telemetry.lastCursor < 0.0 || cursor < telemetry.lastCursor ||
@@ -212,9 +272,10 @@ void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetr
                        : static_cast<float>(std::clamp(cursor - telemetry.lastCursor, 0.0, 0.1));
   telemetry.lastCursor = cursor;
   SceneDynamicsPose& pose = object.dynamics;
-  const float animatedFrontLeftRpm = hasFrontLeftRpm ? frontLeftRpm : 0.0f;
-  const float animatedFrontRightRpm = hasFrontRightRpm ? frontRightRpm : 0.0f;
-  const float animatedRearRpm = hasRearRpm || hasFrontLeftRpm || hasFrontRightRpm ? rearRpm : 0.0f;
+  const float animatedFrontLeftRpm = frontLeftRpmValid ? frontLeftRpm : 0.0f;
+  const float animatedFrontRightRpm = frontRightRpmValid ? frontRightRpm : 0.0f;
+  const float animatedRearRpm =
+      hasRearRpm || frontLeftRpmValid || frontRightRpmValid ? rearRpm : 0.0f;
   pose.frontLeftWheelDegrees =
       std::remainder(pose.frontLeftWheelDegrees + animatedFrontLeftRpm * 6.0f * dt, 360.0f);
   pose.frontRightWheelDegrees =
@@ -243,7 +304,8 @@ void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetr
   pose.pitchDegrees = std::lerp(pose.pitchDegrees, pitch, response);
 
   telemetry.hasSteering = hasSteering;
-  telemetry.hasWheelSpeed = hasFrontLeftRpm || hasFrontRightRpm || hasRearRpm;
+  telemetry.hasDriverInput = hasSteering || hasThrottle || hasBrake;
+  telemetry.hasWheelSpeed = frontLeftRpmValid || frontRightRpmValid || hasRearRpm;
   telemetry.hasSuspension = hasSuspension[0] || hasSuspension[1] || hasSuspension[2];
   telemetry.hasImu = accelerationCount > 0 || angularVelocityCount > 0;
 }
@@ -454,43 +516,57 @@ bool fusedMapPosition(const Arena& arena, double cursor, GUI::MapTracker& tracke
   }
 
   const float dt = static_cast<float>(std::clamp(cursor - tracker.time, 0.0, 30.0));
-  FrameView velocity{};
-  const bool hasVelocity = frameAt(arena, 1059, cursor, velocity) &&
-                           velocity.message->signalCount > 1 && cursor - velocity.time() < 1.0 &&
-                           std::isfinite(velocity.value(1));
+  FrameView velocityFrame{};
+  const bool hasVelocityFrame = frameAt(arena, 1059, cursor, velocityFrame);
+  const uint32_t vehicleVelocitySignal =
+      hasVelocityFrame ? dynamicsSignalIndex(*velocityFrame.message, "MC_VehicleVelocity")
+                       : SIGNAL_MAX;
+  const bool hasMapVelocity = hasVelocityFrame && vehicleVelocitySignal != SIGNAL_MAX &&
+                              cursor - velocityFrame.time() < 1.0 &&
+                              std::isfinite(velocityFrame.value(vehicleVelocitySignal));
+  const float vehicleVelocity =
+      hasMapVelocity ? static_cast<float>(velocityFrame.value(vehicleVelocitySignal)) : 0.0f;
   constexpr std::array<uint32_t, 3> accelerationIds{4560, 4512, 4528};
   constexpr std::array<uint32_t, 3> angularVelocityIds{4561, 4513, 4529};
   float yawRate = 0.0f;
   uint32_t yawRateCount = 0;
   for (size_t corner = 0; corner < accelerationIds.size(); ++corner) {
     FrameView acceleration{}, gyro{};
-    const bool hasAcceleration = frameAt(arena, accelerationIds[corner], cursor, acceleration) &&
-                                 acceleration.message->signalCount > 2 &&
-                                 cursor - acceleration.time() < 0.25;
-    const bool hasGyro = frameAt(arena, angularVelocityIds[corner], cursor, gyro) &&
-                         gyro.message->signalCount > 2 && cursor - gyro.time() < 0.25;
-    if (!hasAcceleration || !hasGyro || std::abs(acceleration.time() - gyro.time()) >= 0.1)
+    if (!frameAt(arena, accelerationIds[corner], cursor, acceleration) ||
+        !frameAt(arena, angularVelocityIds[corner], cursor, gyro))
+      continue;
+    const uint32_t accelX = dynamicsSignalIndex(*acceleration.message, "Accel_X");
+    const uint32_t accelY = dynamicsSignalIndex(*acceleration.message, "Accel_Y");
+    const uint32_t accelZ = dynamicsSignalIndex(*acceleration.message, "Accel_Z");
+    const uint32_t gyroX = dynamicsSignalIndex(*gyro.message, "Gyro_X");
+    const uint32_t gyroY = dynamicsSignalIndex(*gyro.message, "Gyro_Y");
+    const uint32_t gyroZ = dynamicsSignalIndex(*gyro.message, "Gyro_Z");
+    if (accelX == SIGNAL_MAX || accelY == SIGNAL_MAX || accelZ == SIGNAL_MAX ||
+        gyroX == SIGNAL_MAX || gyroY == SIGNAL_MAX || gyroZ == SIGNAL_MAX)
+      continue;
+    if (cursor - acceleration.time() >= 0.25 || cursor - gyro.time() >= 0.25 ||
+        std::abs(acceleration.time() - gyro.time()) >= 0.1)
       continue;
     // Project angular velocity onto measured gravity, independent of each IMU's mounting axes.
-    const float ax = static_cast<float>(acceleration.value(0));
-    const float ay = static_cast<float>(acceleration.value(1));
-    const float az = static_cast<float>(acceleration.value(2));
+    const float ax = static_cast<float>(acceleration.value(accelX));
+    const float ay = static_cast<float>(acceleration.value(accelY));
+    const float az = static_cast<float>(acceleration.value(accelZ));
     const float gravity = std::sqrt(ax * ax + ay * ay + az * az);
     if (gravity <= 0.7f || gravity >= 1.3f) continue;
-    yawRate += static_cast<float>((gyro.value(0) * ax + gyro.value(1) * ay + gyro.value(2) * az) /
+    yawRate += static_cast<float>((gyro.value(gyroX) * ax + gyro.value(gyroY) * ay +
+                                   gyro.value(gyroZ) * az) /
                                   gravity) *
                std::numbers::pi_v<float> / 180.0f;
     ++yawRateCount;
   }
   if (yawRateCount > 0) yawRate /= static_cast<float>(yawRateCount);
 
-  if (dt > 0.0f && (hasVelocity || yawRateCount > 0)) {
+  if (dt > 0.0f && (hasMapVelocity || yawRateCount > 0)) {
     const float nextHeading = tracker.heading + std::clamp(yawRate, -4.0f, 4.0f) * dt;
     float nextSpeed = tracker.speed;
-    if (hasVelocity) {
+    if (hasMapVelocity) {
       constexpr float metersToScene = 0.099521f;
-      const float measured =
-          std::clamp(std::abs(static_cast<float>(velocity.value(1))), 0.0f, 100.0f) * metersToScene;
+      const float measured = std::clamp(std::abs(vehicleVelocity), 0.0f, 100.0f) * metersToScene;
       nextSpeed = std::lerp(nextSpeed, measured, 1.0f - std::exp(-8.0f * dt));
     }
     const float travel = (tracker.speed + nextSpeed) * 0.5f * dt;
@@ -943,8 +1019,10 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
       ImGui::Text(format, values...);
     };
 
-    if (beginGroup("##DynamicsSteering", "STEERING", dynamicsTelemetry.hasSteering, groupWidth)) {
-      valueRow("Input", "%7.1f deg", dynamicsTelemetry.steeringDegrees);
+    if (beginGroup("##DynamicsDriver", "DRIVER", dynamicsTelemetry.hasDriverInput, groupWidth)) {
+      valueRow("Throttle", "%6.0f %%", dynamicsTelemetry.throttlePercent);
+      valueRow("Brake", "%6.0f %%", dynamicsTelemetry.brakePercent);
+      valueRow("Steer", "%7.1f deg", dynamicsTelemetry.steeringDegrees);
       valueRow("Road", "%7.1f deg",
                std::clamp(dynamicsTelemetry.steeringDegrees / 12.0f, -35.0f, 35.0f));
     }
@@ -974,9 +1052,10 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
         char gyroLabel[12]{};
         std::snprintf(accelerationLabel, sizeof(accelerationLabel), "%s A", cornerLabels[corner]);
         std::snprintf(gyroLabel, sizeof(gyroLabel), "%s G", cornerLabels[corner]);
-        valueRow(
-            accelerationLabel, "%6.2f %6.2f %6.2f g", dynamicsTelemetry.acceleration[corner][0],
-            dynamicsTelemetry.acceleration[corner][1], dynamicsTelemetry.acceleration[corner][2]);
+        valueRow(accelerationLabel, "%6.2f %6.2f %6.2f g",
+                 dynamicsTelemetry.acceleration[corner][0],
+                 dynamicsTelemetry.acceleration[corner][1],
+                 dynamicsTelemetry.acceleration[corner][2]);
         valueRow(gyroLabel, "%6.1f %6.1f %6.1f dps", dynamicsTelemetry.angularVelocity[corner][0],
                  dynamicsTelemetry.angularVelocity[corner][1],
                  dynamicsTelemetry.angularVelocity[corner][2]);

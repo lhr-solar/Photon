@@ -557,11 +557,14 @@ SG_ Module30_Override : 60|2@1+ (1,0) [0|3] "" Vector__XXX
 SG_ Module31_Override : 62|2@1+ (1,0) [0|3] "" Vector__XXX
 
 CM_ "source=CarCAN" BO_ 1664;
-BO_ 1664 Display_Status: 2 Dashboard_Display
-SG_ Display_FrameRate : 0|8@1+ (1,0) [0|60] "FPS" Vector__XXX
-SG_ Camera_Status_Backup : 8|1@1+ (1,0) [0|0] "" Vector__XXX
-SG_ Camera_Status_Left : 9|1@1+ (1,0) [0|0] "" Vector__XXX
-SG_ Camera_Status_Right : 10|1@1+ (1,0) [0|0] "" Vector__XXX
+BO_ 1664 Display_Status: 4 Dashboard_Display
+SG_ Display_Status_Counter : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+SG_ Camera_Status_Backup : 8|1@1+ (1,0) [0|1] "" Vector__XXX
+SG_ Camera_Status_Left : 9|1@1+ (1,0) [0|1] "" Vector__XXX
+SG_ Camera_Status_Right : 10|1@1+ (1,0) [0|1] "" Vector__XXX
+SG_ Display_Connected : 11|1@1+ (1,0) [0|1] "" Vector__XXX
+SG_ Display_FrameRate : 16|8@1+ (1,0) [0|255] "FPS" Vector__XXX
+SG_ Cpu_Temp_C : 24|8@1+ (1,0) [0|255] "°C" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 5888;
 BO_ 5888 GPS_Latitude: 4 Vector__XXX
@@ -624,45 +627,45 @@ SG_ Timestamp : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 4512;
 BO_ 4512 IMU_Accel_FR: 8 Vector__XXX
+SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
 SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 4513;
 BO_ 4513 IMU_Gyro_FR: 8 Vector__XXX
+SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
 SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 4528;
 BO_ 4528 IMU_Accel_Back: 8 Vector__XXX
+SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
 SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 4529;
 BO_ 4529 IMU_Gyro_Back: 8 Vector__XXX
+SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
 SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 4560;
 BO_ 4560 IMU_Accel_FL: 8 Vector__XXX
+SG_ Accel_X : 23|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+SG_ Accel_Y : 39|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
+SG_ Accel_Z : 55|16@0- (0.000122,0) [-3.997696|3.997574] "g" Vector__XXX
 SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Accel_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 4561;
 BO_ 4561 IMU_Gyro_FL: 8 Vector__XXX
+SG_ Gyro_X : 23|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+SG_ Gyro_Y : 39|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
+SG_ Gyro_Z : 55|16@0- (0.00875,0) [-286.72|286.71125] "dps" Vector__XXX
 SG_ Timestamp : 7|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_X : 23|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_Y : 39|16@0+ (1,0) [0|65535] "" Vector__XXX
-SG_ Gyro_Z : 55|16@0+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 4768;
 BO_ 4768 Suspension_FR: 8 Vector__XXX
@@ -713,12 +716,12 @@ SG_ SUS_Sepcial_4 : 48|16@1+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 5280;
 BO_ 5280 WheelRPM_FR: 8 Vector__XXX
-SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+SG_ RPM : 0|16@1+ (1,0) [0|65535] "rpm" Vector__XXX
 SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 5328;
 BO_ 5328 WheelRPM_FL: 8 Vector__XXX
-SG_ RPM : 0|16@1+ (1,0) [0|65535] "" Vector__XXX
+SG_ RPM : 0|16@1+ (1,0) [0|65535] "rpm" Vector__XXX
 SG_ Timestamp : 16|16@1+ (1,0) [0|65535] "" Vector__XXX
 
 CM_ "source=telem_rev1 (1)" BO_ 5536;

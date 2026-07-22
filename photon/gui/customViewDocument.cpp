@@ -30,6 +30,9 @@ Json sourceToJson(const PlotManager::PlotSourceRef& source) {
   Json value = {{"messageId", source.messageId}, {"signalIndex", source.signalIndex}};
   if (!source.messageName.empty()) value["messageName"] = source.messageName;
   if (!source.signalName.empty()) value["signalName"] = source.signalName;
+  if (!source.label.empty()) value["label"] = source.label;
+  if (source.scale != 1.0) value["scale"] = source.scale;
+  if (source.offset != 0.0) value["offset"] = source.offset;
   return value;
 }
 
@@ -254,6 +257,9 @@ CustomViewDefinition parsePanel(const Json& root, int& plotId) {
       source.messageName = sourceJson.value("messageName", "");
       source.signalName = sourceJson.value("signalName", "");
       source.signalIndex = sourceJson.value("signalIndex", SIGNAL_MAX);
+      source.label = sourceJson.value("label", "");
+      source.scale = sourceJson.value("scale", 1.0);
+      source.offset = sourceJson.value("offset", 0.0);
       source.assigned = true;
       widget.plot.sources.push_back(std::move(source));
     }

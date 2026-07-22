@@ -71,6 +71,8 @@ struct GUI {
   int dynamicsObjectIndex{-1};
   struct DynamicsTelemetry {
     float steeringDegrees{};
+    float throttlePercent{};
+    float brakePercent{};
     float frontLeftRpm{};
     float frontRightRpm{};
     float rearRpm{};
@@ -85,6 +87,7 @@ struct GUI {
     float jiggleTime{};
     bool jiggle{};
     bool hasSteering{};
+    bool hasDriverInput{};
     bool hasWheelSpeed{};
     bool hasSuspension{};
     std::array<bool, 3> hasAcceleration{};

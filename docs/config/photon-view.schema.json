@@ -68,7 +68,9 @@
         "messageName": { "type": "string" },
         "signalName": { "type": "string" },
         "signalIndex": { "type": "integer", "minimum": 0, "maximum": 63 },
-        "label": { "type": "string" }
+        "label": { "type": "string" },
+        "scale": { "type": "number" },
+        "offset": { "type": "number" }
       },
       "additionalProperties": true
     },

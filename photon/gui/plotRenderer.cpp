@@ -83,6 +83,24 @@ uint32_t resolvedSignalIndex(Arena* arena, const PlotManager::PlotSourceRef& ref
   return ref.signalIndex < msg->signalCount ? ref.signalIndex : SIGNAL_MAX;
 }
 
+double transformedValue(const PlotManager::PlotSourceRef& source, double raw) {
+  return raw * source.scale + source.offset;
+}
+
+const char* sourcePlotLabel(Arena* arena, const PlotManager::PlotSourceRef& source) {
+  if (!source.label.empty()) return source.label.c_str();
+  Signal* signal = findSignal(arena, source);
+  return signal ? signal->name.c_str() : "?";
+}
+
+void fillTransformedSlice(const PlotManager::PlotSourceRef& source, const double* values,
+                          const RenderSlice& slice, std::vector<double>& out) {
+  out.resize(static_cast<size_t>(slice.count));
+  for (int i = 0; i < slice.count; ++i)
+    out[static_cast<size_t>(i)] =
+        transformedValue(source, values[slice.start + static_cast<size_t>(i) * slice.step]);
+}
+
 bool readSource(Arena* arena, const PlotManager::PlotSourceRef& ref, const double*& times,
                 const double*& values, int& count) {
   times = nullptr;
@@ -269,8 +287,9 @@ bool setupTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, const char
     if (sourceBegin >= sourceEnd) continue;
     for (auto value = sourceBegin; value < sourceEnd; ++value) {
       const size_t i = static_cast<size_t>(value - timeValues);
-      yMin = std::min(yMin, signalValues[i]);
-      yMax = std::max(yMax, signalValues[i]);
+      const double sample = transformedValue(source, signalValues[i]);
+      yMin = std::min(yMin, sample);
+      yMax = std::max(yMax, sample);
       hasY = true;
     }
   }
@@ -293,8 +312,72 @@ bool setupTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot, const char
   return true;
 }
 
+void drawXyScatterPlot(Arena* arena, PlotManager::PlotWindow& plot) {
+  if (plot.sources.size() < 2) return;
+  if (!sharesMessageClock(plot.sources)) {
+    ImGui::TextUnformatted(
+        "XY scatter sources must share a message clock until resampling is configured.");
+    return;
+  }
+
+  const double* xTimes = nullptr;
+  const double* yTimes = nullptr;
+  const double* xValues = nullptr;
+  const double* yValues = nullptr;
+  int xCount = 0;
+  int yCount = 0;
+  if (!readSource(arena, plot.sources[0], xTimes, xValues, xCount) ||
+      !readSource(arena, plot.sources[1], yTimes, yValues, yCount))
+    return;
+  const int count = std::min(xCount, yCount);
+  if (count < 2 || !xTimes) return;
+
+  const double latestTime = xTimes[count - 1];
+  const double rangeStart =
+      plot.followLatest ? latestTime - plot.timeWindowSeconds : std::max(xTimes[0], plot.xMin);
+  const double rangeEnd = plot.followLatest ? latestTime : std::max(rangeStart, plot.xMax);
+  auto minIt = std::lower_bound(xTimes, xTimes + count, rangeStart);
+  auto maxIt = std::upper_bound(xTimes, xTimes + count, rangeEnd);
+  if (minIt >= maxIt) {
+    minIt = xTimes;
+    maxIt = xTimes + count;
+  }
+  const RenderSlice slice = makeRenderSlice(static_cast<size_t>(minIt - xTimes),
+                                            static_cast<size_t>(maxIt - xTimes),
+                                            kMaxRenderableScatterPoints);
+  if (slice.count < 2) return;
+
+  std::vector<double> xs;
+  std::vector<double> ys;
+  fillTransformedSlice(plot.sources[0], xValues, slice, xs);
+  fillTransformedSlice(plot.sources[1], yValues, slice, ys);
+
+  double xMin = xs.front();
+  double xMax = xs.front();
+  double yMin = ys.front();
+  double yMax = ys.front();
+  for (size_t i = 0; i < xs.size(); ++i) {
+    xMin = std::min(xMin, xs[i]);
+    xMax = std::max(xMax, xs[i]);
+    yMin = std::min(yMin, ys[i]);
+    yMax = std::max(yMax, ys[i]);
+  }
+
+  ImPlot::SetupAxes(sourcePlotLabel(arena, plot.sources[0]),
+                    sourcePlotLabel(arena, plot.sources[1]));
+  ImPlot::SetupAxesLimits(paddedMin(xMin, xMax), paddedMax(xMin, xMax), paddedMin(yMin, yMax),
+                          paddedMax(yMin, yMax), ImGuiCond_Always);
+  ImPlot::PlotScatter(plot.title.empty() ? "GG" : plot.title.c_str(), xs.data(), ys.data(),
+                      static_cast<int>(xs.size()));
+  updateFollowState(plot);
+}
+
 void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
   if (plot.sources.empty()) return;
+  if (plot.typeIndex == PlotType_Scatter && !plot.useSource1TimeAsX && plot.sources.size() >= 2) {
+    drawXyScatterPlot(arena, plot);
+    return;
+  }
 
   const double* primaryTimes = nullptr;
   const double* primaryValues = nullptr;
@@ -340,39 +423,48 @@ void drawTimeSeriesPlot(Arena* arena, PlotManager::PlotWindow& plot) {
         plot.typeIndex == PlotType_Scatter ? kMaxRenderableScatterPoints : kMaxRenderablePoints);
     if (slice.count < 2) continue;
 
-    const char* label = sig->name.c_str();
-    const int stride = static_cast<int>(sizeof(double) * slice.step);
+    const char* label = sourcePlotLabel(arena, source);
+    const bool identityTransform = source.scale == 1.0 && source.offset == 0.0;
+    std::vector<double> transformed;
+    std::vector<double> sampledTimes;
+    const double* plotTimes = timeValues + slice.start;
+    const double* plotValues = signalValues + slice.start;
+    int plotCount = slice.count;
+    int stride = static_cast<int>(sizeof(double) * slice.step);
+    if (!identityTransform) {
+      fillTransformedSlice(source, signalValues, slice, transformed);
+      sampledTimes.resize(static_cast<size_t>(slice.count));
+      for (int sample = 0; sample < slice.count; ++sample)
+        sampledTimes[static_cast<size_t>(sample)] =
+            timeValues[slice.start + static_cast<size_t>(sample) * slice.step];
+      plotTimes = sampledTimes.data();
+      plotValues = transformed.data();
+      plotCount = static_cast<int>(transformed.size());
+      stride = static_cast<int>(sizeof(double));
+    }
     const ImPlotSpec strideSpec(ImPlotProp_Stride, stride);
     switch (plot.typeIndex) {
       case PlotType_Line:
-        ImPlot::PlotLine(label, timeValues + slice.start, signalValues + slice.start, slice.count,
-                         strideSpec);
+        ImPlot::PlotLine(label, plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_FilledLine:
-        ImPlot::PlotShaded(label, timeValues + slice.start, signalValues + slice.start, slice.count,
-                           0.0, strideSpec);
-        ImPlot::PlotLine(label, timeValues + slice.start, signalValues + slice.start, slice.count,
-                         strideSpec);
+        ImPlot::PlotShaded(label, plotTimes, plotValues, plotCount, 0.0, strideSpec);
+        ImPlot::PlotLine(label, plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_Scatter:
-        ImPlot::PlotScatter(label, timeValues + slice.start, signalValues + slice.start,
-                            slice.count, strideSpec);
+        ImPlot::PlotScatter(label, plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_Stairstep:
-        ImPlot::PlotStairs(label, timeValues + slice.start, signalValues + slice.start, slice.count,
-                           strideSpec);
+        ImPlot::PlotStairs(label, plotTimes, plotValues, plotCount, strideSpec);
         break;
       case PlotType_Bar:
-        ImPlot::PlotBars(label, timeValues + slice.start, signalValues + slice.start, slice.count,
-                         0.05, strideSpec);
+        ImPlot::PlotBars(label, plotTimes, plotValues, plotCount, 0.05, strideSpec);
         break;
       case PlotType_Stem:
-        ImPlot::PlotStems(label, timeValues + slice.start, signalValues + slice.start, slice.count,
-                          0.0, strideSpec);
+        ImPlot::PlotStems(label, plotTimes, plotValues, plotCount, 0.0, strideSpec);
         break;
       case PlotType_Digital:
-        ImPlot::PlotDigital(label, timeValues + slice.start, signalValues + slice.start,
-                            slice.count, strideSpec);
+        ImPlot::PlotDigital(label, plotTimes, plotValues, plotCount, strideSpec);
         break;
       default:
         break;
@@ -742,12 +834,16 @@ void renderPlotBody(Arena* arena, Network* network, PlotManager::PlotWindow& plo
   }
 
   const char* overlayText = nullptr;
-  if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis) {
+  const bool xyScatter =
+      plot.typeIndex == PlotType_Scatter && !plot.useSource1TimeAsX && plot.sources.size() >= 2;
+  if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis && !xyScatter) {
     drawTimeWindowStatus(plot);
     setupTimeSeriesPlot(arena, plot, overlayText);
   }
   if (ImPlot::BeginPlot(plotId, ImVec2(-1.0f, -1.0f))) {
-    if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis) {
+    if (xyScatter) {
+      drawXyScatterPlot(arena, plot);
+    } else if (PlotManager::typeSpec(plot.typeIndex).usesTimeAxis) {
       ImPlot::SetupAxes("time", nullptr, ImPlotAxisFlags_None, ImPlotAxisFlags_None);
       ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
       if (overlayText)
