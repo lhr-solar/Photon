@@ -182,19 +182,26 @@ void main() {
     vec3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
     vec3 kD = (vec3(1.0) - F) * (1.0 - metallic) * (1.0 - transmission * 0.65);
 
-    vec3 keyL = normalize(vec3(5.0, 8.0, 6.0) - vertWorldPos);
-    vec3 fillL = normalize(vec3(-6.0, 4.0, -5.0) - vertWorldPos);
+    // A fixed, high side key keeps the lighting coherent across both the compact
+    // dynamics model and the much larger map. The cooler, weaker fill preserves
+    // readable shadows without flattening the forms.
+    vec3 keyL = normalize(vec3(-0.48, 0.34, 0.81));
+    vec3 fillL = normalize(vec3(0.56, -0.72, 0.40));
+    vec3 rimL = normalize(vec3(0.32, 0.76, 0.56));
     vec3 diffuseIbl = environmentIrradiance(N) * albedo / PI;
     vec3 specularIbl = environmentSpecular(reflect(-V, N), roughness) * environmentBRDF(F0, roughness, NdotV);
-    vec3 ambient = kD * diffuseIbl + specularIbl * (1.0 - transmission * 0.35);
+    vec3 ambientDiffuse = kD * diffuseIbl * 0.34;
+    vec3 ambientSpecular = specularIbl * 0.58 * (1.0 - transmission * 0.35);
+    vec3 ambient = ambientDiffuse + ambientSpecular;
     float diffuseWeight = 1.0 - transmission * 0.65;
-    vec3 directKey = brdfLight(albedo, metallic, roughness, diffuseWeight, F0, N, V, keyL, vec3(1.0) * 1.6);
-    vec3 directFill = brdfLight(albedo, metallic, roughness, diffuseWeight, F0, N, V, fillL, vec3(0.2747, 0.4678, 1.0) * 0.45);
+    vec3 directKey = brdfLight(albedo, metallic, roughness, diffuseWeight, F0, N, V, keyL, vec3(1.0, 0.82, 0.66) * 2.45);
+    vec3 directFill = brdfLight(albedo, metallic, roughness, diffuseWeight, F0, N, V, fillL, vec3(0.20, 0.38, 0.72) * 0.32);
+    vec3 directRim = brdfLight(albedo, metallic, roughness, diffuseWeight, F0, N, V, rimL, vec3(0.18, 0.36, 0.62) * 0.24);
     float clearcoat = clamp(material.clearcoatFactor, 0.0, 1.0);
     float clearcoatRoughness = clamp(material.clearcoatRoughnessFactor, 0.03, 1.0);
-    vec3 clearcoatSpec = clearcoatLight(clearcoat, clearcoatRoughness, N, V, keyL, vec3(1.0) * 1.6);
-    clearcoatSpec += clearcoatLight(clearcoat, clearcoatRoughness, N, V, fillL, vec3(0.2747, 0.4678, 1.0) * 0.45);
-    clearcoatSpec += environmentSpecular(reflect(-V, N), clearcoatRoughness) * environmentBRDF(vec3(0.04), clearcoatRoughness, NdotV) * clearcoat;
+    vec3 clearcoatSpec = clearcoatLight(clearcoat, clearcoatRoughness, N, V, keyL, vec3(1.0, 0.82, 0.66) * 2.45);
+    clearcoatSpec += clearcoatLight(clearcoat, clearcoatRoughness, N, V, fillL, vec3(0.20, 0.38, 0.72) * 0.32);
+    clearcoatSpec += environmentSpecular(reflect(-V, N), clearcoatRoughness) * environmentBRDF(vec3(0.04), clearcoatRoughness, NdotV) * clearcoat * 0.62;
     float clearcoatEnergy = clearcoat * FresnelSchlickRoughness(NdotV, vec3(0.04), clearcoatRoughness).r;
     float sheenWeight = pow(1.0 - max(dot(N, V), 0.0), 4.0) * (1.0 - metallic);
     vec3 sheen = material.sheenColorFactor.rgb * sheenWeight * environmentIrradiance(N) / PI;
@@ -204,12 +211,27 @@ void main() {
         ambient *= mix(1.0, ao, material.occlusionStrength);
     }
 
+    // Reinforce downward-facing and grazing surfaces. This supplies a stable,
+    // scale-independent depth cue even when an asset has no baked AO texture.
+    float hemisphere = mix(0.42, 1.0, smoothstep(-0.28, 0.78, N.z));
+    float grazingOcclusion = mix(0.72, 1.0, smoothstep(0.04, 0.48, NdotV));
+    float normalVariation = clamp(length(fwidth(N)) * 0.18, 0.0, 0.16);
+    ambient *= hemisphere * grazingOcclusion * (1.0 - normalVariation);
+
     vec3 emissive = material.emissiveFactor.rgb;
     if (material.hasEmissiveTexture != 0) {
         emissive *= texture(emissiveTex, vertUV).rgb;
     }
 
-    vec3 baseLighting = ambient + directKey + directFill;
+    vec3 baseLighting = ambient + directKey + directFill + directRim;
     vec3 color = baseLighting * (1.0 - clearcoatEnergy) + clearcoatSpec + sheen + emissive;
+
+    // Camera-relative aerial perspective works across differently scaled scenes.
+    // It darkens and cools distant geometry instead of adding a milky fog layer.
+    float viewDistance = length(ubo.camPos.xyz - vertWorldPos);
+    float relativeDistance = viewDistance / max(ubo.camPos.w, 0.001);
+    float depthFade = smoothstep(0.90, 2.80, relativeDistance) * 0.48;
+    vec3 distantColor = color * 0.36 + vec3(0.004, 0.009, 0.016);
+    color = mix(color, distantColor, depthFade);
     fragColor = vec4(color, base.a);
 }
