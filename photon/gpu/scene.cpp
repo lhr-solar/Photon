@@ -1252,8 +1252,13 @@ uint32_t classifyDynamicParts(const ScenePrimitiveRange& range) {
     parts |= center.x < 0.0f ? SceneDynamicFrontLeftWheel : SceneDynamicFrontRightWheel;
 
   if (center.z < -4.55f) parts |= SceneDynamicRearCorner;
-  const float rearRadialExtent = std::max(extent.x, extent.y);
-  if (center.z < -5.55f && rearRadialExtent > 0.22f) parts |= SceneDynamicRearWheel;
+  const float rearRadialExtent = std::max(extent.y, extent.z);
+  const float rearAxleOffsetY = center.y - 0.71f;
+  const float rearAxleOffsetZ = center.z + 5.78f;
+  const bool centeredOnRearAxle =
+      rearAxleOffsetY * rearAxleOffsetY + rearAxleOffsetZ * rearAxleOffsetZ < 0.01f;
+  if (center.z < -5.55f && centeredOnRearAxle && rearRadialExtent > 0.22f)
+    parts |= SceneDynamicRearWheel;
 
   if (std::abs(center.x) < 0.45f && center.y > 1.60f && center.z < -0.72f && center.z > -1.22f)
     parts |= SceneDynamicSteeringWheel;
