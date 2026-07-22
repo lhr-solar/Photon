@@ -8,7 +8,7 @@
 #include "../parse/arena.hpp"
 #include "plots.hpp"
 
-enum class CustomViewWidgetKind { Plot, CellGrid, Watchdog, CanMonitor };
+enum class CustomViewWidgetKind { Plot, CellGrid, Watchdog, CanMonitor, FrontCam, Scene3D };
 
 enum class CustomViewCellGridMode { Voltage, Temperature };
 
@@ -86,6 +86,14 @@ struct CustomViewCanMonitor {
   uint32_t selectedId = UINT32_MAX;
 };
 
+struct CustomViewFrontCam {
+  std::string title = "Front Camera";
+};
+
+struct CustomViewScene3D {
+  std::string title = "3D View";
+};
+
 struct CustomViewWidget {
   std::string id{};
   CustomViewWidgetKind kind = CustomViewWidgetKind::Plot;
@@ -94,6 +102,8 @@ struct CustomViewWidget {
   CustomViewCellGrid cellGrid{};
   CustomViewWatchdog watchdog{};
   CustomViewCanMonitor canMonitor{};
+  CustomViewFrontCam frontCam{};
+  CustomViewScene3D scene3D{};
 };
 
 struct CustomViewDefinition {

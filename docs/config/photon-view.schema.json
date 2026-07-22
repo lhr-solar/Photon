@@ -156,6 +156,20 @@
       },
       "additionalProperties": true
     },
+    "frontCam": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "scene3D": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
     "widget": {
       "oneOf": [
         {
@@ -199,6 +213,28 @@
             "kind": { "const": "can-monitor" },
             "rect": { "$ref": "#/$defs/rect" },
             "canMonitor": { "$ref": "#/$defs/canMonitor" }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "rect"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "kind": { "const": "front-cam" },
+            "rect": { "$ref": "#/$defs/rect" },
+            "frontCam": { "$ref": "#/$defs/frontCam" }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "rect"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "kind": { "const": "scene-3d" },
+            "rect": { "$ref": "#/$defs/rect" },
+            "scene3D": { "$ref": "#/$defs/scene3D" }
           },
           "additionalProperties": true
         }

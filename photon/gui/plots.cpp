@@ -492,7 +492,9 @@ void Plots::timeline(Arena& arena, Network* network, bool serverConnected, ImVec
   {
     ArenaReadScope read(arena);
     for (uint32_t id : arena.validIds) {
+      if (id >= arena.messages.size()) continue;
       Message* msg = arena.messages[id];
+      if (!msg || !msg->timeData) continue;
       const uint32_t count = msg->signalSize.value.load(std::memory_order_acquire) / sizeof(double);
       if (!count) continue;
       const auto* time = static_cast<const double*>(msg->timeData);

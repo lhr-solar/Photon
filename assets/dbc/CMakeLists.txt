@@ -25,6 +25,9 @@ set(HIGHNOON_TEAM_SOURCES
     "${HIGHNOON_DBC_DIR}/MotorCAN.dbc"
     "${HIGHNOON_DBC_DIR}/SteeringCAN.dbc"
     "${HIGHNOON_DBC_DIR}/DAqCAN.dbc"
+    "${HIGHNOON_DBC_DIR}/LightingCAN.dbc"
+    # ElconCAN uses 29-bit IDs above MESSAGE_MAX (0x2000) and cannot be embedded
+    # in Photon's classic CAN arena. Keep it out of the team/AWS bundles.
     # Embedded DAqCAN no longer ships GPS. Keep the staging/HighNoon car IDs
     # (4288/4289) so Live View still receives the AWS TCP feed that staging uses.
     "${DBC_DIR}/gps_car.dbc"

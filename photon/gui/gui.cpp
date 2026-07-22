@@ -741,13 +741,131 @@ void GUI::plotTest(ImGuiWindowFlags flags) {
   ImGui::End();
 };
 
-void GUI::liveView(ImGuiWindowFlags flags) {
+void GUI::drawFrontCamEmbedded(ImVec2 size) { videoUi.drawContent(size); }
+
+void GUI::drawLiveSceneEmbedded(ImVec2 size) {
 #if PHOTON_GUI_RENDER_ITEMS
   scene.showing = false;
   const bool ready =
       scene.initialized.load() && !scene.frames.empty() && scene.frameIndex != nullptr;
   SceneFrame fallbackFrame{};
   SceneFrame& frame = ready ? scene.frames[*scene.frameIndex] : fallbackFrame;
+  const PhotonUi::Palette palette = PhotonUi::palette();
+  const ImVec2 drawSize{std::max(size.x, 1.0f), std::max(size.y, 1.0f)};
+
+  if (ready) {
+    const VkExtent2D nextExtent = quantizeContentExtent(drawSize, frame.extent);
+    if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+      frame.extent = nextExtent;
+      scene.dirty = true;
+    }
+  }
+
+  if (ready) {
+    const bool sceneVisible = ImGui::IsRectVisible(drawSize);
+    if (sceneVisible) scene.showing = true;
+    ImGui::Image(frame.texture, drawSize);
+    const bool sceneHovered = ImGui::IsItemHovered();
+    const ImVec2 imageMin = ImGui::GetItemRectMin();
+    const ImVec2 imageMax = ImGui::GetItemRectMax();
+    const bool hasTrackedObject =
+        scene.trackedObjectIndex >= 0 &&
+        scene.trackedObjectIndex < static_cast<int>(scene.objects.size());
+    if (hasTrackedObject && arena) {
+      Position nextPosition{};
+      float nextHeading{};
+      const double mapCursor = plots.mapCursor();
+      const bool smooth = mapTracker.valid && mapCursor >= mapTracker.time &&
+                          mapCursor - mapTracker.time < 0.5;
+      ArenaReadScope read(*arena);
+      if (fusedMapPosition(*arena, mapCursor, mapTracker, nextPosition, nextHeading)) {
+        SceneObject& car = scene.objects[scene.trackedObjectIndex];
+        const float amount = smooth ? 1.0f - std::exp(-10.0f * ImGui::GetIO().DeltaTime) : 1.0f;
+        car.position.x = std::lerp(car.position.x, nextPosition.x, amount);
+        car.position.y = std::lerp(car.position.y, nextPosition.y, amount);
+        car.position.z = nextPosition.z;
+        const float rotation = nextHeading * 180.0f / std::numbers::pi_v<float> + 90.0f;
+        car.rotationDegrees += std::remainder(rotation - car.rotationDegrees, 360.0f) * amount;
+      }
+    }
+    const Position trackedPosition =
+        hasTrackedObject ? scene.objects[scene.trackedObjectIndex].position : Position{};
+
+    char positionLabel[192]{};
+    if (arena) {
+      ArenaReadScope read(*arena);
+      const GpsDebugInfo gpsDebug = gpsDebugAt(*arena, plots.mapCursor());
+      if (gpsDebug.locked)
+        std::snprintf(positionLabel, sizeof(positionLabel),
+                      "x: %.3f | y: %.3f | z: %.3f | GPS %u/%u lock %.6f, %.6f (%.1fs)",
+                      trackedPosition.x, trackedPosition.y, trackedPosition.z, gpsDebug.latitudeId,
+                      gpsDebug.longitudeId, gpsDebug.latitude, gpsDebug.longitude,
+                      gpsDebug.ageSeconds);
+      else
+        std::snprintf(positionLabel, sizeof(positionLabel),
+                      "x: %.3f | y: %.3f | z: %.3f | GPS %u/%u samples %u/%u (no lock)",
+                      trackedPosition.x, trackedPosition.y, trackedPosition.z, gpsDebug.latitudeId,
+                      gpsDebug.longitudeId, gpsDebug.latitudeSamples, gpsDebug.longitudeSamples);
+    }
+    const ImVec2 textPadding(10.0f, 6.0f);
+    const ImVec2 textSize = ImGui::CalcTextSize(positionLabel);
+    const ImVec2 textMin(imageMin.x + 12.0f,
+                         imageMax.y - textSize.y - textPadding.y * 2.0f - 12.0f);
+    const ImVec2 textMax(textMin.x + textSize.x + textPadding.x * 2.0f,
+                         textMin.y + textSize.y + textPadding.y * 2.0f);
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    drawList->PushClipRect(imageMin, imageMax, true);
+    drawList->AddRectFilled(textMin, textMax,
+                            PhotonUi::colorU32(PhotonUi::withAlpha(palette.panel, 0.88f)),
+                            PhotonUi::kFrameRounding);
+    drawList->AddRect(textMin, textMax,
+                      PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.42f)),
+                      PhotonUi::kFrameRounding);
+    drawList->AddText(ImVec2(textMin.x + textPadding.x, textMin.y + textPadding.y),
+                      PhotonUi::colorU32(palette.text), positionLabel);
+    drawList->PopClipRect();
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (sceneHovered) {
+      if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        scene.camera.yaw -= io.MouseDelta.x * scene.camera.orbitSensitivity;
+        scene.camera.pitch += io.MouseDelta.y * scene.camera.orbitSensitivity;
+        scene.camera.pitch = std::clamp(scene.camera.pitch, -89.0f, 89.0f);
+      }
+      if (std::abs(io.MouseWheel) > 0.0f) {
+        const float zoomScale =
+            std::max(0.1f, 1.0f - io.MouseWheel * scene.camera.zoomSensitivity);
+        scene.camera.distance *= zoomScale;
+        scene.camera.distance =
+            std::clamp(scene.camera.distance, scene.camera.minDistance, scene.camera.maxDistance);
+      }
+    }
+  } else {
+    ImGui::Dummy(drawSize);
+    const ImVec2 min = ImGui::GetItemRectMin();
+    const ImVec2 max = ImGui::GetItemRectMax();
+    const ImVec2 textSize = ImGui::CalcTextSize("loading scene");
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    drawList->PushClipRect(min, max, true);
+    drawList->AddText({(min.x + max.x - textSize.x) * 0.5f, (min.y + max.y - textSize.y) * 0.5f},
+                      PhotonUi::colorU32(palette.text), "loading scene");
+    drawList->PopClipRect();
+  }
+#else
+  ImGui::Dummy(size);
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  const char* text = "3D view requires Vulkan rendering";
+  const ImVec2 textSize = ImGui::CalcTextSize(text);
+  ImGui::GetWindowDrawList()->AddText(
+      {(min.x + max.x - textSize.x) * 0.5f, (min.y + max.y - textSize.y) * 0.5f},
+      ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
+#endif
+}
+
+void GUI::liveView(ImGuiWindowFlags flags) {
+#if PHOTON_GUI_RENDER_ITEMS
+  scene.showing = false;
   const PhotonUi::Palette palette = PhotonUi::palette();
 
   ImGui::SetNextWindowBgAlpha(0.0f);
@@ -781,104 +899,7 @@ void GUI::liveView(ImGuiWindowFlags flags) {
       sceneWidth = contentSize.x - videoWidth - splitterWidth;
     }
     const ImVec2 drawSize{sceneWidth, contentSize.y};
-    if (showLiveScene && ready) {
-      const VkExtent2D nextExtent = quantizeContentExtent(drawSize, frame.extent);
-      if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
-        frame.extent = nextExtent;
-        scene.dirty = true;
-      }
-    }
-
-    if (showLiveScene && ready) {
-      const bool sceneVisible = ImGui::IsRectVisible(drawSize);
-      if (sceneVisible) scene.showing = true;
-      ImGui::Image(frame.texture, drawSize);
-      const bool sceneHovered = ImGui::IsItemHovered();
-      const ImVec2 imageMin = ImGui::GetItemRectMin();
-      const ImVec2 imageMax = ImGui::GetItemRectMax();
-      const bool hasTrackedObject =
-          scene.trackedObjectIndex >= 0 &&
-          scene.trackedObjectIndex < static_cast<int>(scene.objects.size());
-      if (hasTrackedObject) {
-        Position nextPosition{};
-        float nextHeading{};
-        const double mapCursor = plots.mapCursor();
-        const bool smooth = mapTracker.valid && mapCursor >= mapTracker.time &&
-                            mapCursor - mapTracker.time < 0.5;
-        ArenaReadScope read(*arena);
-        if (fusedMapPosition(*arena, mapCursor, mapTracker, nextPosition, nextHeading)) {
-          SceneObject& car = scene.objects[scene.trackedObjectIndex];
-          const float amount = smooth ? 1.0f - std::exp(-10.0f * ImGui::GetIO().DeltaTime) : 1.0f;
-          car.position.x = std::lerp(car.position.x, nextPosition.x, amount);
-          car.position.y = std::lerp(car.position.y, nextPosition.y, amount);
-          car.position.z = nextPosition.z;
-          const float rotation = nextHeading * 180.0f / std::numbers::pi_v<float> + 90.0f;
-          car.rotationDegrees += std::remainder(rotation - car.rotationDegrees, 360.0f) * amount;
-        }
-      }
-      const Position trackedPosition =
-          hasTrackedObject ? scene.objects[scene.trackedObjectIndex].position : Position{};
-
-      char positionLabel[192]{};
-      {
-        ArenaReadScope read(*arena);
-        const GpsDebugInfo gpsDebug = gpsDebugAt(*arena, plots.mapCursor());
-        if (gpsDebug.locked)
-          std::snprintf(positionLabel, sizeof(positionLabel),
-                        "x: %.3f | y: %.3f | z: %.3f | GPS %u/%u lock %.6f, %.6f (%.1fs)",
-                        trackedPosition.x, trackedPosition.y, trackedPosition.z, gpsDebug.latitudeId,
-                        gpsDebug.longitudeId, gpsDebug.latitude, gpsDebug.longitude,
-                        gpsDebug.ageSeconds);
-        else
-          std::snprintf(positionLabel, sizeof(positionLabel),
-                        "x: %.3f | y: %.3f | z: %.3f | GPS %u/%u samples %u/%u (no lock)",
-                        trackedPosition.x, trackedPosition.y, trackedPosition.z, gpsDebug.latitudeId,
-                        gpsDebug.longitudeId, gpsDebug.latitudeSamples, gpsDebug.longitudeSamples);
-      }
-      const ImVec2 textPadding(10.0f, 6.0f);
-      const ImVec2 textSize = ImGui::CalcTextSize(positionLabel);
-      const ImVec2 textMin(imageMin.x + 12.0f,
-                           imageMax.y - textSize.y - textPadding.y * 2.0f - 12.0f);
-      const ImVec2 textMax(textMin.x + textSize.x + textPadding.x * 2.0f,
-                           textMin.y + textSize.y + textPadding.y * 2.0f);
-      ImDrawList* drawList = ImGui::GetWindowDrawList();
-      drawList->PushClipRect(imageMin, imageMax, true);
-      drawList->AddRectFilled(textMin, textMax,
-                              PhotonUi::colorU32(PhotonUi::withAlpha(palette.panel, 0.88f)),
-                              PhotonUi::kFrameRounding);
-      drawList->AddRect(textMin, textMax,
-                        PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.42f)),
-                        PhotonUi::kFrameRounding);
-      drawList->AddText(ImVec2(textMin.x + textPadding.x, textMin.y + textPadding.y),
-                        PhotonUi::colorU32(palette.text), positionLabel);
-      drawList->PopClipRect();
-
-      ImGuiIO& io = ImGui::GetIO();
-      if (sceneHovered) {
-        if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-          scene.camera.yaw -= io.MouseDelta.x * scene.camera.orbitSensitivity;
-          scene.camera.pitch += io.MouseDelta.y * scene.camera.orbitSensitivity;
-          scene.camera.pitch = std::clamp(scene.camera.pitch, -89.0f, 89.0f);
-        }
-        if (std::abs(io.MouseWheel) > 0.0f) {
-          const float zoomScale =
-              std::max(0.1f, 1.0f - io.MouseWheel * scene.camera.zoomSensitivity);
-          scene.camera.distance *= zoomScale;
-          scene.camera.distance =
-              std::clamp(scene.camera.distance, scene.camera.minDistance, scene.camera.maxDistance);
-        }
-      }
-    } else if (showLiveScene) {
-      ImGui::Dummy(drawSize);
-      const ImVec2 min = ImGui::GetItemRectMin();
-      const ImVec2 max = ImGui::GetItemRectMax();
-      const ImVec2 textSize = ImGui::CalcTextSize("loading scene");
-      ImDrawList* drawList = ImGui::GetWindowDrawList();
-      drawList->PushClipRect(min, max, true);
-      drawList->AddText({(min.x + max.x - textSize.x) * 0.5f, (min.y + max.y - textSize.y) * 0.5f},
-                        PhotonUi::colorU32(palette.text), "loading scene");
-      drawList->PopClipRect();
-    }
+    if (showLiveScene) drawLiveSceneEmbedded(drawSize);
     if (split) {
       ImGui::SetCursorScreenPos({contentMin.x + sceneWidth, contentMin.y});
       ImGui::InvisibleButton("##LiveViewSplitter", {splitterWidth, contentSize.y});
@@ -903,7 +924,7 @@ void GUI::liveView(ImGuiWindowFlags flags) {
     if (showLiveVideo) {
       ImGui::SetCursorScreenPos(
           {contentMin.x + (split ? sceneWidth + splitterWidth : 0.0f), contentMin.y});
-      videoUi.drawContent({videoWidth, contentSize.y});
+      drawFrontCamEmbedded({videoWidth, contentSize.y});
     }
     if (!showLiveScene && !showLiveVideo) {
       const char* hiddenText = "3D model and video stream are hidden";
@@ -1226,7 +1247,7 @@ void GUI::setTabs() {
   // Hot-reloaded UI modules own separate function-local singletons, so bind them lazily.
   PlotManager& plotMgr = plotManager();
   plotMgr.init(arena, network, &plots);
-  customViewTab().init(arena, gpu ? gpu->window : nullptr);
+  customViewTab().init(arena, gpu ? gpu->window : nullptr, this);
   ui::dashboardTab().init(arena);
   tabs.list.clear();
   tabs.list.push_back(

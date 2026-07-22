@@ -4,35 +4,21 @@
 #include <cmath>
 #include <cstdio>
 
+#include "config.hpp"
 #include "customViewTelemetry.hpp"
 #include "imgui.h"
+#include "implot.h"
 #include "uiComponents.hpp"
 
 namespace {
-ImVec4 lerp4(ImVec4 a, ImVec4 b, float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
-                a.w + (b.w - a.w) * t);
+ImPlotColormap activeColormap() {
+  if (GuiSettings* settings = static_cast<GuiSettings*>(ImGui::GetIO().UserData))
+    return settings->plotColormap;
+  return ImPlot::GetStyle().Colormap;
 }
 
-ImVec4 voltageRamp(float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  // deep teal -> electric cyan -> lime -> amber -> hot magenta
-  if (t < 0.25f) return lerp4({0.05f, 0.28f, 0.42f, 1.0f}, {0.08f, 0.78f, 0.92f, 1.0f}, t / 0.25f);
-  if (t < 0.50f)
-    return lerp4({0.08f, 0.78f, 0.92f, 1.0f}, {0.35f, 0.95f, 0.35f, 1.0f}, (t - 0.25f) / 0.25f);
-  if (t < 0.75f)
-    return lerp4({0.35f, 0.95f, 0.35f, 1.0f}, {1.0f, 0.78f, 0.12f, 1.0f}, (t - 0.50f) / 0.25f);
-  return lerp4({1.0f, 0.78f, 0.12f, 1.0f}, {1.0f, 0.28f, 0.55f, 1.0f}, (t - 0.75f) / 0.25f);
-}
-
-ImVec4 temperatureRamp(float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  // ice blue -> violet -> orange -> crimson
-  if (t < 0.33f) return lerp4({0.25f, 0.45f, 1.0f, 1.0f}, {0.72f, 0.28f, 1.0f, 1.0f}, t / 0.33f);
-  if (t < 0.66f)
-    return lerp4({0.72f, 0.28f, 1.0f, 1.0f}, {1.0f, 0.55f, 0.12f, 1.0f}, (t - 0.33f) / 0.33f);
-  return lerp4({1.0f, 0.55f, 0.12f, 1.0f}, {1.0f, 0.12f, 0.22f, 1.0f}, (t - 0.66f) / 0.34f);
+ImVec4 themeRamp(float t) {
+  return ImPlot::SampleColormap(std::clamp(t, 0.0f, 1.0f), activeColormap());
 }
 
 void drawPill(ImDrawList* draw, ImVec2 min, ImVec2 max, ImU32 fill, ImU32 border, ImU32 text,
@@ -45,14 +31,16 @@ void drawPill(ImDrawList* draw, ImVec2 min, ImVec2 max, ImU32 fill, ImU32 border
                 text, label);
 }
 
-void drawCellTile(ImDrawList* draw, ImVec2 min, ImVec2 max, ImVec4 base, bool hasValue,
-                  bool faulted, bool showVoltage, const char* address, double value) {
-  const ImVec4 empty = {0.105f, 0.12f, 0.15f, 1.0f};
-  ImVec4 fill = hasValue ? lerp4(base, {0.08f, 0.10f, 0.13f, 1.0f}, 0.72f) : empty;
-  if (faulted) fill = {0.42f, 0.10f, 0.13f, 1.0f};
+void drawCellTile(ImDrawList* draw, ImVec2 min, ImVec2 max, const PhotonUi::Palette& palette,
+                  ImVec4 base, bool hasValue, bool faulted, bool showVoltage, const char* address,
+                  double value) {
+  const ImVec4 empty = palette.panel;
+  ImVec4 fill = hasValue ? PhotonUi::mixColor(base, palette.bg, 0.72f) : empty;
+  if (faulted) fill = PhotonUi::mixColor(ImVec4{0.86f, 0.18f, 0.22f, 1.0f}, palette.bg, 0.35f);
   draw->AddRectFilled(min, max, PhotonUi::colorU32(fill));
-  draw->AddRect(min, max, PhotonUi::colorU32(faulted ? ImVec4{1.0f, 0.28f, 0.32f, 1.0f}
-                                                       : ImVec4{0.32f, 0.36f, 0.42f, 1.0f}));
+  draw->AddRect(min, max,
+                PhotonUi::colorU32(faulted ? ImVec4{1.0f, 0.32f, 0.36f, 1.0f}
+                                           : PhotonUi::withAlpha(palette.border, 0.85f)));
 
   char valueBuf[32]{};
   if (hasValue) {
@@ -64,14 +52,11 @@ void drawCellTile(ImDrawList* draw, ImVec2 min, ImVec2 max, ImVec4 base, bool ha
     std::snprintf(valueBuf, sizeof(valueBuf), "--");
   }
 
-  draw->AddText({min.x + 5.0f, min.y + 4.0f}, PhotonUi::colorU32({0.62f, 0.68f, 0.75f, 1.0f}),
-                address);
+  draw->AddText({min.x + 5.0f, min.y + 4.0f}, PhotonUi::colorU32(palette.muted), address);
   const ImVec2 valueSize = ImGui::CalcTextSize(valueBuf);
   const ImVec2 valuePos{min.x + (max.x - min.x - valueSize.x) * 0.5f,
                         min.y + (max.y - min.y - valueSize.y) * 0.60f};
-  draw->AddText(valuePos, PhotonUi::colorU32(hasValue ? ImVec4{0.96f, 0.98f, 1.0f, 1.0f}
-                                                       : ImVec4{0.55f, 0.60f, 0.67f, 1.0f}),
-                valueBuf);
+  draw->AddText(valuePos, PhotonUi::colorU32(hasValue ? palette.text : palette.muted), valueBuf);
 }
 
 void spreadsheetColumnName(int column, char (&buffer)[8]) {
@@ -98,11 +83,12 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
   const float availX = std::max(120.0f, ImGui::GetContentRegionAvail().x);
   draw->AddRectFilled(headerOrigin, {headerOrigin.x + availX, headerOrigin.y + headerH},
                       PhotonUi::colorU32(PhotonUi::withAlpha(palette.raised, 0.92f)), 8.0f);
-  draw->AddRectFilledMultiColor(headerOrigin, {headerOrigin.x + availX, headerOrigin.y + headerH},
-                                PhotonUi::colorU32({0.15f, 0.55f, 0.95f, 0.18f}),
-                                PhotonUi::colorU32({0.95f, 0.25f, 0.65f, 0.14f}),
-                                PhotonUi::colorU32({0.95f, 0.25f, 0.65f, 0.04f}),
-                                PhotonUi::colorU32({0.15f, 0.55f, 0.95f, 0.04f}));
+  draw->AddRectFilledMultiColor(
+      headerOrigin, {headerOrigin.x + availX, headerOrigin.y + headerH},
+      PhotonUi::colorU32(PhotonUi::withAlpha(palette.accent, 0.22f)),
+      PhotonUi::colorU32(PhotonUi::withAlpha(palette.active, 0.18f)),
+      PhotonUi::colorU32(PhotonUi::withAlpha(palette.active, 0.05f)),
+      PhotonUi::colorU32(PhotonUi::withAlpha(palette.accent, 0.05f)));
 
   // Mode pills
   const float pillW = 92.0f;
@@ -121,20 +107,19 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
     grid.mode = CustomViewCellGridMode::Temperature;
 
   const bool voltageMode = grid.mode == CustomViewCellGridMode::Voltage;
+  const ImVec4 inactivePill = PhotonUi::withAlpha(palette.raised, 0.9f);
+  const ImVec4 voltageActive = PhotonUi::mixColor(palette.accent, palette.text, 0.15f);
+  const ImVec4 tempActive = PhotonUi::mixColor(ImVec4{1.0f, 0.45f, 0.22f, 1.0f}, palette.accent, 0.25f);
   drawPill(draw, voltMin, voltMax,
-           PhotonUi::colorU32(voltageMode ? ImVec4{0.10f, 0.72f, 0.95f, 0.95f}
-                                          : ImVec4{0.18f, 0.20f, 0.24f, 0.9f}),
-           PhotonUi::colorU32(voltageMode ? ImVec4{0.65f, 0.95f, 1.0f, 1.0f}
+           PhotonUi::colorU32(voltageMode ? voltageActive : inactivePill),
+           PhotonUi::colorU32(voltageMode ? PhotonUi::withAlpha(palette.text, 0.55f)
                                           : PhotonUi::withAlpha(palette.border, 0.7f)),
-           PhotonUi::colorU32(voltageMode ? ImVec4{0.02f, 0.08f, 0.12f, 1.0f} : palette.muted),
-           "Voltage");
+           PhotonUi::colorU32(voltageMode ? palette.bg : palette.muted), "Voltage");
   drawPill(draw, tempMin, tempMax,
-           PhotonUi::colorU32(!voltageMode ? ImVec4{1.0f, 0.42f, 0.28f, 0.95f}
-                                           : ImVec4{0.18f, 0.20f, 0.24f, 0.9f}),
-           PhotonUi::colorU32(!voltageMode ? ImVec4{1.0f, 0.75f, 0.45f, 1.0f}
+           PhotonUi::colorU32(!voltageMode ? tempActive : inactivePill),
+           PhotonUi::colorU32(!voltageMode ? PhotonUi::withAlpha(palette.text, 0.55f)
                                            : PhotonUi::withAlpha(palette.border, 0.7f)),
-           PhotonUi::colorU32(!voltageMode ? ImVec4{0.12f, 0.04f, 0.02f, 1.0f} : palette.muted),
-           "Temperature");
+           PhotonUi::colorU32(!voltageMode ? palette.bg : palette.muted), "Temperature");
 
   char packV[32] = "-- V";
   char packT[32] = "-- C";
@@ -155,24 +140,23 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
   const bool hasFault = grid.hasPackFault && grid.packFault != 0.0;
   const ImVec2 statusSize = ImGui::CalcTextSize(statusBuf);
   const float statusX = headerOrigin.x + availX - statusSize.x - 14.0f;
+  const ImVec4 faultTextColor =
+      PhotonUi::mixColor(ImVec4{1.0f, 0.35f, 0.35f, 1.0f}, palette.text, 0.15f + 0.20f * pulse);
   draw->AddText({statusX, headerOrigin.y + (headerH - statusSize.y) * 0.5f},
-                PhotonUi::colorU32(hasFault ? ImVec4{1.0f, 0.35f + 0.25f * pulse, 0.35f, 1.0f}
-                                            : ImVec4{0.85f, 0.92f, 1.0f, 0.95f}),
-                statusBuf);
+                PhotonUi::colorU32(hasFault ? faultTextColor : palette.text), statusBuf);
 
   ImGui::SetCursorScreenPos({headerOrigin.x, headerOrigin.y + headerH + 8.0f});
 
-  // Legend strip
+  // Legend strip — follows Theme colormap
   const ImVec2 legendOrigin = ImGui::GetCursorScreenPos();
   const float legendH = 10.0f;
   const float legendW = availX;
   for (int i = 0; i < 64; ++i) {
     const float t0 = static_cast<float>(i) / 64.0f;
     const float t1 = static_cast<float>(i + 1) / 64.0f;
-    const ImVec4 c = voltageMode ? voltageRamp(t0) : temperatureRamp(t0);
     draw->AddRectFilled({legendOrigin.x + legendW * t0, legendOrigin.y},
                         {legendOrigin.x + legendW * t1, legendOrigin.y + legendH},
-                        PhotonUi::colorU32(c));
+                        PhotonUi::colorU32(themeRamp(t0)));
   }
   draw->AddRect(legendOrigin, {legendOrigin.x + legendW, legendOrigin.y + legendH},
                 PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.8f)), 2.0f);
@@ -184,9 +168,9 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
   const float cellW = std::max(8.0f, (avail.x - rowHeaderW) / static_cast<float>(grid.cols));
   const float cellH = std::max(8.0f, (avail.y - columnHeaderH) / static_cast<float>(grid.rows));
   const ImVec2 origin = ImGui::GetCursorScreenPos();
-  const ImU32 headerFill = PhotonUi::colorU32({0.19f, 0.22f, 0.27f, 1.0f});
-  const ImU32 headerBorder = PhotonUi::colorU32({0.36f, 0.40f, 0.46f, 1.0f});
-  const ImU32 headerText = PhotonUi::colorU32({0.82f, 0.86f, 0.92f, 1.0f});
+  const ImU32 headerFill = PhotonUi::colorU32(palette.raised);
+  const ImU32 headerBorder = PhotonUi::colorU32(PhotonUi::withAlpha(palette.border, 0.9f));
+  const ImU32 headerText = PhotonUi::colorU32(palette.muted);
   draw->AddRectFilled(origin, {origin.x + rowHeaderW, origin.y + columnHeaderH}, headerFill);
   draw->AddRect(origin, {origin.x + rowHeaderW, origin.y + columnHeaderH}, headerBorder);
   for (int col = 0; col < grid.cols; ++col) {
@@ -237,11 +221,11 @@ void CustomViewCellGridWidget::draw(Arena* arena, CustomViewWidget& widget) {
       else
         t = static_cast<float>((value - kTempMin) / (kTempMax - kTempMin));
     }
-    const ImVec4 base = voltageMode ? voltageRamp(t) : temperatureRamp(t);
+    const ImVec4 base = themeRamp(t);
     char address[16]{};
     // The array is keyed directly by BPS_Tap_idx, so display that real tap ID.
     std::snprintf(address, sizeof(address), "ID %02d", index);
-    drawCellTile(draw, min, max, base, hasValue, faulted, voltageMode, address, value);
+    drawCellTile(draw, min, max, palette, base, hasValue, faulted, voltageMode, address, value);
   }
 
   ImGui::Dummy(ImVec2(avail.x, columnHeaderH + static_cast<float>(grid.rows) * cellH));

@@ -43,6 +43,8 @@ struct GUI {
   void plotTest(ImGuiWindowFlags flags);
   void liveView(ImGuiWindowFlags flags);
   void dynamicsView(ImGuiWindowFlags flags);
+  void drawFrontCamEmbedded(ImVec2 size);
+  void drawLiveSceneEmbedded(ImVec2 size);
 
   GPU* gpu;
   Arena* arena;

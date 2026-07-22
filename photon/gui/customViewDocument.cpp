@@ -90,6 +90,10 @@ Json canMonitorToJson(const CustomViewCanMonitor& monitor) {
           {"sort", monitor.sort}};
 }
 
+Json frontCamToJson(const CustomViewFrontCam& cam) { return {{"title", cam.title}}; }
+
+Json scene3DToJson(const CustomViewScene3D& scene) { return {{"title", scene.title}}; }
+
 const char* widgetKindKey(CustomViewWidgetKind kind) {
   switch (kind) {
     case CustomViewWidgetKind::CellGrid:
@@ -98,6 +102,10 @@ const char* widgetKindKey(CustomViewWidgetKind kind) {
       return "watchdog";
     case CustomViewWidgetKind::CanMonitor:
       return "can-monitor";
+    case CustomViewWidgetKind::FrontCam:
+      return "front-cam";
+    case CustomViewWidgetKind::Scene3D:
+      return "scene-3d";
     case CustomViewWidgetKind::Plot:
     default:
       return "plot";
@@ -118,6 +126,10 @@ Json widgetToJson(const CustomViewWidget& widget) {
     value["watchdog"] = watchdogToJson(widget.watchdog);
   else if (widget.kind == CustomViewWidgetKind::CanMonitor)
     value["canMonitor"] = canMonitorToJson(widget.canMonitor);
+  else if (widget.kind == CustomViewWidgetKind::FrontCam)
+    value["frontCam"] = frontCamToJson(widget.frontCam);
+  else if (widget.kind == CustomViewWidgetKind::Scene3D)
+    value["scene3D"] = scene3DToJson(widget.scene3D);
   else
     value["plot"] = plotToJson(widget.plot);
   return value;
@@ -174,7 +186,8 @@ CustomViewDefinition parsePanel(const Json& root, int& plotId) {
   std::unordered_set<std::string> ids{};
   for (const Json& widgetJson : root.value("widgets", Json::array())) {
     const std::string kind = widgetJson.value("kind", "");
-    if (kind != "plot" && kind != "cell-grid" && kind != "watchdog" && kind != "can-monitor")
+    if (kind != "plot" && kind != "cell-grid" && kind != "watchdog" && kind != "can-monitor" &&
+        kind != "front-cam" && kind != "scene-3d")
       continue;
 
     CustomViewWidget widget{};
@@ -236,6 +249,22 @@ CustomViewDefinition parsePanel(const Json& root, int& plotId) {
       widget.canMonitor.filter = monitorJson.value("filter", "");
       widget.canMonitor.recordPath = monitorJson.value("recordPath", "views/can-capture.log");
       widget.canMonitor.sort = std::clamp(monitorJson.value("sort", 0), 0, 3);
+      panel.widgets.push_back(std::move(widget));
+      continue;
+    }
+
+    if (kind == "front-cam") {
+      widget.kind = CustomViewWidgetKind::FrontCam;
+      const Json camJson = widgetJson.value("frontCam", Json::object());
+      widget.frontCam.title = camJson.value("title", "Front Camera");
+      panel.widgets.push_back(std::move(widget));
+      continue;
+    }
+
+    if (kind == "scene-3d") {
+      widget.kind = CustomViewWidgetKind::Scene3D;
+      const Json sceneJson = widgetJson.value("scene3D", Json::object());
+      widget.scene3D.title = sceneJson.value("title", "3D View");
       panel.widgets.push_back(std::move(widget));
       continue;
     }

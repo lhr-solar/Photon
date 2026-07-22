@@ -14,6 +14,7 @@
 #include "plots.hpp"
 
 struct SDL_Window;
+struct GUI;
 
 enum class CustomViewDialogAction { None, Open, SaveAs };
 
@@ -22,6 +23,7 @@ enum class CustomViewInteractMode { None, Drag, Resize };
 struct CustomViewTab {
   Arena* arena = nullptr;
   SDL_Window* window = nullptr;
+  GUI* gui = nullptr;
   uint64_t resolvedGeneration = 0;
   std::array<char, 512> path{"views/custom.photon-view.json"};
   std::array<char, 65536> document{};
@@ -57,7 +59,7 @@ struct CustomViewTab {
   ImVec2 interactStartMouse{};
   CustomViewRect interactPreviewRect{};
 
-  void init(Arena* arenaTarget, SDL_Window* windowTarget);
+  void init(Arena* arenaTarget, SDL_Window* windowTarget, GUI* guiTarget = nullptr);
   void draw(ImGuiWindowFlags flags);
   // Re-bind plot/watchdog sources when the active DBC (arena generation) changes.
   // Safe to call every frame from GUI; no-ops when generation is unchanged.
@@ -85,6 +87,8 @@ struct CustomViewTab {
   void renderWatchdog(CustomViewWidget& widget);
   void addCellGrid();
   void addCanMonitor();
+  void addFrontCam();
+  void addScene3D();
   void openWatchdogCreator();
   void renderWatchdogCreator();
   void commitWatchdogCreator();

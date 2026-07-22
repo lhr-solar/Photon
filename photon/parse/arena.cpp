@@ -88,8 +88,40 @@ void Arena::init(const arenaConfig& config) {
   const size_t nextPagesPerBuffer = nextTotalPages / nextTotalBuffers;
   if (nextPagesPerBuffer == 0) return;
 
-  for (const auto& m : messages)
-    if (m) clear(m->id);
+  // Hold reset across the whole rebuild so readers never see validIds with null messages.
+  // loadDBC() can run on the network thread while Plots::timeline reads on the UI thread.
+  // Do not call clear()/destroy() here — they also take the reset lock.
+  beginReset();
+
+  for (uint32_t id = 0; id < messages.size(); ++id) {
+    Message* msg = messages[id];
+    if (!msg) continue;
+    for (size_t i = 0; i < msg->signalCount; ++i) {
+      delete msg->signals[i];
+      msg->signals[i] = nullptr;
+    }
+    delete msg;
+    messages[id] = nullptr;
+  }
+  if (pool) {
+#ifdef _WIN32
+    VirtualFree(pool, 0, MEM_RELEASE);
+#else
+    munmap(pool, arenaSize);
+#endif
+    pool = nullptr;
+  }
+  validIds.clear();
+  arenaSize = 0;
+  totalSignals = 0;
+  totalTimeBuffers = 0;
+  totalBuffers = 0;
+  cursor = nullptr;
+  remaining = 0;
+  totalPages = 0;
+  pagesPerBuffer = 0;
+  bytesPerBuffer = 0;
+
 #ifdef _WIN32
   pool = VirtualAlloc(nullptr, nextArenaSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else
@@ -101,10 +133,10 @@ void Arena::init(const arenaConfig& config) {
 #endif
   ) {
     pool = nullptr;
+    endReset();
     return;
   }
 
-  validIds = std::move(nextValidIds);
   arenaSize = nextArenaSize;
   totalSignals = nextTotalSignals;
   totalTimeBuffers = nextTotalTimeBuffers;
@@ -116,7 +148,7 @@ void Arena::init(const arenaConfig& config) {
   pagesPerBuffer = nextPagesPerBuffer;
   bytesPerBuffer = PAGE_SIZE * pagesPerBuffer;
 
-  for (const auto& idx : validIds) {
+  for (const auto& idx : nextValidIds) {
     messages[idx] = new (Message);
     Message& msg = *messages[idx];
     msg.id = idx;
@@ -130,6 +162,10 @@ void Arena::init(const arenaConfig& config) {
       msg.signals[i]->data = mem;
     };
   }
+
+  // Publish IDs only after every Message* is non-null.
+  validIds = std::move(nextValidIds);
+  endReset();
 }
 
 void* Arena::alloc(size_t bytes, size_t align) {

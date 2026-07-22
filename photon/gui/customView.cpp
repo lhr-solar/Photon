@@ -18,6 +18,7 @@
 #include "customViewDocument.hpp"
 #include "customViewTelemetry.hpp"
 #include "customViewWatchdog.hpp"
+#include "gui.hpp"
 #include "json.hpp"
 #include "uiComponents.hpp"
 
@@ -104,6 +105,8 @@ const char* widgetTitle(const CustomViewWidget& widget) {
   if (widget.kind == CustomViewWidgetKind::CellGrid) return widget.cellGrid.title.c_str();
   if (widget.kind == CustomViewWidgetKind::Watchdog) return widget.watchdog.title.c_str();
   if (widget.kind == CustomViewWidgetKind::CanMonitor) return widget.canMonitor.title.c_str();
+  if (widget.kind == CustomViewWidgetKind::FrontCam) return widget.frontCam.title.c_str();
+  if (widget.kind == CustomViewWidgetKind::Scene3D) return widget.scene3D.title.c_str();
   return widget.plot.title.c_str();
 }
 
@@ -212,7 +215,8 @@ void CustomViewTab::renderPanelBar() {
   ImGui::TextDisabled("Active panel name");
 }
 
-void CustomViewTab::init(Arena* arenaTarget, SDL_Window* windowTarget) {
+void CustomViewTab::init(Arena* arenaTarget, SDL_Window* windowTarget, GUI* guiTarget) {
+  gui = guiTarget;
   if (arena == arenaTarget && window == windowTarget) return;
   arena = arenaTarget;
   window = windowTarget;
@@ -581,6 +585,50 @@ void CustomViewTab::addCanMonitor() {
   syncDocumentFromView("Added CAN monitor widget.", pathLoaded || path[0] != '\0');
 }
 
+void CustomViewTab::addFrontCam() {
+  CustomViewDefinition& view = activeView();
+  CustomViewWidget widget{};
+  widget.kind = CustomViewWidgetKind::FrontCam;
+  widget.id = "front-cam-" + std::to_string(nextWidgetPlotId++);
+  widget.frontCam.title = "Front Camera";
+  const int half = std::max(1, view.columns / 2);
+  int row = findNextRow();
+  int x = 0;
+  for (const auto& existing : view.widgets) {
+    if (existing.kind == CustomViewWidgetKind::Scene3D && existing.rect.x >= half &&
+        existing.rect.width <= half) {
+      row = existing.rect.y;
+      x = 0;
+      break;
+    }
+  }
+  widget.rect = clampRect({x, row, half, 12});
+  view.widgets.push_back(std::move(widget));
+  syncDocumentFromView("Added front camera widget.", pathLoaded || path[0] != '\0');
+}
+
+void CustomViewTab::addScene3D() {
+  CustomViewDefinition& view = activeView();
+  CustomViewWidget widget{};
+  widget.kind = CustomViewWidgetKind::Scene3D;
+  widget.id = "scene-3d-" + std::to_string(nextWidgetPlotId++);
+  widget.scene3D.title = "3D View";
+  const int half = std::max(1, view.columns / 2);
+  int row = findNextRow();
+  int x = half;
+  for (const auto& existing : view.widgets) {
+    if (existing.kind == CustomViewWidgetKind::FrontCam && existing.rect.x == 0 &&
+        existing.rect.width <= half) {
+      row = existing.rect.y;
+      x = half;
+      break;
+    }
+  }
+  widget.rect = clampRect({x, row, half, 12});
+  view.widgets.push_back(std::move(widget));
+  syncDocumentFromView("Added 3D view widget.", pathLoaded || path[0] != '\0');
+}
+
 void CustomViewTab::resolveSources() {
   if (!arena) return;
   int unresolved = 0;
@@ -620,6 +668,7 @@ void CustomViewTab::resolveSources() {
                       widget.watchdog.source.signalName);
         continue;
       }
+      if (widget.kind != CustomViewWidgetKind::Plot) continue;
       for (auto& source : widget.plot.sources) {
         ++total;
         CustomViewTelemetry::resolve(*arena, source);
@@ -741,7 +790,7 @@ void CustomViewTab::absorbCreatedPlots() {
 void CustomViewTab::renderPreview() {
   CustomViewDefinition& view = activeView();
   if (view.widgets.empty()) {
-    ImGui::TextDisabled("No widgets in this panel. Add a plot, watchdog, or import a view.");
+    ImGui::TextDisabled("No widgets in this panel. Add a plot, camera, 3D view, or import a view.");
     return;
   }
 
@@ -858,7 +907,17 @@ void CustomViewTab::renderPreview() {
             renderWatchdog(widget);
           else if (widget.kind == CustomViewWidgetKind::CanMonitor)
             CustomViewCan::drawMonitor(arena, plotManager().network, widget);
-          else
+          else if (widget.kind == CustomViewWidgetKind::FrontCam) {
+            if (gui)
+              gui->drawFrontCamEmbedded(ImGui::GetContentRegionAvail());
+            else
+              ImGui::TextDisabled("Front camera unavailable.");
+          } else if (widget.kind == CustomViewWidgetKind::Scene3D) {
+            if (gui)
+              gui->drawLiveSceneEmbedded(ImGui::GetContentRegionAvail());
+            else
+              ImGui::TextDisabled("3D view unavailable.");
+          } else
             plotManager().renderEmbedded(widget.plot);
         }
         ImGui::EndChild();
@@ -1099,6 +1158,10 @@ void CustomViewTab::draw(ImGuiWindowFlags flags) {
     if (ImGui::Button("Add Watchdog")) openWatchdogCreator();
     ImGui::SameLine();
     if (ImGui::Button("Add CAN Monitor")) addCanMonitor();
+    ImGui::SameLine();
+    if (ImGui::Button("Add Front Cam")) addFrontCam();
+    ImGui::SameLine();
+    if (ImGui::Button("Add 3D View")) addScene3D();
     ImGui::SameLine();
     if (dialogBusy) ImGui::BeginDisabled();
     if (ImGui::Button(dialogBusy ? "Opening Explorer...##import" : "Import View...##import"))
