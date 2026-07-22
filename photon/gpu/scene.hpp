@@ -43,6 +43,7 @@ enum SceneDynamicPart : uint32_t {
   SceneDynamicFrontRightPushrod = 1u << 12,
   SceneDynamicFrontLeftTieRod = 1u << 13,
   SceneDynamicFrontRightTieRod = 1u << 14,
+  SceneDynamicSteeringRack = 1u << 15,
 };
 
 struct SceneDynamicsPose {

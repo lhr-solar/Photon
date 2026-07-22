@@ -150,14 +150,23 @@ void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetr
   hasSuspension[0] = dynamicsSuspensionAt(arena, 4816, 720, cursor, telemetry.suspensionRaw[0]);
   hasSuspension[1] = dynamicsSuspensionAt(arena, 4768, 672, cursor, telemetry.suspensionRaw[1]);
   hasSuspension[2] = dynamicsSuspensionAt(arena, 4784, 0, cursor, telemetry.suspensionRaw[2]);
-  const bool hasAcceleration = dynamicsVectorAt(arena, 4528, cursor, telemetry.acceleration);
-  const bool hasAngularVelocity = dynamicsVectorAt(arena, 4529, cursor, telemetry.angularVelocity);
+  constexpr std::array<uint32_t, 3> accelerationIds{4560, 4512, 4528};
+  constexpr std::array<uint32_t, 3> angularVelocityIds{4561, 4513, 4529};
+  for (size_t i = 0; i < telemetry.acceleration.size(); ++i) {
+    telemetry.hasAcceleration[i] =
+        dynamicsVectorAt(arena, accelerationIds[i], cursor, telemetry.acceleration[i]);
+    telemetry.hasAngularVelocity[i] =
+        dynamicsVectorAt(arena, angularVelocityIds[i], cursor, telemetry.angularVelocity[i]);
+  }
 
   const bool timelineReset = telemetry.lastCursor < 0.0 || cursor < telemetry.lastCursor ||
                              cursor - telemetry.lastCursor > 0.5;
   std::array<float, 3> suspension{};
   for (size_t i = 0; i < suspension.size(); ++i) {
-    if (timelineReset) telemetry.suspensionReferenceValid[i] = false;
+    if (timelineReset) {
+      telemetry.suspensionReferenceValid[i] = false;
+      telemetry.accelerationReferenceValid[i] = false;
+    }
     if (hasSuspension[i] && !telemetry.suspensionReferenceValid[i]) {
       telemetry.suspensionReference[i] = telemetry.suspensionRaw[i];
       telemetry.suspensionReferenceValid[i] = true;
@@ -166,7 +175,37 @@ void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetr
       suspension[i] = std::clamp(
           (telemetry.suspensionRaw[i] - telemetry.suspensionReference[i]) / 4095.0f * 0.24f, -0.12f,
           0.12f);
+    if (telemetry.hasAcceleration[i] && !telemetry.accelerationReferenceValid[i]) {
+      telemetry.accelerationReference[i] = telemetry.acceleration[i];
+      telemetry.accelerationReferenceValid[i] = true;
+    }
   }
+
+  std::array<std::array<float, 3>, 3> accelerationDelta{};
+  std::array<float, 3> averageAcceleration{};
+  std::array<float, 3> averageAngularVelocity{};
+  uint32_t accelerationCount = 0;
+  uint32_t angularVelocityCount = 0;
+  for (size_t corner = 0; corner < telemetry.acceleration.size(); ++corner) {
+    if (telemetry.hasAcceleration[corner] && telemetry.accelerationReferenceValid[corner]) {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        accelerationDelta[corner][axis] =
+            telemetry.acceleration[corner][axis] - telemetry.accelerationReference[corner][axis];
+        averageAcceleration[axis] += accelerationDelta[corner][axis];
+      }
+      ++accelerationCount;
+    }
+    if (telemetry.hasAngularVelocity[corner]) {
+      for (size_t axis = 0; axis < 3; ++axis)
+        averageAngularVelocity[axis] += telemetry.angularVelocity[corner][axis];
+      ++angularVelocityCount;
+    }
+  }
+  if (accelerationCount > 0) {
+    for (float& value : averageAcceleration) value /= static_cast<float>(accelerationCount);
+  }
+  if (angularVelocityCount > 0)
+    for (float& value : averageAngularVelocity) value /= static_cast<float>(angularVelocityCount);
 
   const float dt = timelineReset
                        ? 0.0f
@@ -191,20 +230,22 @@ void updateDynamicsPose(const Arena& arena, double cursor, GUI::DynamicsTelemetr
   pose.frontLeftSuspension = std::lerp(pose.frontLeftSuspension, suspension[0], response);
   pose.frontRightSuspension = std::lerp(pose.frontRightSuspension, suspension[1], response);
   pose.rearSuspension = std::lerp(pose.rearSuspension, suspension[2], response);
-  const float accelerationRoll = hasAcceleration ? -telemetry.acceleration[1] * 1.5f : 0.0f;
-  const float accelerationPitch = hasAcceleration ? telemetry.acceleration[0] * 1.2f : 0.0f;
-  const float roll =
-      std::clamp((suspension[1] - suspension[0]) * 12.0f + accelerationRoll, -4.0f, 4.0f);
-  const float pitch = std::clamp(
-      (suspension[2] - (suspension[0] + suspension[1]) * 0.5f) * 8.0f + accelerationPitch, -3.0f,
-      3.0f);
+  const float accelerationRoll = accelerationCount > 0 ? -averageAcceleration[1] * 1.5f : 0.0f;
+  const float accelerationPitch = accelerationCount > 0 ? averageAcceleration[0] * 1.2f : 0.0f;
+  const float gyroRollLead = angularVelocityCount > 0 ? averageAngularVelocity[0] * 0.01f : 0.0f;
+  const float gyroPitchLead = angularVelocityCount > 0 ? averageAngularVelocity[1] * 0.01f : 0.0f;
+  const float roll = std::clamp(
+      (suspension[1] - suspension[0]) * 12.0f + accelerationRoll + gyroRollLead, -4.0f, 4.0f);
+  const float pitch = std::clamp((suspension[2] - (suspension[0] + suspension[1]) * 0.5f) * 8.0f +
+                                     accelerationPitch + gyroPitchLead,
+                                 -3.0f, 3.0f);
   pose.rollDegrees = std::lerp(pose.rollDegrees, roll, response);
   pose.pitchDegrees = std::lerp(pose.pitchDegrees, pitch, response);
 
   telemetry.hasSteering = hasSteering;
   telemetry.hasWheelSpeed = hasFrontLeftRpm || hasFrontRightRpm || hasRearRpm;
   telemetry.hasSuspension = hasSuspension[0] || hasSuspension[1] || hasSuspension[2];
-  telemetry.hasImu = hasAcceleration || hasAngularVelocity;
+  telemetry.hasImu = accelerationCount > 0 || angularVelocityCount > 0;
 }
 
 void applyDynamicsJiggle(GUI::DynamicsTelemetry& telemetry, SceneObject& object) {
@@ -413,30 +454,37 @@ bool fusedMapPosition(const Arena& arena, double cursor, GUI::MapTracker& tracke
   }
 
   const float dt = static_cast<float>(std::clamp(cursor - tracker.time, 0.0, 30.0));
-  FrameView velocity{}, acceleration{}, gyro{};
+  FrameView velocity{};
   const bool hasVelocity = frameAt(arena, 1059, cursor, velocity) &&
                            velocity.message->signalCount > 1 && cursor - velocity.time() < 1.0 &&
                            std::isfinite(velocity.value(1));
-  const bool hasAcceleration = frameAt(arena, 4528, cursor, acceleration) &&
-                               acceleration.message->signalCount > 2 &&
-                               cursor - acceleration.time() < 0.25;
-  const bool hasGyro = frameAt(arena, 4529, cursor, gyro) && gyro.message->signalCount > 2 &&
-                       cursor - gyro.time() < 0.25;
-
+  constexpr std::array<uint32_t, 3> accelerationIds{4560, 4512, 4528};
+  constexpr std::array<uint32_t, 3> angularVelocityIds{4561, 4513, 4529};
   float yawRate = 0.0f;
-  if (hasAcceleration && hasGyro && std::abs(acceleration.time() - gyro.time()) < 0.1) {
-    // Project angular velocity onto measured gravity, independent of the IMU's mounting axes.
+  uint32_t yawRateCount = 0;
+  for (size_t corner = 0; corner < accelerationIds.size(); ++corner) {
+    FrameView acceleration{}, gyro{};
+    const bool hasAcceleration = frameAt(arena, accelerationIds[corner], cursor, acceleration) &&
+                                 acceleration.message->signalCount > 2 &&
+                                 cursor - acceleration.time() < 0.25;
+    const bool hasGyro = frameAt(arena, angularVelocityIds[corner], cursor, gyro) &&
+                         gyro.message->signalCount > 2 && cursor - gyro.time() < 0.25;
+    if (!hasAcceleration || !hasGyro || std::abs(acceleration.time() - gyro.time()) >= 0.1)
+      continue;
+    // Project angular velocity onto measured gravity, independent of each IMU's mounting axes.
     const float ax = static_cast<float>(acceleration.value(0));
     const float ay = static_cast<float>(acceleration.value(1));
     const float az = static_cast<float>(acceleration.value(2));
     const float gravity = std::sqrt(ax * ax + ay * ay + az * az);
-    if (gravity > 0.7f && gravity < 1.3f)
-      yawRate = static_cast<float>((gyro.value(0) * ax + gyro.value(1) * ay + gyro.value(2) * az) /
-                                   gravity) *
-                std::numbers::pi_v<float> / 180.0f;
+    if (gravity <= 0.7f || gravity >= 1.3f) continue;
+    yawRate += static_cast<float>((gyro.value(0) * ax + gyro.value(1) * ay + gyro.value(2) * az) /
+                                  gravity) *
+               std::numbers::pi_v<float> / 180.0f;
+    ++yawRateCount;
   }
+  if (yawRateCount > 0) yawRate /= static_cast<float>(yawRateCount);
 
-  if (dt > 0.0f && (hasVelocity || (hasAcceleration && hasGyro))) {
+  if (dt > 0.0f && (hasVelocity || yawRateCount > 0)) {
     const float nextHeading = tracker.heading + std::clamp(yawRate, -4.0f, 4.0f) * dt;
     float nextSpeed = tracker.speed;
     if (hasVelocity) {
@@ -821,7 +869,7 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
     const ImVec2 sceneMin = ImGui::GetCursorScreenPos();
     constexpr float overlayMargin = 14.0f;
     const ImVec2 overlaySize{std::max(sceneSize.x - overlayMargin * 2.0f, 1.0f),
-                             std::max(std::min(112.0f, sceneSize.y - overlayMargin * 2.0f), 1.0f)};
+                             std::max(std::min(164.0f, sceneSize.y - overlayMargin * 2.0f), 1.0f)};
     const ImVec2 overlayMin{sceneMin.x + overlayMargin,
                             sceneMin.y + sceneSize.y - overlaySize.y - overlayMargin};
     const ImVec2 overlayMax{overlayMin.x + overlaySize.x, overlayMin.y + overlaySize.y};
@@ -863,8 +911,10 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
     ImGui::SetCursorScreenPos(overlayMin);
     constexpr float groupGap = 8.0f;
     constexpr float controlWidth = 88.0f;
+    constexpr float imuWidthRatio = 2.25f;
     const float groupWidth =
-        std::max((overlaySize.x - controlWidth - groupGap * 4.0f) * 0.25f, 1.0f);
+        std::max((overlaySize.x - controlWidth - groupGap * 4.0f) / (3.0f + imuWidthRatio), 1.0f);
+    const float imuWidth = groupWidth * imuWidthRatio;
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 4.0f));
 
     const auto beginGroup = [&](const char* id, const char* heading, bool active, float width) {
@@ -917,11 +967,20 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
     }
     PhotonUi::endPanel();
     ImGui::SameLine(0.0f, groupGap);
-    if (beginGroup("##DynamicsRearImu", "REAR IMU", dynamicsTelemetry.hasImu, groupWidth)) {
-      valueRow("Accel", "%6.2f %6.2f %6.2f g", dynamicsTelemetry.acceleration[0],
-               dynamicsTelemetry.acceleration[1], dynamicsTelemetry.acceleration[2]);
-      valueRow("Gyro", "%6.1f %6.1f %6.1f dps", dynamicsTelemetry.angularVelocity[0],
-               dynamicsTelemetry.angularVelocity[1], dynamicsTelemetry.angularVelocity[2]);
+    if (beginGroup("##DynamicsWheelImu", "WHEEL IMU", dynamicsTelemetry.hasImu, imuWidth)) {
+      constexpr std::array<const char*, 3> cornerLabels{"FL", "FR", "Rear"};
+      for (size_t corner = 0; corner < cornerLabels.size(); ++corner) {
+        char accelerationLabel[12]{};
+        char gyroLabel[12]{};
+        std::snprintf(accelerationLabel, sizeof(accelerationLabel), "%s A", cornerLabels[corner]);
+        std::snprintf(gyroLabel, sizeof(gyroLabel), "%s G", cornerLabels[corner]);
+        valueRow(
+            accelerationLabel, "%6.2f %6.2f %6.2f g", dynamicsTelemetry.acceleration[corner][0],
+            dynamicsTelemetry.acceleration[corner][1], dynamicsTelemetry.acceleration[corner][2]);
+        valueRow(gyroLabel, "%6.1f %6.1f %6.1f dps", dynamicsTelemetry.angularVelocity[corner][0],
+                 dynamicsTelemetry.angularVelocity[corner][1],
+                 dynamicsTelemetry.angularVelocity[corner][2]);
+      }
     }
     PhotonUi::endPanel();
     ImGui::SameLine(0.0f, groupGap);
