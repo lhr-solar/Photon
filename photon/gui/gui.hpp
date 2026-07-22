@@ -71,8 +71,10 @@ struct GUI {
     float frontLeftRpm{};
     float frontRightRpm{};
     float rearRpm{};
-    std::array<float, 3> acceleration{};
-    std::array<float, 3> angularVelocity{};
+    std::array<std::array<float, 3>, 3> acceleration{};
+    std::array<std::array<float, 3>, 3> angularVelocity{};
+    std::array<std::array<float, 3>, 3> accelerationReference{};
+    std::array<bool, 3> accelerationReferenceValid{};
     std::array<float, 3> suspensionRaw{};
     std::array<float, 3> suspensionReference{};
     std::array<bool, 3> suspensionReferenceValid{};
@@ -82,6 +84,8 @@ struct GUI {
     bool hasSteering{};
     bool hasWheelSpeed{};
     bool hasSuspension{};
+    std::array<bool, 3> hasAcceleration{};
+    std::array<bool, 3> hasAngularVelocity{};
     bool hasImu{};
   } dynamicsTelemetry;
   struct MapTracker {

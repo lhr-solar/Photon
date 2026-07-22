@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -27,6 +28,7 @@ struct ScenePrimitiveRange {
   uint32_t firstIndex{0};
   uint32_t indexCount{0};
   int materialIndex{-1};
+  int nodeIndex{-1};
   glm::vec3 minBounds{0.0f};
   glm::vec3 maxBounds{0.0f};
 };
@@ -1041,7 +1043,8 @@ glm::mat4 nodeLocalMatrix(const tinygltf::Node& node) {
 }
 
 void appendPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primitive& primitive,
-                             const glm::mat4& worldMatrix, std::vector<GltfVertex>& outVertices,
+                             int nodeIndex, const glm::mat4& worldMatrix,
+                             std::vector<GltfVertex>& outVertices,
                              std::vector<uint32_t>& outIndices,
                              std::vector<ScenePrimitiveRange>& outRanges) {
   const auto posIt = primitive.attributes.find("POSITION");
@@ -1193,7 +1196,8 @@ void appendPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primi
       minBounds = glm::min(minBounds, position);
       maxBounds = glm::max(maxBounds, position);
     }
-    outRanges.push_back({firstIndex, indexCount, primitive.material, minBounds, maxBounds});
+    outRanges.push_back(
+        {firstIndex, indexCount, primitive.material, nodeIndex, minBounds, maxBounds});
   }
 }
 
@@ -1205,7 +1209,8 @@ void appendNodeMesh(const tinygltf::Model& model, int nodeIndex, const glm::mat4
   if (node.mesh >= 0) {
     const tinygltf::Mesh& mesh = model.meshes[node.mesh];
     for (const tinygltf::Primitive& primitive : mesh.primitives) {
-      appendPrimitiveVertices(model, primitive, world, outVertices, outIndices, outRanges);
+      appendPrimitiveVertices(model, primitive, nodeIndex, world, outVertices, outIndices,
+                              outRanges);
     }
   }
   for (int child : node.children) {
@@ -1213,10 +1218,21 @@ void appendNodeMesh(const tinygltf::Model& model, int nodeIndex, const glm::mat4
   }
 }
 
-uint32_t classifyDynamicParts(const ScenePrimitiveRange& range) {
+uint32_t classifyDynamicParts(const tinygltf::Model& model, const ScenePrimitiveRange& range) {
   const glm::vec3 center = (range.minBounds + range.maxBounds) * 0.5f;
   const glm::vec3 extent = range.maxBounds - range.minBounds;
   uint32_t parts = SceneDynamicNone;
+
+  int nodeNumber = -1;
+  if (range.nodeIndex >= 0 && range.nodeIndex < static_cast<int>(model.nodes.size())) {
+    const std::string& name = model.nodes[range.nodeIndex].name;
+    if (name.starts_with("empty_")) nodeNumber = std::atoi(name.c_str() + 6);
+  }
+
+  if (nodeNumber == 188) {
+    parts |= SceneDynamicSteeringRack;
+    return parts;
+  }
 
   // new_dyn.glb uses glTF's Y-up coordinates: X is track width and -Z runs rearward.
   const bool atFrontAxle = center.z > -0.55f && center.z < 0.55f;
@@ -1388,7 +1404,7 @@ void loadObject(SceneObject& object) {
         range.materialIndex >= 0 && range.materialIndex < static_cast<int>(object.materials.size())
             ? static_cast<uint32_t>(range.materialIndex)
             : 0u;
-    if (object.dynamicsModel) item.dynamicParts = classifyDynamicParts(range);
+    if (object.dynamicsModel) item.dynamicParts = classifyDynamicParts(object.model, range);
     object.drawItems.push_back(item);
   }
   if (object.drawItems.empty()) {
@@ -1448,9 +1464,9 @@ glm::mat4 dynamicsItemMatrix(const SceneObject& object, uint32_t parts) {
   };
 
   const auto linkTransform = [&](const glm::vec3& anchor, const glm::vec3& tip,
-                                 const glm::vec3& movedTip) {
+                                 const glm::vec3& movedAnchor, const glm::vec3& movedTip) {
     const glm::vec3 from = tip - anchor;
-    const glm::vec3 to = movedTip - anchor;
+    const glm::vec3 to = movedTip - movedAnchor;
     const float fromLength = glm::length(from);
     const float toLength = glm::length(to);
     if (fromLength < 1e-5f || toLength < 1e-5f) return glm::mat4(1.0f);
@@ -1461,7 +1477,8 @@ glm::mat4 dynamicsItemMatrix(const SceneObject& object, uint32_t parts) {
     glm::vec3 axis = glm::cross(fromDirection, toDirection);
     if (glm::length(axis) < 1e-5f) axis = glm::vec3(0.0f, 0.0f, 1.0f);
     axis = glm::normalize(axis);
-    return glm::translate(glm::mat4(1.0f), anchor) * glm::rotate(glm::mat4(1.0f), angle, axis) *
+    return glm::translate(glm::mat4(1.0f), movedAnchor) *
+           glm::rotate(glm::mat4(1.0f), angle, axis) *
            glm::scale(glm::mat4(1.0f), glm::vec3(toLength / fromLength)) *
            glm::translate(glm::mat4(1.0f), -anchor);
   };
@@ -1469,19 +1486,21 @@ glm::mat4 dynamicsItemMatrix(const SceneObject& object, uint32_t parts) {
   const auto pushrodTransform = [&](float side, float suspension) {
     const glm::vec3 anchor(side * 1.06f, 1.03f, 0.05f);
     const glm::vec3 tip(side * 1.48f, 0.47f, 0.05f);
-    return linkTransform(anchor, tip, tip + glm::vec3(0.0f, suspension, 0.0f));
+    return linkTransform(anchor, tip, anchor, tip + glm::vec3(0.0f, suspension, 0.0f));
   };
 
   const auto tieRodTransform = [&](float side, float suspension, float steering) {
     const glm::vec3 anchor(side * 0.69f, 0.49f, -0.13f);
     const glm::vec3 tip(side * 1.51f, 0.50f, -0.17f);
     const glm::vec3 wheelPivot(side * 1.74f, 0.71f, 0.0f);
+    const float rackTravel = steering / 35.0f * 0.08f;
+    const glm::vec3 movedAnchor = anchor + glm::vec3(rackTravel, 0.0f, 0.0f);
     glm::vec3 movedTip = glm::vec3(
         glm::translate(glm::mat4(1.0f), wheelPivot) *
         glm::rotate(glm::mat4(1.0f), glm::radians(steering), glm::vec3(0.0f, 1.0f, 0.0f)) *
         glm::translate(glm::mat4(1.0f), -wheelPivot) * glm::vec4(tip, 1.0f));
     movedTip.y += suspension;
-    return linkTransform(anchor, tip, movedTip);
+    return linkTransform(anchor, tip, movedAnchor, movedTip);
   };
 
   const auto frontCornerTransform = [&](float side, float suspension, float steering,
@@ -1531,6 +1550,9 @@ glm::mat4 dynamicsItemMatrix(const SceneObject& object, uint32_t parts) {
     transform = frontCornerTransform(1.0f, pose.frontRightSuspension, pose.steeringDegrees,
                                      pose.frontRightWheelDegrees,
                                      (parts & SceneDynamicFrontRightWheel) != 0);
+  } else if ((parts & SceneDynamicSteeringRack) != 0) {
+    const float rackTravel = pose.steeringDegrees / 35.0f * 0.08f;
+    transform = glm::translate(glm::mat4(1.0f), glm::vec3(rackTravel, 0.0f, 0.0f));
   } else if ((parts & SceneDynamicRearCorner) != 0) {
     const glm::vec3 pivot(0.0f, 0.71f, -5.78f);
     transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, pose.rearSuspension, 0.0f)) *
