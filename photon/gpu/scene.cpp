@@ -1988,9 +1988,7 @@ void Scene::render(GPU& gpu, VkCommandBuffer& commandBuffer) {
                                  static_cast<float>(std::max(1u, frame.extent.height)),
                              camera.nearPlane, camera.farPlane);
   vp.proj[1][1] *= -1.0f;
-  // Store the orbit distance in w so the fragment shader can apply
-  // scale-independent atmospheric depth to both map and dynamics scenes.
-  vp.camPos = glm::vec4(camera.position, std::max(camera.distance, 0.001f));
+  vp.camPos = glm::vec4(camera.position, 1.0f);
   std::memcpy(frame.uniformMapped, &vp, sizeof(SceneViewProjection));
 
   VkImageSubresourceRange colorRange{};
