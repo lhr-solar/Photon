@@ -10,6 +10,7 @@
 
 #if PHOTON_GUI_RENDER_ITEMS
 #include "../gpu/shader.hpp"
+#include "battery_glb.hpp"
 #include "custom_shader_vert_spv.hpp"
 #include "glowButton_frag_spv.hpp"
 #include "lens_frag_spv.hpp"
@@ -433,6 +434,10 @@ void GUI::init(GPU& gpu, Arena& arena, Network& network) {
   dynamicsScene.addModel("new_dyn_glb", new_dyn_glb, new_dyn_glb_size, false);
   dynamicsScene.objects[dynamicsObjectIndex].dynamicsModel = true;
   dynamicsScene.dispatchInit(gpu);
+
+  batteryObjectIndex = static_cast<int>(batteryScene.objects.size());
+  batteryScene.addModel("battery_glb", battery_glb, battery_glb_size, false);
+  batteryScene.dispatchInit(gpu);
 #endif
 }
 
@@ -464,6 +469,13 @@ void GUI::render() {
     dynamicsScene.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
     dynamicsScene.showing = false;
   }
+
+  if (!batteryScene.initialized.load() && batteryScene.partInitialized.load())
+    batteryScene.finishInit(*gpu);
+  if (batteryScene.showing) {
+    batteryScene.render(*gpu, gpu->commandBuffers[gpu->frameIndex]);
+    batteryScene.showing = false;
+  }
 #endif
 };
 
@@ -483,6 +495,7 @@ void GUI::destroy() {
   buttonShader.destroy();
   scene.destroy();
   dynamicsScene.destroy();
+  batteryScene.destroy();
 #endif
 };
 
@@ -827,6 +840,65 @@ void GUI::dynamicsView(ImGuiWindowFlags flags) {
 #endif
 };
 
+void GUI::batteryView(ImGuiWindowFlags flags) {
+#if PHOTON_GUI_RENDER_ITEMS
+  batteryScene.showing = false;
+  const bool ready = batteryScene.initialized.load() && !batteryScene.frames.empty() &&
+                     batteryScene.frameIndex != nullptr;
+  SceneFrame fallbackFrame{};
+  SceneFrame& frame = ready ? batteryScene.frames[*batteryScene.frameIndex] : fallbackFrame;
+  const PhotonUi::Palette palette = PhotonUi::palette();
+
+  ImGui::SetNextWindowBgAlpha(0.0f);
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  if (ImGui::Begin("Battery", nullptr, flags)) {
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const ImVec2 sceneSize{std::max(available.x, 1.0f), std::max(available.y, 1.0f)};
+
+    if (ready) {
+      const VkExtent2D nextExtent = quantizeContentExtent(sceneSize, frame.extent);
+      if (nextExtent.width != frame.extent.width || nextExtent.height != frame.extent.height) {
+        frame.extent = nextExtent;
+        batteryScene.dirty = true;
+      }
+      if (ImGui::IsRectVisible(sceneSize)) batteryScene.showing = true;
+      ImGui::Image(frame.texture, sceneSize);
+
+      ImGuiIO& io = ImGui::GetIO();
+      if (ImGui::IsItemHovered()) {
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+          batteryScene.camera.yaw -= io.MouseDelta.x * batteryScene.camera.orbitSensitivity;
+          batteryScene.camera.pitch += io.MouseDelta.y * batteryScene.camera.orbitSensitivity;
+          batteryScene.camera.pitch = std::clamp(batteryScene.camera.pitch, -89.0f, 89.0f);
+        }
+        if (std::abs(io.MouseWheel) > 0.0f) {
+          const float zoomScale =
+              std::max(0.1f, 1.0f - io.MouseWheel * batteryScene.camera.zoomSensitivity);
+          batteryScene.camera.distance =
+              std::clamp(batteryScene.camera.distance * zoomScale, batteryScene.camera.minDistance,
+                         batteryScene.camera.maxDistance);
+        }
+      }
+    } else {
+      ImGui::Dummy(sceneSize);
+      const ImVec2 min = ImGui::GetItemRectMin();
+      const ImVec2 max = ImGui::GetItemRectMax();
+      const ImVec2 textSize = ImGui::CalcTextSize("loading battery model");
+      ImGui::GetWindowDrawList()->AddText(
+          {(min.x + max.x - textSize.x) * 0.5f, (min.y + max.y - textSize.y) * 0.5f},
+          PhotonUi::colorU32(palette.text), "loading battery model");
+    }
+  }
+  ImGui::End();
+  ImGui::PopStyleColor(2);
+#else
+  if (ImGui::Begin("Battery", nullptr, flags))
+    ImGui::TextUnformatted("The Battery 3D view is available with Vulkan rendering.");
+  ImGui::End();
+#endif
+};
+
 void GUI::shaderTest(ImGuiWindowFlags flags) {
 #if PHOTON_GUI_RENDER_ITEMS
   testShader.showing = false;
@@ -949,6 +1021,7 @@ void GUI::setTabs() {
   tabs.list.push_back(Tab::bind<GUI, &GUI::liveView>(*this, "Live View"));
 #if PHOTON_GUI_RENDER_ITEMS
   tabs.list.push_back(Tab::bind<GUI, &GUI::dynamicsView>(*this, "Dynamics"));
+  tabs.list.push_back(Tab::bind<GUI, &GUI::batteryView>(*this, "Battery"));
   tabs.list.push_back(Tab::bind<GUI, &GUI::shaderTest>(*this, "WIP"));
 #endif
 };

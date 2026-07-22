@@ -42,6 +42,7 @@ struct GUI {
   void drawButtonShaderOverlay(ImVec2 buttonMin, ImVec2 buttonMax);
   void liveView(ImGuiWindowFlags flags);
   void dynamicsView(ImGuiWindowFlags flags);
+  void batteryView(ImGuiWindowFlags flags);
 
   GPU* gpu;
   Arena* arena;
@@ -66,6 +67,8 @@ struct GUI {
   Scene scene;
   Scene dynamicsScene;
   int dynamicsObjectIndex{-1};
+  Scene batteryScene;
+  int batteryObjectIndex{-1};
   struct DynamicsTelemetry {
     float steeringDegrees{};
     float frontLeftRpm{};

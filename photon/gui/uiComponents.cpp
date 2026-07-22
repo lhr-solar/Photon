@@ -62,6 +62,7 @@ const char* tabIcon(std::string_view name) {
   if (name.find("Network") != std::string_view::npos) return "\uf09f";
   if (name.find("Live View") != std::string_view::npos) return "\uec6b";
   if (name.find("Dynamics") != std::string_view::npos) return "\uec4c";
+  if (name.find("Battery") != std::string_view::npos) return "\uea34";
   if (name.find("Dashboard") != std::string_view::npos) return "\ueab1";
   if (name.find("WIP") != std::string_view::npos) return "\uea77";
   return "\ueada";

@@ -377,8 +377,11 @@ bool Plots::signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
                                    timeValues)};
   }
 
-  char name[64];
-  std::snprintf(name, sizeof(name), "##%u_%u", id, signal);
+  char title[160];
+  if (msg.name.empty())
+    std::snprintf(title, sizeof(title), "Message %u###SignalPlot_%u_%u", id, id, signal);
+  else
+    std::snprintf(title, sizeof(title), "%.120s###SignalPlot_%u_%u", msg.name.c_str(), id, signal);
   const uint32_t maxPlotSamples = static_cast<uint32_t>(std::max(size.x, 100.0f));
   const uint32_t samples = index.last - index.first;
   const uint32_t stride = std::max(1u, (samples + maxPlotSamples - 1) / maxPlotSamples);
@@ -388,7 +391,7 @@ bool Plots::signal(Arena& arena, uint32_t id, uint32_t signal, ImVec2 size,
   plotSpec.Stride = stride * sizeof(double);
   ImPlot::SetNextAxisLimits(ImAxis_X1, cursor - windowSeconds, cursor, ImPlotCond_Always);
   ImPlot::SetNextAxisToFit(ImAxis_Y1);
-  if (ImPlot::BeginPlot(name, size)) {
+  if (ImPlot::BeginPlot(title, size)) {
     ImPlot::SetupAxes("time", "value", ImPlotAxisFlags_None, ImPlotAxisFlags_None);
     ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
     if (visibleCount)
